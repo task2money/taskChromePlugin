@@ -1,0 +1,47 @@
+{
+  "manifest_version": 3,
+  "name": "Task Chrome Plugin",
+  "version": "1.0.0",
+  "description": "从 Chrome DevTools Network 面板捕获请求并创建任务",
+  "permissions": [
+    "storage",
+    "webRequest",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Task Chrome Plugin",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "devtools_page": "devtools/devtools.html",
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content/content.js"],
+      "css": ["content/content.css"],
+      "run_at": "document_end"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/*.png"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

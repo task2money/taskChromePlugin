@@ -1,0 +1,213 @@
+/* TaskPlugin 页内浮窗 — 与宿主页面隔离，使用高 specificity + !important */
+
+#taskplugin-float-root {
+  all: initial;
+  position: fixed !important;
+  z-index: 2147483647 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+  color: #e0e0e0 !important;
+}
+
+/* 悬浮按钮 */
+#taskplugin-float-btn {
+  position: fixed !important;
+  bottom: 24px !important;
+  right: 24px !important;
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 50% !important;
+  background: #89b4fa !important;
+  color: #1e1e2e !important;
+  border: none !important;
+  cursor: pointer !important;
+  font-size: 22px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  z-index: 2147483647 !important;
+  transition: transform .15s, box-shadow .15s !important;
+}
+#taskplugin-float-btn:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
+}
+#taskplugin-float-btn.taskplugin-active {
+  background: #f38ba8 !important;
+  transform: rotate(45deg) !important;
+}
+
+/* 面板 */
+#taskplugin-float-panel {
+  position: fixed !important;
+  bottom: 84px !important;
+  right: 24px !important;
+  width: 380px !important;
+  max-height: 520px !important;
+  background: #1e1e2e !important;
+  border: 1px solid #45475a !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  z-index: 2147483646 !important;
+  display: none !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+#taskplugin-float-panel.taskplugin-open {
+  display: flex !important;
+}
+
+/* 面板头部 */
+.taskplugin-panel-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 12px 14px !important;
+  background: #181825 !important;
+  border-bottom: 1px solid #313244 !important;
+  flex-shrink: 0 !important;
+}
+/* 面板内关闭悬浮球的 mini toggle */
+.taskplugin-mini-toggle {
+  position: relative !important;
+  display: inline-block !important;
+  width: 28px !important;
+  height: 16px !important;
+  flex-shrink: 0 !important;
+  cursor: pointer !important;
+}
+.taskplugin-mini-toggle input { opacity: 0 !important; width: 0 !important; height: 0 !important; }
+.taskplugin-mini-slider {
+  position: absolute !important;
+  inset: 0 !important;
+  background: #45475a !important;
+  border-radius: 16px !important;
+  transition: background .2s !important;
+}
+.taskplugin-mini-slider::before {
+  content: '' !important;
+  position: absolute !important;
+  width: 12px !important;
+  height: 12px !important;
+  left: 2px !important;
+  top: 2px !important;
+  background: #cdd6f4 !important;
+  border-radius: 50% !important;
+  transition: transform .2s !important;
+}
+.taskplugin-mini-toggle input:checked + .taskplugin-mini-slider { background: #f38ba8 !important; }
+.taskplugin-mini-toggle input:checked + .taskplugin-mini-slider::before { transform: translateX(12px) !important; }
+.taskplugin-panel-header h3 {
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  color: #cdd6f4 !important;
+  margin: 0 !important;
+}
+.taskplugin-panel-header .taskplugin-badge {
+  padding: 2px 8px !important;
+  border-radius: 8px !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+.taskplugin-badge-ok { background: rgba(166, 227, 161, 0.2) !important; color: #a6e3a1 !important; }
+.taskplugin-badge-err { background: rgba(243, 139, 168, 0.2) !important; color: #f38ba8 !important; }
+
+/* 面板滚动区 */
+.taskplugin-panel-body {
+  padding: 12px 14px !important;
+  overflow-y: auto !important;
+  flex: 1 !important;
+}
+
+/* 自动捕获的 URL */
+.taskplugin-captured-url {
+  background: #252536 !important;
+  border: 1px solid #313244 !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+  margin-bottom: 10px !important;
+  font-family: 'SF Mono', monospace !important;
+  font-size: 10px !important;
+  color: #a6adc8 !important;
+  word-break: break-all !important;
+}
+
+/* 表单 */
+.taskplugin-form-group {
+  margin-bottom: 10px !important;
+}
+.taskplugin-form-group label {
+  display: block !important;
+  font-size: 11px !important;
+  color: #a6adc8 !important;
+  margin-bottom: 3px !important;
+}
+.taskplugin-input, .taskplugin-select, .taskplugin-textarea {
+  width: 100% !important;
+  padding: 6px 8px !important;
+  border: 1px solid #45475a !important;
+  border-radius: 5px !important;
+  background: #313244 !important;
+  color: #cdd6f4 !important;
+  font-size: 12px !important;
+  font-family: inherit !important;
+  box-sizing: border-box !important;
+}
+.taskplugin-input:focus, .taskplugin-select:focus, .taskplugin-textarea:focus {
+  outline: none !important;
+  border-color: #89b4fa !important;
+}
+.taskplugin-textarea {
+  resize: vertical !important;
+  min-height: 60px !important;
+}
+
+/* 项目复选框 */
+.taskplugin-checkbox-list {
+  max-height: 120px !important;
+  overflow-y: auto !important;
+}
+.taskplugin-checkbox-list label {
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  padding: 2px 0 !important;
+  font-size: 11px !important;
+  cursor: pointer !important;
+  color: #cdd6f4 !important;
+}
+
+/* 按钮 */
+.taskplugin-btn {
+  padding: 7px 12px !important;
+  border: 1px solid #45475a !important;
+  border-radius: 5px !important;
+  background: #313244 !important;
+  color: #cdd6f4 !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  transition: background .15s !important;
+}
+.taskplugin-btn:hover { background: #45475a !important; }
+.taskplugin-btn-primary {
+  background: #89b4fa !important;
+  color: #1e1e2e !important;
+  border-color: #89b4fa !important;
+  width: 100% !important;
+}
+.taskplugin-btn-primary:hover { background: #74c7ec !important; }
+.taskplugin-btn-primary:disabled { opacity: .5 !important; cursor: not-allowed !important; }
+
+/* 结果 */
+.taskplugin-result {
+  margin-top: 8px !important;
+  padding: 6px 10px !important;
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  display: none !important;
+}
+.taskplugin-result.taskplugin-show { display: block !important; }
+.taskplugin-result-success { background: rgba(166, 227, 161, 0.15) !important; color: #a6e3a1 !important; border: 1px solid #a6e3a1 !important; }
+.taskplugin-result-error { background: rgba(243, 139, 168, 0.15) !important; color: #f38ba8 !important; border: 1px solid #f38ba8 !important; }

@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="panel.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 头部状态 -->
+    <header class="header">
+      <h1>🔧 TaskPlugin</h1>
+      <span id="statusBadge" class="badge badge-disconnected">未连接</span>
+    </header>
+
+    <!-- Tab 切换 -->
+    <nav class="tabs">
+      <button class="tab active" data-tab="single">📋 单请求创建</button>
+      <button class="tab" data-tab="batch">📦 批量错误捕获</button>
+      <button class="tab" data-tab="errors">⚠️ 错误列表</button>
+      <button class="tab" data-tab="history">📜 历史记录</button>
+    </nav>
+
+    <!-- Tab: 单请求创建 -->
+    <section id="tab-single" class="tab-content active">
+      <!-- 请求列表 + 选中预览 -->
+      <div class="section">
+        <h3>📌 请求列表 <span class="hint-inline">(来自 DevTools Network)</span></h3>
+        <!-- 搜索栏 -->
+        <div class="search-bar">
+          <input type="text" id="requestSearch" class="form-input search-input" placeholder="🔍 搜索 URL / 方法 / 状态码...">
+          <select id="requestMethodFilter" class="form-select search-select">
+            <option value="">全部方法</option>
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+          </select>
+          <select id="requestStatusFilter" class="form-select search-select">
+            <option value="">全部状态</option>
+            <option value="2xx">2xx 成功</option>
+            <option value="3xx">3xx 重定向</option>
+            <option value="4xx">4xx 客户端错误</option>
+            <option value="5xx">5xx 服务端错误</option>
+          </select>
+        </div>
+        <div class="btn-row">
+          <button id="btnRefreshRequest" class="btn btn-sm">🔄 刷新列表</button>
+          <span id="requestCount" class="hint-inline"></span>
+        </div>
+        <div id="selectedRequest" class="request-preview empty">
+          <p class="placeholder">正在加载请求列表...</p>
+        </div>
+      </div>
+
+      <!-- 工作空间 & 项目选择 -->
+      <div class="section">
+        <h3>🗂️ 工作空间</h3>
+        <div class="target-row">
+          <select id="singleWorkspace" class="form-select" style="flex:2">
+            <option value="">-- 请选择工作空间 --</option>
+          </select>
+          <select id="singleProgressColumn" class="form-select" style="flex:1">
+            <option value="">进度列</option>
+          </select>
+          <select id="singlePriority" class="form-select" style="flex:1">
+            <option value="low">低</option>
+            <option value="medium" selected>中</option>
+            <option value="high">高</option>
+            <option value="critical">紧急</option>
+          </select>
+          <select id="singleOwner" class="form-select" style="flex:2">
+            <option value="">负责人</option>
+          </select>
+        </div>
+        <div id="singleProjects" class="checkbox-group" style="margin-top:6px">
+          <p class="placeholder">项目</p>
+        </div>
+      </div>
+
+      <!-- 分支策略 -->
+      <div class="section">
+        <h3>🌿 分支策略</h3>
+        <div class="target-row">
+          <div style="flex:1">
+            <label>工作分支 <span class="hint-inline">— 从此分支拉出工作分支</span></label>
+            <input type="text" id="singleWorkBranch" class="form-input" placeholder="如: fix/2026-07-03_username_aidev${taskId}_fix-502">
+          </div>
+          <div style="flex:1">
+            <label>合并目标模板 <span class="hint-inline">— 选择模板自动填充</span></label>
+            <div class="target-row" style="gap:4px">
+              <select id="singleMergeTargetPreset" class="form-select" style="flex:1">
+                <option value="develop">develop</option>
+                <!-- release 选项由 JS 动态填充（本周四/下周四/下下周四） -->
+                <option value="main">main</option>
+                <option value="custom">自定义（手动输入）</option>
+              </select>
+              <button id="btnRefreshSingleBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表">🔄</button>
+            </div>
+            <label style="margin-top:4px">合并目标分支 <span class="hint-inline">— 可编辑</span></label>
+            <input type="text" id="singleMergeTarget" class="form-input" placeholder="如: main, develop" list="singleMergeTargetList">
+            <datalist id="singleMergeTargetList"></datalist>
+          </div>
+        </div>
+      </div>
+
+      <!-- 任务信息编辑 -->
+      <div class="section">
+        <h3>📝 任务信息</h3>
+        <div id="singleResult" class="result"></div>
+        <div class="target-row">
+          <div style="flex:1">
+            <label>标题</label>
+            <input type="text" id="singleTaskTitle" class="form-input" placeholder="任务标题">
+          </div>
+          <button id="btnCreateSingle" class="btn btn-primary" style="flex-shrink:0;margin-top:18px">✅ 创建任务</button>
+        </div>
+        <div class="form-row">
+          <label>描述</label>
+          <textarea id="singleTaskDesc" class="form-textarea" rows="14" placeholder="点击请求列表中的请求 → 自动填充完整的请求/响应头体"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: 批量错误捕获 -->
+    <section id="tab-batch" class="tab-content">
+      <!-- 捕获控制 -->
+      <div class="section">
+        <h3>🎯 自动捕获设置</h3>
+        <div class="form-row">
+          <label class="toggle-label">
+            <input type="checkbox" id="captureToggle">
+            启用自动请求捕获
+          </label>
+        </div>
+        <div class="form-row">
+          <label>捕获状态码</label>
+          <div class="checkbox-group horizontal" id="statusCodeFilters">
+            <label><input type="checkbox" value="2xx" checked> 2xx</label>
+            <label><input type="checkbox" value="3xx" checked> 3xx</label>
+            <label><input type="checkbox" value="4xx" checked> 4xx</label>
+            <label><input type="checkbox" value="5xx" checked> 5xx</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <span id="captureStatus" class="status-text">⏸️ 捕获已停止</span>
+          <span id="capturedCount" class="status-text" style="display:none"> | 已捕获: <strong>0</strong></span>
+        </div>
+      </div>
+
+      <!-- 工作空间 & 项目选择 -->
+      <div class="section">
+        <h3>🗂️ 批量创建目标</h3>
+        <div class="form-row">
+          <label>工作空间</label>
+          <select id="batchWorkspace" class="form-select">
+            <option value="">-- 请选择 --</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>项目 (可多选)</label>
+          <div id="batchProjects" class="checkbox-group">
+            <p class="placeholder">请先选择工作空间</p>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>进度列 <span class="hint-inline">— 选择工作空间后自动加载</span></label>
+          <select id="batchProgressColumn" class="form-select">
+            <option value="">请先选择工作空间</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>工作分支 <span class="hint-inline">— 所有批量任务共用</span></label>
+          <input type="text" id="batchWorkBranch" class="form-input" placeholder="如: fix/2026-07-03_username_aidev${taskId}_auto-fix">
+        </div>
+        <div class="form-row">
+          <label>合并目标模板 <span class="hint-inline">— 选择模板自动填充，所有批量任务共用</span></label>
+          <div class="target-row" style="gap:4px">
+            <select id="batchMergeTargetPreset" class="form-select" style="flex:1">
+              <option value="develop">develop</option>
+              <!-- release 选项由 JS 动态填充（本周四/下周四/下下周四） -->
+              <option value="main">main</option>
+              <option value="custom">自定义（手动输入）</option>
+            </select>
+            <button id="btnRefreshBatchBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表">🔄</button>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>合并目标分支 <span class="hint-inline">— 所有批量任务共用，可编辑</span></label>
+          <input type="text" id="batchMergeTarget" class="form-input" placeholder="如: main, develop" list="batchMergeTargetList">
+          <datalist id="batchMergeTargetList"></datalist>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button id="btnRefreshErrors" class="btn">🔄 刷新错误列表</button>
+        <button id="btnClearErrors" class="btn btn-danger">🗑️ 清空错误列表</button>
+        <button id="btnCreateBatch" class="btn btn-primary">📦 批量创建任务</button>
+      </div>
+      <div id="batchResult" class="result"></div>
+    </section>
+
+    <!-- Tab: 错误列表 -->
+    <section id="tab-errors" class="tab-content">
+      <div class="section">
+        <h3>⚠️ 已捕获的错误请求</h3>
+        <div class="btn-row">
+          <button id="btnRefreshErrorList" class="btn btn-sm">🔄 刷新</button>
+          <button id="btnClearErrorList" class="btn btn-sm btn-danger">🗑️ 清空</button>
+        </div>
+        <div id="errorList" class="error-list">
+          <p class="placeholder">暂无捕获的错误请求</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab: 历史记录 -->
+    <section id="tab-history" class="tab-content">
+      <div class="section">
+        <h3>📜 任务创建历史</h3>
+        <div class="btn-row">
+          <button id="btnRefreshHistory" class="btn btn-sm">🔄 刷新</button>
+          <button id="btnClearHistory" class="btn btn-sm btn-danger">🗑️ 清空历史</button>
+          <button id="btnRetryAllFailed" class="btn btn-sm" style="display:none">🔁 重试全部失败</button>
+        </div>
+        <div id="historyStats" class="history-stats"></div>
+        <div id="historyList" class="history-list">
+          <p class="placeholder">暂无创建记录</p>
+        </div>
+        <div id="historyResult" class="result"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/api.js"></script>
+  <script src="panel.js"></script>
+</body>
+</html>

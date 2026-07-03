@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1>🔧 TaskPlugin</h1>
+      <div id="headerUserArea" style="display:none">
+        <span id="headerUser" class="header-user"></span>
+        <button id="btnLogout" class="btn btn-sm btn-danger">🚪</button>
+      </div>
+      <span id="popupStatus" class="badge badge-disconnected">加载中...</span>
+    </header>
+
+    <!-- 加载中 -->
+    <div id="loadingSpinner" class="loading-section">
+      <div class="spinner"></div>
+      <p class="hint">正在检查登录状态...</p>
+    </div>
+
+    <!-- 登录表单 -->
+    <section id="loginSection" class="section" style="display:none">
+      <h3>🔐 登录</h3>
+      <div class="form-row">
+        <label>服务器地址</label>
+        <input type="text" id="baseUrl" class="form-input" value="http://183.250.1.132:18081" placeholder="http://183.250.1.132:18081">
+      </div>
+      <div class="form-row">
+        <label>登录方式</label>
+        <div class="toggle-row">
+          <button id="btnMethodPassword" class="btn btn-sm btn-primary">账号密码</button>
+          <button id="btnMethodToken" class="btn btn-sm">访问令牌</button>
+        </div>
+      </div>
+      <div id="passwordFields">
+        <div class="form-row">
+          <label>用户名</label>
+          <input type="text" id="username" class="form-input" placeholder="输入用户名">
+        </div>
+        <div class="form-row">
+          <label>密码</label>
+          <input type="password" id="password" class="form-input" placeholder="输入密码">
+        </div>
+      </div>
+      <div id="tokenFields" style="display:none">
+        <div class="form-row">
+          <label>访问令牌</label>
+          <div class="input-with-btn">
+            <input type="password" id="accessToken" class="form-input" placeholder="粘贴访问令牌 (at_...)">
+            <button id="btnToggleTokenVisibility" class="btn btn-sm" title="显示/隐藏">👁</button>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:4px">可在网站「个人资料」页面创建访问令牌</p>
+      </div>
+      <button id="btnLogin" class="btn btn-primary btn-full">🔓 登录</button>
+      <div id="loginResult" class="result"></div>
+    </section>
+
+    <!-- DevTools 引导横幅 -->
+    <section id="devtoolsGuide" class="section devtools-guide" style="display:none">
+      <div class="guide-icon">🛠️</div>
+      <div class="guide-text">
+        <strong>按 F12 打开 DevTools</strong>
+        <p>切换到 <b>TaskPlugin</b> 面板即可创建任务、批量捕获错误请求</p>
+      </div>
+      <div class="guide-steps">
+        <span class="step">1️⃣ <kbd>F12</kbd> 打开开发者工具</span>
+        <span class="step">2️⃣ 点击 <b>TaskPlugin</b> 标签页</span>
+        <span class="step">3️⃣ 选择请求 → 填写信息 → 创建任务</span>
+      </div>
+    </section>
+
+    <!-- 请求列表（仅查看/过滤） -->
+    <section id="requestsSection" class="section" style="display:none">
+      <h3>📌 请求预览 <span id="requestCountBadge" class="hint-inline"></span> <button id="btnToggleRequests" class="btn btn-sm btn-link">展开</button></h3>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <label class="tracking-toggle">
+          <input type="checkbox" id="floatBallToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:10px;color:#6c7086">显示悬浮球</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+        <label class="tracking-toggle">
+          <input type="checkbox" id="trackingToggle">
+          <span class="toggle-slider"></span>
+        </label>
+        <span style="font-size:10px;color:#6c7086">跟踪请求（保留刷新前的记录）</span>
+      </div>
+      <div id="requestsBody" style="display:none">
+        <div class="search-bar">
+          <input type="text" id="reqSearch" class="form-input search-input" placeholder="🔍 URL / 方法...">
+          <select id="reqStatusFilter" class="form-select search-select">
+            <option value="">全部</option>
+            <option value="5xx">5xx</option>
+            <option value="4xx">4xx</option>
+            <option value="2xx">2xx</option>
+            <option value="3xx">3xx</option>
+          </select>
+        </div>
+        <div class="btn-row" style="margin-bottom:6px">
+          <button id="btnRefreshReqs" class="btn btn-sm">🔄 刷新</button>
+          <button id="btnClearReqs" class="btn btn-sm btn-danger">清空</button>
+        </div>
+        <div id="requestList" class="popup-req-list">
+          <p class="placeholder">暂无捕获的请求。打开网页后错误请求将自动出现在这里。</p>
+        </div>
+        <!-- 选中请求详情 -->
+        <div id="popupReqDetail" class="popup-req-detail" style="display:none"></div>
+      </div>
+    </section>
+  </div>
+
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/api.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
