@@ -1,48 +1,76 @@
 /* TaskPlugin 页内浮窗 — 与宿主页面隔离，使用高 specificity + !important */
 
 #taskplugin-float-root {
-  all: initial;
-  position: fixed !important;
-  z-index: 2147483647 !important;
+  /* 精确重置 — 替代 all:initial 避免容器零尺寸问题 */
+  background: none !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  /* 容器保持 static，不创建 containing block，让子元素 fixed 相对视口定位 */
+  position: static !important;
+  display: block !important;
+  width: 0 !important;
+  height: 0 !important;
+  overflow: visible !important;
+  z-index: auto !important;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
   color: #e0e0e0 !important;
+  /* 防止宿主页面样式泄漏 */
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  filter: none !important;
+  pointer-events: none !important;
 }
 
 /* 悬浮按钮 */
 #taskplugin-float-btn {
   position: fixed !important;
-  bottom: 24px !important;
-  right: 24px !important;
-  width: 48px !important;
-  height: 48px !important;
+  /* bottom/right 不加 !important 以允许 JS 拖拽自由定位 */
+  bottom: 24px;
+  right: 24px;
+  width: 52px !important;
+  height: 52px !important;
   border-radius: 50% !important;
-  background: #89b4fa !important;
+  background: linear-gradient(135deg, #89b4fa, #74c7ec) !important;
   color: #1e1e2e !important;
-  border: none !important;
+  border: 2px solid rgba(137, 180, 250, 0.5) !important;
   cursor: pointer !important;
-  font-size: 22px !important;
+  font-size: 24px !important;
+  font-weight: 700 !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  box-shadow: 0 4px 20px rgba(137, 180, 250, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
   z-index: 2147483647 !important;
-  transition: transform .15s, box-shadow .15s !important;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  pointer-events: auto !important;
+  /* 默认值，由 JS 拖拽时覆盖 */
+  left: auto;
+  top: auto;
 }
 #taskplugin-float-btn:hover {
-  transform: scale(1.1) !important;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45) !important;
+  transform: scale(1.12) !important;
+  box-shadow: 0 6px 28px rgba(137, 180, 250, 0.6), 0 2px 6px rgba(0, 0, 0, 0.35) !important;
+  background: linear-gradient(135deg, #74c7ec, #89b4fa) !important;
 }
 #taskplugin-float-btn.taskplugin-active {
-  background: #f38ba8 !important;
+  background: linear-gradient(135deg, #f38ba8, #eba0ac) !important;
+  border-color: rgba(243, 139, 168, 0.5) !important;
   transform: rotate(45deg) !important;
+  box-shadow: 0 4px 20px rgba(243, 139, 168, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
 }
 
 /* 面板 */
 #taskplugin-float-panel {
   position: fixed !important;
-  bottom: 84px !important;
+  bottom: 88px !important;
   right: 24px !important;
   width: 380px !important;
   max-height: 520px !important;
@@ -54,6 +82,7 @@
   display: none !important;
   flex-direction: column !important;
   overflow: hidden !important;
+  pointer-events: auto !important;
 }
 #taskplugin-float-panel.taskplugin-open {
   display: flex !important;

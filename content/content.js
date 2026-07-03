@@ -10,7 +10,7 @@
   // ---- 创建 DOM ----
   const root = document.createElement('div');
   root.id = 'taskplugin-float-root';
-  root.style.display = 'block';  // 显式设 display 防止 all:initial 重置为 inline
+  // 无 inline display，由 CSS 控制（display: block !important）
 
   root.innerHTML = `
     <button id="taskplugin-float-btn" title="TaskPlugin — 快速创建任务">+</button>
@@ -120,7 +120,7 @@
     const floatCfg = await loadFloatBallConfigFromStorage();
     console.log('[taskChromePlugin] floatBall enabled:', floatCfg.enabled);
     if (!floatCfg.enabled) {
-      root.style.display = 'none';
+      root.style.setProperty('display', 'none', 'important');
     }
     floatEnabledToggle.checked = floatCfg.enabled;
 
@@ -143,7 +143,7 @@
     // 面板内关闭开关
     floatEnabledToggle.addEventListener('change', async () => {
       const enabled = floatEnabledToggle.checked;
-      root.style.display = enabled ? '' : 'none';
+      root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
       await saveFloatBallConfigToStorage(enabled);
     });
   })();
@@ -549,7 +549,7 @@
     }
     if (msg.action === 'setFloatBallEnabled') {
       console.log('[taskChromePlugin] setFloatBallEnabled from popup:', msg.enabled);
-      root.style.display = msg.enabled ? '' : 'none';
+      root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
       floatEnabledToggle.checked = msg.enabled;
     }
   });
