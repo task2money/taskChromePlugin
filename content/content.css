@@ -240,3 +240,198 @@
 .taskplugin-result.taskplugin-show { display: block !important; }
 .taskplugin-result-success { background: rgba(166, 227, 161, 0.15) !important; color: #a6e3a1 !important; border: 1px solid #a6e3a1 !important; }
 .taskplugin-result-error { background: rgba(243, 139, 168, 0.15) !important; color: #f38ba8 !important; border: 1px solid #f38ba8 !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   元素选择器 (Element Picker) 样式
+   ══════════════════════════════════════════════════════════════ */
+
+/* 🎯 指针选择器按钮 */
+#taskplugin-picker-btn {
+  width: 28px !important;
+  height: 28px !important;
+  border-radius: 6px !important;
+  background: rgba(137, 180, 250, 0.15) !important;
+  border: 1px solid rgba(137, 180, 250, 0.3) !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  transition: all 0.2s ease !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+#taskplugin-picker-btn:hover {
+  background: rgba(137, 180, 250, 0.3) !important;
+  border-color: rgba(137, 180, 250, 0.6) !important;
+  transform: scale(1.1) !important;
+}
+#taskplugin-picker-btn.taskplugin-picker-active {
+  background: rgba(166, 227, 161, 0.3) !important;
+  border-color: rgba(166, 227, 161, 0.6) !important;
+  animation: taskplugin-picker-pulse 0.8s ease-in-out infinite !important;
+  color: #a6e3a1 !important;
+}
+@keyframes taskplugin-picker-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(166, 227, 161, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(166, 227, 161, 0); }
+}
+
+/* 🔍 高亮覆盖层 */
+#taskplugin-picker-highlight {
+  position: fixed !important;
+  pointer-events: none !important;
+  z-index: 2147483645 !important;
+  background: rgba(137, 180, 250, 0.12) !important;
+  border: 2px solid #89b4fa !important;
+  border-radius: 2px !important;
+  box-shadow: 0 0 0 1px rgba(137, 180, 250, 0.3), 0 0 12px rgba(137, 180, 250, 0.15) !important;
+  box-sizing: border-box !important;
+  transition: left 0.05s ease-out, top 0.05s ease-out, width 0.05s ease-out, height 0.05s ease-out !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* 💬 浮动提示标签 */
+#taskplugin-picker-tooltip {
+  position: fixed !important;
+  pointer-events: none !important;
+  z-index: 2147483646 !important;
+  background: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+  border-radius: 5px !important;
+  border: 1px solid #45475a !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4) !important;
+  white-space: nowrap !important;
+  max-width: 320px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* 📢 选择模式顶部横幅 */
+#taskplugin-picker-banner {
+  position: fixed !important;
+  top: 0 !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2147483647 !important;
+  background: linear-gradient(135deg, #1e1e2e, #252536) !important;
+  color: #cdd6f4 !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  padding: 8px 20px !important;
+  border-radius: 0 0 10px 10px !important;
+  border: 1px solid #45475a !important;
+  border-top: none !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+  user-select: none !important;
+  animation: taskplugin-banner-in 0.25s ease-out !important;
+}
+@keyframes taskplugin-banner-in {
+  from { transform: translateX(-50%) translateY(-100%); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+#taskplugin-picker-banner kbd {
+  background: #45475a !important;
+  color: #cdd6f4 !important;
+  padding: 1px 6px !important;
+  border-radius: 3px !important;
+  font-size: 10px !important;
+  font-family: inherit !important;
+  border: 1px solid #585b70 !important;
+}
+
+/* 🏷️ 目标元素显示区 */
+.taskplugin-target-display {
+  background: #252536 !important;
+  border: 1px solid #313244 !important;
+  border-radius: 6px !important;
+  padding: 6px 8px !important;
+  min-height: 28px !important;
+  font-size: 11px !important;
+}
+.taskplugin-target-placeholder {
+  color: #6c7086 !important;
+  font-style: italic !important;
+  font-size: 11px !important;
+}
+.taskplugin-target-info {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-bottom: 4px !important;
+}
+.taskplugin-target-tag {
+  display: inline-block !important;
+  background: rgba(137, 180, 250, 0.2) !important;
+  color: #89b4fa !important;
+  padding: 1px 6px !important;
+  border-radius: 3px !important;
+  font-family: 'SF Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+  flex-shrink: 0 !important;
+}
+.taskplugin-target-selector {
+  color: #a6adc8 !important;
+  font-family: 'SF Mono', monospace !important;
+  font-size: 10px !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.taskplugin-target-clear {
+  background: none !important;
+  border: none !important;
+  color: #6c7086 !important;
+  cursor: pointer !important;
+  font-size: 12px !important;
+  padding: 0 2px !important;
+  flex-shrink: 0 !important;
+  line-height: 1 !important;
+}
+.taskplugin-target-clear:hover {
+  color: #f38ba8 !important;
+}
+.taskplugin-target-detail {
+  font-size: 10px !important;
+}
+.taskplugin-target-copy-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin-top: 2px !important;
+}
+.taskplugin-target-xpath {
+  color: #6c7086 !important;
+  font-family: 'SF Mono', monospace !important;
+  font-size: 9px !important;
+  flex: 1 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+.taskplugin-copy-btn {
+  background: rgba(137, 180, 250, 0.15) !important;
+  border: 1px solid rgba(137, 180, 250, 0.25) !important;
+  color: #89b4fa !important;
+  border-radius: 3px !important;
+  padding: 1px 6px !important;
+  font-size: 9px !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.15s ease !important;
+}
+.taskplugin-copy-btn:hover {
+  background: rgba(137, 180, 250, 0.3) !important;
+  border-color: rgba(137, 180, 250, 0.5) !important;
+}

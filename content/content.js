@@ -1,6 +1,7 @@
 /**
  * Content Script — 页内浮窗快速创建任务
  * 注入到所有页面，在右下角显示浮动按钮
+ * 支持元素选择器模式 — 类似 DevTools 的元素选取功能
  */
 
 (() => {
@@ -10,7 +11,6 @@
   // ---- 创建 DOM ----
   const root = document.createElement('div');
   root.id = 'taskplugin-float-root';
-  // 无 inline display，由 CSS 控制（display: block !important）
 
   root.innerHTML = `
     <button id="taskplugin-float-btn" title="TaskPlugin — 快速创建任务">+</button>
@@ -18,6 +18,7 @@
       <div class="taskplugin-panel-header">
         <h3>🔧 快速创建任务</h3>
         <div style="display:flex;align-items:center;gap:6px">
+          <button id="taskplugin-picker-btn" class="taskplugin-picker-btn" title="元素选择器 — 点击后选择页面元素">🎯</button>
           <label class="taskplugin-mini-toggle" title="关闭悬浮球">
             <input type="checkbox" id="taskplugin-float-enabled" checked>
             <span class="taskplugin-mini-slider"></span>
@@ -27,6 +28,12 @@
       </div>
       <div class="taskplugin-panel-body">
         <div class="taskplugin-captured-url" id="taskplugin-page-url"></div>
+        <div class="taskplugin-form-group">
+          <label>目标元素 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 🎯 选择器选取</span></label>
+          <div id="taskplugin-target-element" class="taskplugin-target-display">
+            <span class="taskplugin-target-placeholder">点击上方 🎯 按钮选取页面元素</span>
+          </div>
+        </div>
         <div class="taskplugin-form-group">
           <label>标题</label>
           <input class="taskplugin-input" id="taskplugin-title" placeholder="任务标题">
@@ -58,13 +65,12 @@
         </div>
         <div class="taskplugin-form-group">
           <label>工作分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 从此分支拉出工作分支</span></label>
-          <input class="taskplugin-input" id="taskplugin-work-branch" placeholder="如: fix/20260703_username_aidev${taskId}_fix-502">
+          <input class="taskplugin-input" id="taskplugin-work-branch" placeholder="如: fix/20260703_username_aidev\${taskId}_fix-502">
         </div>
         <div class="taskplugin-form-group">
           <label>合并目标模板 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 选择模板自动填充</span></label>
           <select class="taskplugin-select" id="taskplugin-merge-preset">
             <option value="develop">develop</option>
-            <!-- release 选项由 JS 动态填充（本周四/下周四/下下周四） -->
             <option value="main">main</option>
             <option value="custom">自定义（手动输入）</option>
           </select>
@@ -93,6 +99,10 @@
   const mergePreset = document.getElementById('taskplugin-merge-preset');
   const mergeTarget = document.getElementById('taskplugin-merge-target');
   const workBranch = document.getElementById('taskplugin-work-branch');
+  const pickerBtn = document.getElementById('taskplugin-picker-btn');
+  const targetDisplay = document.getElementById('taskplugin-target-element');
+  const titleInput = document.getElementById('taskplugin-title');
+  const descInput = document.getElementById('taskplugin-desc');
 
   const floatEnabledToggle = document.getElementById('taskplugin-float-enabled');
 
@@ -109,14 +119,21 @@
   let btnStartX = 0;
   let btnStartY = 0;
   let hasMoved = false;
-  const DRAG_THRESHOLD = 4; // px — 移动超过此阈值才算拖动
+  const DRAG_THRESHOLD = 4;
+
+  // ---- Element Picker State ----
+  const PICKER_IDLE = 'idle';
+  const PICKER_ACTIVE = 'active';
+  let pickerState = PICKER_IDLE;
+  let pickerHighlightEl = null;   // 高亮覆盖层
+  let pickerTooltipEl = null;     // 提示标签
+  let pickerCurrentTarget = null; // 当前悬停的元素
+  let selectedElementData = null; // 选中的元素数据
 
   // ---- Init ----
   (async function init() {
-    // 动态填充 release 周四选项
     populateFloatingReleasePresets();
 
-    // 加载悬浮球配置
     const floatCfg = await loadFloatBallConfigFromStorage();
     console.log('[taskChromePlugin] floatBall enabled:', floatCfg.enabled);
     if (!floatCfg.enabled) {
@@ -124,23 +141,19 @@
     }
     floatEnabledToggle.checked = floatCfg.enabled;
 
-    // 恢复悬浮球位置
     await restoreFloatBallPosition();
 
-    // 显示当前页面 URL
     const urlEl = document.getElementById('taskplugin-page-url');
     urlEl.textContent = `📍 ${window.location.href}`;
 
-    // 加载登录状态
     await checkLoginStatus();
     if (isLoggedIn) {
       await loadWorkspaces();
     }
 
-    // 设置拖动
     setupDrag();
+    setupElementPicker();
 
-    // 面板内关闭开关
     floatEnabledToggle.addEventListener('change', async () => {
       const enabled = floatEnabledToggle.checked;
       root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
@@ -179,18 +192,16 @@
     btn.addEventListener('mousedown', onDragStart);
     document.addEventListener('mousemove', onDragMove);
     document.addEventListener('mouseup', onDragEnd);
-    // 防止拖拽时选中文字
     btn.addEventListener('dragstart', (e) => e.preventDefault());
   }
 
   function onDragStart(e) {
-    if (e.button !== 0) return; // 只响应左键
+    if (e.button !== 0) return;
     isDragging = true;
     hasMoved = false;
     dragStartX = e.clientX;
     dragStartY = e.clientY;
     const rect = btn.getBoundingClientRect();
-    // 如果按钮还在用 bottom/right 定位，先转为 top/left
     if (btn.style.bottom && btn.style.bottom !== 'auto') {
       btn.style.left = rect.left + 'px';
       btn.style.top = rect.top + 'px';
@@ -211,7 +222,6 @@
     hasMoved = true;
     let newX = btnStartX + dx;
     let newY = btnStartY + dy;
-    // 限制在视口内
     const w = btn.offsetWidth;
     const h = btn.offsetHeight;
     newX = Math.max(0, Math.min(newX, window.innerWidth - w));
@@ -226,7 +236,6 @@
     btn.style.transition = '';
     btn.style.cursor = '';
     if (hasMoved) {
-      // 持久化位置
       const x = parseInt(btn.style.left, 10);
       const y = parseInt(btn.style.top, 10);
       if (!isNaN(x) && !isNaN(y)) {
@@ -235,11 +244,10 @@
     }
   }
 
-  // 修改打开/关闭面板逻辑 — 拖动后不触发 click
   btn.addEventListener('click', async (e) => {
     if (hasMoved) {
       hasMoved = false;
-      return; // 拖动后不触发面板切换
+      return;
     }
     isOpen = !isOpen;
     panel.classList.toggle('taskplugin-open', isOpen);
@@ -254,7 +262,437 @@
     }
   });
 
-  // ---- 检查登录 ----
+  // ================================================================
+  //  元素选择器 (Element Picker) — 类似 DevTools 元素选择
+  // ================================================================
+
+  function setupElementPicker() {
+    // 点击 🎯 按钮 → 进入选择模式
+    pickerBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (pickerState === PICKER_ACTIVE) {
+        cancelElementPicker();
+        return;
+      }
+      startElementPicker();
+    });
+  }
+
+  /**
+   * 进入元素选择模式
+   * - 隐藏面板
+   * - 创建高亮覆盖层 + 提示标签
+   * - 绑定全局鼠标/键盘事件
+   */
+  function startElementPicker() {
+    if (pickerState === PICKER_ACTIVE) return;
+    pickerState = PICKER_ACTIVE;
+
+    // 隐藏面板
+    panel.classList.remove('taskplugin-open');
+    btn.classList.remove('taskplugin-active');
+    isOpen = false;
+
+    // 高亮按钮表示正在选择
+    pickerBtn.classList.add('taskplugin-picker-active');
+
+    // 创建高亮覆盖层
+    pickerHighlightEl = document.createElement('div');
+    pickerHighlightEl.id = 'taskplugin-picker-highlight';
+    document.body.appendChild(pickerHighlightEl);
+
+    // 创建浮动提示标签 (显示元素标签名)
+    pickerTooltipEl = document.createElement('div');
+    pickerTooltipEl.id = 'taskplugin-picker-tooltip';
+    document.body.appendChild(pickerTooltipEl);
+
+    // 创建顶部横幅提示
+    const banner = document.createElement('div');
+    banner.id = 'taskplugin-picker-banner';
+    banner.innerHTML = `
+      <span>🎯 元素选择模式 — 移动鼠标选择页面元素</span>
+      <span style="font-size:10px;opacity:0.7">点击选中 · <kbd>Esc</kbd> 取消</span>
+    `;
+    document.body.appendChild(banner);
+
+    // 页面光标变为十字准星
+    document.body.style.cursor = 'crosshair';
+
+    // 阻止页面默认交互
+    document.body.style.userSelect = 'none';
+    document.body.style.webkitUserSelect = 'none';
+
+    // 绑定事件 (capture 阶段，确保优先于页面事件)
+    document.addEventListener('mousemove', onPickerMouseMove, true);
+    document.addEventListener('click', onPickerClick, true);
+    document.addEventListener('keydown', onPickerKeyDown, true);
+
+    console.log('[taskChromePlugin] Element picker started');
+  }
+
+  /**
+   * 选择模式下的鼠标移动 — 高亮鼠标下方的元素
+   */
+  function onPickerMouseMove(e) {
+    if (pickerState !== PICKER_ACTIVE) return;
+
+    // 忽略插件自身的元素
+    const el = document.elementFromPoint(e.clientX, e.clientY);
+    if (!el) return;
+    if (el.closest('#taskplugin-float-root') ||
+        el.closest('#taskplugin-picker-highlight') ||
+        el.closest('#taskplugin-picker-tooltip') ||
+        el.closest('#taskplugin-picker-banner')) {
+      return;
+    }
+
+    if (pickerCurrentTarget === el) return;
+    pickerCurrentTarget = el;
+
+    // 更新高亮位置
+    const rect = el.getBoundingClientRect();
+    pickerHighlightEl.style.left = rect.left + 'px';
+    pickerHighlightEl.style.top = rect.top + 'px';
+    pickerHighlightEl.style.width = rect.width + 'px';
+    pickerHighlightEl.style.height = rect.height + 'px';
+
+    // 更新提示标签
+    const tagInfo = getElementTagInfo(el);
+    pickerTooltipEl.textContent = tagInfo;
+    pickerTooltipEl.style.left = Math.min(e.clientX + 14, window.innerWidth - 300) + 'px';
+    pickerTooltipEl.style.top = Math.max(e.clientY - 24, 4) + 'px';
+  }
+
+  /**
+   * 选择模式下的点击 — 确认选择当前元素
+   */
+  function onPickerClick(e) {
+    if (pickerState !== PICKER_ACTIVE) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+
+    const el = pickerCurrentTarget || document.elementFromPoint(e.clientX, e.clientY);
+    if (!el) return;
+    // 忽略插件自身元素
+    if (el.closest('#taskplugin-float-root') ||
+        el.closest('#taskplugin-picker-highlight') ||
+        el.closest('#taskplugin-picker-tooltip') ||
+        el.closest('#taskplugin-picker-banner')) {
+      return;
+    }
+
+    // 生成元素路径
+    const cssSelector = buildCssSelector(el);
+    const xpath = buildXPath(el);
+    const tagInfo = getElementTagInfo(el);
+    const outerHtml = el.outerHTML || el.innerHTML || '';
+
+    selectedElementData = {
+      cssSelector,
+      xpath,
+      tagInfo,
+      outerHtml: truncateHtml(outerHtml, 3000),
+      innerText: (el.textContent || '').trim().substring(0, 500),
+      tagName: el.tagName.toLowerCase(),
+    };
+
+    console.log('[taskChromePlugin] Element selected:', selectedElementData);
+
+    // 退出选择模式
+    exitElementPicker();
+
+    // 重新打开面板
+    panel.classList.add('taskplugin-open');
+    btn.classList.add('taskplugin-active');
+    isOpen = true;
+
+    // 填写选中元素信息到表单
+    fillElementDataToForm();
+  }
+
+  /**
+   * 键盘事件 — Esc 取消选择
+   */
+  function onPickerKeyDown(e) {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelElementPicker();
+    }
+  }
+
+  /**
+   * 取消选择模式（不保存选中结果）
+   */
+  function cancelElementPicker() {
+    exitElementPicker();
+    // 重新打开面板
+    panel.classList.add('taskplugin-open');
+    btn.classList.add('taskplugin-active');
+    isOpen = true;
+  }
+
+  /**
+   * 退出选择模式，清理 DOM 和事件
+   */
+  function exitElementPicker() {
+    pickerState = PICKER_IDLE;
+    pickerCurrentTarget = null;
+
+    // 移除高亮和提示
+    if (pickerHighlightEl && pickerHighlightEl.parentNode) {
+      pickerHighlightEl.parentNode.removeChild(pickerHighlightEl);
+    }
+    pickerHighlightEl = null;
+
+    if (pickerTooltipEl && pickerTooltipEl.parentNode) {
+      pickerTooltipEl.parentNode.removeChild(pickerTooltipEl);
+    }
+    pickerTooltipEl = null;
+
+    // 移除横幅
+    const banner = document.getElementById('taskplugin-picker-banner');
+    if (banner) banner.parentNode.removeChild(banner);
+
+    // 恢复页面样式
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.body.style.webkitUserSelect = '';
+
+    // 恢复按钮样式
+    pickerBtn.classList.remove('taskplugin-picker-active');
+
+    // 解绑事件
+    document.removeEventListener('mousemove', onPickerMouseMove, true);
+    document.removeEventListener('click', onPickerClick, true);
+    document.removeEventListener('keydown', onPickerKeyDown, true);
+
+    console.log('[taskChromePlugin] Element picker exited');
+  }
+
+  /**
+   * 将选中元素数据填入表单
+   */
+  function fillElementDataToForm() {
+    if (!selectedElementData) return;
+
+    const d = selectedElementData;
+
+    // 更新目标元素显示
+    targetDisplay.innerHTML = `
+      <div class="taskplugin-target-info">
+        <span class="taskplugin-target-tag">${esc(d.tagName)}</span>
+        <span class="taskplugin-target-selector" title="${esc(d.cssSelector)}">${esc(truncateStr(d.cssSelector, 80))}</span>
+        <button class="taskplugin-target-clear" id="taskplugin-clear-target" title="清除选中元素">✕</button>
+      </div>
+      <div class="taskplugin-target-detail">
+        <div class="taskplugin-target-copy-row">
+          <span class="taskplugin-target-xpath" title="XPath: ${esc(d.xpath)}">XPath: ${esc(truncateStr(d.xpath, 60))}</span>
+          <button class="taskplugin-copy-btn" data-copy="css" title="复制 CSS 选择器">📋 CSS</button>
+          <button class="taskplugin-copy-btn" data-copy="xpath" title="复制 XPath">📋 XPath</button>
+        </div>
+      </div>
+    `;
+
+    // 绑定清除按钮
+    const clearBtn = document.getElementById('taskplugin-clear-target');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', () => clearSelectedElement());
+    }
+
+    // 绑定复制按钮
+    targetDisplay.querySelectorAll('.taskplugin-copy-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const type = btn.dataset.copy;
+        const text = type === 'xpath' ? d.xpath : d.cssSelector;
+        navigator.clipboard.writeText(text).then(() => {
+          const orig = btn.textContent;
+          btn.textContent = '✅';
+          setTimeout(() => { btn.textContent = orig; }, 1500);
+        }).catch(() => {});
+      });
+    });
+
+    // 自动生成任务标题
+    if (!titleInput.value.trim()) {
+      const pathname = window.location.pathname.replace(/\/$/, '') || '/';
+      titleInput.value = `[${d.tagName}] ${document.title.substring(0, 60)} — ${pathname}`;
+    }
+
+    // 将元素信息追加到描述
+    const elementInfo = [
+      `---`,
+      `**🎯 目标元素**`,
+      `- **标签**: \`<${d.tagName}>\``,
+      `- **CSS 选择器**: \`${d.cssSelector}\``,
+      `- **XPath**: \`${d.xpath}\``,
+      `- **文本内容**: ${d.innerText || '(空)'}`,
+      ``,
+      `**📄 页面信息**`,
+      `- **页面地址**: ${window.location.href}`,
+      `- **页面标题**: ${document.title}`,
+      ``,
+      `**📝 元素 HTML**:`,
+      `\`\`\`html`,
+      `${d.outerHtml}`,
+      `\`\`\``,
+    ].join('\n');
+
+    const existingDesc = descInput.value.trim();
+    descInput.value = existingDesc
+      ? existingDesc + '\n\n' + elementInfo
+      : elementInfo;
+  }
+
+  /**
+   * 清除已选中的元素
+   */
+  function clearSelectedElement() {
+    selectedElementData = null;
+    targetDisplay.innerHTML = '<span class="taskplugin-target-placeholder">点击上方 🎯 按钮选取页面元素</span>';
+  }
+
+  /**
+   * 生成元素标签信息字符串
+   */
+  function getElementTagInfo(el) {
+    const tag = el.tagName.toLowerCase();
+    const id = el.id ? `#${el.id}` : '';
+    const classes = el.classList.length
+      ? '.' + Array.from(el.classList).slice(0, 3).join('.')
+      : '';
+    const dims = `${Math.round(el.getBoundingClientRect().width)}×${Math.round(el.getBoundingClientRect().height)}`;
+    return `<${tag}${id}${classes}> ${dims}`;
+  }
+
+  /**
+   * 生成唯一 CSS 选择器
+   * 策略: ID > 唯一 class 组合 > nth-child 路径
+   */
+  function buildCssSelector(el) {
+    if (!el || el === document.documentElement) return 'html';
+    if (el === document.body) return 'body';
+
+    // 精确 ID 直接返回
+    if (el.id && /^[a-zA-Z_][\w-]*$/.test(el.id)) {
+      const sel = `#${CSS.escape(el.id)}`;
+      if (isUniqueSelector(el, sel)) return sel;
+    }
+
+    // 尝试 class 组合
+    if (el.classList.length > 0) {
+      const classes = Array.from(el.classList)
+        .filter(c => c && /^[a-zA-Z_][\w-]*$/.test(c));
+      if (classes.length > 0) {
+        const sel = el.tagName.toLowerCase() + '.' + classes.map(c => CSS.escape(c)).join('.');
+        if (isUniqueSelector(el, sel)) return sel;
+      }
+    }
+
+    // nth-child 路径回退
+    const parts = [];
+    let current = el;
+    while (current && current !== document.body && current !== document.documentElement) {
+      const tag = current.tagName.toLowerCase();
+      const parent = current.parentElement;
+      if (!parent) break;
+
+      const siblings = Array.from(parent.children).filter(c => c.tagName === current.tagName);
+      if (siblings.length > 1) {
+        const idx = siblings.indexOf(current) + 1;
+        parts.unshift(`${tag}:nth-child(${Array.from(parent.children).indexOf(current) + 1})`);
+      } else {
+        // 有 ID 则直接用
+        if (current.id && /^[a-zA-Z_][\w-]*$/.test(current.id)) {
+          parts.unshift(`#${CSS.escape(current.id)}`);
+          break;
+        }
+        parts.unshift(tag);
+      }
+      current = parent;
+    }
+
+    if (current === document.body) parts.unshift('body');
+    else if (current === document.documentElement) parts.unshift('html');
+
+    const sel = parts.join(' > ');
+    return sel;
+  }
+
+  /**
+   * 检查 CSS 选择器是否唯一匹配
+   */
+  function isUniqueSelector(el, selector) {
+    try {
+      const matches = document.querySelectorAll(selector);
+      return matches.length === 1 && matches[0] === el;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /**
+   * 生成 XPath
+   */
+  function buildXPath(el) {
+    if (!el || el === document.documentElement) return '/html';
+    if (el === document.body) return '/html/body';
+
+    if (el.id) {
+      return `//*[@id="${el.id}"]`;
+    }
+
+    const parts = [];
+    let current = el;
+    while (current && current !== document.documentElement) {
+      const tag = current.tagName.toLowerCase();
+      const parent = current.parentElement;
+      if (!parent) break;
+
+      const siblings = Array.from(parent.children).filter(c => c.tagName === current.tagName);
+      if (siblings.length > 1) {
+        const idx = siblings.indexOf(current) + 1;
+        parts.unshift(`${tag}[${idx}]`);
+      } else {
+        parts.unshift(tag);
+      }
+      current = parent;
+    }
+
+    return '/' + parts.join('/');
+  }
+
+  /**
+   * 截断字符串
+   */
+  function truncateStr(s, maxLen) {
+    if (!s) return '';
+    return s.length > maxLen ? s.substring(0, maxLen) + '...' : s;
+  }
+
+  /**
+   * 截断 HTML（保留结构完整性）
+   */
+  function truncateHtml(html, maxLen) {
+    if (!html) return '';
+    if (html.length <= maxLen) return html;
+    // 简单截断 + 省略标记
+    const truncated = html.substring(0, maxLen);
+    // 尝试在最后一个完整的 > 处截断
+    const lastClose = truncated.lastIndexOf('>');
+    if (lastClose > maxLen * 0.8) {
+      return truncated.substring(0, lastClose + 1) + '\n<!-- ... 截断 ... -->';
+    }
+    return truncated + '\n<!-- ... 截断 ... -->';
+  }
+
+  // ================================================================
+  //  登录 / 工作空间 / 项目
+  // ================================================================
+
   async function checkLoginStatus() {
     try {
       const resp = await chrome.runtime.sendMessage({ action: 'getApiConfig' });
@@ -275,7 +713,6 @@
     }
   }
 
-  // ---- 加载工作空间 ----
   async function loadWorkspaces() {
     try {
       const resp = await chrome.runtime.sendMessage({
@@ -297,7 +734,6 @@
     }
   }
 
-  // ---- 加载项目 ----
   async function loadProjects(wsId) {
     projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
     try {
@@ -328,7 +764,6 @@
 
   // ---- 事件 ----
 
-  // 工作空间选择
   wsSelect.addEventListener('change', async () => {
     const wsId = wsSelect.value;
     if (!wsId) {
@@ -338,14 +773,12 @@
     await loadProjects(wsId);
   });
 
-  // 合并目标预设变更 —— 自动填充分支名
   mergePreset.addEventListener('change', () => {
     const preset = mergePreset.value;
     if (!preset || preset === 'custom') return;
     mergeTarget.value = buildMergeBranchName(preset);
   });
 
-  // 项目勾选变化 —— 动态获取 Git 分支
   projectsDiv.addEventListener('change', async (e) => {
     if (e.target.type !== 'checkbox') return;
     const wsId = wsSelect.value;
@@ -362,8 +795,8 @@
 
     const wsId = wsSelect.value;
     const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
-    const title = document.getElementById('taskplugin-title').value.trim();
-    const desc = document.getElementById('taskplugin-desc').value.trim();
+    const title = titleInput.value.trim();
+    const desc = descInput.value.trim();
     const priority = document.getElementById('taskplugin-priority').value;
 
     if (!wsId) return showResult('请选择工作空间', 'error');
@@ -378,9 +811,25 @@
 
       const wb = workBranch.value.trim();
       const mt = mergeTarget.value.trim();
+
+      // 构建带源信息的描述
+      let fullDesc = desc;
+      const sourceInfo = [
+        `---`,
+        `**来源页面**: ${window.location.href}`,
+        `**页面标题**: ${document.title}`,
+      ];
+      if (selectedElementData) {
+        sourceInfo.push(
+          `**🎯 目标元素**: \`${selectedElementData.cssSelector}\``,
+          `**目标 XPath**: \`${selectedElementData.xpath}\``
+        );
+      }
+      fullDesc = fullDesc + '\n\n' + sourceInfo.join('\n');
+
       const taskData = {
         title,
-        description: desc + `\n\n---\n**来源页面**: ${window.location.href}\n**页面标题**: ${document.title}`,
+        description: fullDesc,
         priority,
         workspaceId: wsId,
         projectIds: pids,
@@ -388,6 +837,17 @@
         sourceUrl: window.location.href,
         sourceTitle: document.title,
       };
+
+      // 附加元素选择器数据
+      if (selectedElementData) {
+        taskData.target_element = {
+          css_selector: selectedElementData.cssSelector,
+          xpath: selectedElementData.xpath,
+          tag_name: selectedElementData.tagName,
+          inner_text: selectedElementData.innerText,
+        };
+      }
+
       if (wb || mt) {
         taskData.branch_strategy = {
           work_branch_name: wb,
@@ -407,9 +867,9 @@
       if (!resp.success) throw new Error(resp.error);
 
       showResult(`✅ 任务创建成功! ID: ${resp.data?.id || resp.data?._id || '(已创建)'}`, 'success');
-      // 清空表单
-      document.getElementById('taskplugin-title').value = '';
-      document.getElementById('taskplugin-desc').value = '';
+      titleInput.value = '';
+      descInput.value = '';
+      clearSelectedElement();
     } catch (e) {
       showResult(`❌ 创建失败: ${e.message}`, 'error');
     } finally {
@@ -431,7 +891,6 @@
     if (!companyId) return;
 
     const seen = new Set();
-    // 内置预设
     for (const b of ['develop', 'main']) {
       seen.add(b);
       datalist.innerHTML += `<option value="${b}">`;
@@ -457,14 +916,13 @@
             const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
             if (name && !seen.has(name)) {
               seen.add(name);
-              // 标注来源 repo
               const shortRepo = extractRepoLabel(repoUrl);
               const label = shortRepo ? `${name}  [${shortRepo}]` : name;
               datalist.innerHTML += `<option value="${name}">${esc(label)}</option>`;
             }
           }
         }
-      } catch (_) { /* 分支获取失败不影响主流程 */ }
+      } catch (_) { /* ignore */ }
     }
   }
 
@@ -489,13 +947,11 @@
   function populateFloatingReleasePresets() {
     const sel = document.getElementById('taskplugin-merge-preset');
     if (!sel) return;
-    // 移除旧的单个 release option
     const oldOption = sel.querySelector('option[value="release"]');
     if (oldOption) oldOption.remove();
     sel.querySelectorAll('option[value^="release:"]').forEach(o => o.remove());
     const today = new Date();
     const dayOfWeek = today.getDay();
-    // 若今天已过周四（周五/周六），则从下周开始
     const startWeek = dayOfWeek > 4 ? 1 : 0;
     const labels = dayOfWeek > 4
       ? ['下周四', '下下周四', '下下下周四']
@@ -542,7 +998,6 @@
   // ---- 监听来自 popup / background 的消息 ----
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'openDevToolsHint') {
-      // 闪烁浮动按钮提醒用户
       btn.style.animation = 'none';
       btn.offsetHeight;
       btn.style.animation = 'taskplugin-pulse 0.3s ease 3';
