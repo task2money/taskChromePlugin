@@ -179,11 +179,32 @@ const Panel = (() => {
     } catch (_) {}
   }
 
+  /**
+   * 带超时的 chrome.runtime.sendMessage 封装
+   * 超时时返回 { error: '消息超时' } 而非 reject，保持与现有 .success 检查模式的兼容
+   * @param {object} msg - 消息对象，可包含 _timeout 字段自定义超时(ms)
+   */
   function sendMessage(msg) {
+    const timeoutMs = msg._timeout || 15000;
+    const cleanMsg = { ...msg };
+    delete cleanMsg._timeout;
+
     return new Promise((resolve) => {
-      chrome.runtime.sendMessage(msg, (resp) => {
-        resolve(chrome.runtime.lastError ? { error: chrome.runtime.lastError.message } : resp);
-      });
+      const timer = setTimeout(() => {
+        resolve({ error: `消息超时 (${timeoutMs}ms): ${cleanMsg.action || 'unknown'}` });
+      }, timeoutMs);
+
+      try {
+        chrome.runtime.sendMessage(cleanMsg)
+          .then((resp) => { clearTimeout(timer); resolve(resp); })
+          .catch((err) => {
+            clearTimeout(timer);
+            resolve({ error: err?.message || '消息发送失败' });
+          });
+      } catch (syncErr) {
+        clearTimeout(timer);
+        resolve({ error: syncErr?.message || '消息发送异常' });
+      }
     });
   }
 
@@ -725,22 +746,27 @@ const Panel = (() => {
   async function onCaptureToggle() {
     const en = $('#captureToggle').checked;
     const codes = Array.from($('#statusCodeFilters').querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
-    await sendMessage({ action: 'setCaptureEnabled', enabled: en, statusCodes: codes });
+    try {
+      await sendMessage({ action: 'setCaptureEnabled', enabled: en, statusCodes: codes });
+    } catch (_) { /* ignore */ }
     updateCaptureStatus(en);
   }
 
   function updateCaptureStatus(en) { $('#captureStatus').textContent = en ? '🔴 自动捕获中...' : '⏸️ 捕获已停止'; }
 
   async function refreshCapturedCount() {
-    const r = await sendMessage({ action: 'getCapturedErrors' });
-    const n = r.success ? (r.data?.length || 0) : 0;
-    const el = $('#capturedCount');
-    el.style.display = 'inline';
-    el.innerHTML = ` | 已捕获错误: <strong>${n}</strong> 条`;
+    try {
+      const r = await sendMessage({ action: 'getCapturedErrors' });
+      const n = r?.success ? (r.data?.length || 0) : 0;
+      const el = $('#capturedCount');
+      if (el) { el.style.display = 'inline'; el.innerHTML = ` | 已捕获错误: <strong>${n}</strong> 条`; }
+    } catch (_) { /* ignore */ }
   }
 
   async function clearCapturedErrors() {
-    await sendMessage({ action: 'clearCapturedErrors' });
+    try {
+      await sendMessage({ action: 'clearCapturedErrors' });
+    } catch (_) { /* ignore */ }
     await refreshCapturedCount();
     showR('batchResult', 'success', '✅ 已清空');
   }

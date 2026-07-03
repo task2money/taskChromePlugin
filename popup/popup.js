@@ -10,12 +10,102 @@ const Popup = (() => {
   let capturedRequests = [];
   let selectedReqId = null;
 
+  /**
+   * 带超时的 chrome.runtime.sendMessage 封装
+   * 防止 Service Worker 未就绪时消息无限挂起导致 popup 卡死
+   */
+  function sendMessageWithTimeout(action, timeoutMs = 3000) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`消息超时: ${action.action || action}`));
+      }, timeoutMs);
+
+      try {
+        chrome.runtime.sendMessage(action)
+          .then((res) => { clearTimeout(timer); resolve(res); })
+          .catch((err) => { clearTimeout(timer); reject(err); });
+      } catch (syncErr) {
+        clearTimeout(timer);
+        reject(syncErr);
+      }
+    });
+  }
+
+  let initRetryTimer = null;
+
   async function init() {
     // 打开 popup 即表示用户已看到错误，重置角标
-    chrome.runtime.sendMessage({ action: 'resetBadge' });
+    try { chrome.runtime.sendMessage({ action: 'resetBadge' }); } catch (_) { /* ignore */ }
     bindEvents();
-    await loadState();
-    $('#loadingSpinner').style.display = 'none';
+
+    // 4 秒后如果 spinner 还在，显示重试按钮
+    initRetryTimer = setTimeout(() => {
+      const spinner = $('#loadingSpinner');
+      const retryBtn = $('#btnRetryInit');
+      if (spinner && spinner.style.display !== 'none' && retryBtn) {
+        retryBtn.style.display = 'inline-block';
+      }
+    }, 4000);
+
+    try {
+      await loadState();
+    } catch (e) {
+      console.error('[TaskPlugin] loadState 失败:', e);
+      // 出错时回退到未登录状态，让用户可以重新登录
+      showLoginUI();
+    } finally {
+      // 无论如何都要隐藏 loading spinner
+      clearTimeout(initRetryTimer);
+      const spinner = $('#loadingSpinner');
+      if (spinner) spinner.style.display = 'none';
+      const retryBtn = $('#btnRetryInit');
+      if (retryBtn) retryBtn.style.display = 'none';
+    }
+  }
+
+  async function retryInit() {
+    // 隐藏之前的错误 UI，重新显示 spinner
+    const spinner = $('#loadingSpinner');
+    const retryBtn = $('#btnRetryInit');
+    const loginSec = $('#loginSection');
+    const devGuide = $('#devtoolsGuide');
+    const reqSec = $('#requestsSection');
+    if (spinner) spinner.style.display = 'flex';
+    if (retryBtn) retryBtn.style.display = 'none';
+    if (loginSec) loginSec.style.display = 'none';
+    if (devGuide) devGuide.style.display = 'none';
+    if (reqSec) reqSec.style.display = 'none';
+
+    // 重新执行 init 流程
+    await init();
+  }
+
+  function showLoginUI() {
+    const status = $('#popupStatus');
+    const headerArea = $('#headerUserArea');
+    const loginSec = $('#loginSection');
+    const devGuide = $('#devtoolsGuide');
+    const reqSec = $('#requestsSection');
+    if (status) { status.style.display = 'inline'; status.textContent = '⚠️ 未登录'; status.className = 'badge badge-disconnected'; }
+    if (headerArea) headerArea.style.display = 'none';
+    if (loginSec) loginSec.style.display = 'block';
+    if (devGuide) devGuide.style.display = 'none';
+    if (reqSec) reqSec.style.display = 'none';
+  }
+
+  function showLoggedInUI(username) {
+    const status = $('#popupStatus');
+    const headerArea = $('#headerUserArea');
+    const headerUser = $('#headerUser');
+    const loginSec = $('#loginSection');
+    const devGuide = $('#devtoolsGuide');
+    const reqSec = $('#requestsSection');
+    if (status) status.style.display = 'none';
+    if (headerArea) headerArea.style.display = 'flex';
+    if (headerUser) headerUser.textContent = '👤 ' + (username || '(访问令牌)');
+    if (loginSec) loginSec.style.display = 'none';
+    if (devGuide) devGuide.style.display = 'block';
+    if (reqSec) reqSec.style.display = 'block';
   }
 
   async function loadState() {
@@ -30,42 +120,47 @@ const Popup = (() => {
       await Storage.saveApiConfig(NEW_DEFAULT, cfg.token || '');
     }
 
-    if (baseUrl) $('#baseUrl').value = baseUrl;
-    if (cred.username) $('#username').value = cred.username;
+    const baseUrlInput = $('#baseUrl');
+    const usernameInput = $('#username');
+    if (baseUrlInput) baseUrlInput.value = baseUrl;
+    if (usernameInput && cred.username) usernameInput.value = cred.username;
 
     if (cfg.token) {
-      $('#popupStatus').style.display = 'none';
-      $('#headerUserArea').style.display = 'flex';
-      $('#headerUser').textContent = '👤 ' + (cred.username || '(访问令牌)');
-      $('#loginSection').style.display = 'none';
-      $('#devtoolsGuide').style.display = 'block';
-      $('#requestsSection').style.display = 'block';
-      loadFloatBallConfig();
-      loadTrackingConfig();
-      loadCapturedRequests();
+      showLoggedInUI(cred.username);
+      // 异步加载子模块 — 使用 Promise.allSettled 确保不会因单个失败而阻塞
+      const results = await Promise.allSettled([
+        loadFloatBallConfig(),
+        loadTrackingConfig(),
+        loadCapturedRequests(),
+      ]);
+      for (const r of results) {
+        if (r.status === 'rejected') {
+          console.warn('[TaskPlugin] loadState 子模块加载失败:', r.reason);
+        }
+      }
     } else {
-      $('#popupStatus').style.display = 'inline';
-      $('#popupStatus').textContent = '⚠️ 未登录';
-      $('#popupStatus').className = 'badge badge-disconnected';
-      $('#headerUserArea').style.display = 'none';
-      $('#loginSection').style.display = 'block';
-      $('#devtoolsGuide').style.display = 'none';
-      $('#requestsSection').style.display = 'none';
+      showLoginUI();
     }
   }
 
   async function loadFloatBallConfig() {
     try {
       const cfg = await Storage.getFloatBallConfig();
-      $('#floatBallToggle').checked = cfg.enabled;
+      const toggle = $('#floatBallToggle');
+      if (toggle) toggle.checked = cfg.enabled;
     } catch (_) { /* ignore */ }
   }
 
   async function loadTrackingConfig() {
     try {
-      const r = await chrome.runtime.sendMessage({ action: 'getTrackingConfig' });
-      if (r.success) $('#trackingToggle').checked = r.data?.enabled || false;
-    } catch (_) { /* ignore */ }
+      const r = await sendMessageWithTimeout({ action: 'getTrackingConfig' }, 5000);
+      if (r?.success) {
+        const toggle = $('#trackingToggle');
+        if (toggle) toggle.checked = r.data?.enabled || false;
+      }
+    } catch (e) {
+      console.warn('[TaskPlugin] loadTrackingConfig 失败:', e.message);
+    }
   }
 
   function setLoginMethod(method) {
@@ -100,9 +195,14 @@ const Popup = (() => {
     // 退出登录
     $('#btnLogout').addEventListener('click', handleLogout);
 
+    // 重试初始化
+    $('#btnRetryInit').addEventListener('click', retryInit);
+
     // 悬浮球开关
     $('#floatBallToggle').addEventListener('change', async () => {
-      const enabled = $('#floatBallToggle').checked;
+      const toggle = $('#floatBallToggle');
+      if (!toggle) return;
+      const enabled = toggle.checked;
       await Storage.saveFloatBallConfig(enabled);
       // 通知所有 tab 的 content script 更新悬浮球显示状态
       try {
@@ -115,8 +215,12 @@ const Popup = (() => {
 
     // 跟踪开关
     $('#trackingToggle').addEventListener('change', async () => {
-      const enabled = $('#trackingToggle').checked;
-      await chrome.runtime.sendMessage({ action: 'setTrackingConfig', enabled });
+      const toggle = $('#trackingToggle');
+      if (!toggle) return;
+      const enabled = toggle.checked;
+      try {
+        await sendMessageWithTimeout({ action: 'setTrackingConfig', enabled }, 5000);
+      } catch (_) { /* ignore */ }
     });
 
     // 请求列表
@@ -134,33 +238,38 @@ const Popup = (() => {
   // ---- 登录 / 登出 ----
 
   async function handleLogin() {
-    const baseUrl = $('#baseUrl').value.trim();
+    const baseUrlInput = $('#baseUrl');
+    const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
     if (!baseUrl) return showResult('loginResult', '请填写服务器地址', 'error');
 
     const btn = $('#btnLogin');
+    if (!btn) return;
     btn.disabled = true; btn.textContent = '登录中...';
 
     try {
       const mapping = await Storage.getEndpointMapping();
 
       if (loginMethod === 'token') {
-        const accessToken = $('#accessToken').value.trim();
+        const accessTokenInput = $('#accessToken');
+        const accessToken = accessTokenInput ? accessTokenInput.value.trim() : '';
         if (!accessToken) { btn.disabled = false; btn.textContent = '🔓 登录'; return showResult('loginResult', '请填写访问令牌', 'error'); }
-        const res = await chrome.runtime.sendMessage({
+        const res = await sendMessageWithTimeout({
           action: 'loginWithAccessToken', baseUrl, accessToken,
           endpointMapping: mapping && Object.keys(mapping).length > 0 ? mapping : undefined,
-        });
-        if (!res.success) throw new Error(res.error);
+        }, 15000);
+        if (!res?.success) throw new Error(res?.error || '登录失败');
       } else {
-        const username = $('#username').value.trim();
-        const password = $('#password').value;
+        const usernameInput = $('#username');
+        const passwordInput = $('#password');
+        const username = usernameInput ? usernameInput.value.trim() : '';
+        const password = passwordInput ? passwordInput.value : '';
         if (!username) { btn.disabled = false; btn.textContent = '🔓 登录'; return showResult('loginResult', '请填写用户名', 'error'); }
         if (!password) { btn.disabled = false; btn.textContent = '🔓 登录'; return showResult('loginResult', '请填写密码', 'error'); }
-        const res = await chrome.runtime.sendMessage({
+        const res = await sendMessageWithTimeout({
           action: 'login', baseUrl, username, password,
           endpointMapping: mapping && Object.keys(mapping).length > 0 ? mapping : undefined,
-        });
-        if (!res.success) throw new Error(res.error);
+        }, 15000);
+        if (!res?.success) throw new Error(res?.error || '登录失败');
       }
 
       showResult('loginResult', '✅ 登录成功!', 'success');
@@ -180,18 +289,26 @@ const Popup = (() => {
 
   async function loadCapturedRequests() {
     try {
-      const r = await chrome.runtime.sendMessage({ action: 'getCapturedErrors' });
-      capturedRequests = r.success ? (r.data || []) : [];
-    } catch (_) { capturedRequests = []; }
+      const r = await sendMessageWithTimeout({ action: 'getCapturedErrors' }, 5000);
+      capturedRequests = r?.success ? (r.data || []) : [];
+    } catch (e) {
+      console.warn('[TaskPlugin] loadCapturedRequests 失败:', e.message);
+      capturedRequests = [];
+    }
     renderRequestList();
   }
 
   async function clearCapturedRequests() {
-    await chrome.runtime.sendMessage({ action: 'clearCapturedErrors' });
+    try {
+      await sendMessageWithTimeout({ action: 'clearCapturedErrors' }, 5000);
+    } catch (e) {
+      console.warn('[TaskPlugin] clearCapturedRequests 失败:', e.message);
+    }
     capturedRequests = [];
     selectedReqId = null;
     renderRequestList();
-    $('#popupReqDetail').style.display = 'none';
+    const detail = $('#popupReqDetail');
+    if (detail) detail.style.display = 'none';
   }
 
   function renderRequestList() {
@@ -252,6 +369,7 @@ const Popup = (() => {
 
     // 渲染详情
     const el = $('#popupReqDetail');
+    if (!el) return;
     el.style.display = 'block';
 
     // 请求头

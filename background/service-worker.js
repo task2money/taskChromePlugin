@@ -424,19 +424,24 @@ async function handleMessage(message, sender) {
 
 // ---- 启动时恢复配置 ----
 (async function init() {
-  const cfg = await Storage.getApiConfig();
-  const mapping = await Storage.getEndpointMapping();
-  API.init(cfg.baseUrl, cfg.token, mapping);
-  if (mapping.owner) API.setOwner(mapping.owner);
-  // 查询当前活跃 tab
   try {
-    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (tabs.length > 0) activeTabId = tabs[0].id;
-  } catch (_) { /* ignore */ }
-  const captureCfg = await Storage.getCaptureConfig();
-  console.log(
-    `[taskChromePlugin] Initialized | baseUrl=${cfg.baseUrl} | ` +
-    `hasToken=${!!cfg.token} | captureEnabled=${captureCfg.enabled} | ` +
-    `activeTab=${activeTabId} | endpointOverrides=${Object.keys(mapping).join(',') || 'none'}`
-  );
+    const cfg = await Storage.getApiConfig();
+    const mapping = await Storage.getEndpointMapping();
+    API.init(cfg.baseUrl, cfg.token, mapping);
+    if (mapping.owner) API.setOwner(mapping.owner);
+    // 查询当前活跃 tab
+    try {
+      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+      if (tabs.length > 0) activeTabId = tabs[0].id;
+    } catch (_) { /* ignore */ }
+    const captureCfg = await Storage.getCaptureConfig();
+    console.log(
+      `[taskChromePlugin] Initialized | baseUrl=${cfg.baseUrl} | ` +
+      `hasToken=${!!cfg.token} | captureEnabled=${captureCfg.enabled} | ` +
+      `activeTab=${activeTabId} | endpointOverrides=${Object.keys(mapping).join(',') || 'none'}`
+    );
+  } catch (e) {
+    console.error('[taskChromePlugin] Service Worker 初始化失败:', e);
+    // 即使初始化失败，消息监听器已注册，SW 仍可响应基本消息
+  }
 })();
