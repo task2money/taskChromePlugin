@@ -18,43 +18,25 @@
     <!-- 加载中 -->
     <div id="loadingSpinner" class="loading-section">
       <div class="spinner"></div>
-      <p class="hint">正在检查登录状态...</p>
+      <p id="loadingText">正在检查登录状态...</p>
       <button id="btnRetryInit" class="btn btn-sm" style="display:none;margin-top:8px;">🔄 重试</button>
     </div>
 
-    <!-- 登录表单 -->
+    <!-- 登录区域 — 令牌输入登录 -->
     <section id="loginSection" class="section" style="display:none">
       <h3>🔐 登录</h3>
+      <p id="loginHint" class="hint" style="margin-bottom:12px">请输入 task2app API 令牌。可在网站右上角菜单 → 个人设置 → API 令牌 中获取。</p>
       <div class="form-row">
         <label>服务器地址</label>
         <input type="text" id="baseUrl" class="form-input" value="http://183.250.1.132:18081" placeholder="http://183.250.1.132:18081">
       </div>
       <div class="form-row">
-        <label>登录方式</label>
-        <div class="toggle-row">
-          <button id="btnMethodPassword" class="btn btn-sm btn-primary">账号密码</button>
-          <button id="btnMethodToken" class="btn btn-sm">访问令牌</button>
-        </div>
+        <label>API 令牌</label>
+        <input type="password" id="apiToken" class="form-input" placeholder="输入你的 API 令牌..." autocomplete="off">
       </div>
-      <div id="passwordFields">
-        <div class="form-row">
-          <label>用户名</label>
-          <input type="text" id="username" class="form-input" placeholder="输入用户名">
-        </div>
-        <div class="form-row">
-          <label>密码</label>
-          <input type="password" id="password" class="form-input" placeholder="输入密码">
-        </div>
-      </div>
-      <div id="tokenFields" style="display:none">
-        <div class="form-row">
-          <label>访问令牌</label>
-          <div class="input-with-btn">
-            <input type="password" id="accessToken" class="form-input" placeholder="粘贴访问令牌 (at_...)">
-            <button id="btnToggleTokenVisibility" class="btn btn-sm" title="显示/隐藏">👁</button>
-          </div>
-        </div>
-        <p class="hint" style="margin-top:4px">可在网站「个人资料」页面创建访问令牌</p>
+      <div class="form-row" style="display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="showToken" style="accent-color:#89b4fa">
+        <label for="showToken" style="font-size:10px;color:#a6adc8;cursor:pointer">显示令牌</label>
       </div>
       <button id="btnLogin" class="btn btn-primary btn-full">🔓 登录</button>
       <div id="loginResult" class="result"></div>

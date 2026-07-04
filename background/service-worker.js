@@ -4,6 +4,7 @@
  *  - 顶层注册 webRequest 监听器，自动捕获错误响应
  *  - 将错误请求暂存到 chrome.storage
  *  - 作为 DevTools panel 与 popup 之间的消息桥梁
+ *  - 处理令牌登录流程
  */
 
 importScripts('../lib/storage.js', '../lib/api.js');
@@ -33,23 +34,18 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 });
 
 // 跟踪 tab URL 变化 — 检测页面刷新/导航
-const tabUrlCache = new Map(); // Map<tabId, url>
+const tabUrlCache = new Map();
 
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
-  // 仅处理 URL 变化（导航/刷新）
   if (!changeInfo.url) return;
   const prevUrl = tabUrlCache.get(tabId);
   tabUrlCache.set(tabId, changeInfo.url);
-  // 首次记录该 tab 的 URL，不清理
   if (!prevUrl) return;
-  // URL 未变化（如 title 更新），跳过
   if (prevUrl === changeInfo.url) return;
 
-  // 检查跟踪配置：关闭时清空旧请求
   const trackingCfg = await Storage.getTrackingConfig();
   if (!trackingCfg.enabled) {
     await Storage.clearCapturedErrors();
-    // 重置当前活跃 tab 的 5xx 计数
     if (activeTabId === tabId) {
       tab5xxCounts.set(tabId, 0);
       updateBadgeForActiveTab();
@@ -73,19 +69,16 @@ async function updateBadgeForActiveTab() {
 async function handleRequestCompleted(details) {
   try {
     const tabId = details.tabId;
-    if (tabId < 0) return; // 忽略非 tab 请求（如 service worker）
+    if (tabId < 0) return;
 
-    // 始终统计 5xx（按 tab 隔离）
     if (details.statusCode >= 500 && details.statusCode < 600) {
       const prev = tab5xxCounts.get(tabId) || 0;
       tab5xxCounts.set(tabId, prev + 1);
-      // 只有当前活跃 tab 才更新角标
       if (tabId === activeTabId) {
         updateBadgeForActiveTab();
       }
     }
 
-    // 按 capture 配置决定是否存储详情
     const captureCfg = await Storage.getCaptureConfig();
     if (!captureCfg.enabled) return;
 
@@ -111,9 +104,6 @@ async function handleRequestCompleted(details) {
   }
 }
 
-/**
- * 匹配状态码
- */
 function matchStatusCode(statusCode, patterns) {
   for (const pattern of patterns || ['2xx', '3xx', '4xx', '5xx']) {
     if (pattern === '2xx' && statusCode >= 200 && statusCode < 300) return true;
@@ -125,9 +115,6 @@ function matchStatusCode(statusCode, patterns) {
   return false;
 }
 
-/**
- * 提取 headers 为普通对象
- */
 function extractHeaders(headers) {
   if (!headers) return {};
   const obj = {};
@@ -145,7 +132,12 @@ const MAX_DEVTOOLS_REQUESTS = 500;
 // ---- 消息处理 ----
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender).then(sendResponse);
+  handleMessage(message, sender)
+    .then(sendResponse)
+    .catch((err) => {
+      console.error('[taskChromePlugin] handleMessage 异常:', err);
+      sendResponse({ success: false, error: err?.message || '内部错误' });
+    });
   return true;
 });
 
@@ -155,13 +147,22 @@ async function handleMessage(message, sender) {
       return { pong: true };
 
     case 'resetBadge':
-      // 清零当前活跃 tab 的 5xx 计数
       tab5xxCounts.set(activeTabId, 0);
       updateBadgeForActiveTab();
       return { success: true };
 
+    case 'checkTokenStatus':
+      return {
+        success: true,
+        data: {
+          expired: await Storage.isTokenExpired(),
+          remainingSeconds: await Storage.getTokenRemainingSeconds(),
+        },
+      };
+
+    // ---- 请求追踪 ----
+
     case 'addRecentRequest':
-      // DevTools 转发请求到 background 缓存
       devToolsRequests.push(message.request);
       if (devToolsRequests.length > MAX_DEVTOOLS_REQUESTS) {
         devToolsRequests.splice(0, devToolsRequests.length - MAX_DEVTOOLS_REQUESTS);
@@ -169,7 +170,6 @@ async function handleMessage(message, sender) {
       return { success: true };
 
     case 'getRecentRequests':
-      // 面板查询最近的请求
       {
         let list = [...devToolsRequests];
         if (message.filter?.errorsOnly) {
@@ -183,6 +183,8 @@ async function handleMessage(message, sender) {
       API.init(message.baseUrl, message.token);
       await Storage.saveApiConfig(message.baseUrl, message.token);
       return { success: true };
+
+    // ---- 向后兼容：保留旧登录方式作为 fallback ----
 
     case 'login':
       try {
@@ -221,6 +223,8 @@ async function handleMessage(message, sender) {
       } catch (e) {
         return { success: false, error: e.message };
       }
+
+    // ---- 工作空间/项目/成员 ----
 
     case 'getWorkspaces':
       try {
@@ -267,11 +271,12 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message };
       }
 
+    // ---- 任务创建 ----
+
     case 'createTask':
       try {
         API.init(message.baseUrl, message.token, message.endpointMapping);
         const data = await API.createTask(message.taskData);
-        // 记录历史
         await Storage.addTaskHistory({
           type: 'single',
           title: message.taskData?.title || '(无标题)',
@@ -331,6 +336,8 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message };
       }
 
+    // ---- 捕获、存储、配置 ----
+
     case 'setCaptureEnabled':
       if (message.enabled) {
         await Storage.saveCaptureConfig(true, message.statusCodes || ['2xx', '3xx', '4xx', '5xx']);
@@ -359,7 +366,6 @@ async function handleMessage(message, sender) {
       await Storage.saveTrackingConfig(message.enabled);
       return { success: true };
 
-    // ---- 历史记录 ----
     case 'getTaskHistory':
       return { success: true, data: await Storage.getTaskHistory() };
 
@@ -374,7 +380,6 @@ async function handleMessage(message, sender) {
     case 'getFailedTasks':
       return { success: true, data: await Storage.getFailedTasks() };
 
-    // ---- 端点映射 ----
     case 'getEndpointMapping':
       return { success: true, data: await Storage.getEndpointMapping() };
 
@@ -386,7 +391,6 @@ async function handleMessage(message, sender) {
       }
       return { success: true };
 
-    // ---- 悬浮球配置 ----
     case 'getFloatBallConfig':
       try {
         return { success: true, data: await Storage.getFloatBallConfig() };
@@ -429,7 +433,6 @@ async function handleMessage(message, sender) {
     const mapping = await Storage.getEndpointMapping();
     API.init(cfg.baseUrl, cfg.token, mapping);
     if (mapping.owner) API.setOwner(mapping.owner);
-    // 查询当前活跃 tab
     try {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs.length > 0) activeTabId = tabs[0].id;
@@ -442,6 +445,5 @@ async function handleMessage(message, sender) {
     );
   } catch (e) {
     console.error('[taskChromePlugin] Service Worker 初始化失败:', e);
-    // 即使初始化失败，消息监听器已注册，SW 仍可响应基本消息
   }
 })();

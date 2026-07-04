@@ -61,6 +61,7 @@ body {
 }
 .badge-connected { background: #a6e3a1; color: #1e1e2e; }
 .badge-disconnected { background: #f38ba8; color: #1e1e2e; }
+.badge-warning { background: #fab387; color: #1e1e2e; }
 
 /* === Sections === */
 .section {

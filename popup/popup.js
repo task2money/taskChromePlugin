@@ -1,12 +1,11 @@
 /**
- * Popup 脚本 — 登录、连接状态、请求快速预览
+ * Popup 脚本 — 令牌登录、连接状态、请求快速预览
  * 任务创建请使用 DevTools Panel (F12 → TaskPlugin)
  */
 
 const Popup = (() => {
   const $ = (sel) => document.querySelector(sel);
 
-  let loginMethod = 'password';
   let capturedRequests = [];
   let selectedReqId = null;
 
@@ -32,29 +31,34 @@ const Popup = (() => {
   }
 
   let initRetryTimer = null;
+  const STATE_CHECK_TIMEOUT = 5000; // 登录状态检查最长 5 秒
 
   async function init() {
     // 打开 popup 即表示用户已看到错误，重置角标
     try { chrome.runtime.sendMessage({ action: 'resetBadge' }); } catch (_) { /* ignore */ }
     bindEvents();
 
-    // 4 秒后如果 spinner 还在，显示重试按钮
+    // 5 秒后如果 spinner 还在，显示重试按钮
     initRetryTimer = setTimeout(() => {
       const spinner = $('#loadingSpinner');
       const retryBtn = $('#btnRetryInit');
       if (spinner && spinner.style.display !== 'none' && retryBtn) {
         retryBtn.style.display = 'inline-block';
       }
-    }, 4000);
+    }, STATE_CHECK_TIMEOUT);
 
     try {
-      await loadState();
+      // 状态检查必须在 5 秒内完成，超时视为登录失败
+      await Promise.race([
+        loadState(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('登录状态检查超时，请检查网络后重试')), STATE_CHECK_TIMEOUT)
+        ),
+      ]);
     } catch (e) {
       console.error('[TaskPlugin] loadState 失败:', e);
-      // 出错时回退到未登录状态，让用户可以重新登录
-      showLoginUI();
+      showLoginUI(e.message || undefined);
     } finally {
-      // 无论如何都要隐藏 loading spinner
       clearTimeout(initRetryTimer);
       const spinner = $('#loadingSpinner');
       if (spinner) spinner.style.display = 'none';
@@ -64,7 +68,6 @@ const Popup = (() => {
   }
 
   async function retryInit() {
-    // 隐藏之前的错误 UI，重新显示 spinner
     const spinner = $('#loadingSpinner');
     const retryBtn = $('#btnRetryInit');
     const loginSec = $('#loginSection');
@@ -76,21 +79,65 @@ const Popup = (() => {
     if (devGuide) devGuide.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
 
-    // 重新执行 init 流程
     await init();
   }
 
-  function showLoginUI() {
+  function showLoginUI(errorMessage) {
     const status = $('#popupStatus');
     const headerArea = $('#headerUserArea');
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
     const reqSec = $('#requestsSection');
+    const loginHint = $('#loginHint');
+    const loginResult = $('#loginResult');
+
     if (status) { status.style.display = 'inline'; status.textContent = '⚠️ 未登录'; status.className = 'badge badge-disconnected'; }
     if (headerArea) headerArea.style.display = 'none';
     if (loginSec) loginSec.style.display = 'block';
     if (devGuide) devGuide.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
+
+    // 显示错误信息或默认提示
+    if (loginHint) {
+      if (errorMessage) {
+        loginHint.textContent = errorMessage;
+        loginHint.style.color = '#f38ba8';
+      } else {
+        loginHint.textContent = '请输入 task2app API 令牌。可在网站右上角菜单 → 个人设置 → API 令牌 中获取。';
+        loginHint.style.color = '';
+      }
+    }
+    if (loginResult) { loginResult.className = 'result'; loginResult.textContent = ''; }
+  }
+
+  /**
+   * 显示 token 过期警告
+   */
+  async function showTokenExpiredUI(username) {
+    // 先显示已登录 UI，再显示过期警告横幅
+    showLoggedInUI(username);
+    const status = $('#popupStatus');
+    if (status) { status.style.display = 'inline'; status.textContent = '⚠️ 会话已过期'; status.className = 'badge badge-disconnected'; }
+
+    // 显示重新登录按钮
+    const loginSec = $('#loginSection');
+    const devGuide = $('#devtoolsGuide');
+    const reqSec = $('#requestsSection');
+    if (loginSec) loginSec.style.display = 'block';
+    if (devGuide) devGuide.style.display = 'none';
+    if (reqSec) reqSec.style.display = 'none';
+
+    const loginHint = $('#loginHint');
+    if (loginHint) {
+      loginHint.textContent = '⏰ 登录会话已过期，请重新输入 API 令牌。';
+      loginHint.style.color = '#fab387';
+    }
+
+    const btn = $('#btnLogin');
+    if (btn) {
+      btn.textContent = '🔄 重新登录';
+      btn.disabled = false;
+    }
   }
 
   function showLoggedInUI(username) {
@@ -102,7 +149,7 @@ const Popup = (() => {
     const reqSec = $('#requestsSection');
     if (status) status.style.display = 'none';
     if (headerArea) headerArea.style.display = 'flex';
-    if (headerUser) headerUser.textContent = '👤 ' + (username || '(访问令牌)');
+    if (headerUser) headerUser.textContent = '👤 ' + (username || '(已登录)');
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
@@ -121,13 +168,32 @@ const Popup = (() => {
     }
 
     const baseUrlInput = $('#baseUrl');
-    const usernameInput = $('#username');
     if (baseUrlInput) baseUrlInput.value = baseUrl;
-    if (usernameInput && cred.username) usernameInput.value = cred.username;
 
     if (cfg.token) {
+      // 检查 token 是否过期
+      const isExpired = await Storage.isTokenExpired();
+      if (isExpired) {
+        showTokenExpiredUI(cred.username);
+        return;
+      }
+
+      // 立即显示已登录 UI（不等待子模块）
       showLoggedInUI(cred.username);
-      // 异步加载子模块 — 使用 Promise.allSettled 确保不会因单个失败而阻塞
+
+      // 子模块异步延迟加载 — 不阻塞登录状态检查
+      loadSubModules();
+    } else {
+      showLoginUI();
+    }
+  }
+
+  /**
+   * 延迟加载子模块（悬浮球配置、跟踪配置、请求列表、token 有效期提醒）
+   * 不阻塞登录状态检查，失败静默忽略
+   */
+  async function loadSubModules() {
+    try {
       const results = await Promise.allSettled([
         loadFloatBallConfig(),
         loadTrackingConfig(),
@@ -138,9 +204,21 @@ const Popup = (() => {
           console.warn('[TaskPlugin] loadState 子模块加载失败:', r.reason);
         }
       }
-    } else {
-      showLoginUI();
-    }
+    } catch (_) { /* ignore */ }
+
+    // 后台检查 token 剩余时间，接近过期时显示提醒
+    try {
+      const remaining = await Storage.getTokenRemainingSeconds();
+      if (remaining > 0 && remaining < 300) { // 5 分钟内过期
+        const status = $('#popupStatus');
+        if (status) {
+          const mins = Math.ceil(remaining / 60);
+          status.style.display = 'inline';
+          status.textContent = `⏰ ${mins}分钟后过期`;
+          status.className = 'badge badge-warning';
+        }
+      }
+    } catch (_) { /* ignore */ }
   }
 
   async function loadFloatBallConfig() {
@@ -163,34 +241,18 @@ const Popup = (() => {
     }
   }
 
-  function setLoginMethod(method) {
-    loginMethod = method;
-    if (method === 'password') {
-      $('#btnMethodPassword').className = 'btn btn-sm btn-primary';
-      $('#btnMethodToken').className = 'btn btn-sm';
-      $('#passwordFields').style.display = 'block';
-      $('#tokenFields').style.display = 'none';
-    } else {
-      $('#btnMethodPassword').className = 'btn btn-sm';
-      $('#btnMethodToken').className = 'btn btn-sm btn-primary';
-      $('#passwordFields').style.display = 'none';
-      $('#tokenFields').style.display = 'block';
-    }
-    $('#loginResult').className = 'result';
-  }
-
   function bindEvents() {
-    $('#btnMethodPassword').addEventListener('click', () => setLoginMethod('password'));
-    $('#btnMethodToken').addEventListener('click', () => setLoginMethod('token'));
-    $('#btnToggleTokenVisibility').addEventListener('click', () => {
-      const input = $('#accessToken');
-      const btn = $('#btnToggleTokenVisibility');
-      if (input.type === 'password') { input.type = 'text'; btn.textContent = '🙈'; }
-      else { input.type = 'password'; btn.textContent = '👁'; }
-    });
-    $('#btnLogin').addEventListener('click', handleLogin);
-    $('#password').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
-    $('#accessToken').addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
+    // 登录按钮 — 令牌验证
+    $('#btnLogin').addEventListener('click', handleTokenLogin);
+
+    // 显示/隐藏令牌切换
+    const showTokenCb = $('#showToken');
+    if (showTokenCb) {
+      showTokenCb.addEventListener('change', () => {
+        const inp = $('#apiToken');
+        if (inp) inp.type = showTokenCb.checked ? 'text' : 'password';
+      });
+    }
 
     // 退出登录
     $('#btnLogout').addEventListener('click', handleLogout);
@@ -204,7 +266,6 @@ const Popup = (() => {
       if (!toggle) return;
       const enabled = toggle.checked;
       await Storage.saveFloatBallConfig(enabled);
-      // 通知所有 tab 的 content script 更新悬浮球显示状态
       try {
         const tabs = await chrome.tabs.query({});
         for (const tab of tabs) {
@@ -235,49 +296,69 @@ const Popup = (() => {
     $('#reqStatusFilter').addEventListener('change', renderRequestList);
   }
 
-  // ---- 登录 / 登出 ----
+  // ---- 令牌登录流程 ----
 
-  async function handleLogin() {
-    const baseUrlInput = $('#baseUrl');
-    const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
-    if (!baseUrl) return showResult('loginResult', '请填写服务器地址', 'error');
-
+  /**
+   * 令牌登录 — 用户手动输入 API 令牌直接登录
+   *
+   * 流程:
+   * 1. 读取用户输入的服务器地址和 API 令牌
+   * 2. 调用 /api/oidc/userinfo 验证令牌有效性
+   * 3. 验证通过后保存 token + 用户信息
+   * 4. 刷新 UI 显示已登录状态
+   */
+  async function handleTokenLogin() {
+    const baseUrl = $('#baseUrl').value.trim();
+    const apiToken = $('#apiToken').value.trim();
     const btn = $('#btnLogin');
-    if (!btn) return;
-    btn.disabled = true; btn.textContent = '登录中...';
+    const loginResult = $('#loginResult');
+
+    if (!baseUrl || !apiToken) {
+      showResult('loginResult', '请填写服务器地址和 API 令牌', 'error');
+      return;
+    }
+
+    if (loginResult) { loginResult.className = 'result'; loginResult.textContent = ''; }
+    if (btn) { btn.disabled = true; btn.textContent = '\u23f3 验证中...'; }
 
     try {
-      const mapping = await Storage.getEndpointMapping();
+      // 初始化 API 客户端并验证令牌
+      API.init(baseUrl, apiToken);
 
-      if (loginMethod === 'token') {
-        const accessTokenInput = $('#accessToken');
-        const accessToken = accessTokenInput ? accessTokenInput.value.trim() : '';
-        if (!accessToken) { btn.disabled = false; btn.textContent = '🔓 登录'; return showResult('loginResult', '请填写访问令牌', 'error'); }
-        const res = await sendMessageWithTimeout({
-          action: 'loginWithAccessToken', baseUrl, accessToken,
-          endpointMapping: mapping && Object.keys(mapping).length > 0 ? mapping : undefined,
-        }, 15000);
-        if (!res?.success) throw new Error(res?.error || '登录失败');
+      // 调用 userinfo 端点验证令牌有效性（标准 OIDC 验证方式）
+      const user = await API.request('GET', '/api/oidc/userinfo');
+
+      // 保存 token 和用户信息
+      await Storage.saveApiConfig(baseUrl, apiToken, 0);
+      if (user) {
+        await Storage.saveCredentials(
+          user.preferred_username || user.name || user.email || '',
+          user.sub || '', ''
+        );
       } else {
-        const usernameInput = $('#username');
-        const passwordInput = $('#password');
-        const username = usernameInput ? usernameInput.value.trim() : '';
-        const password = passwordInput ? passwordInput.value : '';
-        if (!username) { btn.disabled = false; btn.textContent = '🔓 登录'; return showResult('loginResult', '请填写用户名', 'error'); }
-        if (!password) { btn.disabled = false; btn.textContent = '🔓 登录'; return showResult('loginResult', '请填写密码', 'error'); }
-        const res = await sendMessageWithTimeout({
-          action: 'login', baseUrl, username, password,
-          endpointMapping: mapping && Object.keys(mapping).length > 0 ? mapping : undefined,
-        }, 15000);
-        if (!res?.success) throw new Error(res?.error || '登录失败');
+        await Storage.saveCredentials('(API 令牌)', '', '');
       }
 
-      showResult('loginResult', '✅ 登录成功!', 'success');
-      setTimeout(async () => { await loadState(); }, 300);
+      await loadState();
     } catch (e) {
-      showResult('loginResult', `❌ 登录失败: ${e.message}`, 'error');
-    } finally { btn.disabled = false; btn.textContent = '🔓 登录'; }
+      console.error('[TaskPlugin] 令牌登录失败:', e);
+      const msg = (e.message || '').toLowerCase();
+      let friendlyMsg;
+      if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid_token')) {
+        friendlyMsg = '令牌无效或已过期，请检查后重试。';
+      } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('connect')) {
+        friendlyMsg = '无法连接到服务器，请检查服务器地址和网络连接。';
+      } else if (msg.includes('403')) {
+        friendlyMsg = '令牌权限不足，请联系管理员。';
+      } else {
+        friendlyMsg = e.message || '验证失败，请重试。';
+      }
+      showResult('loginResult', friendlyMsg, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '🔓 登录'; }
+    }
   }
+
+  // ---- 登出 ----
 
   async function handleLogout() {
     await Storage.saveApiConfig('', '');
@@ -362,17 +443,14 @@ const Popup = (() => {
 
   function selectRequest(req) {
     selectedReqId = req.id;
-    // 更新列表高亮
     document.querySelectorAll('.popup-req-item').forEach(x => x.classList.remove('selected'));
     const tgt = document.querySelector(`.popup-req-item[data-id="${req.id}"]`);
     if (tgt) tgt.classList.add('selected');
 
-    // 渲染详情
     const el = $('#popupReqDetail');
     if (!el) return;
     el.style.display = 'block';
 
-    // 请求头
     let reqHdrHtml = '';
     if (req.requestHeaders && Object.keys(req.requestHeaders).length) {
       reqHdrHtml = '<div class="detail-section"><h4>📤 请求头</h4>' +
@@ -381,7 +459,6 @@ const Popup = (() => {
         ).join('<br>') + '</div>';
     }
 
-    // 响应头
     let resHdrHtml = '';
     if (req.responseHeaders && Object.keys(req.responseHeaders).length) {
       resHdrHtml = '<div class="detail-section"><h4>📥 响应头</h4>' +

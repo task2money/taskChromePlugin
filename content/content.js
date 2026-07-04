@@ -112,6 +112,27 @@
   let workspacesData = [];
   let projectsData = [];
 
+  /**
+   * 带超时的 chrome.runtime.sendMessage 封装
+   * 防止 Service Worker 未就绪或 API 调用超时时消息无限挂起导致悬浮球面板卡死
+   */
+  function sendMessageWithTimeout(action, timeoutMs = 8000) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`消息超时: ${action.action || action}`));
+      }, timeoutMs);
+
+      try {
+        chrome.runtime.sendMessage(action)
+          .then((res) => { clearTimeout(timer); resolve(res); })
+          .catch((err) => { clearTimeout(timer); reject(err); });
+      } catch (syncErr) {
+        clearTimeout(timer);
+        reject(syncErr);
+      }
+    });
+  }
+
   // ---- Drag State ----
   let isDragging = false;
   let dragStartX = 0;
@@ -163,28 +184,34 @@
 
   async function loadFloatBallConfigFromStorage() {
     try {
-      const r = await chrome.runtime.sendMessage({ action: 'getFloatBallConfig' });
-      if (r.success) return r.data;
-    } catch (_) {}
+      const r = await sendMessageWithTimeout({ action: 'getFloatBallConfig' }, 5000);
+      if (r && r.success) return r.data;
+    } catch (e) {
+      console.warn('[taskChromePlugin] loadFloatBallConfig 失败:', e.message);
+    }
     return { enabled: true };
   }
 
   async function saveFloatBallConfigToStorage(enabled) {
     try {
-      await chrome.runtime.sendMessage({ action: 'saveFloatBallConfig', enabled });
-    } catch (_) {}
+      await sendMessageWithTimeout({ action: 'saveFloatBallConfig', enabled }, 5000);
+    } catch (e) {
+      console.warn('[taskChromePlugin] saveFloatBallConfig 失败:', e.message);
+    }
   }
 
   async function restoreFloatBallPosition() {
     try {
-      const r = await chrome.runtime.sendMessage({ action: 'getFloatBallPosition' });
-      if (r.success && r.data && r.data.x != null && r.data.y != null) {
+      const r = await sendMessageWithTimeout({ action: 'getFloatBallPosition' }, 5000);
+      if (r && r.success && r.data && r.data.x != null && r.data.y != null) {
         btn.style.bottom = 'auto';
         btn.style.right = 'auto';
         btn.style.left = r.data.x + 'px';
         btn.style.top = r.data.y + 'px';
       }
-    } catch (_) {}
+    } catch (e) {
+      console.warn('[taskChromePlugin] restoreFloatBallPosition 失败:', e.message);
+    }
   }
 
   // ---- Drag Logic ----
@@ -695,8 +722,8 @@
 
   async function checkLoginStatus() {
     try {
-      const resp = await chrome.runtime.sendMessage({ action: 'getApiConfig' });
-      if (resp.success && resp.data?.token) {
+      const resp = await sendMessageWithTimeout({ action: 'getApiConfig' }, 5000);
+      if (resp && resp.success && resp.data?.token) {
         isLoggedIn = true;
         apiCfg = resp.data;
         badge.textContent = '已登录';
@@ -708,21 +735,29 @@
         badge.className = 'taskplugin-badge taskplugin-badge-err';
         wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
       }
-    } catch (_) {
+    } catch (e) {
+      console.warn('[taskChromePlugin] checkLoginStatus 失败:', e.message);
       isLoggedIn = false;
+      badge.textContent = '未登录';
+      badge.className = 'taskplugin-badge taskplugin-badge-err';
+      wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
     }
   }
 
   async function loadWorkspaces() {
     try {
-      const resp = await chrome.runtime.sendMessage({
+      const resp = await sendMessageWithTimeout({
         action: 'getWorkspaces',
         baseUrl: apiCfg.baseUrl,
         token: apiCfg.token,
-      });
-      if (!resp.success) throw new Error(resp.error);
+      }, 10000);
+      if (!resp || !resp.success) throw new Error(resp?.error || '未知错误');
 
       workspacesData = Array.isArray(resp.data) ? resp.data : (resp.data?.items || resp.data?.data || []);
+      if (!workspacesData.length) {
+        wsSelect.innerHTML = '<option value="">(无工作空间)</option>';
+        return;
+      }
       wsSelect.innerHTML = '<option value="">-- 选择工作空间 --</option>';
       for (const ws of workspacesData) {
         const id = ws.id || ws._id;
@@ -730,6 +765,7 @@
         wsSelect.innerHTML += `<option value="${id}">${esc(name)}</option>`;
       }
     } catch (e) {
+      console.warn('[taskChromePlugin] loadWorkspaces 失败:', e.message);
       wsSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
     }
   }
@@ -737,13 +773,13 @@
   async function loadProjects(wsId) {
     projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
     try {
-      const resp = await chrome.runtime.sendMessage({
+      const resp = await sendMessageWithTimeout({
         action: 'getProjects',
         baseUrl: apiCfg.baseUrl,
         token: apiCfg.token,
         workspaceId: wsId,
-      });
-      if (!resp.success) throw new Error(resp.error);
+      }, 10000);
+      if (!resp || !resp.success) throw new Error(resp?.error || '未知错误');
 
       projectsData = Array.isArray(resp.data) ? resp.data : (resp.data?.items || resp.data?.data || []);
       if (!projectsData.length) {
@@ -758,6 +794,7 @@
       }
       projectsDiv.innerHTML = html;
     } catch (e) {
+      console.warn('[taskChromePlugin] loadProjects 失败:', e.message);
       projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">加载失败: ${e.message}</span>`;
     }
   }
@@ -807,7 +844,7 @@
     submitBtn.textContent = '创建中...';
 
     try {
-      const mappingResp = await chrome.runtime.sendMessage({ action: 'getEndpointMapping' });
+      const mappingResp = await sendMessageWithTimeout({ action: 'getEndpointMapping' }, 5000);
 
       const wb = workBranch.value.trim();
       const mt = mergeTarget.value.trim();
@@ -856,13 +893,13 @@
         };
       }
 
-      const resp = await chrome.runtime.sendMessage({
+      const resp = await sendMessageWithTimeout({
         action: 'createTask',
         baseUrl: apiCfg.baseUrl,
         token: apiCfg.token,
         endpointMapping: mappingResp.success ? mappingResp.data : undefined,
         taskData,
-      });
+      }, 15000);
 
       if (!resp.success) throw new Error(resp.error);
 
@@ -903,15 +940,15 @@
       if (!repoUrl) continue;
 
       try {
-        const resp = await chrome.runtime.sendMessage({
+        const resp = await sendMessageWithTimeout({
           action: 'getBranches',
           baseUrl: apiCfg.baseUrl,
           token: apiCfg.token,
           companyId: String(companyId),
           projectId: pid,
           repoUrl: repoUrl,
-        });
-        if (resp.success && Array.isArray(resp.data?.branches)) {
+        }, 10000);
+        if (resp && resp.success && Array.isArray(resp.data?.branches)) {
           for (const b of resp.data.branches) {
             const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
             if (name && !seen.has(name)) {
