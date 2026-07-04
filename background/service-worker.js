@@ -207,7 +207,7 @@ async function handleMessage(message, sender) {
 
     case 'loginWithAccessToken':
       try {
-        API.init(message.baseUrl, undefined, message.endpointMapping);
+        API.init(message.baseUrl, '', message.endpointMapping);
         if (message.endpointMapping) {
           API.setEndpointMapping(message.endpointMapping);
           if (message.endpointMapping.owner) API.setOwner(message.endpointMapping.owner);
@@ -217,7 +217,7 @@ async function handleMessage(message, sender) {
         if (token) {
           await Storage.saveApiConfig(message.baseUrl, token);
           const cc = result.user?.current_company;
-          await Storage.saveCredentials('(访问令牌)', `token:${message.accessToken}`, result.user?.id || '', cc?.member_id || '');
+          await Storage.saveCredentials('(访问令牌)', result.user?.id || '', cc?.member_id || '');
         }
         return { success: true, data: result };
       } catch (e) {

@@ -299,44 +299,55 @@ const Popup = (() => {
   // ---- 令牌登录流程 ----
 
   /**
-   * 令牌登录 — 用户手动输入 API 令牌直接登录
+   * 令牌登录 — 用 access token 交换 session token
    *
    * 流程:
-   * 1. 读取用户输入的服务器地址和 API 令牌
-   * 2. 调用 /api/oidc/userinfo 验证令牌有效性
-   * 3. 验证通过后保存 token + 用户信息
-   * 4. 刷新 UI 显示已登录状态
+   * 1. 读取用户输入的 access token
+   * 2. 发送给 Service Worker → POST /api/accounts/users/login-with-access-token/
+   * 3. taskAuth 验证 access token 并返回 session token
+   * 4. SW 保存 session token → 后续 API 请求使用 session token (Token xxx)
    */
   async function handleTokenLogin() {
     const baseUrl = $('#baseUrl').value.trim();
-    const apiToken = $('#apiToken').value.trim();
+    const accessToken = $('#apiToken').value.trim();
     const btn = $('#btnLogin');
     const loginResult = $('#loginResult');
 
-    if (!baseUrl || !apiToken) {
-      showResult('loginResult', '请填写服务器地址和 API 令牌', 'error');
+    if (!baseUrl || !accessToken) {
+      showResult('loginResult', '请填写服务器地址和访问令牌', 'error');
       return;
     }
 
     if (loginResult) { loginResult.className = 'result'; loginResult.textContent = ''; }
-    if (btn) { btn.disabled = true; btn.textContent = '\u23f3 验证中...'; }
+    if (btn) { btn.disabled = true; btn.textContent = '\u23f3 正在换取会话令牌...'; }
 
     try {
-      // 初始化 API 客户端并验证令牌
-      API.init(baseUrl, apiToken);
+      // 发送 loginWithAccessToken 到 Service Worker
+      // SW 调用 POST /api/accounts/users/login-with-access-token/
+      // 用 access token 换取 session token
+      const res = await sendMessageWithTimeout({
+        action: 'loginWithAccessToken',
+        baseUrl,
+        accessToken,
+        endpointMapping: {},
+      }, 30000);
 
-      // 调用 userinfo 端点验证令牌有效性（标准 OIDC 验证方式）
-      const user = await API.request('GET', '/api/oidc/userinfo');
+      if (!res?.success) {
+        throw new Error(res?.error || '换取会话令牌失败');
+      }
 
-      // 保存 token 和用户信息
-      await Storage.saveApiConfig(baseUrl, apiToken, 0);
-      if (user) {
+      const result = res.data;
+      const sessionToken = result.token || result.access_token;
+
+      // 保存 session token（后续 API 请求使用此 token）
+      await Storage.saveApiConfig(baseUrl, sessionToken, 0);
+      if (result.user) {
         await Storage.saveCredentials(
-          user.preferred_username || user.name || user.email || '',
-          user.sub || '', ''
+          result.user.preferred_username || result.user.name || result.user.email || '',
+          result.user.id || '', ''
         );
       } else {
-        await Storage.saveCredentials('(API 令牌)', '', '');
+        await Storage.saveCredentials('(访问令牌)', '', '');
       }
 
       await loadState();
@@ -344,12 +355,14 @@ const Popup = (() => {
       console.error('[TaskPlugin] 令牌登录失败:', e);
       const msg = (e.message || '').toLowerCase();
       let friendlyMsg;
-      if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid_token')) {
-        friendlyMsg = '令牌无效或已过期，请检查后重试。';
+      if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid') || msg.includes('无效')) {
+        friendlyMsg = '访问令牌无效或已过期，请检查后重试。';
+      } else if (msg.includes('超时')) {
+        friendlyMsg = '请求超时，请检查网络后重试。';
       } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('connect')) {
         friendlyMsg = '无法连接到服务器，请检查服务器地址和网络连接。';
-      } else if (msg.includes('403')) {
-        friendlyMsg = '令牌权限不足，请联系管理员。';
+      } else if (msg.includes('403') || msg.includes('禁用')) {
+        friendlyMsg = '账号已被禁用，请联系管理员。';
       } else {
         friendlyMsg = e.message || '验证失败，请重试。';
       }
@@ -357,7 +370,6 @@ const Popup = (() => {
       if (btn) { btn.disabled = false; btn.textContent = '🔓 登录'; }
     }
   }
-
   // ---- 登出 ----
 
   async function handleLogout() {
