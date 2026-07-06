@@ -42,6 +42,7 @@
             <option value="3xx">3xx 重定向</option>
             <option value="4xx">4xx 客户端错误</option>
             <option value="5xx">5xx 服务端错误</option>
+            <option value="canceled">Canceled 已取消</option>
           </select>
         </div>
         <div class="btn-row">
@@ -83,22 +84,16 @@
         <h3>🌿 分支策略</h3>
         <div class="target-row">
           <div style="flex:1">
-            <label>工作分支 <span class="hint-inline">— 从此分支拉出工作分支</span></label>
-            <input type="text" id="singleWorkBranch" class="form-input" placeholder="如: fix/2026-07-03_username_aidev${taskId}_fix-502">
+            <label>工作分支 <span class="hint-inline">— 选择模板或输入分支名</span></label>
+            <input type="text" id="singleWorkBranch" class="form-input" placeholder="选择模板或输入分支名" list="singleWorkBranchList">
+            <datalist id="singleWorkBranchList"></datalist>
           </div>
           <div style="flex:1">
-            <label>合并目标模板 <span class="hint-inline">— 选择模板自动填充</span></label>
+            <label>合并目标分支 <span class="hint-inline">— 选择模板或输入分支名</span></label>
             <div class="target-row" style="gap:4px">
-              <select id="singleMergeTargetPreset" class="form-select" style="flex:1">
-                <option value="develop">develop</option>
-                <!-- release 选项由 JS 动态填充（本周四/下周四/下下周四） -->
-                <option value="main">main</option>
-                <option value="custom">自定义（手动输入）</option>
-              </select>
-              <button id="btnRefreshSingleBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表">🔄</button>
+              <input type="text" id="singleMergeTarget" class="form-input" style="flex:1" placeholder="如: main, develop" list="singleMergeTargetList">
+              <button id="btnRefreshSingleBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
             </div>
-            <label style="margin-top:4px">合并目标分支 <span class="hint-inline">— 可编辑</span></label>
-            <input type="text" id="singleMergeTarget" class="form-input" placeholder="如: main, develop" list="singleMergeTargetList">
             <datalist id="singleMergeTargetList"></datalist>
           </div>
         </div>
@@ -140,6 +135,7 @@
             <label><input type="checkbox" value="3xx" checked> 3xx</label>
             <label><input type="checkbox" value="4xx" checked> 4xx</label>
             <label><input type="checkbox" value="5xx" checked> 5xx</label>
+            <label><input type="checkbox" value="canceled" checked> Canceled</label>
           </div>
         </div>
         <div class="form-row">
@@ -170,24 +166,16 @@
           </select>
         </div>
         <div class="form-row">
-          <label>工作分支 <span class="hint-inline">— 所有批量任务共用</span></label>
-          <input type="text" id="batchWorkBranch" class="form-input" placeholder="如: fix/2026-07-03_username_aidev${taskId}_auto-fix">
+          <label>工作分支 <span class="hint-inline">— 选择模板或输入分支名，所有批量任务共用</span></label>
+          <input type="text" id="batchWorkBranch" class="form-input" placeholder="选择模板或输入分支名" list="batchWorkBranchList">
+          <datalist id="batchWorkBranchList"></datalist>
         </div>
         <div class="form-row">
-          <label>合并目标模板 <span class="hint-inline">— 选择模板自动填充，所有批量任务共用</span></label>
+          <label>合并目标分支 <span class="hint-inline">— 选择模板或输入分支名，所有批量任务共用</span></label>
           <div class="target-row" style="gap:4px">
-            <select id="batchMergeTargetPreset" class="form-select" style="flex:1">
-              <option value="develop">develop</option>
-              <!-- release 选项由 JS 动态填充（本周四/下周四/下下周四） -->
-              <option value="main">main</option>
-              <option value="custom">自定义（手动输入）</option>
-            </select>
-            <button id="btnRefreshBatchBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表">🔄</button>
+            <input type="text" id="batchMergeTarget" class="form-input" style="flex:1" placeholder="如: main, develop" list="batchMergeTargetList">
+            <button id="btnRefreshBatchBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
           </div>
-        </div>
-        <div class="form-row">
-          <label>合并目标分支 <span class="hint-inline">— 所有批量任务共用，可编辑</span></label>
-          <input type="text" id="batchMergeTarget" class="form-input" placeholder="如: main, develop" list="batchMergeTargetList">
           <datalist id="batchMergeTargetList"></datalist>
         </div>
       </div>

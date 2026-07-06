@@ -8,8 +8,7 @@
     "storage",
     "webRequest",
     "activeTab",
-    "tabs",
-    "identity"
+    "tabs"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -30,7 +29,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content/content.js"],
+      "js": ["lib/storage.js", "lib/api.js", "content/content.js"],
       "css": ["content/content.css"],
       "run_at": "document_end"
     }

@@ -130,6 +130,7 @@ label { display: block; font-size: 11px; color: #a6adc8; margin-bottom: 4px; }
 }
 .req-status.error { background: #f38ba8; color: #1e1e2e; }
 .req-status.ok { background: #a6e3a1; color: #1e1e2e; }
+.req-status.canceled { background: rgba(250, 179, 135, 0.35); color: #fab387; }
 .request-preview .req-detail { color: #6c7086; margin-top: 4px; }
 
 /* === Error List === */

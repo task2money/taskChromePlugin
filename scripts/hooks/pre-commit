@@ -1,0 +1,44 @@
+#!/bin/bash
+# taskChromePlugin pre-commit：暂存 lib/、devtools/、background/、test/ 时跑 node --test
+
+set -u
+
+cleanup() {
+    echo "如果有测例失败，记得修复"
+}
+trap cleanup SIGINT SIGTERM EXIT
+
+cd "$(dirname "$0")/../.." || exit 1
+
+echo "Running pre-commit Node tests in $(pwd)..."
+
+export PRE_COMMIT=1
+STAGED_FILES="$(git diff --cached --name-only 2>/dev/null || true)"
+
+should_run_all=false
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in
+        lib/*|devtools/*|background/*|panel/*|popup/*|test/*|package.json)
+            should_run_all=true
+            break
+            ;;
+    esac
+done <<< "$STAGED_FILES"
+
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in
+        test/*.test.js)
+            echo "Running staged test: $f"
+            node --test "$f" || exit 1
+            ;;
+    esac
+done <<< "$STAGED_FILES"
+
+if [ "$should_run_all" = true ]; then
+    echo "Staged plugin source changed; running npm test..."
+    npm test || exit 1
+fi
+
+echo "taskChromePlugin pre-commit checks passed."

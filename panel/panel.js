@@ -8,7 +8,8 @@
 
 const Panel = (() => {
   // ---- State ----
-  let apiConfig = { baseUrl: 'http://183.250.1.132:4000', token: '' };
+  let apiConfig = { baseUrl: 'http://183.250.1.132:18081', token: '' };
+  let isLoggedIn = false;
   let selectedRequest = null;
   let recentRequests = [];
   let workspaces = [];
@@ -22,18 +23,32 @@ const Panel = (() => {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => document.querySelectorAll(sel);
 
+  function isRequestCanceled(req) {
+    return !!(req?.canceled || req?.statusCode === 0);
+  }
+
+  function formatRequestStatusLabel(req) {
+    if (isRequestCanceled(req)) return 'Canceled';
+    return String(req?.statusCode ?? '');
+  }
+
+  function getRequestStatusClass(req) {
+    if (isRequestCanceled(req)) return 'canceled';
+    if (req?.statusCode >= 400) return 'error';
+    return 'ok';
+  }
+
   // ---- Init ----
   async function init() {
-    await loadConfig();
+    await refreshAuthState();
     await loadSavedOwner();
     bindTabs();
+    bindAuthListener();
     bindSingleTab();
     bindBatchTab();
     bindErrorListTab();
     bindHistoryTab();
-    // 动态填充 release 周四选项
-    populateReleasePresets('singleMergeTargetPreset');
-    populateReleasePresets('batchMergeTargetPreset');
+    initBranchDatalistPresets();
     // 监听来自 devtools.js 的 postMessage（直接接收请求，不依赖 service worker）
     window.addEventListener('message', (event) => {
       if (!event.data) return;
@@ -45,6 +60,17 @@ const Panel = (() => {
         recentRequests.unshift(event.data.request);
         if (recentRequests.length > 500) recentRequests.pop();
         applyRequestFilters();
+      } else if (event.data.action === 'requestUpdated') {
+        const updated = event.data.request;
+        if (!updated?.id) return;
+        const idx = recentRequests.findIndex((r) => r.id === updated.id);
+        if (idx >= 0) {
+          recentRequests[idx] = updated;
+          if (selectedRequest?.id === updated.id) {
+            selectedRequest = updated;
+            fillRequestDetail(updated);
+          }
+        }
       }
     });
     // 立即加载工作空间（不等待用户点击请求）
@@ -73,21 +99,24 @@ const Panel = (() => {
   async function loadMembers(companyId) {
     const sel = $('#singleOwner');
     sel.innerHTML = '<option value="">加载中...</option>';
+    if (!(await ensureApiReady())) {
+      sel.innerHTML = '<option value="">请先登录</option>';
+      return;
+    }
     if (membersCache[companyId]) {
       renderMemberOptions(companyId);
       return;
     }
     try {
-      const r = await sendMessage({
-        action: 'getMembers', baseUrl: apiConfig.baseUrl, token: apiConfig.token,
-        companyId: companyId,
-      });
-      if (!r.success) throw new Error(r.error);
-      // API returns paginated results: { results: [...], count: ... } or plain array
-      const members = Array.isArray(r.data) ? r.data : (r.data?.results || r.data?.data || []);
+      const data = await API.getMembers(companyId);
+      const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
       membersCache[companyId] = members;
       renderMemberOptions(companyId);
     } catch (e) {
+      if (handleApiAuthFailure(e)) {
+        sel.innerHTML = '<option value="">请重新登录</option>';
+        return;
+      }
       sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
     }
   }
@@ -126,17 +155,20 @@ const Panel = (() => {
       renderProgressColumnOptions(selectId, cacheKey);
       return;
     }
+    if (!(await ensureApiReady())) {
+      sel.innerHTML = '<option value="">请先登录</option>';
+      return;
+    }
     try {
-      const r = await sendMessage({
-        action: 'fetchProgressColumns', baseUrl: apiConfig.baseUrl, token: apiConfig.token,
-        companyId, workspaceId: wsId,
-      });
-      if (!r.success) throw new Error(r.error);
-      const data = r.data || {};
-      const columns = data.columns || [];
+      const data = await API.fetchProgressColumns(companyId, wsId);
+      const columns = data?.columns || [];
       progressColumnsCache[cacheKey] = columns;
       renderProgressColumnOptions(selectId, cacheKey);
     } catch (e) {
+      if (handleApiAuthFailure(e)) {
+        sel.innerHTML = '<option value="">请重新登录</option>';
+        return;
+      }
       sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
     }
   }
@@ -153,22 +185,60 @@ const Panel = (() => {
     if (columns.length > 0) sel.value = String(columns[0].id);
   }
 
-  async function loadConfig() {
+  async function refreshAuthState() {
     apiConfig = await Storage.getApiConfig();
     const cred = await Storage.getCredentials();
     if (cred.userId) currentUserId = String(cred.userId);
     if (cred.memberId) currentMemberId = String(cred.memberId);
-    updateStatusBadge();
+    const expired = await Storage.isTokenExpired();
+    isLoggedIn = !!(apiConfig.token && !expired);
+    if (isLoggedIn) {
+      const mapping = await Storage.getEndpointMapping();
+      API.init(apiConfig.baseUrl, apiConfig.token, mapping);
+    }
+    updateStatusBadge(expired);
+    return isLoggedIn;
   }
 
-  function updateStatusBadge() {
+  async function ensureApiReady() {
+    await refreshAuthState();
+    return isLoggedIn;
+  }
+
+  function handleApiAuthFailure(err) {
+    const msg = String(err?.message || err || '');
+    if (!/\b401\b/.test(msg)) return false;
+    isLoggedIn = false;
+    updateStatusBadge(true);
+    return true;
+  }
+
+  function bindAuthListener() {
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg.action !== 'authStateChanged') return;
+      projectsCache = {};
+      refreshAuthState().then(() => {
+        loadWorkspaces('singleWorkspace');
+        if ($('#batchWorkspace')?.value) {
+          loadWorkspaces('batchWorkspace');
+        }
+      }).catch((e) => {
+        console.warn('[taskChromePlugin] panel authStateChanged 刷新失败:', e.message);
+      });
+    });
+  }
+
+  function updateStatusBadge(expired = false) {
     const badge = $('#statusBadge');
-    if (apiConfig.token) {
-      badge.textContent = '✅ 已连接';
-      badge.className = 'badge badge-connected';
-    } else {
+    if (!apiConfig.token) {
       badge.textContent = '⚠️ 未登录';
       badge.className = 'badge badge-disconnected';
+    } else if (expired || !isLoggedIn) {
+      badge.textContent = '⏰ 会话过期';
+      badge.className = 'badge badge-disconnected';
+    } else {
+      badge.textContent = '✅ 已连接';
+      badge.className = 'badge badge-connected';
     }
   }
 
@@ -210,6 +280,17 @@ const Panel = (() => {
 
   // ---- Merge Target Branch Helpers ----
 
+  const WORK_BRANCH_PRESET_OPTIONS = [
+    { value: 'feature', label: 'feature/${日期}_aidev${taskId}_${标题}' },
+    { value: 'bugfix', label: 'bugfix/${日期}_aidev${taskId}_${标题}' },
+    { value: 'hotfix', label: 'hotfix/${日期}_aidev${taskId}_${标题}' },
+    { value: 'release', label: 'release/${日期}_aidev${taskId}' },
+  ];
+
+  const WORK_BRANCH_LABEL_TO_PRESET = Object.fromEntries(
+    WORK_BRANCH_PRESET_OPTIONS.map((p) => [p.label, p.value]),
+  );
+
   /** 计算接下来第 N 个周四的 YYYYMMDD 日期（N=0 为最近的下一个周四，含今天） */
   function getThursdayYmd(weekOffset = 0) {
     const d = new Date();
@@ -240,28 +321,34 @@ const Panel = (() => {
     return result;
   }
 
-  /** 动态填充 release 周四选项到指定 select */
-  function populateReleasePresets(selectId) {
-    const sel = $(`#${selectId}`);
-    if (!sel) return;
+  /** 合并目标分支模板选项（含动态 release 周四） */
+  function getMergeTargetPresetOptions() {
     const thursdays = getNextThursdays(3);
-    // 找到并移除旧的单个 release option（如果存在）
-    const oldOption = sel.querySelector('option[value="release"]');
-    if (oldOption) oldOption.remove();
-    // 移除旧的 release:N 选项（避免重复）
-    sel.querySelectorAll('option[value^="release:"]').forEach(o => o.remove());
-    // 在 custom 选项之前插入新的 release 选项
-    const customOpt = sel.querySelector('option[value="custom"]');
-    for (const t of thursdays) {
-      const opt = document.createElement('option');
-      opt.value = t.value;
-      opt.textContent = t.label;
-      if (customOpt) {
-        sel.insertBefore(opt, customOpt);
-      } else {
-        sel.appendChild(opt);
-      }
+    return [
+      { value: 'develop', label: 'develop' },
+      ...thursdays.map((t) => ({ value: t.value, label: t.label })),
+      { value: 'main', label: 'main' },
+    ];
+  }
+
+  function getMergeTargetLabelToPreset() {
+    return Object.fromEntries(getMergeTargetPresetOptions().map((p) => [p.label, p.value]));
+  }
+
+  /** 向 datalist 追加模板选项（置于 Git 分支之前） */
+  function appendPresetOptionsToDatalist(datalist, presetKind) {
+    if (!datalist) return;
+    const presets = presetKind === 'work' ? WORK_BRANCH_PRESET_OPTIONS : getMergeTargetPresetOptions();
+    for (const p of presets) {
+      datalist.innerHTML += `<option value="${escHtml(p.label)}">[模板] ${escHtml(p.label)}</option>`;
     }
+  }
+
+  function initBranchDatalistPresets() {
+    appendPresetOptionsToDatalist($('#singleWorkBranchList'), 'work');
+    appendPresetOptionsToDatalist($('#singleMergeTargetList'), 'merge');
+    appendPresetOptionsToDatalist($('#batchWorkBranchList'), 'work');
+    appendPresetOptionsToDatalist($('#batchMergeTargetList'), 'merge');
   }
 
   function buildMergeTargetBranchName(presetType) {
@@ -278,11 +365,42 @@ const Panel = (() => {
     return '';
   }
 
-  function applyMergeTargetPreset(presetId, inputId) {
-    const preset = $(`#${presetId}`).value;
+  function handleBranchInputChange(inputId, presetKind, titleSourceId) {
     const input = $(`#${inputId}`);
-    if (!preset || preset === 'custom') return;
-    input.value = buildMergeTargetBranchName(preset);
+    if (!input) return;
+    const labelMap = presetKind === 'work' ? WORK_BRANCH_LABEL_TO_PRESET : getMergeTargetLabelToPreset();
+    const presetKey = labelMap[input.value];
+    if (!presetKey) return;
+    const branchName = presetKind === 'work'
+      ? buildWorkBranchName(presetKey, titleSourceId)
+      : buildMergeTargetBranchName(presetKey);
+    if (branchName) input.value = branchName;
+  }
+
+  function buildWorkBranchName(presetType, titleSourceId) {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const titleEl = titleSourceId ? $(`#${titleSourceId}`) : null;
+    const titleSlug = (titleEl?.value || 'task')
+      .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'task';
+    if (presetType === 'release') {
+      return `release/${today}_aidev\${taskId}`;
+    }
+    if (presetType === 'feature' || presetType === 'bugfix' || presetType === 'hotfix') {
+      return `${presetType}/${today}_aidev\${taskId}_${titleSlug}`;
+    }
+    return '';
+  }
+
+  async function fetchSingleBranchLists(wsId, projectIds) {
+    await fetchAndPopulateBranches('singleWorkBranchList', wsId, projectIds, 'work');
+    await fetchAndPopulateBranches('singleMergeTargetList', wsId, projectIds, 'merge');
+  }
+
+  async function fetchBatchBranchLists(wsId, projectIds) {
+    await fetchAndPopulateBranches('batchWorkBranchList', wsId, projectIds, 'work');
+    await fetchAndPopulateBranches('batchMergeTargetList', wsId, projectIds, 'merge');
   }
 
   /**
@@ -291,13 +409,14 @@ const Panel = (() => {
    * @param {string} wsId - 工作空间 ID
    * @param {string[]} projectIds - 选中的项目 ID 列表
    */
-  async function fetchAndPopulateBranches(datalistId, wsId, projectIds) {
+  async function fetchAndPopulateBranches(datalistId, wsId, projectIds, presetKind) {
     const datalist = $(`#${datalistId}`);
     if (!datalist) return;
-    // 清空旧数据
     datalist.innerHTML = '';
+    if (presetKind) appendPresetOptionsToDatalist(datalist, presetKind);
 
     if (!wsId || !projectIds.length) return;
+    if (!(await ensureApiReady())) return;
 
     const cached = projectsCache[wsId] || [];
     const ws = workspaces.find(w => (w.id || w._id) === wsId);
@@ -324,23 +443,15 @@ const Panel = (() => {
 
       const shortRepo = extractRepoLabel(repoUrl);
       try {
-        const r = await sendMessage({
-          action: 'getBranches',
-          baseUrl: apiConfig.baseUrl,
-          token: apiConfig.token,
-          companyId: String(companyId),
-          projectId: pid,
-          repoUrl: repoUrl,
-        });
-        if (r.success && Array.isArray(r.data?.branches)) {
-          for (const b of r.data.branches) {
-            const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
-            if (!name) continue;
-            if (!seen.has(name)) {
-              seen.add(name);
-              const label = shortRepo ? `${escHtml(name)}  [${escHtml(shortRepo)}]` : escHtml(name);
-              datalist.innerHTML += `<option value="${escHtml(name)}">${label}</option>`;
-            }
+        const resp = await API.getBranches(String(companyId), pid, repoUrl);
+        const branches = Array.isArray(resp?.branches) ? resp.branches : (Array.isArray(resp) ? resp : []);
+        for (const b of branches) {
+          const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
+          if (!name) continue;
+          if (!seen.has(name)) {
+            seen.add(name);
+            const label = shortRepo ? `${escHtml(name)}  [${escHtml(shortRepo)}]` : escHtml(name);
+            datalist.innerHTML += `<option value="${escHtml(name)}">${label}</option>`;
           }
         }
       } catch (_) {
@@ -388,11 +499,12 @@ const Panel = (() => {
     $('#requestMethodFilter').addEventListener('change', applyRequestFilters);
     $('#requestStatusFilter').addEventListener('change', applyRequestFilters);
     $('#singleWorkspace').addEventListener('change', onSingleWorkspaceChange);
-    $('#singleMergeTargetPreset').addEventListener('change', () => applyMergeTargetPreset('singleMergeTargetPreset', 'singleMergeTarget'));
+    $('#singleWorkBranch').addEventListener('change', () => handleBranchInputChange('singleWorkBranch', 'work', 'singleTaskTitle'));
+    $('#singleMergeTarget').addEventListener('change', () => handleBranchInputChange('singleMergeTarget', 'merge'));
     $('#btnRefreshSingleBranches').addEventListener('click', () => {
       const wsId = $('#singleWorkspace').value;
       const checkedIds = getSelectedProjectIds('singleProjects');
-      fetchAndPopulateBranches('singleMergeTargetList', wsId, checkedIds);
+      fetchSingleBranchLists(wsId, checkedIds);
     });
     $('#btnCreateSingle').addEventListener('click', createSingleTask);
     // 项目勾选变化时，动态获取分支列表
@@ -400,7 +512,7 @@ const Panel = (() => {
       if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
         const wsId = $('#singleWorkspace').value;
         const checkedIds = getSelectedProjectIds('singleProjects');
-        fetchAndPopulateBranches('singleMergeTargetList', wsId, checkedIds);
+        fetchSingleBranchLists(wsId, checkedIds);
       }
     });
   }
@@ -432,13 +544,15 @@ const Panel = (() => {
         const url = (r.url || '').toLowerCase();
         const m = (r.method || '').toLowerCase();
         const sc = String(r.statusCode || '');
-        if (!url.includes(search) && !m.includes(search) && !sc.includes(search)) {
+        const canceledLabel = isRequestCanceled(r) ? 'canceled' : '';
+        if (!url.includes(search) && !m.includes(search) && !sc.includes(search) && !canceledLabel.includes(search)) {
           return false;
         }
       }
       // 方法过滤
       if (method && r.method !== method) return false;
       // 状态码过滤
+      if (status === 'canceled' && !isRequestCanceled(r)) return false;
       if (status === '2xx' && !(r.statusCode >= 200 && r.statusCode < 300)) return false;
       if (status === '3xx' && !(r.statusCode >= 300 && r.statusCode < 400)) return false;
       if (status === '4xx' && !(r.statusCode >= 400 && r.statusCode < 500)) return false;
@@ -467,13 +581,13 @@ const Panel = (() => {
 
     let html = '<div class="request-list">';
     for (const req of requests) {
-      const isErr = req.statusCode >= 400;
-      const sc = isErr ? 'error' : 'ok';
+      const sc = getRequestStatusClass(req);
+      const statusLabel = formatRequestStatusLabel(req);
       const sel = selectedRequest?.id === req.id ? ' selected' : '';
       const urlShort = (req.url || '').length > 100 ? req.url.slice(0, 100) + '...' : req.url;
       html += `<div class="request-item${sel}" data-id="${req.id}">
         <span class="req-method ${req.method}">${req.method}</span>
-        <span class="req-status ${sc}">${req.statusCode}</span>
+        <span class="req-status ${sc}">${statusLabel}</span>
         <span class="req-url" title="${escHtml(req.url)}">${escHtml(urlShort)}</span>
         <span class="req-time">${req.time || '?'}ms</span>
       </div>`;
@@ -500,10 +614,13 @@ const Panel = (() => {
   function fillRequestDetail(req) {
     // 自动填充标题
     let p = ''; try { p = new URL(req.url).pathname; } catch (_) { p = req.url; }
-    $('#singleTaskTitle').value = `[${req.method}] ${p} → ${req.statusCode}`;
+    $('#singleTaskTitle').value = `[${req.method}] ${p} → ${formatRequestStatusLabel(req)}`;
 
     // 自动填充描述（每次切换都更新 — 含完整的请求/响应头体）
-    let d = `**请求**: ${req.method} ${req.url}\n**状态码**: ${req.statusCode} ${req.statusText || ''}\n**耗时**: ${req.time || '?'}ms`;
+    let d = `**请求**: ${req.method} ${req.url}\n**状态码**: ${formatRequestStatusLabel(req)} ${req.statusText || ''}\n**耗时**: ${req.time || '?'}ms`;
+    if (isRequestCanceled(req) && req.error) {
+      d += `\n**错误**: ${req.error}`;
+    }
     // 响应体
     if (req.responseBody) d += `\n\n**响应体**:\n\`\`\`\n${String(req.responseBody)}\n\`\`\``;
     // 响应头
@@ -530,7 +647,6 @@ const Panel = (() => {
     }
     // 自动填充合并目标分支（若未手动填写）
     if (!$('#singleMergeTarget').value) {
-      $('#singleMergeTargetPreset').value = 'main';
       $('#singleMergeTarget').value = 'main';
     }
   }
@@ -539,11 +655,14 @@ const Panel = (() => {
   async function loadWorkspaces(selectId) {
     const sel = $(`#${selectId}`);
     if (!sel) return;
+    if (!(await ensureApiReady())) {
+      sel.innerHTML = `<option value="">-- ${apiConfig.token ? '会话过期，请重新登录' : '请先登录'} --</option>`;
+      return;
+    }
     sel.innerHTML = '<option value="">加载中...</option>';
     try {
-      const r = await sendMessage({ action: 'getWorkspaces', baseUrl: apiConfig.baseUrl, token: apiConfig.token });
-      if (!r.success) throw new Error(r.error);
-      workspaces = Array.isArray(r.data) ? r.data : (r.data?.results || r.data?.items || r.data?.data || []);
+      const data = await API.getWorkspaces();
+      workspaces = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       renderWorkspaceOptions(selectId);
       // 自动选择 workspace：优先上次选择的，其次唯一 workspace
       const last = await Storage.getLastWorkspace();
@@ -555,6 +674,10 @@ const Panel = (() => {
       // 无论如何都触发 change，确保项目/负责人/进度列加载
       sel.dispatchEvent(new Event('change'));
     } catch (e) {
+      if (handleApiAuthFailure(e)) {
+        sel.innerHTML = '<option value="">-- 请在扩展中重新登录 --</option>';
+        return;
+      }
       sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
     }
   }
@@ -575,6 +698,8 @@ const Panel = (() => {
       $('#singleProjects').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       $('#singleOwner').innerHTML = '<option value="">请先选择工作空间</option>';
       $('#singleProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
+      fetchAndPopulateBranches('singleWorkBranchList', '', [], 'work');
+      fetchAndPopulateBranches('singleMergeTargetList', '', [], 'merge');
       return;
     }
     await loadProjects(wsId, 'singleProjects');
@@ -588,21 +713,33 @@ const Panel = (() => {
     // 恢复选中后加载分支
     const checkedIds = getSelectedProjectIds('singleProjects');
     if (checkedIds.length) {
-      fetchAndPopulateBranches('singleMergeTargetList', wsId, checkedIds);
+      fetchSingleBranchLists(wsId, checkedIds);
+    } else {
+      fetchAndPopulateBranches('singleWorkBranchList', wsId, [], 'work');
+      fetchAndPopulateBranches('singleMergeTargetList', wsId, [], 'merge');
     }
   }
 
   async function loadProjects(wsId, containerId) {
     const c = $(`#${containerId}`);
     c.innerHTML = '<p class="placeholder">加载中...</p>';
+    if (!(await ensureApiReady())) {
+      c.innerHTML = '<p class="placeholder">请先登录</p>';
+      return;
+    }
     if (projectsCache[wsId]) { renderProjectCheckboxes(containerId, projectsCache[wsId]); return; }
     try {
-      const r = await sendMessage({ action: 'getProjects', baseUrl: apiConfig.baseUrl, token: apiConfig.token, workspaceId: wsId });
-      if (!r.success) throw new Error(r.error);
-      const projs = Array.isArray(r.data) ? r.data : (r.data?.items || r.data?.data || []);
+      const data = await API.getProjects(wsId);
+      const projs = Array.isArray(data) ? data : (data?.items || data?.data || []);
       projectsCache[wsId] = projs;
       renderProjectCheckboxes(containerId, projs);
-    } catch (e) { c.innerHTML = `<p class="placeholder">加载失败: ${e.message}</p>`; }
+    } catch (e) {
+      if (handleApiAuthFailure(e)) {
+        c.innerHTML = '<p class="placeholder">请重新登录</p>';
+        return;
+      }
+      c.innerHTML = `<p class="placeholder">加载失败: ${e.message}</p>`;
+    }
   }
 
   function renderProjectCheckboxes(containerId, projects) {
@@ -650,6 +787,7 @@ const Panel = (() => {
     if (!title) return showR('singleResult', 'error', '请输入任务标题');
     if (!owner) return showR('singleResult', 'error', '请填写 Owner (CompanyMember.id)，可在端点映射中配置默认值');
     if (!selectedRequest) return showR('singleResult', 'error', '请从请求列表中选择一个请求');
+    if (!(await ensureApiReady())) return showR('singleResult', 'error', '请先登录或会话已过期');
 
     // 将项目展开为 API 所需的 repo 级条目（含 repo_index）
     const projects = [];
@@ -710,11 +848,12 @@ const Panel = (() => {
   function bindBatchTab() {
     $('#captureToggle').addEventListener('change', onCaptureToggle);
     $('#batchWorkspace').addEventListener('change', onBatchWsChange);
-    $('#batchMergeTargetPreset').addEventListener('change', () => applyMergeTargetPreset('batchMergeTargetPreset', 'batchMergeTarget'));
+    $('#batchWorkBranch').addEventListener('change', () => handleBranchInputChange('batchWorkBranch', 'work'));
+    $('#batchMergeTarget').addEventListener('change', () => handleBranchInputChange('batchMergeTarget', 'merge'));
     $('#btnRefreshBatchBranches').addEventListener('click', () => {
       const wsId = $('#batchWorkspace').value;
       const checkedIds = getSelectedProjectIds('batchProjects');
-      fetchAndPopulateBranches('batchMergeTargetList', wsId, checkedIds);
+      fetchBatchBranchLists(wsId, checkedIds);
     });
     $('#btnRefreshErrors').addEventListener('click', refreshCapturedCount);
     // 项目勾选变化时，动态获取分支列表
@@ -722,7 +861,7 @@ const Panel = (() => {
       if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
         const wsId = $('#batchWorkspace').value;
         const checkedIds = getSelectedProjectIds('batchProjects');
-        fetchAndPopulateBranches('batchMergeTargetList', wsId, checkedIds);
+        fetchBatchBranchLists(wsId, checkedIds);
       }
     });
     $('#btnClearErrors').addEventListener('click', clearCapturedErrors);
@@ -777,6 +916,8 @@ const Panel = (() => {
     if (!id) {
       $('#batchProjects').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       $('#batchProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
+      fetchAndPopulateBranches('batchWorkBranchList', '', [], 'work');
+      fetchAndPopulateBranches('batchMergeTargetList', '', [], 'merge');
       return;
     }
     await loadProjects(id, 'batchProjects');
@@ -788,7 +929,10 @@ const Panel = (() => {
     // 恢复选中后加载分支
     const checkedIds = getSelectedProjectIds('batchProjects');
     if (checkedIds.length) {
-      fetchAndPopulateBranches('batchMergeTargetList', id, checkedIds);
+      fetchBatchBranchLists(id, checkedIds);
+    } else {
+      fetchAndPopulateBranches('batchWorkBranchList', id, [], 'work');
+      fetchAndPopulateBranches('batchMergeTargetList', id, [], 'merge');
     }
   }
 
@@ -800,6 +944,7 @@ const Panel = (() => {
     const mergeTarget = ($('#batchMergeTarget').value || '').trim();
     if (!wsId) return showR('batchResult', 'error', '请选择工作空间');
     if (!checkedIds.length) return showR('batchResult', 'error', '请勾选至少一个项目');
+    if (!(await ensureApiReady())) return showR('batchResult', 'error', '请先登录或会话已过期');
 
     // 从缓存中获取完整项目信息，构建包含 base_branch 和 target_branch 的 projects 数组
     const cached = projectsCache[wsId] || [];
@@ -835,7 +980,9 @@ const Panel = (() => {
     try {
       await Storage.saveLastProjectIds(checkedIds);
       const tasks = errors.map((e) => {
-        let desc = `**自动捕获**\n- URL: ${e.url}\n- 方法: ${e.method}\n- 状态码: ${e.statusCode} ${e.statusLine || ''}\n- 时间: ${new Date(e.capturedAt || e.timeStamp).toISOString()}`;
+        const statusLabel = e.canceled || e.statusCode === 0 ? 'Canceled' : String(e.statusCode);
+        let desc = `**自动捕获**\n- URL: ${e.url}\n- 方法: ${e.method}\n- 状态码: ${statusLabel} ${e.statusLine || ''}\n- 时间: ${new Date(e.capturedAt || e.timeStamp).toISOString()}`;
+        if (e.error) desc += `\n- 错误: ${e.error}`;
         // 响应头
         if (e.responseHeaders && Object.keys(e.responseHeaders).length) {
           desc += `\n\n**响应头**:\n\`\`\`\n${Object.entries(e.responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
@@ -845,9 +992,9 @@ const Panel = (() => {
           desc += `\n\n**请求头**:\n\`\`\`\n${Object.entries(e.requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
         }
         const task = {
-          title: `[${e.method}] ${extractPath(e.url)} → ${e.statusCode}`,
+          title: `[${e.method}] ${extractPath(e.url)} → ${statusLabel}`,
           description: desc,
-          priority: e.statusCode >= 500 ? 'high' : 'medium',
+          priority: e.canceled || e.statusCode === 0 ? 'medium' : (e.statusCode >= 500 ? 'high' : 'medium'),
           workspaceId: wsId, projects,
           source: 'chrome-auto-capture', sourceUrl: e.url, sourceStatusCode: e.statusCode, sourceMethod: e.method, capturedAt: e.capturedAt || e.timeStamp,
         };
@@ -897,7 +1044,7 @@ const Panel = (() => {
       for (const e of [...r.data].reverse()) {
         const s = (e.url || '').length > 100 ? e.url.slice(0, 100) + '...' : e.url;
         h += `<div class="error-item">
-          <div class="err-url"><span class="req-method ${e.method}">${e.method}</span><span class="err-status">${e.statusCode}</span>${escHtml(s)}</div>
+          <div class="err-url"><span class="req-method ${e.method}">${e.method}</span><span class="err-status">${e.canceled ? 'Canceled' : e.statusCode}</span>${escHtml(s)}</div>
           <div class="err-meta"><span>${e.type}</span><span>${new Date(e.capturedAt).toLocaleString()}</span></div>
         </div>`;
       }

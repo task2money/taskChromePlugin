@@ -1,5 +1,5 @@
 /**
- * Popup 脚本 — 令牌登录、连接状态、请求快速预览
+ * Popup 脚本 — 账号+令牌登录、连接状态、请求快速预览
  * 任务创建请使用 DevTools Panel (F12 → TaskPlugin)
  */
 
@@ -103,7 +103,7 @@ const Popup = (() => {
         loginHint.textContent = errorMessage;
         loginHint.style.color = '#f38ba8';
       } else {
-        loginHint.textContent = '请输入 task2app API 令牌。可在网站右上角菜单 → 个人设置 → API 令牌 中获取。';
+        loginHint.textContent = '输入 task2app 账号与访问令牌（在账号中心 → 访问令牌 中生成）。';
         loginHint.style.color = '';
       }
     }
@@ -129,7 +129,7 @@ const Popup = (() => {
 
     const loginHint = $('#loginHint');
     if (loginHint) {
-      loginHint.textContent = '⏰ 登录会话已过期，请重新输入 API 令牌。';
+      loginHint.textContent = '⏰ 登录会话已过期，请重新登录。';
       loginHint.style.color = '#fab387';
     }
 
@@ -159,16 +159,15 @@ const Popup = (() => {
     const cfg = await Storage.getApiConfig();
     const cred = await Storage.getCredentials();
 
-    const OLD_DEFAULT = 'http://183.250.1.132:4000';
-    const NEW_DEFAULT = 'http://183.250.1.132:18081';
-    let baseUrl = cfg.baseUrl || '';
-    if (baseUrl === OLD_DEFAULT) {
-      baseUrl = NEW_DEFAULT;
-      await Storage.saveApiConfig(NEW_DEFAULT, cfg.token || '');
-    }
+    const baseUrl = cfg.baseUrl;
 
     const baseUrlInput = $('#baseUrl');
     if (baseUrlInput) baseUrlInput.value = baseUrl;
+
+    const usernameInput = $('#username');
+    if (usernameInput && cred.username && !cred.username.startsWith('(')) {
+      usernameInput.value = cred.username;
+    }
 
     if (cfg.token) {
       // 检查 token 是否过期
@@ -242,17 +241,8 @@ const Popup = (() => {
   }
 
   function bindEvents() {
-    // 登录按钮 — 令牌验证
+    // 登录按钮 — 账号 + 访问令牌
     $('#btnLogin').addEventListener('click', handleTokenLogin);
-
-    // 显示/隐藏令牌切换
-    const showTokenCb = $('#showToken');
-    if (showTokenCb) {
-      showTokenCb.addEventListener('change', () => {
-        const inp = $('#apiToken');
-        if (inp) inp.type = showTokenCb.checked ? 'text' : 'password';
-      });
-    }
 
     // 退出登录
     $('#btnLogout').addEventListener('click', handleLogout);
@@ -296,85 +286,73 @@ const Popup = (() => {
     $('#reqStatusFilter').addEventListener('change', renderRequestList);
   }
 
-  // ---- 令牌登录流程 ----
+  // ---- 账号 + 令牌登录 ----
 
-  /**
-   * 令牌登录 — 用 access token 交换 session token
-   *
-   * 流程:
-   * 1. 读取用户输入的 access token
-   * 2. 发送给 Service Worker → POST /api/accounts/users/login-with-access-token/
-   * 3. taskAuth 验证 access token 并返回 session token
-   * 4. SW 保存 session token → 后续 API 请求使用 session token (Token xxx)
-   */
+  function isAccessTokenFormat(token) {
+    return typeof token === 'string' && token.startsWith('at_') && token.length >= 12;
+  }
+
+  function notifyContentScriptsAuthChanged() {
+    chrome.tabs.query({}).then((tabs) => {
+      for (const tab of tabs) {
+        if (!tab.id) continue;
+        chrome.tabs.sendMessage(tab.id, { action: 'authStateChanged' }).catch(() => {});
+      }
+    }).catch(() => {});
+  }
+
   async function handleTokenLogin() {
-    const baseUrl = $('#baseUrl').value.trim();
-    const accessToken = $('#apiToken').value.trim();
-    const btn = $('#btnLogin');
-    const loginResult = $('#loginResult');
-
-    if (!baseUrl || !accessToken) {
-      showResult('loginResult', '请填写服务器地址和访问令牌', 'error');
-      return;
+    const baseUrlInput = $('#baseUrl');
+    const usernameInput = $('#username');
+    const accessTokenInput = $('#accessToken');
+    const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
+    const username = usernameInput ? usernameInput.value.trim() : '';
+    const accessToken = accessTokenInput ? accessTokenInput.value.trim() : '';
+    if (!baseUrl) return showResult('loginResult', '请填写服务器地址', 'error');
+    if (!username) return showResult('loginResult', '请填写账号', 'error');
+    if (!accessToken) return showResult('loginResult', '请填写访问令牌', 'error');
+    if (!isAccessTokenFormat(accessToken)) {
+      return showResult('loginResult', '访问令牌格式无效，应以 at_ 开头', 'error');
     }
 
+    const btn = $('#btnLogin');
+    const loginResult = $('#loginResult');
+    if (!btn) return;
+
     if (loginResult) { loginResult.className = 'result'; loginResult.textContent = ''; }
-    if (btn) { btn.disabled = true; btn.textContent = '\u23f3 正在换取会话令牌...'; }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ 登录中...';
 
     try {
-      // 发送 loginWithAccessToken 到 Service Worker
-      // SW 调用 POST /api/accounts/users/login-with-access-token/
-      // 用 access token 换取 session token
       const res = await sendMessageWithTimeout({
         action: 'loginWithAccessToken',
         baseUrl,
+        username,
         accessToken,
-        endpointMapping: {},
       }, 30000);
 
-      if (!res?.success) {
-        throw new Error(res?.error || '换取会话令牌失败');
-      }
-
-      const result = res.data;
-      const sessionToken = result.token || result.access_token;
-
-      // 保存 session token（后续 API 请求使用此 token）
-      await Storage.saveApiConfig(baseUrl, sessionToken, 0);
-      if (result.user) {
-        await Storage.saveCredentials(
-          result.user.preferred_username || result.user.name || result.user.email || '',
-          result.user.id || '', ''
-        );
+      if (res?.success) {
+        notifyContentScriptsAuthChanged();
+        await loadState();
       } else {
-        await Storage.saveCredentials('(访问令牌)', '', '');
+        showResult('loginResult', `❌ ${res?.error || '登录失败'}`, 'error');
+        btn.textContent = '🔓 登录';
       }
-
-      await loadState();
     } catch (e) {
-      console.error('[TaskPlugin] 令牌登录失败:', e);
-      const msg = (e.message || '').toLowerCase();
-      let friendlyMsg;
-      if (msg.includes('401') || msg.includes('unauthorized') || msg.includes('invalid') || msg.includes('无效')) {
-        friendlyMsg = '访问令牌无效或已过期，请检查后重试。';
-      } else if (msg.includes('超时')) {
-        friendlyMsg = '请求超时，请检查网络后重试。';
-      } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('connect')) {
-        friendlyMsg = '无法连接到服务器，请检查服务器地址和网络连接。';
-      } else if (msg.includes('403') || msg.includes('禁用')) {
-        friendlyMsg = '账号已被禁用，请联系管理员。';
-      } else {
-        friendlyMsg = e.message || '验证失败，请重试。';
-      }
-      showResult('loginResult', friendlyMsg, 'error');
-      if (btn) { btn.disabled = false; btn.textContent = '🔓 登录'; }
+      showResult('loginResult', `❌ ${e.message || '登录失败'}`, 'error');
+      btn.textContent = '🔓 登录';
+    } finally {
+      btn.disabled = false;
     }
   }
+
   // ---- 登出 ----
 
   async function handleLogout() {
     await Storage.saveApiConfig('', '');
     await Storage.saveCredentials('', '');
+    notifyContentScriptsAuthChanged();
     await loadState();
   }
 
@@ -404,6 +382,15 @@ const Popup = (() => {
     if (detail) detail.style.display = 'none';
   }
 
+  function isRequestCanceled(req) {
+    return !!(req?.canceled || req?.statusCode === 0);
+  }
+
+  function formatRequestStatusLabel(req) {
+    if (isRequestCanceled(req)) return 'Canceled';
+    return String(req?.statusCode ?? '');
+  }
+
   function renderRequestList() {
     const search = ($('#reqSearch').value || '').toLowerCase();
     const statusFilter = $('#reqStatusFilter').value;
@@ -413,8 +400,10 @@ const Popup = (() => {
         const url = (r.url || '').toLowerCase();
         const m = (r.method || '').toLowerCase();
         const sc = String(r.statusCode || '');
-        if (!url.includes(search) && !m.includes(search) && !sc.includes(search)) return false;
+        const canceledLabel = isRequestCanceled(r) ? 'canceled' : '';
+        if (!url.includes(search) && !m.includes(search) && !sc.includes(search) && !canceledLabel.includes(search)) return false;
       }
+      if (statusFilter === 'canceled' && !isRequestCanceled(r)) return false;
       if (statusFilter === '5xx' && !(r.statusCode >= 500 && r.statusCode < 600)) return false;
       if (statusFilter === '4xx' && !(r.statusCode >= 400 && r.statusCode < 500)) return false;
       if (statusFilter === '2xx' && !(r.statusCode >= 200 && r.statusCode < 300)) return false;
@@ -434,12 +423,12 @@ const Popup = (() => {
 
     let html = '';
     for (const req of display) {
-      const scCls = req.statusCode >= 500 ? 'err-5xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok');
+      const scCls = isRequestCanceled(req) ? 'err-4xx' : (req.statusCode >= 500 ? 'err-5xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok'));
       const sel = selectedReqId === req.id ? ' selected' : '';
       const urlShort = (req.url || '').length > 60 ? req.url.slice(0, 60) + '…' : (req.url || '');
       html += `<div class="popup-req-item${sel}" data-id="${req.id}">
         <span class="req-method ${req.method}">${req.method}</span>
-        <span class="req-status ${scCls}">${req.statusCode}</span>
+        <span class="req-status ${scCls}">${formatRequestStatusLabel(req)}</span>
         <span class="req-url">${escHtml(urlShort)}</span>
       </div>`;
     }
@@ -481,7 +470,7 @@ const Popup = (() => {
 
     el.innerHTML = `<div style="margin-bottom:6px">
       <span class="req-method ${req.method}">${req.method}</span>
-      <span class="req-status ${req.statusCode >= 400 ? 'err-4xx' : 'err-ok'}">${req.statusCode}</span>
+      <span class="req-status ${isRequestCanceled(req) ? 'err-4xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok')}">${formatRequestStatusLabel(req)}</span>
       <span style="font-size:10px;color:#6c7086;margin-left:6px">${escHtml(req.url)}</span>
     </div>
     ${reqHdrHtml}

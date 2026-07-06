@@ -4,10 +4,9 @@
  *  - 顶层注册 webRequest 监听器，自动捕获错误响应
  *  - 将错误请求暂存到 chrome.storage
  *  - 作为 DevTools panel 与 popup 之间的消息桥梁
- *  - 处理令牌登录流程
  */
 
-importScripts('../lib/storage.js', '../lib/api.js');
+importScripts('../lib/storage.js', '../lib/api.js', '../lib/capture-status.js');
 
 // ---- 顶层注册 webRequest 监听器 (MV3 最佳实践) ----
 
@@ -15,6 +14,12 @@ chrome.webRequest.onCompleted.addListener(
   handleRequestCompleted,
   { urls: ['<all_urls>'] },
   ['responseHeaders']
+);
+
+// Canceled / 中止请求不会触发 onCompleted，需监听 onErrorOccurred
+chrome.webRequest.onErrorOccurred.addListener(
+  handleRequestError,
+  { urls: ['<all_urls>'] }
 );
 
 // 5xx per-tab badge counters — Map<tabId, count>
@@ -82,11 +87,10 @@ async function handleRequestCompleted(details) {
     const captureCfg = await Storage.getCaptureConfig();
     if (!captureCfg.enabled) return;
 
-    const isError = matchStatusCode(details.statusCode, captureCfg.statusCodes);
+    const isError = CaptureStatus.matchStatusCode(details.statusCode, captureCfg.statusCodes, { canceled: false });
     if (!isError) return;
 
-    const entry = {
-      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    const entry = buildCapturedEntry({
       url: details.url,
       method: details.method,
       statusCode: details.statusCode,
@@ -96,7 +100,9 @@ async function handleRequestCompleted(details) {
       tabId,
       requestHeaders: extractHeaders(details.requestHeaders),
       responseHeaders: extractHeaders(details.responseHeaders),
-    };
+      canceled: false,
+      error: '',
+    });
 
     await Storage.addCapturedError(entry);
   } catch (_) {
@@ -104,15 +110,51 @@ async function handleRequestCompleted(details) {
   }
 }
 
-function matchStatusCode(statusCode, patterns) {
-  for (const pattern of patterns || ['2xx', '3xx', '4xx', '5xx']) {
-    if (pattern === '2xx' && statusCode >= 200 && statusCode < 300) return true;
-    if (pattern === '3xx' && statusCode >= 300 && statusCode < 400) return true;
-    if (pattern === '4xx' && statusCode >= 400 && statusCode < 500) return true;
-    if (pattern === '5xx' && statusCode >= 500 && statusCode < 600) return true;
-    if (/^\d{3}$/.test(pattern) && parseInt(pattern, 10) === statusCode) return true;
+/**
+ * 处理 Canceled / 网络错误请求 — webRequest.onCompleted 不会触发
+ */
+async function handleRequestError(details) {
+  try {
+    if (details.error !== 'net::ERR_ABORTED') return;
+
+    const tabId = details.tabId;
+    if (tabId < 0) return;
+
+    const captureCfg = await Storage.getCaptureConfig();
+    if (!captureCfg.enabled) return;
+
+    const canceled = true;
+    const statusCode = 0;
+    const statusLine = 'Canceled';
+
+    const isMatch = CaptureStatus.matchStatusCode(statusCode, captureCfg.statusCodes, { canceled });
+    if (!isMatch) return;
+
+    const entry = buildCapturedEntry({
+      url: details.url,
+      method: details.method,
+      statusCode,
+      statusLine,
+      type: details.type,
+      timeStamp: details.timeStamp,
+      tabId,
+      requestHeaders: {},
+      responseHeaders: {},
+      canceled,
+      error: details.error || '',
+    });
+
+    await Storage.addCapturedError(entry);
+  } catch (_) {
+    // 静默处理 storage 读取失败
   }
-  return false;
+}
+
+function buildCapturedEntry(fields) {
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    ...fields,
+  };
 }
 
 function extractHeaders(headers) {
@@ -122,6 +164,25 @@ function extractHeaders(headers) {
     obj[h.name] = h.value;
   }
   return obj;
+}
+
+async function enrichTaskDataWithOwner(taskData) {
+  if (!taskData || taskData.owner) return taskData;
+  const mapping = await Storage.getEndpointMapping();
+  if (mapping?.owner) {
+    return { ...taskData, owner: String(mapping.owner) };
+  }
+  const cred = await Storage.getCredentials();
+  if (cred.memberId) {
+    return { ...taskData, owner: String(cred.memberId) };
+  }
+  return taskData;
+}
+
+function applyEndpointOwner(mapping) {
+  if (mapping?.owner) {
+    API.setOwner(mapping.owner);
+  }
 }
 
 // ---- 内存中的请求缓存 (DevTools 转发) ----
@@ -169,6 +230,22 @@ async function handleMessage(message, sender) {
       }
       return { success: true };
 
+    case 'updateRecentRequest':
+      {
+        const req = message.request;
+        if (!req?.id) return { success: false, error: 'missing request id' };
+        const idx = devToolsRequests.findIndex((r) => r.id === req.id);
+        if (idx >= 0) {
+          devToolsRequests[idx] = req;
+        } else {
+          devToolsRequests.push(req);
+          if (devToolsRequests.length > MAX_DEVTOOLS_REQUESTS) {
+            devToolsRequests.splice(0, devToolsRequests.length - MAX_DEVTOOLS_REQUESTS);
+          }
+        }
+        return { success: true };
+      }
+
     case 'getRecentRequests':
       {
         let list = [...devToolsRequests];
@@ -207,17 +284,24 @@ async function handleMessage(message, sender) {
 
     case 'loginWithAccessToken':
       try {
-        API.init(message.baseUrl, '', message.endpointMapping);
+        if (!message.username || !String(message.username).trim()) {
+          return { success: false, error: '请填写账号' };
+        }
+        if (!API.isAccessTokenFormat(message.accessToken)) {
+          return { success: false, error: '访问令牌格式无效，应以 at_ 开头' };
+        }
+        API.init(message.baseUrl, undefined, message.endpointMapping);
         if (message.endpointMapping) {
           API.setEndpointMapping(message.endpointMapping);
           if (message.endpointMapping.owner) API.setOwner(message.endpointMapping.owner);
         }
-        const result = await API.loginWithAccessToken(message.accessToken);
+        const result = await API.loginWithAccessToken(message.username, message.accessToken);
         const token = result.token || result.access_token;
         if (token) {
           await Storage.saveApiConfig(message.baseUrl, token);
           const cc = result.user?.current_company;
-          await Storage.saveCredentials('(访问令牌)', result.user?.id || '', cc?.member_id || '');
+          const displayName = message.username || result.user?.username || result.user?.email || '';
+          await Storage.saveCredentials(displayName, result.user?.id || '', cc?.member_id || '');
         }
         return { success: true, data: result };
       } catch (e) {
@@ -276,15 +360,17 @@ async function handleMessage(message, sender) {
     case 'createTask':
       try {
         API.init(message.baseUrl, message.token, message.endpointMapping);
-        const data = await API.createTask(message.taskData);
+        applyEndpointOwner(message.endpointMapping);
+        const taskData = await enrichTaskDataWithOwner(message.taskData);
+        const data = await API.createTask(taskData);
         await Storage.addTaskHistory({
           type: 'single',
-          title: message.taskData?.title || '(无标题)',
-          workspaceId: message.taskData?.workspaceId,
-          projectIds: message.taskData?.projectIds,
+          title: taskData?.title || '(无标题)',
+          workspaceId: taskData?.workspaceId || taskData?.workspace_id,
+          projectIds: taskData?.projectIds || taskData?.projects,
           status: 'success',
           resultId: data?.id || data?._id,
-          taskData: message.taskData,
+          taskData,
           response: data,
         });
         return { success: true, data };
@@ -304,7 +390,12 @@ async function handleMessage(message, sender) {
     case 'createTasksBatch':
       try {
         API.init(message.baseUrl, message.token, message.endpointMapping);
-        const data = await API.createTasksBatch(message.tasksData);
+        applyEndpointOwner(message.endpointMapping);
+        const tasksData = [];
+        for (const task of message.tasksData || []) {
+          tasksData.push(await enrichTaskDataWithOwner(task));
+        }
+        const data = await API.createTasksBatch(tasksData);
         const tasksArr = Array.isArray(message.tasksData) ? message.tasksData : [];
         const hasErrors = data.errors && data.errors.length > 0;
         await Storage.addTaskHistory({
@@ -340,9 +431,9 @@ async function handleMessage(message, sender) {
 
     case 'setCaptureEnabled':
       if (message.enabled) {
-        await Storage.saveCaptureConfig(true, message.statusCodes || ['2xx', '3xx', '4xx', '5xx']);
+        await Storage.saveCaptureConfig(true, message.statusCodes || ['2xx', '3xx', '4xx', '5xx', 'canceled']);
       } else {
-        await Storage.saveCaptureConfig(false, message.statusCodes || ['2xx', '3xx', '4xx', '5xx']);
+        await Storage.saveCaptureConfig(false, message.statusCodes || ['2xx', '3xx', '4xx', '5xx', 'canceled']);
       }
       return { success: true };
 

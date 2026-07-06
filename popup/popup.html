@@ -22,21 +22,21 @@
       <button id="btnRetryInit" class="btn btn-sm" style="display:none;margin-top:8px;">🔄 重试</button>
     </div>
 
-    <!-- 登录区域 — 令牌输入登录 -->
+    <!-- 登录区域 — 账号 + 访问令牌 -->
     <section id="loginSection" class="section" style="display:none">
       <h3>🔐 登录</h3>
-      <p id="loginHint" class="hint" style="margin-bottom:12px">请输入 task2app API 令牌。可在网站右上角菜单 → 个人设置 → API 令牌 中获取。</p>
+      <p id="loginHint" class="hint" style="margin-bottom:12px">输入 task2app 账号与访问令牌（在账号中心 → 访问令牌 中生成）。</p>
       <div class="form-row">
         <label>服务器地址</label>
         <input type="text" id="baseUrl" class="form-input" value="http://183.250.1.132:18081" placeholder="http://183.250.1.132:18081">
       </div>
       <div class="form-row">
-        <label>API 令牌</label>
-        <input type="password" id="apiToken" class="form-input" placeholder="输入你的 API 令牌..." autocomplete="off">
+        <label>账号</label>
+        <input type="text" id="username" class="form-input" placeholder="用户名或邮箱" autocomplete="username">
       </div>
-      <div class="form-row" style="display:flex;align-items:center;gap:6px">
-        <input type="checkbox" id="showToken" style="accent-color:#89b4fa">
-        <label for="showToken" style="font-size:10px;color:#a6adc8;cursor:pointer">显示令牌</label>
+      <div class="form-row">
+        <label>访问令牌</label>
+        <input type="password" id="accessToken" class="form-input" placeholder="at_..." autocomplete="off">
       </div>
       <button id="btnLogin" class="btn btn-primary btn-full">🔓 登录</button>
       <div id="loginResult" class="result"></div>
@@ -82,6 +82,7 @@
             <option value="4xx">4xx</option>
             <option value="2xx">2xx</option>
             <option value="3xx">3xx</option>
+            <option value="canceled">Canceled</option>
           </select>
         </div>
         <div class="btn-row" style="margin-bottom:6px">

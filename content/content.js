@@ -64,20 +64,13 @@
           </div>
         </div>
         <div class="taskplugin-form-group">
-          <label>工作分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 从此分支拉出工作分支</span></label>
-          <input class="taskplugin-input" id="taskplugin-work-branch" placeholder="如: fix/20260703_username_aidev\${taskId}_fix-502">
+          <label>工作分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 模板 / 仓库分支 / 可手写</span></label>
+          <input class="taskplugin-input" id="taskplugin-work-branch" placeholder="选择或输入工作分支" list="taskplugin-work-branch-list">
+          <datalist id="taskplugin-work-branch-list"></datalist>
         </div>
         <div class="taskplugin-form-group">
-          <label>合并目标模板 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 选择模板自动填充</span></label>
-          <select class="taskplugin-select" id="taskplugin-merge-preset">
-            <option value="develop">develop</option>
-            <option value="main">main</option>
-            <option value="custom">自定义（手动输入）</option>
-          </select>
-        </div>
-        <div class="taskplugin-form-group">
-          <label>合并目标分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 合并到此分支，可编辑</span></label>
-          <input class="taskplugin-input" id="taskplugin-merge-target" placeholder="如: main, develop" list="taskplugin-merge-list">
+          <label>合并目标分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 模板 / 仓库分支 / 可手写</span></label>
+          <input class="taskplugin-input" id="taskplugin-merge-target" placeholder="选择或输入合并目标分支" list="taskplugin-merge-list">
           <datalist id="taskplugin-merge-list"></datalist>
         </div>
         <button class="taskplugin-btn taskplugin-btn-primary" id="taskplugin-submit">✅ 创建任务</button>
@@ -96,7 +89,6 @@
   const projectsDiv = document.getElementById('taskplugin-projects');
   const submitBtn = document.getElementById('taskplugin-submit');
   const resultDiv = document.getElementById('taskplugin-result');
-  const mergePreset = document.getElementById('taskplugin-merge-preset');
   const mergeTarget = document.getElementById('taskplugin-merge-target');
   const workBranch = document.getElementById('taskplugin-work-branch');
   const pickerBtn = document.getElementById('taskplugin-picker-btn');
@@ -108,7 +100,7 @@
 
   let isOpen = false;
   let isLoggedIn = false;
-  let apiCfg = { baseUrl: 'http://183.250.1.132:4000', token: '' };
+  let apiCfg = { baseUrl: 'http://183.250.1.132:18081', token: '' };
   let workspacesData = [];
   let projectsData = [];
 
@@ -151,35 +143,45 @@
   let pickerCurrentTarget = null; // 当前悬停的元素
   let selectedElementData = null; // 选中的元素数据
 
+  // 分支模板 datalist 预设值前缀（须在 init → seedBranchDatalists 之前初始化）
+  const PRESET_PREFIX = '__preset:';
+
   // ---- Init ----
   (async function init() {
-    populateFloatingReleasePresets();
+    try {
+      // 0. 立即绑定 UI 交互（元素选择器和拖拽），不依赖任何异步操作
+      //    防止 Service Worker 延迟 / 启动失败导致按钮无响应
+      setupDrag();
+      setupElementPicker();
 
-    const floatCfg = await loadFloatBallConfigFromStorage();
-    console.log('[taskChromePlugin] floatBall enabled:', floatCfg.enabled);
-    if (!floatCfg.enabled) {
-      root.style.setProperty('display', 'none', 'important');
+      // 1. 同步初始化 datalist（不依赖网络/存储）
+      seedBranchDatalists();
+
+      // 2. 异步恢复配置和认证状态（失败不影响核心交互）
+      const floatCfg = await loadFloatBallConfigFromStorage();
+      console.log('[taskChromePlugin] floatBall enabled:', floatCfg.enabled);
+      if (!floatCfg.enabled) {
+        root.style.setProperty('display', 'none', 'important');
+      }
+      floatEnabledToggle.checked = floatCfg.enabled;
+
+      await restoreFloatBallPosition();
+
+      const urlEl = document.getElementById('taskplugin-page-url');
+      if (urlEl) urlEl.textContent = `📍 ${window.location.href}`;
+
+      await refreshAuthAndWorkspaces();
+
+      floatEnabledToggle.addEventListener('change', async () => {
+        const enabled = floatEnabledToggle.checked;
+        root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
+        await saveFloatBallConfigToStorage(enabled);
+      });
+    } catch (err) {
+      console.error('[taskChromePlugin] init() 初始化失败，核心交互已就绪:', err.message || err);
+      // setupDrag 和 setupElementPicker 已在 try 块首行执行，
+      // 即使后续异步操作全部失败，悬浮球和元素选择器仍可正常工作
     }
-    floatEnabledToggle.checked = floatCfg.enabled;
-
-    await restoreFloatBallPosition();
-
-    const urlEl = document.getElementById('taskplugin-page-url');
-    urlEl.textContent = `📍 ${window.location.href}`;
-
-    await checkLoginStatus();
-    if (isLoggedIn) {
-      await loadWorkspaces();
-    }
-
-    setupDrag();
-    setupElementPicker();
-
-    floatEnabledToggle.addEventListener('change', async () => {
-      const enabled = floatEnabledToggle.checked;
-      root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
-      await saveFloatBallConfigToStorage(enabled);
-    });
   })();
 
   async function loadFloatBallConfigFromStorage() {
@@ -282,10 +284,7 @@
     btn.textContent = isOpen ? '+' : '+';
 
     if (isOpen) {
-      await checkLoginStatus();
-      if (isLoggedIn && workspacesData.length === 0) {
-        await loadWorkspaces();
-      }
+      await refreshAuthAndWorkspaces();
     }
   });
 
@@ -294,6 +293,10 @@
   // ================================================================
 
   function setupElementPicker() {
+    if (!pickerBtn) {
+      console.warn('[taskChromePlugin] setupElementPicker: pickerBtn 为 null，跳过绑定');
+      return;
+    }
     // 点击 🎯 按钮 → 进入选择模式
     pickerBtn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -305,6 +308,33 @@
     });
   }
 
+  /** 插件自身 UI 选择器 — 命中时需穿透到下层页面元素 */
+  const PICKER_IGNORE_SELECTORS = [
+    '#taskplugin-float-root',
+    '#taskplugin-picker-highlight',
+    '#taskplugin-picker-tooltip',
+    '#taskplugin-picker-banner',
+  ];
+
+  function isPickerIgnoredElement(el) {
+    if (!el || el.nodeType !== Node.ELEMENT_NODE) return true;
+    return PICKER_IGNORE_SELECTORS.some((sel) => el.closest(sel));
+  }
+
+  /**
+   * 在坐标处解析可选中的页面元素（穿透插件覆盖层）
+   */
+  function resolvePickerTargetAt(clientX, clientY) {
+    const stack = typeof document.elementsFromPoint === 'function'
+      ? document.elementsFromPoint(clientX, clientY)
+      : [document.elementFromPoint(clientX, clientY)].filter(Boolean);
+
+    for (const el of stack) {
+      if (!isPickerIgnoredElement(el)) return el;
+    }
+    return null;
+  }
+
   /**
    * 进入元素选择模式
    * - 隐藏面板
@@ -313,15 +343,19 @@
    */
   function startElementPicker() {
     if (pickerState === PICKER_ACTIVE) return;
+    if (!document.body || !document.documentElement) {
+      console.warn('[taskChromePlugin] startElementPicker: body/documentElement 不可用');
+      return;
+    }
     pickerState = PICKER_ACTIVE;
 
     // 隐藏面板
-    panel.classList.remove('taskplugin-open');
-    btn.classList.remove('taskplugin-active');
+    if (panel) panel.classList.remove('taskplugin-open');
+    if (btn) btn.classList.remove('taskplugin-active');
     isOpen = false;
 
     // 高亮按钮表示正在选择
-    pickerBtn.classList.add('taskplugin-picker-active');
+    if (pickerBtn) pickerBtn.classList.add('taskplugin-picker-active');
 
     // 创建高亮覆盖层
     pickerHighlightEl = document.createElement('div');
@@ -342,7 +376,8 @@
     `;
     document.body.appendChild(banner);
 
-    // 页面光标变为十字准星
+    // 页面光标变为十字准星；隐藏悬浮球避免遮挡命中检测
+    document.documentElement.classList.add('taskplugin-picker-mode');
     document.body.style.cursor = 'crosshair';
 
     // 阻止页面默认交互
@@ -363,13 +398,14 @@
   function onPickerMouseMove(e) {
     if (pickerState !== PICKER_ACTIVE) return;
 
-    // 忽略插件自身的元素
-    const el = document.elementFromPoint(e.clientX, e.clientY);
-    if (!el) return;
-    if (el.closest('#taskplugin-float-root') ||
-        el.closest('#taskplugin-picker-highlight') ||
-        el.closest('#taskplugin-picker-tooltip') ||
-        el.closest('#taskplugin-picker-banner')) {
+    const el = resolvePickerTargetAt(e.clientX, e.clientY);
+    if (!el) {
+      pickerCurrentTarget = null;
+      if (pickerHighlightEl) {
+        pickerHighlightEl.style.width = '0';
+        pickerHighlightEl.style.height = '0';
+      }
+      if (pickerTooltipEl) pickerTooltipEl.textContent = '';
       return;
     }
 
@@ -400,15 +436,8 @@
     e.stopPropagation();
     e.stopImmediatePropagation();
 
-    const el = pickerCurrentTarget || document.elementFromPoint(e.clientX, e.clientY);
-    if (!el) return;
-    // 忽略插件自身元素
-    if (el.closest('#taskplugin-float-root') ||
-        el.closest('#taskplugin-picker-highlight') ||
-        el.closest('#taskplugin-picker-tooltip') ||
-        el.closest('#taskplugin-picker-banner')) {
-      return;
-    }
+    const el = pickerCurrentTarget || resolvePickerTargetAt(e.clientX, e.clientY);
+    if (!el || isPickerIgnoredElement(el)) return;
 
     // 生成元素路径
     const cssSelector = buildCssSelector(el);
@@ -431,12 +460,14 @@
     exitElementPicker();
 
     // 重新打开面板
-    panel.classList.add('taskplugin-open');
-    btn.classList.add('taskplugin-active');
+    if (panel) panel.classList.add('taskplugin-open');
+    if (btn) btn.classList.add('taskplugin-active');
     isOpen = true;
 
-    // 填写选中元素信息到表单
-    fillElementDataToForm();
+    // 弹窗收集用户意图，再填入表单
+    showElementActionPrompt(selectedElementData).then((userAction) => {
+      fillElementDataToForm(userAction);
+    });
   }
 
   /**
@@ -456,8 +487,8 @@
   function cancelElementPicker() {
     exitElementPicker();
     // 重新打开面板
-    panel.classList.add('taskplugin-open');
-    btn.classList.add('taskplugin-active');
+    if (panel) panel.classList.add('taskplugin-open');
+    if (btn) btn.classList.add('taskplugin-active');
     isOpen = true;
   }
 
@@ -481,15 +512,20 @@
 
     // 移除横幅
     const banner = document.getElementById('taskplugin-picker-banner');
-    if (banner) banner.parentNode.removeChild(banner);
+    if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
 
-    // 恢复页面样式
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.body.style.webkitUserSelect = '';
+    // 恢复页面样式（防御性检查）
+    if (document.documentElement) {
+      document.documentElement.classList.remove('taskplugin-picker-mode');
+    }
+    if (document.body) {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      document.body.style.webkitUserSelect = '';
+    }
 
     // 恢复按钮样式
-    pickerBtn.classList.remove('taskplugin-picker-active');
+    if (pickerBtn) pickerBtn.classList.remove('taskplugin-picker-active');
 
     // 解绑事件
     document.removeEventListener('mousemove', onPickerMouseMove, true);
@@ -500,9 +536,72 @@
   }
 
   /**
-   * 将选中元素数据填入表单
+   * 元素选中后弹窗 — 询问用户要对选中元素做什么
+   * @returns {Promise<string>} 用户输入的意图（可为空字符串表示跳过）
    */
-  function fillElementDataToForm() {
+  function showElementActionPrompt(elementData) {
+    return new Promise((resolve) => {
+      const existing = document.getElementById('taskplugin-action-prompt');
+      if (existing) existing.remove();
+
+      const overlay = document.createElement('div');
+      overlay.id = 'taskplugin-action-prompt';
+      overlay.innerHTML = `
+        <div class="taskplugin-action-backdrop"></div>
+        <div class="taskplugin-action-dialog" role="dialog" aria-labelledby="taskplugin-action-title">
+          <h4 id="taskplugin-action-title">🎯 描述要对选中元素做什么</h4>
+          <p class="taskplugin-action-element-hint">
+            已选中 <code>${esc(elementData.tagInfo || elementData.tagName)}</code>
+          </p>
+          <textarea
+            id="taskplugin-action-input"
+            class="taskplugin-action-textarea"
+            placeholder="例如：修复按钮点击无响应、将文字颜色改为蓝色、补充缺失的 aria-label..."
+            rows="4"
+          ></textarea>
+          <div class="taskplugin-action-buttons">
+            <button type="button" id="taskplugin-action-skip" class="taskplugin-btn taskplugin-btn-ghost">跳过</button>
+            <button type="button" id="taskplugin-action-confirm" class="taskplugin-btn taskplugin-btn-primary">确认并填入描述</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+
+      const textarea = overlay.querySelector('#taskplugin-action-input');
+      const confirmBtn = overlay.querySelector('#taskplugin-action-confirm');
+      const skipBtn = overlay.querySelector('#taskplugin-action-skip');
+      const backdrop = overlay.querySelector('.taskplugin-action-backdrop');
+
+      const finish = (value) => {
+        overlay.remove();
+        resolve(value);
+      };
+
+      confirmBtn.addEventListener('click', () => finish(textarea.value.trim()));
+      skipBtn.addEventListener('click', () => finish(''));
+      backdrop.addEventListener('click', () => finish(''));
+
+      overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          finish('');
+        }
+        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+          e.preventDefault();
+          finish(textarea.value.trim());
+        }
+      });
+
+      setTimeout(() => textarea.focus(), 50);
+    });
+  }
+
+  /**
+   * 将选中元素数据填入表单
+   * @param {string} [userAction] 用户对选中元素要执行的操作描述
+   */
+  function fillElementDataToForm(userAction = '') {
     if (!selectedElementData) return;
 
     const d = selectedElementData;
@@ -549,7 +648,17 @@
       titleInput.value = `[${d.tagName}] ${document.title.substring(0, 60)} — ${pathname}`;
     }
 
-    // 将元素信息追加到描述
+    // 将用户意图与元素信息追加到描述
+    const descSections = [];
+    const trimmedAction = (userAction || '').trim();
+    if (trimmedAction) {
+      descSections.push(
+        `**📌 要做什么**`,
+        trimmedAction,
+        ``,
+      );
+    }
+
     const elementInfo = [
       `---`,
       `**🎯 目标元素**`,
@@ -568,10 +677,13 @@
       `\`\`\``,
     ].join('\n');
 
+    descSections.push(elementInfo);
+    const newBlock = descSections.join('\n');
+
     const existingDesc = descInput.value.trim();
     descInput.value = existingDesc
-      ? existingDesc + '\n\n' + elementInfo
-      : elementInfo;
+      ? existingDesc + '\n\n' + newBlock
+      : newBlock;
   }
 
   /**
@@ -720,18 +832,45 @@
   //  登录 / 工作空间 / 项目
   // ================================================================
 
+  async function resolveTaskOwner(endpointMapping, wsId) {
+    if (endpointMapping?.owner) return String(endpointMapping.owner);
+    const cred = await Storage.getCredentials();
+    if (cred.memberId) return String(cred.memberId);
+
+    const ws = workspacesData.find(w => String(w.id || w._id) === String(wsId));
+    const companyId = ws?.company_id || ws?.companyId;
+    if (companyId && cred.userId) {
+      try {
+        const mapping = await Storage.getEndpointMapping();
+        API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+        const data = await API.getMembers(String(companyId));
+        const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
+        const mine = members.find((m) => String(m.user_id || m.userId) === String(cred.userId));
+        if (mine?.id) return String(mine.id);
+        if (members.length === 1) return String(members[0].id);
+      } catch (e) {
+        console.warn('[taskChromePlugin] resolveTaskOwner getMembers 失败:', e.message);
+      }
+    }
+    return '';
+  }
+
   async function checkLoginStatus() {
     try {
-      const resp = await sendMessageWithTimeout({ action: 'getApiConfig' }, 5000);
-      if (resp && resp.success && resp.data?.token) {
+      const cfg = await Storage.getApiConfig();
+      const expired = await Storage.isTokenExpired();
+      if (cfg.token && !expired) {
         isLoggedIn = true;
-        apiCfg = resp.data;
+        apiCfg = cfg;
+        const mapping = await Storage.getEndpointMapping();
+        API.init(apiCfg.baseUrl, apiCfg.token, mapping);
         badge.textContent = '已登录';
         badge.className = 'taskplugin-badge taskplugin-badge-ok';
         wsSelect.innerHTML = '<option value="">加载中...</option>';
       } else {
         isLoggedIn = false;
-        badge.textContent = '未登录';
+        apiCfg = cfg;
+        badge.textContent = expired ? '会话过期' : '未登录';
         badge.className = 'taskplugin-badge taskplugin-badge-err';
         wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
       }
@@ -744,16 +883,36 @@
     }
   }
 
-  async function loadWorkspaces() {
-    try {
-      const resp = await sendMessageWithTimeout({
-        action: 'getWorkspaces',
-        baseUrl: apiCfg.baseUrl,
-        token: apiCfg.token,
-      }, 10000);
-      if (!resp || !resp.success) throw new Error(resp?.error || '未知错误');
+  async function refreshAuthAndWorkspaces() {
+    workspacesData = [];
+    await checkLoginStatus();
+    if (isLoggedIn) {
+      await loadWorkspaces();
+    }
+  }
 
-      workspacesData = Array.isArray(resp.data) ? resp.data : (resp.data?.items || resp.data?.data || []);
+  function handleApiAuthFailure(err) {
+    const msg = String(err?.message || err || '');
+    if (!/\b401\b/.test(msg)) return false;
+    isLoggedIn = false;
+    badge.textContent = '会话失效';
+    badge.className = 'taskplugin-badge taskplugin-badge-err';
+    wsSelect.innerHTML = '<option value="">-- 请在扩展中重新登录 --</option>';
+    return true;
+  }
+
+  async function loadWorkspaces() {
+    if (!isLoggedIn) {
+      wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
+      return;
+    }
+    wsSelect.innerHTML = '<option value="">加载中...</option>';
+    try {
+      const mapping = await Storage.getEndpointMapping();
+      API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+      const data = await API.getWorkspaces();
+
+      workspacesData = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       if (!workspacesData.length) {
         wsSelect.innerHTML = '<option value="">(无工作空间)</option>';
         return;
@@ -766,6 +925,7 @@
       }
     } catch (e) {
       console.warn('[taskChromePlugin] loadWorkspaces 失败:', e.message);
+      if (handleApiAuthFailure(e)) return;
       wsSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
     }
   }
@@ -773,15 +933,11 @@
   async function loadProjects(wsId) {
     projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
     try {
-      const resp = await sendMessageWithTimeout({
-        action: 'getProjects',
-        baseUrl: apiCfg.baseUrl,
-        token: apiCfg.token,
-        workspaceId: wsId,
-      }, 10000);
-      if (!resp || !resp.success) throw new Error(resp?.error || '未知错误');
+      const mapping = await Storage.getEndpointMapping();
+      API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+      const data = await API.getProjects(wsId);
 
-      projectsData = Array.isArray(resp.data) ? resp.data : (resp.data?.items || resp.data?.data || []);
+      projectsData = Array.isArray(data) ? data : (data?.items || data?.data || []);
       if (!projectsData.length) {
         projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">无项目</span>';
         return;
@@ -795,6 +951,7 @@
       projectsDiv.innerHTML = html;
     } catch (e) {
       console.warn('[taskChromePlugin] loadProjects 失败:', e.message);
+      if (handleApiAuthFailure(e)) return;
       projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">加载失败: ${e.message}</span>`;
     }
   }
@@ -805,16 +962,15 @@
     const wsId = wsSelect.value;
     if (!wsId) {
       projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
+      await seedBranchDatalists([]);
       return;
     }
     await loadProjects(wsId);
+    await seedBranchDatalists([]);
   });
 
-  mergePreset.addEventListener('change', () => {
-    const preset = mergePreset.value;
-    if (!preset || preset === 'custom') return;
-    mergeTarget.value = buildMergeBranchName(preset);
-  });
+  workBranch.addEventListener('change', () => applyPresetIfNeeded(workBranch));
+  mergeTarget.addEventListener('change', () => applyPresetIfNeeded(mergeTarget));
 
   projectsDiv.addEventListener('change', async (e) => {
     if (e.target.type !== 'checkbox') return;
@@ -845,6 +1001,12 @@
 
     try {
       const mappingResp = await sendMessageWithTimeout({ action: 'getEndpointMapping' }, 5000);
+      const endpointMapping = mappingResp.success ? mappingResp.data : null;
+      const owner = await resolveTaskOwner(endpointMapping, wsId);
+      if (!owner) {
+        showResult('无法确定任务负责人，请在扩展 Popup 中重新登录', 'error');
+        return;
+      }
 
       const wb = workBranch.value.trim();
       const mt = mergeTarget.value.trim();
@@ -870,6 +1032,7 @@
         priority,
         workspaceId: wsId,
         projectIds: pids,
+        owner,
         source: 'chrome-content-script',
         sourceUrl: window.location.href,
         sourceTitle: document.title,
@@ -916,21 +1079,81 @@
   });
 
   // ---- 工具 ----
-  async function fetchBranchesForFloatingPanel(wsId, pids) {
-    const datalist = document.getElementById('taskplugin-merge-list');
+  function getWorkPresetDatalistOptions() {
+    return [
+      { value: `${PRESET_PREFIX}work:feature`, label: '【模板】feature' },
+      { value: `${PRESET_PREFIX}work:bugfix`, label: '【模板】bugfix' },
+      { value: `${PRESET_PREFIX}work:hotfix`, label: '【模板】hotfix' },
+      { value: `${PRESET_PREFIX}work:release`, label: '【模板】release' },
+    ];
+  }
+
+  function getMergePresetDatalistOptions() {
+    const opts = [
+      { value: `${PRESET_PREFIX}merge:develop`, label: '【模板】develop' },
+      { value: `${PRESET_PREFIX}merge:main`, label: '【模板】main' },
+    ];
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+    const startWeek = dayOfWeek > 4 ? 1 : 0;
+    const labels = dayOfWeek > 4
+      ? ['下周四', '下下周四', '下下下周四']
+      : ['本周四', '下周四', '下下周四'];
+    for (let i = 0; i < 3; i++) {
+      const ymd = getThursdayYmd(startWeek + i);
+      opts.push({
+        value: `${PRESET_PREFIX}merge:release:${startWeek + i}`,
+        label: `【模板】release/${ymd} (${labels[i] || `第${startWeek + i + 1}个周四`})`,
+      });
+    }
+    return opts;
+  }
+
+  function applyPresetIfNeeded(inputEl) {
+    const v = inputEl.value;
+    if (!v.startsWith(PRESET_PREFIX)) return;
+    const rest = v.slice(PRESET_PREFIX.length);
+    if (rest.startsWith('work:')) {
+      inputEl.value = buildWorkBranchName(rest.slice(5));
+    } else if (rest.startsWith('merge:')) {
+      inputEl.value = buildMergeBranchName(rest.slice(6));
+    }
+  }
+
+  function renderBranchDatalist(datalistId, presetOptions, gitOptions) {
+    const datalist = document.getElementById(datalistId);
     if (!datalist) return;
     datalist.innerHTML = '';
+    for (const p of presetOptions) {
+      datalist.innerHTML += `<option value="${esc(p.value)}">${esc(p.label)}</option>`;
+    }
+    for (const g of gitOptions) {
+      datalist.innerHTML += `<option value="${esc(g.value)}">${esc(g.label)}</option>`;
+    }
+  }
 
-    if (!wsId || !pids.length) return;
+  function seedBranchDatalists(gitOptions = []) {
+    renderBranchDatalist('taskplugin-work-branch-list', getWorkPresetDatalistOptions(), gitOptions);
+    renderBranchDatalist('taskplugin-merge-list', getMergePresetDatalistOptions(), gitOptions);
+  }
+
+  async function fetchBranchesForFloatingPanel(wsId, pids) {
+    const gitOptions = await loadBranchOptions(wsId, pids);
+    seedBranchDatalists(gitOptions);
+  }
+
+  async function loadBranchOptions(wsId, pids) {
+    if (!wsId || !pids.length) return [];
 
     const ws = workspacesData.find(w => (w.id || w._id) === wsId);
     const companyId = ws?.company_id || ws?.companyId;
-    if (!companyId) return;
+    if (!companyId) return [];
 
+    const options = [];
     const seen = new Set();
     for (const b of ['develop', 'main']) {
       seen.add(b);
-      datalist.innerHTML += `<option value="${b}">`;
+      options.push({ value: b, label: `${b}  [内置]` });
     }
 
     for (const pid of pids.slice(0, 3)) {
@@ -940,27 +1163,22 @@
       if (!repoUrl) continue;
 
       try {
-        const resp = await sendMessageWithTimeout({
-          action: 'getBranches',
-          baseUrl: apiCfg.baseUrl,
-          token: apiCfg.token,
-          companyId: String(companyId),
-          projectId: pid,
-          repoUrl: repoUrl,
-        }, 10000);
-        if (resp && resp.success && Array.isArray(resp.data?.branches)) {
-          for (const b of resp.data.branches) {
-            const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
-            if (name && !seen.has(name)) {
-              seen.add(name);
-              const shortRepo = extractRepoLabel(repoUrl);
-              const label = shortRepo ? `${name}  [${shortRepo}]` : name;
-              datalist.innerHTML += `<option value="${name}">${esc(label)}</option>`;
-            }
+        const mapping = await Storage.getEndpointMapping();
+        API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+        const resp = await API.getBranches(String(companyId), pid, repoUrl);
+        const branches = Array.isArray(resp?.branches) ? resp.branches : (Array.isArray(resp) ? resp : []);
+        for (const b of branches) {
+          const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
+          if (name && !seen.has(name)) {
+            seen.add(name);
+            const shortRepo = extractRepoLabel(repoUrl);
+            const label = shortRepo ? `${name}  [${shortRepo}]` : name;
+            options.push({ value: name, label });
           }
         }
       } catch (_) { /* ignore */ }
     }
+    return options;
   }
 
   function extractRepoLabel(url) {
@@ -981,32 +1199,6 @@
     return d.toISOString().slice(0, 10).replace(/-/g, '');
   }
 
-  function populateFloatingReleasePresets() {
-    const sel = document.getElementById('taskplugin-merge-preset');
-    if (!sel) return;
-    const oldOption = sel.querySelector('option[value="release"]');
-    if (oldOption) oldOption.remove();
-    sel.querySelectorAll('option[value^="release:"]').forEach(o => o.remove());
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const startWeek = dayOfWeek > 4 ? 1 : 0;
-    const labels = dayOfWeek > 4
-      ? ['下周四', '下下周四', '下下下周四']
-      : ['本周四', '下周四', '下下周四'];
-    const customOpt = sel.querySelector('option[value="custom"]');
-    for (let i = 0; i < 3; i++) {
-      const ymd = getThursdayYmd(startWeek + i);
-      const opt = document.createElement('option');
-      opt.value = `release:${startWeek + i}`;
-      opt.textContent = `release / ${ymd} (${labels[i] || `第${startWeek + i + 1}个周四`})`;
-      if (customOpt) {
-        sel.insertBefore(opt, customOpt);
-      } else {
-        sel.appendChild(opt);
-      }
-    }
-  }
-
   function buildMergeBranchName(presetType) {
     const releaseMatch = /^release:(\d+)$/.exec(presetType);
     if (releaseMatch) {
@@ -1016,6 +1208,21 @@
     }
     if (presetType === 'develop' || presetType === 'main') {
       return presetType;
+    }
+    return '';
+  }
+
+  function buildWorkBranchName(presetType) {
+    const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    const titleSlug = (titleInput.value.trim() || 'task')
+      .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 40) || 'task';
+    if (presetType === 'release') {
+      return `release/${today}_aidev\${taskId}`;
+    }
+    if (presetType === 'feature' || presetType === 'bugfix' || presetType === 'hotfix') {
+      return `${presetType}/${today}_aidev\${taskId}_${titleSlug}`;
     }
     return '';
   }
@@ -1035,6 +1242,7 @@
   // ---- 监听来自 popup / background 的消息 ----
   chrome.runtime.onMessage.addListener((msg) => {
     if (msg.action === 'openDevToolsHint') {
+      if (!btn) return;
       btn.style.animation = 'none';
       btn.offsetHeight;
       btn.style.animation = 'taskplugin-pulse 0.3s ease 3';
@@ -1043,6 +1251,11 @@
       console.log('[taskChromePlugin] setFloatBallEnabled from popup:', msg.enabled);
       root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
       floatEnabledToggle.checked = msg.enabled;
+    }
+    if (msg.action === 'authStateChanged') {
+      refreshAuthAndWorkspaces().catch((e) => {
+        console.warn('[taskChromePlugin] authStateChanged 刷新失败:', e.message);
+      });
     }
   });
 
