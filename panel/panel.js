@@ -194,7 +194,7 @@ const Panel = (() => {
     isLoggedIn = !!(apiConfig.token && !expired);
     if (isLoggedIn) {
       const mapping = await Storage.getEndpointMapping();
-      API.init(apiConfig.baseUrl, apiConfig.token, mapping);
+      API.init(apiConfig.baseUrl, apiConfig.token, mapping, cred.userId || '');
     }
     updateStatusBadge(expired);
     return isLoggedIn;
@@ -702,7 +702,7 @@ const Panel = (() => {
       fetchAndPopulateBranches('singleMergeTargetList', '', [], 'merge');
       return;
     }
-    await loadProjects(wsId, 'singleProjects');
+    await loadProjects(wsId, 'singleProjects', companyId);
     // Load members from the workspace's company
     const ws = workspaces.find(w => (w.id || w._id) === wsId);
     const companyId = ws?.company_id || ws?.companyId;
@@ -720,7 +720,7 @@ const Panel = (() => {
     }
   }
 
-  async function loadProjects(wsId, containerId) {
+  async function loadProjects(wsId, containerId, companyId) {
     const c = $(`#${containerId}`);
     c.innerHTML = '<p class="placeholder">加载中...</p>';
     if (!(await ensureApiReady())) {
@@ -729,7 +729,7 @@ const Panel = (() => {
     }
     if (projectsCache[wsId]) { renderProjectCheckboxes(containerId, projectsCache[wsId]); return; }
     try {
-      const data = await API.getProjects(wsId);
+      const data = await API.getProjects(wsId, companyId);
       const projs = Array.isArray(data) ? data : (data?.items || data?.data || []);
       projectsCache[wsId] = projs;
       renderProjectCheckboxes(containerId, projs);
@@ -920,9 +920,9 @@ const Panel = (() => {
       fetchAndPopulateBranches('batchMergeTargetList', '', [], 'merge');
       return;
     }
-    await loadProjects(id, 'batchProjects');
     const ws = workspaces.find(w => (w.id || w._id) === id);
     const companyId = ws?.company_id || ws?.companyId;
+    await loadProjects(id, 'batchProjects', companyId);
     if (companyId) {
       await loadProgressColumns(String(companyId), id, 'batchProgressColumn');
     }

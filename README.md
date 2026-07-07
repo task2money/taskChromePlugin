@@ -79,11 +79,11 @@ cd taskChromePlugin && npm test
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/accounts/users/login-with-access-token/` | 登录，body: `{username, access_token}`，返回 `{token}` |
-| GET | `/api/workspaces` | 获取工作空间列表，返回 `[]` 或 `{items: []}` 或 `{data: []}` |
-| GET | `/api/workspaces/:id/projects` | 获取项目列表 |
-| POST | `/api/tasks` | 创建单个任务 |
-| POST | `/api/tasks/batch` | 批量创建，body: `{tasks: [...]}` |
+| POST | `/api/accounts/users/login-with-access-token/` | 登录，body: `{username, access_token}`，返回 `{token, user:{id, companies}}` |
+| GET | `/api/user/{userId}/accounts/users/me/` | 获取当前用户及所属公司列表 |
+| GET | `/api/tenant/{companyId}/workspaces/` | 获取指定租户的工作空间列表，返回 `[]` 或 `{items: []}` 或 `{data: []}` |
+| GET | `/api/tenant/{companyId}/projects/?workspace_id={id}` | 获取项目列表 |
+| POST | `/api/tenant/{companyId}/workspace/{workspaceId}/todos/` | 创建单个任务 |
 
 所有需要认证的请求自动携带 `Authorization` 头：session token 为 `Token <token>`，`at_` 访问令牌为 `Bearer <token>`。
 

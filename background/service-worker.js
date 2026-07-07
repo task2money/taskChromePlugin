@@ -312,8 +312,10 @@ async function handleMessage(message, sender) {
 
     case 'getWorkspaces':
       try {
-        API.init(message.baseUrl, message.token);
-        const data = await API.getWorkspaces();
+        API.init(message.baseUrl, message.token, message.endpointMapping);
+        const cred = await Storage.getCredentials();
+        if (cred.userId) API.setUserId(cred.userId);
+        const data = await API.getWorkspaces(message.companyId);
         return { success: true, data };
       } catch (e) {
         return { success: false, error: e.message };
@@ -321,8 +323,10 @@ async function handleMessage(message, sender) {
 
     case 'getProjects':
       try {
-        API.init(message.baseUrl, message.token);
-        const data = await API.getProjects(message.workspaceId);
+        API.init(message.baseUrl, message.token, message.endpointMapping);
+        const cred = await Storage.getCredentials();
+        if (cred.userId) API.setUserId(cred.userId);
+        const data = await API.getProjects(message.workspaceId, message.companyId);
         return { success: true, data };
       } catch (e) {
         return { success: false, error: e.message };
@@ -360,6 +364,8 @@ async function handleMessage(message, sender) {
     case 'createTask':
       try {
         API.init(message.baseUrl, message.token, message.endpointMapping);
+        const cred = await Storage.getCredentials();
+        if (cred.userId) API.setUserId(cred.userId);
         applyEndpointOwner(message.endpointMapping);
         const taskData = await enrichTaskDataWithOwner(message.taskData);
         const data = await API.createTask(taskData);
@@ -390,6 +396,8 @@ async function handleMessage(message, sender) {
     case 'createTasksBatch':
       try {
         API.init(message.baseUrl, message.token, message.endpointMapping);
+        const cred = await Storage.getCredentials();
+        if (cred.userId) API.setUserId(cred.userId);
         applyEndpointOwner(message.endpointMapping);
         const tasksData = [];
         for (const task of message.tasksData || []) {
@@ -522,7 +530,8 @@ async function handleMessage(message, sender) {
   try {
     const cfg = await Storage.getApiConfig();
     const mapping = await Storage.getEndpointMapping();
-    API.init(cfg.baseUrl, cfg.token, mapping);
+    const cred = await Storage.getCredentials();
+    API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
     if (mapping.owner) API.setOwner(mapping.owner);
     try {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });

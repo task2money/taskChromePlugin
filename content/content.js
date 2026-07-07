@@ -832,6 +832,12 @@
   //  登录 / 工作空间 / 项目
   // ================================================================
 
+  async function initApiClient() {
+    const mapping = await Storage.getEndpointMapping();
+    const cred = await Storage.getCredentials();
+    API.init(apiCfg.baseUrl, apiCfg.token, mapping, cred.userId || '');
+  }
+
   async function resolveTaskOwner(endpointMapping, wsId) {
     if (endpointMapping?.owner) return String(endpointMapping.owner);
     const cred = await Storage.getCredentials();
@@ -841,8 +847,7 @@
     const companyId = ws?.company_id || ws?.companyId;
     if (companyId && cred.userId) {
       try {
-        const mapping = await Storage.getEndpointMapping();
-        API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+        await initApiClient();
         const data = await API.getMembers(String(companyId));
         const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
         const mine = members.find((m) => String(m.user_id || m.userId) === String(cred.userId));
@@ -862,8 +867,7 @@
       if (cfg.token && !expired) {
         isLoggedIn = true;
         apiCfg = cfg;
-        const mapping = await Storage.getEndpointMapping();
-        API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+        await initApiClient();
         badge.textContent = '已登录';
         badge.className = 'taskplugin-badge taskplugin-badge-ok';
         wsSelect.innerHTML = '<option value="">加载中...</option>';
@@ -908,8 +912,7 @@
     }
     wsSelect.innerHTML = '<option value="">加载中...</option>';
     try {
-      const mapping = await Storage.getEndpointMapping();
-      API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+      await initApiClient();
       const data = await API.getWorkspaces();
 
       workspacesData = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
@@ -933,9 +936,10 @@
   async function loadProjects(wsId) {
     projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
     try {
-      const mapping = await Storage.getEndpointMapping();
-      API.init(apiCfg.baseUrl, apiCfg.token, mapping);
-      const data = await API.getProjects(wsId);
+      await initApiClient();
+      const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
+      const companyId = ws?.company_id || ws?.companyId;
+      const data = await API.getProjects(wsId, companyId);
 
       projectsData = Array.isArray(data) ? data : (data?.items || data?.data || []);
       if (!projectsData.length) {
@@ -1163,8 +1167,7 @@
       if (!repoUrl) continue;
 
       try {
-        const mapping = await Storage.getEndpointMapping();
-        API.init(apiCfg.baseUrl, apiCfg.token, mapping);
+        await initApiClient();
         const resp = await API.getBranches(String(companyId), pid, repoUrl);
         const branches = Array.isArray(resp?.branches) ? resp.branches : (Array.isArray(resp) ? resp : []);
         for (const b of branches) {
