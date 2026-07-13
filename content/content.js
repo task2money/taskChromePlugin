@@ -136,7 +136,7 @@
         <textarea id="taskplugin-adjust-input" class="taskplugin-textarea" rows="4" placeholder="例如：把按钮改成红色、增大字号、调整间距..."></textarea>
         <label class="taskplugin-shot-label">
           <input type="checkbox" id="taskplugin-adjust-shot">
-          <span>附带元素截图（压缩 JPEG）</span>
+          <span>附带元素截图（上传后写入 URL，不内嵌 data URL）</span>
         </label>
         <div class="taskplugin-modal-actions">
           <button type="button" class="taskplugin-btn" id="taskplugin-adjust-cancel">取消</button>
@@ -342,22 +342,40 @@
    * @returns {{ el: Element|null, frameElement: Element|null, crossOrigin: boolean }}
    */
   function resolvePickTarget(e) {
+    if (typeof ElementPicker === 'undefined') {
+      return { el: null, frameElement: null, crossOrigin: false, closedShadow: false };
+    }
     const composed = ElementPicker.resolveComposedElement(e, isPluginDom);
-    if (!composed) return { el: null, frameElement: null, crossOrigin: false };
+    if (!composed) return { el: null, frameElement: null, crossOrigin: false, closedShadow: false };
 
     if (String(composed.tagName || '').toUpperCase() === 'IFRAME') {
       try {
-        const inner = ElementPicker.pierceSameOriginIframe(composed, e.clientX, e.clientY);
-        return { el: inner, frameElement: composed, crossOrigin: false };
+        const pierced = ElementPicker.pierceSameOriginIframe(composed, e.clientX, e.clientY);
+        return {
+          el: pierced.el,
+          frameElement: composed,
+          crossOrigin: false,
+          closedShadow: !!pierced.closedShadow,
+        };
       } catch (err) {
         if (err?.code === 'CROSS_ORIGIN_IFRAME') {
-          return { el: null, frameElement: composed, crossOrigin: true };
+          // 跨域：由 pick-frame.js 在子 frame 内处理；顶层仅提示等待
+          return { el: null, frameElement: composed, crossOrigin: true, closedShadow: false };
         }
         console.warn('[taskChromePlugin] iframe pierce failed:', err.message || err);
-        return { el: null, frameElement: composed, crossOrigin: false };
+        return { el: null, frameElement: composed, crossOrigin: false, closedShadow: false };
       }
     }
-    return { el: composed, frameElement: null, crossOrigin: false };
+
+    const deep = ElementPicker.deepElementFromPoint(document, e.clientX, e.clientY, {
+      isExcluded: isPluginDom,
+    });
+    return {
+      el: deep.el || composed,
+      frameElement: null,
+      crossOrigin: false,
+      closedShadow: !!deep.closedShadow,
+    };
   }
 
   function setPickMode(on, source) {
@@ -377,6 +395,7 @@
       btn.textContent = '+';
       btn.title = 'TaskPlugin — 快速创建任务';
       btn.classList.remove('taskplugin-picking-fab');
+      chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
     } else {
       panel.classList.remove('taskplugin-open');
       btn.classList.remove('taskplugin-active');
@@ -384,6 +403,12 @@
       btn.textContent = '✕';
       btn.title = '取消指针选择（Esc）';
       btn.classList.add('taskplugin-picking-fab');
+      chrome.runtime.sendMessage({
+        action: 'broadcastStartElementPick',
+        source: pickSource,
+      }).catch((e) => {
+        console.warn('[taskChromePlugin] broadcastStartElementPick failed:', e.message || e);
+      });
     }
     console.log('[taskChromePlugin] element pick mode:', pickMode ? `on(${pickSource})` : 'off');
   }
@@ -410,13 +435,14 @@
       setPickMode(false);
       return;
     }
-    const { el, frameElement, crossOrigin } = resolvePickTarget(e);
+    const { el, frameElement, crossOrigin, closedShadow } = resolvePickTarget(e);
     if (crossOrigin) {
       e.preventDefault();
       e.stopPropagation();
+      // 跨域：继续等待子 frame 的 elementPickedInFrame；给一次提示
       if (!pickCrossOriginHintShown) {
         pickCrossOriginHintShown = true;
-        showResult('跨域 iframe 无法选择内部元素', 'error');
+        showResult('已进入跨域 iframe 选择：请直接点击框内元素', 'success');
       }
       return;
     }
@@ -428,8 +454,10 @@
 
     try {
       pendingFrameElement = frameElement;
-      pendingElementSnapshot = ElementPicker.snapshotElement(el, { frameElement });
-      // 保存视口矩形供截图裁剪（相对顶层视口）
+      pendingElementSnapshot = ElementPicker.snapshotElement(el, {
+        frameElement,
+        closedShadow,
+      });
       const rect = el.getBoundingClientRect();
       let topRect = rect;
       if (frameElement) {
@@ -439,8 +467,6 @@
           top: fr.top + rect.top,
           width: rect.width,
           height: rect.height,
-          right: fr.left + rect.right,
-          bottom: fr.top + rect.bottom,
         };
       }
       pendingElementSnapshot._viewportRect = {
@@ -473,8 +499,8 @@
   function openAdjustModal(snapshot) {
     if (!adjustModal) return;
     const ctx = [
-      snapshot.inShadow ? 'Shadow' : '',
-      snapshot.inIframe ? 'iframe' : '',
+      snapshot.inClosedShadow ? 'closed-Shadow' : (snapshot.inShadow ? 'Shadow' : ''),
+      snapshot.crossOriginIframe ? 'x-iframe' : (snapshot.inIframe ? 'iframe' : ''),
     ].filter(Boolean).join('+');
     adjustElSummary.textContent = `${snapshot.label}${ctx ? ` [${ctx}]` : ''}${snapshot.visibleText ? ` — "${snapshot.visibleText}"` : ''}`;
     adjustInput.value = '';
@@ -555,13 +581,23 @@
     }
 
     const wantShot = !!(adjustShot && adjustShot.checked);
-    let screenshotDataUrl = '';
+    let screenshotUrl = '';
     adjustConfirm.disabled = true;
+    const source = pickSource;
     try {
       if (wantShot) {
-        adjustError.textContent = '正在截图...';
+        adjustError.textContent = '正在截图并上传...';
         adjustError.className = 'taskplugin-result taskplugin-show';
-        screenshotDataUrl = await captureElementScreenshot(pendingElementSnapshot._viewportRect);
+        const dataUrl = await captureElementScreenshot(pendingElementSnapshot._viewportRect);
+        const up = await sendMessageWithTimeout({
+          action: 'uploadPluginScreenshot',
+          dataUrl,
+        }, 20000);
+        if (!up?.success || !up.url) {
+          throw new Error(up?.error || '截图上传失败');
+        }
+        screenshotUrl = up.url;
+        console.log('[taskChromePlugin] screenshot uploaded:', screenshotUrl);
       }
 
       const { _viewportRect, ...element } = pendingElementSnapshot;
@@ -570,10 +606,9 @@
         pageTitle: document.title,
         element,
         adjustment,
-        screenshotDataUrl: screenshotDataUrl || undefined,
+        screenshotUrl: screenshotUrl || undefined,
       };
       const block = ElementPicker.formatElementAdjustmentBlock(payload);
-      const source = pickSource;
 
       if (source === 'devtools') {
         const relay = await sendMessageWithTimeout({
@@ -1237,7 +1272,51 @@
       sendResponse?.({ success: true });
       return true;
     }
+    if (msg.action === 'elementPickedInFrame' && msg.snapshot) {
+      // 来自跨域 iframe 的选中结果（经 SW 转发）
+      console.log('[taskChromePlugin] elementPickedInFrame', msg.frameUrl);
+      setPickMode(false);
+      pendingElementSnapshot = {
+        ...msg.snapshot,
+        crossOriginIframe: true,
+        inIframe: true,
+      };
+      const iframeEl = findIframeByUrl(msg.frameUrl);
+      const fr = iframeEl ? iframeEl.getBoundingClientRect() : { left: 0, top: 0 };
+      const r = msg.rectInFrame || { left: 0, top: 0, width: 0, height: 0 };
+      pendingElementSnapshot._viewportRect = {
+        left: fr.left + (r.left || 0),
+        top: fr.top + (r.top || 0),
+        width: r.width || 0,
+        height: r.height || 0,
+      };
+      if (msg.snapshot.cssPath && iframeEl && typeof ElementPicker !== 'undefined') {
+        const frameSnap = ElementPicker.snapshotElement(iframeEl);
+        pendingElementSnapshot.cssPath = `${frameSnap.cssPath || frameSnap.label} >>> ${msg.snapshot.cssPath}`;
+      }
+      openAdjustModal(pendingElementSnapshot);
+      sendResponse?.({ success: true });
+      return true;
+    }
   });
+
+  function findIframeByUrl(frameUrl) {
+    if (!frameUrl) return null;
+    const iframes = Array.from(document.querySelectorAll('iframe'));
+    let match = iframes.find((f) => f.src && f.src === frameUrl);
+    if (match) return match;
+    try {
+      const u = new URL(frameUrl);
+      match = iframes.find((f) => {
+        try {
+          return f.src && new URL(f.src).pathname === u.pathname;
+        } catch (_) {
+          return false;
+        }
+      });
+    } catch (_) { /* ignore */ }
+    return match || null;
+  }
 
   // pulse 动画
   const style = document.createElement('style');

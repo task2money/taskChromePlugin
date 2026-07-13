@@ -10,7 +10,7 @@
 |----|------|
 | S1 | open Shadow DOM 内元素可选中；选择器含 `>>>` 边界 |
 | S2 | 同源 iframe 内可选中；跨域 iframe 明确提示不可选 |
-| S3 | 弹窗可选「附带元素截图」；确认后描述含压缩 JPEG data URL（失败则提示，不静默） |
+| S3 | 弹窗可选「附带元素截图」；确认后**上传媒体存储**，描述含 https URL（失败则提示，不静默回退 data URL） |
 | S4 | DevTools「单请求创建」描述旁可触发同一套选元素，结果追加到 `#singleTaskDesc` |
 | S5 | `npm test` 全绿 |
 

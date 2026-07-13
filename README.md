@@ -14,8 +14,8 @@
 - 打开任意网页 → 点击右下角悬浮球 → 描述旁「🖱️ 指针选择」
 - 再点击页面上的目标元素 → 弹出对话框填写**调整期望**
 - 确认后自动把**元素标识、调整期望、页面链接**追加到任务描述
-- 支持 **open Shadow DOM**（选择器含 `>>>`）与 **同源 iframe**；跨域 iframe 会提示无法选择
-- 可选勾选「附带元素截图」（压缩 JPEG 写入描述）
+- 支持 **open / closed Shadow DOM**（选择器含 `>>>`；closed 会在描述中标注）与 **同源 / 跨域 iframe**（跨域由帧内脚本选中后回传到顶层弹窗）
+- 可选勾选「附带元素截图」：裁剪后**上传媒体存储**，描述写入 **https URL**（不再内嵌 data URL；上传失败会报错）
 - DevTools **TaskPlugin** 面板描述旁同样可触发指针选择，结果追加到面板任务描述
 - Esc 或再次点击悬浮球可取消选元素模式；弹窗取消不写入描述
 
@@ -63,7 +63,11 @@ taskChromePlugin/
 │   ├── popup.html                 # 登录弹窗 UI
 │   ├── popup.js                   # 登录逻辑
 │   └── popup.css                  # 弹窗样式
-└── lib/
+├── content/
+│   ├── content.js                 # 页内浮窗（顶层）
+│   ├── content.css
+│   └── pick-frame.js              # 跨域/子 frame 轻量选元素（all_frames）
+├── lib/
     ├── api.js                     # API 客户端 (REST 封装)
     ├── create-task-payload.js     # 创建任务 payload（对齐 work-panel）
     ├── element-picker.js          # 指针选元素：快照/描述拼接（纯函数）
@@ -74,7 +78,7 @@ taskChromePlugin/
     ├── har-request.test.js        # node --test 单元测试
     ├── capture-status.test.js
     ├── create-task-payload.test.js
-    ├── element-picker.test.js     # 元素描述拼接 / 校验
+    ├── element-picker.test.js     # 元素描述拼接 / 校验 / Shadow pierce
     └── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
 ├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test
 └── package.json                   # npm test
@@ -86,7 +90,7 @@ taskChromePlugin/
 cd taskChromePlugin && npm test
 ```
 
-覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**、**baseUrl 登出后仍保留**。
+覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**、**baseUrl 登出后仍保留**、**element-picker（含 closed Shadow / screenshotUrl）**。
 
 ### CI
 
@@ -108,6 +112,7 @@ cd taskChromePlugin && npm test
 | GET | `/api/tenant/{companyId}/manage-deliverable-system/?workspace_id=` | 交付物类别 |
 | GET | `/api/tenant/{companyId}/installed-images/` | 已安装镜像 |
 | GET | `/api/personal/feature-params-configs/` | 个人环境变量配置 |
+| POST | `/api/accounts/users/profile/plugin-screenshots/` | 上传元素截图（multipart `file`），返回 `{url}` |
 
 ### 创建任务 body 关键字段
 

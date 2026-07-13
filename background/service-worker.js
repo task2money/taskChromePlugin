@@ -555,7 +555,8 @@ async function handleMessage(message, sender) {
           const resp = await chrome.tabs.sendMessage(tabId, {
             action: 'startElementPick',
             source: message.source || 'devtools',
-          });
+          }, { frameId: 0 });
+          await broadcastPickToChildFrames(tabId, 'startElementPick', message.source || 'devtools');
           console.log('[taskChromePlugin] startElementPick forwarded to tab', tabId);
           return resp?.success ? { success: true } : { success: false, error: resp?.error || 'content script 未响应' };
         } catch (e) {
@@ -563,10 +564,42 @@ async function handleMessage(message, sender) {
         }
       }
 
+    case 'broadcastStartElementPick':
+      {
+        const tabId = sender?.tab?.id;
+        if (!tabId) return { success: false, error: '缺少 tabId' };
+        await broadcastPickToChildFrames(tabId, 'startElementPick', message.source || 'float');
+        return { success: true };
+      }
+
+    case 'cancelElementPickBroadcast':
+      {
+        const tabId = sender?.tab?.id;
+        if (!tabId) return { success: true };
+        await broadcastPickToChildFrames(tabId, 'cancelElementPick');
+        return { success: true };
+      }
+
+    case 'elementPickedInFrame':
+      {
+        const tabId = sender?.tab?.id;
+        if (!tabId) return { success: false, error: '缺少 tab' };
+        try {
+          await chrome.tabs.sendMessage(tabId, {
+            action: 'elementPickedInFrame',
+            snapshot: message.snapshot,
+            rectInFrame: message.rectInFrame,
+            frameUrl: message.frameUrl,
+          }, { frameId: 0 });
+          console.log('[taskChromePlugin] elementPickedInFrame forwarded to top frame');
+          return { success: true };
+        } catch (e) {
+          return { success: false, error: e.message || '转发到顶层失败' };
+        }
+      }
+
     case 'elementPickResult':
       {
-        // content script 的 runtime.sendMessage 会同时送达 SW 与 DevTools panel；
-        // 此处仅确认投递，避免再广播导致 panel 重复追加。
         console.log('[taskChromePlugin] elementPickResult ack, blockLen=', String(message.block || '').length);
         return { success: true };
       }
@@ -593,8 +626,52 @@ async function handleMessage(message, sender) {
         }
       }
 
+    case 'uploadPluginScreenshot':
+      {
+        try {
+          if (!message.dataUrl) return { success: false, error: '缺少截图 dataUrl' };
+          const cfg = await Storage.getApiConfig();
+          const mapping = await Storage.getEndpointMapping();
+          const cred = await Storage.getCredentials();
+          if (!cfg.token) return { success: false, error: '请先登录后再上传截图' };
+          API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
+          const data = await API.uploadPluginScreenshot(message.dataUrl);
+          const url = data?.url || data?.absolute_url;
+          if (!url) throw new Error('上传响应缺少 url');
+          console.log('[taskChromePlugin] uploadPluginScreenshot ok');
+          return { success: true, url, data };
+        } catch (e) {
+          console.error('[taskChromePlugin] uploadPluginScreenshot failed:', e);
+          return { success: false, error: e.message || '上传失败' };
+        }
+      }
+
     default:
       return { error: `Unknown action: ${message.action}` };
+  }
+}
+
+/**
+ * 向除顶层外的所有 frame 广播选元素指令
+ */
+async function broadcastPickToChildFrames(tabId, action, source) {
+  let frames = [];
+  try {
+    frames = await chrome.webNavigation.getAllFrames({ tabId });
+  } catch (e) {
+    console.warn('[taskChromePlugin] getAllFrames failed:', e.message || e);
+    return;
+  }
+  for (const f of frames || []) {
+    if (!f || f.frameId === 0) continue;
+    try {
+      await chrome.tabs.sendMessage(tabId, {
+        action,
+        source: source || 'float',
+      }, { frameId: f.frameId });
+    } catch (_) {
+      /* 部分 frame 可能未注入 pick-frame */
+    }
   }
 }
 
