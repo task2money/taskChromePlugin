@@ -301,6 +301,7 @@
 
   // ================================================================
   //  指针选择页面元素 → 调整期望 → 追加到任务描述
+  //  （支持 open Shadow DOM / 同源 iframe / 可选截图 / DevTools 回传）
   // ================================================================
 
   function isPluginDom(node) {
@@ -310,15 +311,61 @@
     return false;
   }
 
+  function ensureHighlightStyle(doc) {
+    if (!doc || doc.getElementById('taskplugin-el-hl-style')) return;
+    const s = doc.createElement('style');
+    s.id = 'taskplugin-el-hl-style';
+    s.textContent = '.taskplugin-el-highlight{outline:2px solid #89b4fa!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(137,180,250,.35)!important;}';
+    (doc.head || doc.documentElement).appendChild(s);
+  }
+
   function clearHighlight() {
     if (highlightedEl) {
       highlightedEl.classList.remove('taskplugin-el-highlight');
       highlightedEl = null;
     }
+    highlightDoc = null;
   }
 
-  function setPickMode(on) {
+  function applyHighlight(el, doc) {
+    if (!el || el.nodeType !== 1) return;
+    if (highlightedEl === el) return;
+    clearHighlight();
+    ensureHighlightStyle(doc || el.ownerDocument || document);
+    highlightedEl = el;
+    highlightDoc = doc || el.ownerDocument || document;
+    highlightedEl.classList.add('taskplugin-el-highlight');
+  }
+
+  /**
+   * 解析指针下的真实目标：composedPath（Shadow）+ 同源 iframe 穿透
+   * @returns {{ el: Element|null, frameElement: Element|null, crossOrigin: boolean }}
+   */
+  function resolvePickTarget(e) {
+    const composed = ElementPicker.resolveComposedElement(e, isPluginDom);
+    if (!composed) return { el: null, frameElement: null, crossOrigin: false };
+
+    if (String(composed.tagName || '').toUpperCase() === 'IFRAME') {
+      try {
+        const inner = ElementPicker.pierceSameOriginIframe(composed, e.clientX, e.clientY);
+        return { el: inner, frameElement: composed, crossOrigin: false };
+      } catch (err) {
+        if (err?.code === 'CROSS_ORIGIN_IFRAME') {
+          return { el: null, frameElement: composed, crossOrigin: true };
+        }
+        console.warn('[taskChromePlugin] iframe pierce failed:', err.message || err);
+        return { el: null, frameElement: composed, crossOrigin: false };
+      }
+    }
+    return { el: composed, frameElement: null, crossOrigin: false };
+  }
+
+  function setPickMode(on, source) {
     pickMode = !!on;
+    if (on && source) pickSource = source;
+    if (!on) {
+      pickCrossOriginHintShown = false;
+    }
     document.documentElement.classList.toggle('taskplugin-picking', pickMode);
     pickBtn?.classList.toggle('taskplugin-pick-active', pickMode);
     if (pickBtn) {
@@ -331,7 +378,6 @@
       btn.title = 'TaskPlugin — 快速创建任务';
       btn.classList.remove('taskplugin-picking-fab');
     } else {
-      // 选元素时收起面板，避免遮挡；悬浮球变为取消入口
       panel.classList.remove('taskplugin-open');
       btn.classList.remove('taskplugin-active');
       isOpen = false;
@@ -339,38 +385,70 @@
       btn.title = '取消指针选择（Esc）';
       btn.classList.add('taskplugin-picking-fab');
     }
-    console.log('[taskChromePlugin] element pick mode:', pickMode ? 'on' : 'off');
+    console.log('[taskChromePlugin] element pick mode:', pickMode ? `on(${pickSource})` : 'off');
   }
 
   function onPickMouseOver(e) {
     if (!pickMode) return;
-    const t = e.target;
-    if (isPluginDom(t)) {
+    if (typeof ElementPicker === 'undefined') return;
+    const { el, crossOrigin } = resolvePickTarget(e);
+    if (crossOrigin) {
       clearHighlight();
       return;
     }
-    if (highlightedEl === t) return;
-    clearHighlight();
-    highlightedEl = t;
-    highlightedEl.classList.add('taskplugin-el-highlight');
+    if (!el || isPluginDom(el)) {
+      clearHighlight();
+      return;
+    }
+    applyHighlight(el, el.ownerDocument);
   }
 
   function onPickClick(e) {
     if (!pickMode) return;
-    const t = e.target;
-    if (isPluginDom(t)) return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
-
     if (typeof ElementPicker === 'undefined') {
       console.error('[taskChromePlugin] ElementPicker 未加载');
       setPickMode(false);
       return;
     }
+    const { el, frameElement, crossOrigin } = resolvePickTarget(e);
+    if (crossOrigin) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!pickCrossOriginHintShown) {
+        pickCrossOriginHintShown = true;
+        showResult('跨域 iframe 无法选择内部元素', 'error');
+      }
+      return;
+    }
+    if (!el || isPluginDom(el)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
 
     try {
-      pendingElementSnapshot = ElementPicker.snapshotElement(t);
+      pendingFrameElement = frameElement;
+      pendingElementSnapshot = ElementPicker.snapshotElement(el, { frameElement });
+      // 保存视口矩形供截图裁剪（相对顶层视口）
+      const rect = el.getBoundingClientRect();
+      let topRect = rect;
+      if (frameElement) {
+        const fr = frameElement.getBoundingClientRect();
+        topRect = {
+          left: fr.left + rect.left,
+          top: fr.top + rect.top,
+          width: rect.width,
+          height: rect.height,
+          right: fr.left + rect.right,
+          bottom: fr.top + rect.bottom,
+        };
+      }
+      pendingElementSnapshot._viewportRect = {
+        left: topRect.left,
+        top: topRect.top,
+        width: topRect.width,
+        height: topRect.height,
+      };
       setPickMode(false);
       openAdjustModal(pendingElementSnapshot);
     } catch (err) {
@@ -394,8 +472,13 @@
 
   function openAdjustModal(snapshot) {
     if (!adjustModal) return;
-    adjustElSummary.textContent = `${snapshot.label}${snapshot.visibleText ? ` — "${snapshot.visibleText}"` : ''}`;
+    const ctx = [
+      snapshot.inShadow ? 'Shadow' : '',
+      snapshot.inIframe ? 'iframe' : '',
+    ].filter(Boolean).join('+');
+    adjustElSummary.textContent = `${snapshot.label}${ctx ? ` [${ctx}]` : ''}${snapshot.visibleText ? ` — "${snapshot.visibleText}"` : ''}`;
     adjustInput.value = '';
+    if (adjustShot) adjustShot.checked = false;
     adjustError.className = 'taskplugin-result';
     adjustError.textContent = '';
     adjustModal.hidden = false;
@@ -405,19 +488,54 @@
       btn.classList.add('taskplugin-active');
     }
     setTimeout(() => adjustInput.focus(), 0);
-    console.log('[taskChromePlugin] adjust modal open for:', snapshot.label);
+    console.log('[taskChromePlugin] adjust modal open for:', snapshot.label, 'source=', pickSource);
   }
 
   function closeAdjustModal() {
     if (!adjustModal) return;
     adjustModal.hidden = true;
     pendingElementSnapshot = null;
+    pendingFrameElement = null;
+    pickSource = 'float';
     adjustInput.value = '';
+    if (adjustShot) adjustShot.checked = false;
     adjustError.className = 'taskplugin-result';
     adjustError.textContent = '';
   }
 
-  function confirmAdjustModal() {
+  async function captureElementScreenshot(rect) {
+    if (!rect || !(rect.width > 0) || !(rect.height > 0)) {
+      throw new Error('元素不在可视区域，无法截图');
+    }
+    // 截图前暂时隐藏插件 UI，避免入镜
+    const prevRootDisplay = root.style.display;
+    const prevModalHidden = adjustModal.hidden;
+    root.style.setProperty('display', 'none', 'important');
+    adjustModal.hidden = true;
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try {
+      const resp = await sendMessageWithTimeout({
+        action: 'captureElementScreenshot',
+        rect: {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        },
+        devicePixelRatio: window.devicePixelRatio || 1,
+        maxWidth: ElementPicker.SCREENSHOT_MAX_WIDTH,
+      }, 12000);
+      if (!resp?.success || !resp.dataUrl) {
+        throw new Error(resp?.error || '截图失败');
+      }
+      return resp.dataUrl;
+    } finally {
+      root.style.setProperty('display', prevRootDisplay || 'block', 'important');
+      adjustModal.hidden = prevModalHidden;
+    }
+  }
+
+  async function confirmAdjustModal() {
     if (typeof ElementPicker === 'undefined') {
       adjustError.textContent = 'ElementPicker 未加载';
       adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
@@ -435,19 +553,50 @@
       adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
       return;
     }
+
+    const wantShot = !!(adjustShot && adjustShot.checked);
+    let screenshotDataUrl = '';
+    adjustConfirm.disabled = true;
     try {
-      descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, {
+      if (wantShot) {
+        adjustError.textContent = '正在截图...';
+        adjustError.className = 'taskplugin-result taskplugin-show';
+        screenshotDataUrl = await captureElementScreenshot(pendingElementSnapshot._viewportRect);
+      }
+
+      const { _viewportRect, ...element } = pendingElementSnapshot;
+      const payload = {
         pageUrl: window.location.href,
         pageTitle: document.title,
-        element: pendingElementSnapshot,
+        element,
         adjustment,
-      });
-      console.log('[taskChromePlugin] element adjustment appended to description');
-      closeAdjustModal();
-      showResult('已将元素调整期望加入任务描述', 'success');
+        screenshotDataUrl: screenshotDataUrl || undefined,
+      };
+      const block = ElementPicker.formatElementAdjustmentBlock(payload);
+      const source = pickSource;
+
+      if (source === 'devtools') {
+        const relay = await sendMessageWithTimeout({
+          action: 'elementPickResult',
+          block,
+          pageUrl: window.location.href,
+        }, 8000);
+        if (!relay?.success) throw new Error(relay?.error || '回传 DevTools 失败');
+        console.log('[taskChromePlugin] element pick result relayed to DevTools');
+        closeAdjustModal();
+        showResult('已将元素调整期望发送到 DevTools 面板', 'success');
+      } else {
+        descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, payload);
+        console.log('[taskChromePlugin] element adjustment appended to float description');
+        closeAdjustModal();
+        showResult('已将元素调整期望加入任务描述', 'success');
+      }
     } catch (ex) {
+      console.warn('[taskChromePlugin] confirmAdjustModal failed:', ex.message || ex);
       adjustError.textContent = ex.message || String(ex);
       adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
+    } finally {
+      adjustConfirm.disabled = false;
     }
   }
 
@@ -460,7 +609,7 @@
       e.preventDefault();
       e.stopPropagation();
       if (adjustModal && !adjustModal.hidden) closeAdjustModal();
-      setPickMode(!pickMode);
+      setPickMode(!pickMode, 'float');
     });
     document.addEventListener('mouseover', onPickMouseOver, true);
     document.addEventListener('click', onPickClick, true);
@@ -1058,7 +1207,7 @@
   }
 
   // ---- 监听来自 popup / background 的消息 ----
-  chrome.runtime.onMessage.addListener((msg) => {
+  chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === 'openDevToolsHint') {
       if (!btn) return;
       btn.style.animation = 'none';
@@ -1074,6 +1223,19 @@
       refreshAuthAndWorkspaces().catch((e) => {
         console.warn('[taskChromePlugin] authStateChanged 刷新失败:', e.message);
       });
+    }
+    if (msg.action === 'startElementPick') {
+      console.log('[taskChromePlugin] startElementPick from', msg.source || 'devtools');
+      if (adjustModal && !adjustModal.hidden) closeAdjustModal();
+      setPickMode(true, msg.source === 'float' ? 'float' : 'devtools');
+      sendResponse?.({ success: true });
+      return true;
+    }
+    if (msg.action === 'cancelElementPick') {
+      setPickMode(false);
+      closeAdjustModal();
+      sendResponse?.({ success: true });
+      return true;
     }
   });
 

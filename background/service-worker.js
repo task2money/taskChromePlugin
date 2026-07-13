@@ -547,9 +547,106 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message };
       }
 
+    case 'startElementPick':
+      {
+        const tabId = message.tabId || sender?.tab?.id;
+        if (!tabId) return { success: false, error: '缺少 tabId，无法启动元素选择' };
+        try {
+          const resp = await chrome.tabs.sendMessage(tabId, {
+            action: 'startElementPick',
+            source: message.source || 'devtools',
+          });
+          console.log('[taskChromePlugin] startElementPick forwarded to tab', tabId);
+          return resp?.success ? { success: true } : { success: false, error: resp?.error || 'content script 未响应' };
+        } catch (e) {
+          return { success: false, error: e.message || '无法联系页面 content script（请刷新页面）' };
+        }
+      }
+
+    case 'elementPickResult':
+      {
+        // 广播给 DevTools panel / 其他扩展页
+        try {
+          await chrome.runtime.sendMessage({
+            action: 'elementPickResult',
+            block: message.block,
+            pageUrl: message.pageUrl,
+          });
+        } catch (_) {
+          // 无监听方时 runtime 可能报错，仍视为成功投递尝试
+        }
+        console.log('[taskChromePlugin] elementPickResult broadcast, blockLen=', String(message.block || '').length);
+        return { success: true };
+      }
+
+    case 'captureElementScreenshot':
+      {
+        try {
+          const tabId = sender?.tab?.id;
+          if (tabId == null) return { success: false, error: '截图需要来自页面的请求' };
+          const dataUrl = await chrome.tabs.captureVisibleTab(sender.tab.windowId, {
+            format: 'jpeg',
+            quality: 72,
+          });
+          const cropped = await cropCaptureToElement(
+            dataUrl,
+            message.rect,
+            message.devicePixelRatio || 1,
+            message.maxWidth || 400,
+          );
+          return { success: true, dataUrl: cropped };
+        } catch (e) {
+          console.error('[taskChromePlugin] captureElementScreenshot failed:', e);
+          return { success: false, error: e.message || '截图失败' };
+        }
+      }
+
     default:
       return { error: `Unknown action: ${message.action}` };
   }
+}
+
+/**
+ * 将整页截图裁剪为元素区域并缩放
+ * @param {string} dataUrl
+ * @param {{left:number,top:number,width:number,height:number}} rect CSS 像素
+ * @param {number} dpr
+ * @param {number} maxWidth
+ */
+async function cropCaptureToElement(dataUrl, rect, dpr, maxWidth) {
+  if (!rect || !(rect.width > 0) || !(rect.height > 0)) {
+    throw new Error('无效的元素矩形');
+  }
+  const resp = await fetch(dataUrl);
+  const blob = await resp.blob();
+  const bitmap = await createImageBitmap(blob);
+  const sx = Math.max(0, Math.round(rect.left * dpr));
+  const sy = Math.max(0, Math.round(rect.top * dpr));
+  const sw = Math.max(1, Math.round(rect.width * dpr));
+  const sh = Math.max(1, Math.round(rect.height * dpr));
+  const clampedW = Math.min(sw, bitmap.width - sx);
+  const clampedH = Math.min(sh, bitmap.height - sy);
+  if (clampedW <= 0 || clampedH <= 0) {
+    bitmap.close?.();
+    throw new Error('元素矩形超出截图范围');
+  }
+  const scale = clampedW > maxWidth ? maxWidth / clampedW : 1;
+  const outW = Math.max(1, Math.round(clampedW * scale));
+  const outH = Math.max(1, Math.round(clampedH * scale));
+  const canvas = new OffscreenCanvas(outW, outH);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('OffscreenCanvas 不可用');
+  ctx.drawImage(bitmap, sx, sy, clampedW, clampedH, 0, 0, outW, outH);
+  bitmap.close?.();
+  const outBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.65 });
+  const buffer = await outBlob.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return `data:image/jpeg;base64,${btoa(binary)}`;
 }
 
 // ---- 启动时恢复配置 ----
