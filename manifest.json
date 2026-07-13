@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Task Chrome Plugin",
-  "version": "1.2.0",
-  "description": "从 Chrome DevTools Network 面板捕获请求并创建任务",
+  "version": "1.3.0",
+  "description": "从 Chrome DevTools Network 面板捕获请求并创建任务；页内浮窗支持指针选择元素",
   "key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCbTUEigGtbSstG\n6KtjVz0JBdSwn86j9IXxZ4s/DsIsDstOwHf67fq+2hl4mpoSO/1ggS22dvq/zNr5\nXD+QRtoJlSG3aBL9i4HDDQlWy7CVICuijMcgisbcaUth1zJwyrdVbTjyPzSpMXvP\nO6eaBTLxa69iB/UnoDqI+3iEfOq9QxTmyUx/3G52ZtBQnctv4DJXw8v+OLztLjD6\nXbZHZThV//hIee6rw5R2hJmh2Kd5z/V93mzBHn5gMxOME4TuS2UTUaoTquyQj1Sn\nX6+a/QYqaRoLz3QiAl6YJlJJVtc44kZZNqa/QrXMIHiTY8O/O0nAVOWMi12D5axv\nka8rAi0vAgMBAAECggEAL05SB+tsSEu5LelTw5fgTK5NAlw7eq/SWR18SgH53afI\nAD4ajgINvjL7TURyqBlD7jCLNyh46xHApfKWniEm64JU2eRG3JqxNTP0Y076hAJf\nqE0PnvcG6j7cqnn9sGPfgpMZpJjiNqOPHioCvKTWxrlRnB/mamKhUfaf2GOgsXOT\nHqsiaKRzpV5iUQthI6yazlaINJ8+gxq6qWm+xpO6uj9fBwUcmsbkYdtt8KKcjwnq\nM5gWdxQzJD4zsUlyStoY+Mf/Y3SsRK8eWuh8rsKjOGYhjK7q8l7nkTFyw06RbxoJ\nmLfrwHmq36Xim++U2OyakRHfl/na61M/A2WhY8QHGQKBgQDKTgZ2cAFrCwRVhLlV\n6ylO3XaKsSrNaL4Em57ukE1cu4slXkGuRrhI5kOb9bz1nvICdWopiZCVhhleR6QR\npTUGvw77Es/vKloiYHJpU/RGOW+s1FrPTHzObr00AG2ENuDK7VYDgU7UbbpYGJSe\n9hs4oacoS8CruFmeeGBVXaW9gwKBgQDEhYWxEX+t2VxNfBgi5PxCPuxxGxmq5+vp\nlRL6cRT+hcvKdYWlxIXwcPquWAqmR5SYNXl7JuaOoaIW1jayq1m/H8lEM5keL1fL\nVzcKtUaPdE92LssrmEpUxhp/IflvJba8ixwErzTXQnWJpj2cKwQKbhchAsH2gJcd\n+WPkTmAN5QKBgQCoi/MUb+KulQIqYaarr3296ALgMBTyB8bwPdte9LiPfuzB2FKu\naNsWWUmQwV6J4L/OTpaBPsxH1u6Bvvwxe0u/cCSCB71XjBiGNYZ8vGZyr12cR1vV\nA+ujbV2S2pxjn/kO+EdGKlBL6ZNr3CbOfUpWl0+V4e8G4lNAFRhlZt00EwKBgB1s\nMDv2drs8k8k2DxcKWYpBiXzVpd4kovlxzEmarJ3+wigpuDy9U6BQCfgYTl/ez6yK\nNQnvJQ2tvWrV35KYfPNUevmvD/mo9OgIwsDjqxDHRS5YiyqXvmk6z7TBDWtKpjVM\nToGVCcBAvwBA13COMCivmt7iXs/dKMLgF8iSw2bRAoGAJYz4Y5ky4K5oPnchdPEZ\na+KLh8tnK/cEZVocNhCeN2rBdWZr6198PLL2cdiiJdffo79qhftzPwRKLYBpbqN6\nd+GCy0u/KoJwYobrgOY7Qx2imUG7v/h0hpKSB/5OOvr0ZtVJmD0mYD/BXBcjiSCD\nns7R7exUw9+/7+Fa89sDGIw=\n-----END PRIVATE KEY-----",
   "permissions": [
     "storage",
@@ -29,7 +29,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/storage.js", "lib/create-task-payload.js", "lib/api.js", "content/content.js"],
+      "js": ["lib/storage.js", "lib/create-task-payload.js", "lib/element-picker.js", "lib/api.js", "content/content.js"],
       "css": ["content/content.css"],
       "run_at": "document_end"
     }

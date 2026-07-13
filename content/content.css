@@ -173,6 +173,53 @@
   color: #a6adc8 !important;
   margin-bottom: 3px !important;
 }
+
+/* 自动运行等开关行 — 勿复用 header 的 mini-toggle（固定 28×16 会挤扁文案） */
+.taskplugin-form-group label.taskplugin-toggle-label {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  margin-bottom: 0 !important;
+  padding: 6px 8px !important;
+  border: 1px solid #313244 !important;
+  border-radius: 6px !important;
+  background: #252536 !important;
+  cursor: pointer !important;
+  color: #cdd6f4 !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  box-sizing: border-box !important;
+}
+.taskplugin-toggle-label input[type="checkbox"] {
+  width: 16px !important;
+  height: 16px !important;
+  margin: 2px 0 0 0 !important;
+  flex-shrink: 0 !important;
+  accent-color: #a6e3a1 !important;
+  opacity: 1 !important;
+  cursor: pointer !important;
+}
+.taskplugin-toggle-text {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 2px !important;
+  min-width: 0 !important;
+  flex: 1 !important;
+}
+.taskplugin-toggle-title {
+  display: block !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  color: #cdd6f4 !important;
+  line-height: 1.35 !important;
+}
+.taskplugin-toggle-hint {
+  display: block !important;
+  font-size: 10px !important;
+  font-weight: 400 !important;
+  color: #6c7086 !important;
+  line-height: 1.35 !important;
+}
 .taskplugin-input, .taskplugin-select, .taskplugin-textarea {
   width: 100% !important;
   padding: 6px 8px !important;
@@ -243,3 +290,105 @@
 .taskplugin-result.taskplugin-show { display: block !important; }
 .taskplugin-result-success { background: rgba(166, 227, 161, 0.15) !important; color: #a6e3a1 !important; border: 1px solid #a6e3a1 !important; }
 .taskplugin-result-error { background: rgba(243, 139, 168, 0.15) !important; color: #f38ba8 !important; border: 1px solid #f38ba8 !important; }
+
+/* 描述行：标签 + 指针选择 */
+.taskplugin-label-row {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  margin-bottom: 3px !important;
+}
+.taskplugin-label-row > span {
+  font-size: 11px !important;
+  color: #a6adc8 !important;
+}
+.taskplugin-btn-pick {
+  width: auto !important;
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  flex-shrink: 0 !important;
+  border-color: #89b4fa !important;
+  color: #89b4fa !important;
+  background: rgba(137, 180, 250, 0.12) !important;
+}
+.taskplugin-btn-pick:hover {
+  background: rgba(137, 180, 250, 0.25) !important;
+}
+.taskplugin-btn-pick.taskplugin-pick-active {
+  background: rgba(243, 139, 168, 0.2) !important;
+  border-color: #f38ba8 !important;
+  color: #f38ba8 !important;
+}
+
+/* 选元素模式：十字光标 */
+html.taskplugin-picking,
+html.taskplugin-picking * {
+  cursor: crosshair !important;
+}
+html.taskplugin-picking #taskplugin-float-root,
+html.taskplugin-picking #taskplugin-float-root * {
+  cursor: pointer !important;
+}
+
+/* hover 高亮（由 JS 添加 class） */
+.taskplugin-el-highlight {
+  outline: 2px solid #89b4fa !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(137, 180, 250, 0.35) !important;
+}
+
+/* 调整期望弹窗 */
+#taskplugin-adjust-modal.taskplugin-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(17, 17, 27, 0.55) !important;
+  pointer-events: auto !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+#taskplugin-adjust-modal[hidden] {
+  display: none !important;
+}
+.taskplugin-modal-card {
+  width: min(420px, 100%) !important;
+  background: #1e1e2e !important;
+  border: 1px solid #45475a !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55) !important;
+  padding: 14px 16px !important;
+  pointer-events: auto !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+.taskplugin-modal-card h4 {
+  margin: 0 0 8px !important;
+  font-size: 14px !important;
+  color: #cdd6f4 !important;
+  font-weight: 600 !important;
+}
+.taskplugin-modal-el {
+  margin: 0 0 10px !important;
+  font-size: 11px !important;
+  color: #a6adc8 !important;
+  word-break: break-all !important;
+  background: #252536 !important;
+  border: 1px solid #313244 !important;
+  border-radius: 6px !important;
+  padding: 8px 10px !important;
+}
+.taskplugin-modal-actions {
+  display: flex !important;
+  gap: 8px !important;
+  margin-top: 10px !important;
+  justify-content: flex-end !important;
+}
+.taskplugin-btn-modal-primary {
+  width: auto !important;
+}
+#taskplugin-adjust-modal .taskplugin-result {
+  margin-top: 8px !important;
+}

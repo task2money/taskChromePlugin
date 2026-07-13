@@ -31,8 +31,11 @@
           <input class="taskplugin-input" id="taskplugin-title" placeholder="任务标题">
         </div>
         <div class="taskplugin-form-group">
-          <label>描述</label>
-          <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述..."></textarea>
+          <label class="taskplugin-label-row">
+            <span>描述</span>
+            <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择页面元素后填写调整期望">🖱️ 指针选择</button>
+          </label>
+          <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（可用指针选择页面元素）"></textarea>
         </div>
         <div class="taskplugin-form-group">
           <label>优先级</label>
@@ -80,9 +83,12 @@
           <input class="taskplugin-input" type="datetime-local" id="taskplugin-due-date">
         </div>
         <div class="taskplugin-form-group">
-          <label class="taskplugin-mini-toggle" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+          <label class="taskplugin-toggle-label" for="taskplugin-auto-run">
             <input type="checkbox" id="taskplugin-auto-run">
-            <span>是否自动运行</span>
+            <span class="taskplugin-toggle-text">
+              <span class="taskplugin-toggle-title">是否自动运行</span>
+              <span class="taskplugin-toggle-hint">创建后按项目运行模版启动云服务器</span>
+            </span>
           </label>
         </div>
         <div class="taskplugin-form-group">
@@ -123,6 +129,18 @@
         <div id="taskplugin-result" class="taskplugin-result"></div>
       </div>
     </div>
+    <div id="taskplugin-adjust-modal" class="taskplugin-modal" hidden>
+      <div class="taskplugin-modal-card" role="dialog" aria-modal="true" aria-labelledby="taskplugin-adjust-title">
+        <h4 id="taskplugin-adjust-title">希望对这个元素做什么调整？</h4>
+        <p class="taskplugin-modal-el" id="taskplugin-adjust-el-summary"></p>
+        <textarea id="taskplugin-adjust-input" class="taskplugin-textarea" rows="4" placeholder="例如：把按钮改成红色、增大字号、调整间距..."></textarea>
+        <div class="taskplugin-modal-actions">
+          <button type="button" class="taskplugin-btn" id="taskplugin-adjust-cancel">取消</button>
+          <button type="button" class="taskplugin-btn taskplugin-btn-primary taskplugin-btn-modal-primary" id="taskplugin-adjust-confirm">确认加入描述</button>
+        </div>
+        <div id="taskplugin-adjust-error" class="taskplugin-result"></div>
+      </div>
+    </div>
   `;
 
   document.body.appendChild(root);
@@ -152,9 +170,19 @@
   let membersData = [];
 
   const floatEnabledToggle = document.getElementById('taskplugin-float-enabled');
+  const pickBtn = document.getElementById('taskplugin-pick-btn');
+  const adjustModal = document.getElementById('taskplugin-adjust-modal');
+  const adjustElSummary = document.getElementById('taskplugin-adjust-el-summary');
+  const adjustInput = document.getElementById('taskplugin-adjust-input');
+  const adjustCancel = document.getElementById('taskplugin-adjust-cancel');
+  const adjustConfirm = document.getElementById('taskplugin-adjust-confirm');
+  const adjustError = document.getElementById('taskplugin-adjust-error');
 
   let isOpen = false;
   let isLoggedIn = false;
+  let pickMode = false;
+  let highlightedEl = null;
+  let pendingElementSnapshot = null;
   let apiCfg = { baseUrl: 'http://183.250.1.132:18081', token: '' };
   let workspacesData = [];
   let projectsData = [];
@@ -198,6 +226,7 @@
       // 0. 立即绑定 UI 交互（拖拽），不依赖任何异步操作
       //    防止 Service Worker 延迟 / 启动失败导致按钮无响应
       setupDrag();
+      setupElementPicker();
 
       // 1. 同步初始化 datalist（不依赖网络/存储）
       seedBranchDatalists();
@@ -259,6 +288,169 @@
     } catch (e) {
       console.warn('[taskChromePlugin] restoreFloatBallPosition 失败:', e.message);
     }
+  }
+
+  // ================================================================
+  //  指针选择页面元素 → 调整期望 → 追加到任务描述
+  // ================================================================
+
+  function isPluginDom(node) {
+    if (!node || node.nodeType !== 1) return true;
+    if (node === root || root.contains(node)) return true;
+    if (typeof node.closest === 'function' && node.closest('#taskplugin-float-root')) return true;
+    return false;
+  }
+
+  function clearHighlight() {
+    if (highlightedEl) {
+      highlightedEl.classList.remove('taskplugin-el-highlight');
+      highlightedEl = null;
+    }
+  }
+
+  function setPickMode(on) {
+    pickMode = !!on;
+    document.documentElement.classList.toggle('taskplugin-picking', pickMode);
+    pickBtn?.classList.toggle('taskplugin-pick-active', pickMode);
+    if (pickBtn) {
+      pickBtn.textContent = pickMode ? '✕ 取消选择' : '🖱️ 指针选择';
+      pickBtn.title = pickMode ? '取消指针选择（Esc）' : '指针选择页面元素后填写调整期望';
+    }
+    if (!pickMode) clearHighlight();
+    console.log('[taskChromePlugin] element pick mode:', pickMode ? 'on' : 'off');
+  }
+
+  function onPickMouseOver(e) {
+    if (!pickMode) return;
+    const t = e.target;
+    if (isPluginDom(t)) {
+      clearHighlight();
+      return;
+    }
+    if (highlightedEl === t) return;
+    clearHighlight();
+    highlightedEl = t;
+    highlightedEl.classList.add('taskplugin-el-highlight');
+  }
+
+  function onPickClick(e) {
+    if (!pickMode) return;
+    const t = e.target;
+    if (isPluginDom(t)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+
+    if (typeof ElementPicker === 'undefined') {
+      console.error('[taskChromePlugin] ElementPicker 未加载');
+      setPickMode(false);
+      return;
+    }
+
+    try {
+      pendingElementSnapshot = ElementPicker.snapshotElement(t);
+      setPickMode(false);
+      openAdjustModal(pendingElementSnapshot);
+    } catch (err) {
+      console.warn('[taskChromePlugin] snapshotElement 失败:', err.message || err);
+      setPickMode(false);
+    }
+  }
+
+  function onPickKeyDown(e) {
+    if (e.key !== 'Escape') return;
+    if (pickMode) {
+      e.preventDefault();
+      setPickMode(false);
+      return;
+    }
+    if (adjustModal && !adjustModal.hidden) {
+      e.preventDefault();
+      closeAdjustModal();
+    }
+  }
+
+  function openAdjustModal(snapshot) {
+    if (!adjustModal) return;
+    adjustElSummary.textContent = `${snapshot.label}${snapshot.visibleText ? ` — "${snapshot.visibleText}"` : ''}`;
+    adjustInput.value = '';
+    adjustError.className = 'taskplugin-result';
+    adjustError.textContent = '';
+    adjustModal.hidden = false;
+    if (!isOpen) {
+      isOpen = true;
+      panel.classList.add('taskplugin-open');
+      btn.classList.add('taskplugin-active');
+    }
+    setTimeout(() => adjustInput.focus(), 0);
+    console.log('[taskChromePlugin] adjust modal open for:', snapshot.label);
+  }
+
+  function closeAdjustModal() {
+    if (!adjustModal) return;
+    adjustModal.hidden = true;
+    pendingElementSnapshot = null;
+    adjustInput.value = '';
+    adjustError.className = 'taskplugin-result';
+    adjustError.textContent = '';
+  }
+
+  function confirmAdjustModal() {
+    if (typeof ElementPicker === 'undefined') {
+      adjustError.textContent = 'ElementPicker 未加载';
+      adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
+      return;
+    }
+    if (!pendingElementSnapshot) {
+      adjustError.textContent = '未选中元素，请重新用指针选择';
+      adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
+      return;
+    }
+    const adjustment = adjustInput.value;
+    const err = ElementPicker.validateAdjustment(adjustment);
+    if (err) {
+      adjustError.textContent = err;
+      adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
+      return;
+    }
+    try {
+      descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, {
+        pageUrl: window.location.href,
+        pageTitle: document.title,
+        element: pendingElementSnapshot,
+        adjustment,
+      });
+      console.log('[taskChromePlugin] element adjustment appended to description');
+      closeAdjustModal();
+      showResult('已将元素调整期望加入任务描述', 'success');
+    } catch (ex) {
+      adjustError.textContent = ex.message || String(ex);
+      adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
+    }
+  }
+
+  function setupElementPicker() {
+    if (!pickBtn) {
+      console.warn('[taskChromePlugin] pick button missing');
+      return;
+    }
+    pickBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (adjustModal && !adjustModal.hidden) closeAdjustModal();
+      setPickMode(!pickMode);
+    });
+    document.addEventListener('mouseover', onPickMouseOver, true);
+    document.addEventListener('click', onPickClick, true);
+    document.addEventListener('keydown', onPickKeyDown, true);
+    adjustCancel?.addEventListener('click', (e) => {
+      e.preventDefault();
+      closeAdjustModal();
+    });
+    adjustConfirm?.addEventListener('click', (e) => {
+      e.preventDefault();
+      confirmAdjustModal();
+    });
   }
 
   // ---- Drag Logic ----

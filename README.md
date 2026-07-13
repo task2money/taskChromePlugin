@@ -10,6 +10,12 @@
 - 令牌格式不正确时插件会提前提示，无需发起网络请求
 - **服务器地址会自动保留**：失焦/登录尝试时写入本地；退出登录只清 token，不重置地址
 
+### 0.5 页内浮窗 — 指针选择元素
+- 打开任意网页 → 点击右下角悬浮球 → 描述旁「🖱️ 指针选择」
+- 再点击页面上的目标元素 → 弹出对话框填写**调整期望**
+- 确认后自动把**元素标识、调整期望、页面链接**追加到任务描述
+- Esc 或再次点击按钮可取消选元素模式；弹窗取消不写入描述
+
 ### 1. 单请求创建任务
 - 打开 DevTools (F12) → 切换到 **TaskPlugin** 面板
 - 在 Network 面板中点击选中一个请求 → 点击「刷新选中请求」
@@ -57,6 +63,7 @@ taskChromePlugin/
 └── lib/
     ├── api.js                     # API 客户端 (REST 封装)
     ├── create-task-payload.js     # 创建任务 payload（对齐 work-panel）
+    ├── element-picker.js          # 指针选元素：快照/描述拼接（纯函数）
     ├── har-request.js             # HAR 解析纯函数（DevTools + 单测）
     ├── capture-status.js          # 批量捕获状态码匹配
     └── storage.js                 # chrome.storage 封装
@@ -64,6 +71,7 @@ taskChromePlugin/
     ├── har-request.test.js        # node --test 单元测试
     ├── capture-status.test.js
     ├── create-task-payload.test.js
+    ├── element-picker.test.js     # 元素描述拼接 / 校验
     └── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
 ├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test
 └── package.json                   # npm test
