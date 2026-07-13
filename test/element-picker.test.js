@@ -16,6 +16,12 @@ const {
   pierceSameOriginIframe,
   deepElementFromPoint,
   hitTestInRoot,
+  isLikelyUaShadowHost,
+  detectUaShadowOpaque,
+  urlsLikelySameFrame,
+  buildFramePathFromRoot,
+  accumulateFrameViewportRect,
+  findIframeElementByUrl,
 } = require('../lib/element-picker.js');
 
 describe('buildElementLabel', () => {
@@ -176,6 +182,20 @@ describe('formatElementAdjustmentBlock', () => {
     assert.doesNotMatch(block, /should-not-appear/);
   });
 
+  it('annotates UA Shadow opaque host', () => {
+    const block = formatElementAdjustmentBlock({
+      pageUrl: 'https://a.test/',
+      element: {
+        label: 'video',
+        uaShadowOpaque: true,
+        frameNestingDepth: 2,
+      },
+      adjustment: '加大控件',
+    });
+    assert.match(block, /UA Shadow/);
+    assert.match(block, /iframe 嵌套深度/);
+  });
+
   it('throws when pageUrl missing', () => {
     assert.throws(
       () => formatElementAdjustmentBlock({
@@ -185,6 +205,59 @@ describe('formatElementAdjustmentBlock', () => {
       }),
       /pageUrl/,
     );
+  });
+});
+
+describe('UA Shadow helpers', () => {
+  it('detects video as UA shadow host', () => {
+    assert.equal(isLikelyUaShadowHost({ nodeType: 1, tagName: 'VIDEO' }), true);
+  });
+
+  it('marks opaque when opener returns null', () => {
+    const el = { nodeType: 1, tagName: 'VIDEO' };
+    const r = detectUaShadowOpaque(el, { openShadowRoot: () => null });
+    assert.equal(r.uaShadowHost, true);
+    assert.equal(r.uaShadowOpaque, true);
+  });
+});
+
+describe('frame path / viewport accumulate', () => {
+  it('builds path from leaf to near-top', () => {
+    const frames = [
+      { frameId: 0, parentFrameId: -1, url: 'https://top/' },
+      { frameId: 1, parentFrameId: 0, url: 'https://a/' },
+      { frameId: 2, parentFrameId: 1, url: 'https://b/' },
+    ];
+    const path = buildFramePathFromRoot(frames, 2);
+    assert.deepEqual(path.map((p) => p.frameId), [1, 2]);
+    assert.equal(path[1].url, 'https://b/');
+  });
+
+  it('accumulates nested iframe offsets', () => {
+    const r = accumulateFrameViewportRect(
+      { left: 5, top: 6, width: 10, height: 20 },
+      [{ left: 100, top: 200 }, { left: 3, top: 4 }],
+    );
+    assert.equal(r.left, 108);
+    assert.equal(r.top, 210);
+    assert.equal(r.width, 10);
+  });
+
+  it('matches iframe urls ignoring trailing slash', () => {
+    assert.equal(
+      urlsLikelySameFrame('https://x.test/app', 'https://x.test/app/'),
+      true,
+    );
+  });
+
+  it('findIframeElementByUrl matches src', () => {
+    const iframe = { src: 'https://x.test/embed', tagName: 'IFRAME' };
+    const doc = {
+      querySelectorAll() {
+        return [iframe];
+      },
+    };
+    assert.equal(findIframeElementByUrl(doc, 'https://x.test/embed/'), iframe);
   });
 });
 

@@ -6,7 +6,13 @@
  *  - 作为 DevTools panel 与 popup 之间的消息桥梁
  */
 
-importScripts('../lib/storage.js', '../lib/create-task-payload.js', '../lib/api.js', '../lib/capture-status.js');
+importScripts(
+  '../lib/storage.js',
+  '../lib/create-task-payload.js',
+  '../lib/api.js',
+  '../lib/capture-status.js',
+  '../lib/element-picker.js',
+);
 
 // ---- 顶层注册 webRequest 监听器 (MV3 最佳实践) ----
 
@@ -585,13 +591,30 @@ async function handleMessage(message, sender) {
         const tabId = sender?.tab?.id;
         if (!tabId) return { success: false, error: '缺少 tab' };
         try {
+          const leafFrameId = sender.frameId != null ? sender.frameId : 0;
+          let frames = [];
+          try {
+            frames = await chrome.webNavigation.getAllFrames({ tabId });
+          } catch (e) {
+            console.warn('[taskChromePlugin] getAllFrames for pick path failed:', e.message || e);
+          }
+          const framePath = (typeof ElementPicker !== 'undefined' && ElementPicker.buildFramePathFromRoot)
+            ? ElementPicker.buildFramePathFromRoot(frames || [], leafFrameId)
+            : [];
+          const ancestorIframeRects = await collectAncestorIframeRects(tabId, framePath);
           await chrome.tabs.sendMessage(tabId, {
             action: 'elementPickedInFrame',
             snapshot: message.snapshot,
             rectInFrame: message.rectInFrame,
             frameUrl: message.frameUrl,
+            framePath,
+            ancestorIframeRects,
+            leafFrameId,
           }, { frameId: 0 });
-          console.log('[taskChromePlugin] elementPickedInFrame forwarded to top frame');
+          console.log(
+            '[taskChromePlugin] elementPickedInFrame forwarded to top frame, nest=',
+            framePath.length,
+          );
           return { success: true };
         } catch (e) {
           return { success: false, error: e.message || '转发到顶层失败' };
@@ -673,6 +696,37 @@ async function broadcastPickToChildFrames(tabId, action, source) {
       /* 部分 frame 可能未注入 pick-frame */
     }
   }
+}
+
+/**
+ * 沿 framePath（近顶→leaf）向各父 frame 查询子 iframe 在父视口中的矩形
+ */
+async function collectAncestorIframeRects(tabId, framePath) {
+  const path = Array.isArray(framePath) ? framePath : [];
+  const rects = [];
+  for (let i = 0; i < path.length; i++) {
+    const child = path[i];
+    const parentFrameId = i === 0 ? 0 : path[i - 1].frameId;
+    try {
+      const resp = await chrome.tabs.sendMessage(tabId, {
+        action: 'locateChildFrameRect',
+        childFrameUrl: child.url,
+      }, { frameId: parentFrameId });
+      if (resp?.success && resp.rect) {
+        rects.push({
+          left: resp.rect.left || 0,
+          top: resp.rect.top || 0,
+          width: resp.rect.width || 0,
+          height: resp.rect.height || 0,
+        });
+      } else {
+        rects.push({ left: 0, top: 0, width: 0, height: 0 });
+      }
+    } catch (_) {
+      rects.push({ left: 0, top: 0, width: 0, height: 0 });
+    }
+  }
+  return rects;
 }
 
 /**

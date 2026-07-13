@@ -500,13 +500,20 @@
     if (!adjustModal) return;
     const ctx = [
       snapshot.inClosedShadow ? 'closed-Shadow' : (snapshot.inShadow ? 'Shadow' : ''),
+      snapshot.uaShadowOpaque ? 'UA-Shadow不可穿透' : (snapshot.uaShadowHost ? '原生宿主' : ''),
       snapshot.crossOriginIframe ? 'x-iframe' : (snapshot.inIframe ? 'iframe' : ''),
+      snapshot.frameNestingDepth > 1 ? `nest×${snapshot.frameNestingDepth}` : '',
     ].filter(Boolean).join('+');
     adjustElSummary.textContent = `${snapshot.label}${ctx ? ` [${ctx}]` : ''}${snapshot.visibleText ? ` — "${snapshot.visibleText}"` : ''}`;
+    if (snapshot.uaShadowOpaque) {
+      adjustError.textContent = '提示：原生控件内部（UA Shadow）无法选中，已选中宿主元素。';
+      adjustError.className = 'taskplugin-result taskplugin-show';
+    } else {
+      adjustError.className = 'taskplugin-result';
+      adjustError.textContent = '';
+    }
     adjustInput.value = '';
     if (adjustShot) adjustShot.checked = false;
-    adjustError.className = 'taskplugin-result';
-    adjustError.textContent = '';
     adjustModal.hidden = false;
     if (!isOpen) {
       isOpen = true;
@@ -1273,35 +1280,79 @@
       return true;
     }
     if (msg.action === 'elementPickedInFrame' && msg.snapshot) {
-      // 来自跨域 iframe 的选中结果（经 SW 转发）
-      console.log('[taskChromePlugin] elementPickedInFrame', msg.frameUrl);
+      // 来自跨域 iframe 的选中结果（经 SW 转发，含嵌套 framePath）
+      console.log('[taskChromePlugin] elementPickedInFrame', msg.frameUrl, 'pathLen=', (msg.framePath || []).length);
       setPickMode(false);
+      const nestDepth = Array.isArray(msg.framePath) ? msg.framePath.length : 1;
       pendingElementSnapshot = {
         ...msg.snapshot,
         crossOriginIframe: true,
         inIframe: true,
+        frameNestingDepth: nestDepth,
       };
-      const iframeEl = findIframeByUrl(msg.frameUrl);
-      const fr = iframeEl ? iframeEl.getBoundingClientRect() : { left: 0, top: 0 };
-      const r = msg.rectInFrame || { left: 0, top: 0, width: 0, height: 0 };
-      pendingElementSnapshot._viewportRect = {
-        left: fr.left + (r.left || 0),
-        top: fr.top + (r.top || 0),
-        width: r.width || 0,
-        height: r.height || 0,
-      };
-      if (msg.snapshot.cssPath && iframeEl && typeof ElementPicker !== 'undefined') {
-        const frameSnap = ElementPicker.snapshotElement(iframeEl);
-        pendingElementSnapshot.cssPath = `${frameSnap.cssPath || frameSnap.label} >>> ${msg.snapshot.cssPath}`;
+      const leafRect = msg.rectInFrame || { left: 0, top: 0, width: 0, height: 0 };
+      if (typeof ElementPicker !== 'undefined' && Array.isArray(msg.ancestorIframeRects) && msg.ancestorIframeRects.length) {
+        pendingElementSnapshot._viewportRect = ElementPicker.accumulateFrameViewportRect(
+          leafRect,
+          msg.ancestorIframeRects,
+        );
+      } else {
+        const iframeEl = findIframeByUrl(msg.frameUrl);
+        const fr = iframeEl ? iframeEl.getBoundingClientRect() : { left: 0, top: 0 };
+        pendingElementSnapshot._viewportRect = {
+          left: fr.left + (leafRect.left || 0),
+          top: fr.top + (leafRect.top || 0),
+          width: leafRect.width || 0,
+          height: leafRect.height || 0,
+        };
+      }
+      if (msg.snapshot.cssPath && typeof ElementPicker !== 'undefined') {
+        const prefixes = [];
+        const path = msg.framePath || [];
+        let doc = document;
+        for (let i = 0; i < path.length; i++) {
+          const iframeEl = ElementPicker.findIframeElementByUrl(doc, path[i].url)
+            || (i === path.length - 1 ? findIframeByUrl(msg.frameUrl) : null);
+          if (!iframeEl) break;
+          try {
+            const frameSnap = ElementPicker.snapshotElement(iframeEl);
+            prefixes.push(frameSnap.cssPath || frameSnap.label);
+            if (iframeEl.contentDocument) doc = iframeEl.contentDocument;
+            else break;
+          } catch (_) {
+            break;
+          }
+        }
+        if (prefixes.length) {
+          pendingElementSnapshot.cssPath = `${prefixes.join(' >>> ')} >>> ${msg.snapshot.cssPath}`;
+        }
       }
       openAdjustModal(pendingElementSnapshot);
       sendResponse?.({ success: true });
+      return true;
+    }
+    if (msg.action === 'locateChildFrameRect') {
+      const iframe = typeof ElementPicker !== 'undefined'
+        ? ElementPicker.findIframeElementByUrl(document, msg.childFrameUrl)
+        : findIframeByUrl(msg.childFrameUrl);
+      if (!iframe) {
+        sendResponse?.({ success: false, error: '未找到子 iframe' });
+        return true;
+      }
+      const r = iframe.getBoundingClientRect();
+      sendResponse?.({
+        success: true,
+        rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+      });
       return true;
     }
   });
 
   function findIframeByUrl(frameUrl) {
     if (!frameUrl) return null;
+    if (typeof ElementPicker !== 'undefined' && ElementPicker.findIframeElementByUrl) {
+      return ElementPicker.findIframeElementByUrl(document, frameUrl);
+    }
     const iframes = Array.from(document.querySelectorAll('iframe'));
     let match = iframes.find((f) => f.src && f.src === frameUrl);
     if (match) return match;

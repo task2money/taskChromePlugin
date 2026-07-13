@@ -14,8 +14,9 @@
 - 打开任意网页 → 点击右下角悬浮球 → 描述旁「🖱️ 指针选择」
 - 再点击页面上的目标元素 → 弹出对话框填写**调整期望**
 - 确认后自动把**元素标识、调整期望、页面链接**追加到任务描述
-- 支持 **open / closed Shadow DOM**（选择器含 `>>>`；closed 会在描述中标注）与 **同源 / 跨域 iframe**（跨域由帧内脚本选中后回传到顶层弹窗）
-- 可选勾选「附带元素截图」：裁剪后**上传媒体存储**，描述写入 **https URL**（不再内嵌 data URL；上传失败会报错）
+- 支持 **open / closed Shadow DOM**（选择器含 `>>>`；closed 会在描述中标注）与 **同源 / 跨域 iframe**（含多层嵌套：经 frame 祖先链累加视口坐标）
+- 选中 **原生控件**（video/audio/部分 input 等）时标注 **UA Shadow 内部不可穿透**（浏览器限制，选中宿主）
+- 可选勾选「附带元素截图」：裁剪后**上传媒体存储**，描述写入 **https URL**（支持 CDN 基址与 TTL；上传失败会报错）
 - DevTools **TaskPlugin** 面板描述旁同样可触发指针选择，结果追加到面板任务描述
 - Esc 或再次点击悬浮球可取消选元素模式；弹窗取消不写入描述
 
@@ -112,7 +113,7 @@ cd taskChromePlugin && npm test
 | GET | `/api/tenant/{companyId}/manage-deliverable-system/?workspace_id=` | 交付物类别 |
 | GET | `/api/tenant/{companyId}/installed-images/` | 已安装镜像 |
 | GET | `/api/personal/feature-params-configs/` | 个人环境变量配置 |
-| POST | `/api/accounts/users/profile/plugin-screenshots/` | 上传元素截图（multipart `file`），返回 `{url}` |
+| POST | `/api/accounts/users/profile/plugin-screenshots/` | 上传元素截图（multipart `file`），返回 `{url, expires_at, ttl_days}`；服务端可配 `PLUGIN_SCREENSHOT_PUBLIC_BASE_URL`（CDN）与 `PLUGIN_SCREENSHOT_TTL_DAYS`，清理命令 `cleanup_plugin_screenshots` |
 
 ### 创建任务 body 关键字段
 

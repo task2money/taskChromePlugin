@@ -40,6 +40,19 @@
     return deep;
   }
 
+  function locateChildFrameRect(childFrameUrl) {
+    if (typeof ElementPicker === 'undefined') {
+      return { success: false, error: 'ElementPicker 未加载' };
+    }
+    const iframe = ElementPicker.findIframeElementByUrl(document, childFrameUrl);
+    if (!iframe) return { success: false, error: '未找到子 iframe' };
+    const r = iframe.getBoundingClientRect();
+    return {
+      success: true,
+      rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+    };
+  }
+
   function onMouseOver(e) {
     if (!pickMode) return;
     const { el } = resolveTarget(e);
@@ -113,6 +126,10 @@
     if (msg.action === 'cancelElementPick') {
       setPickMode(false);
       sendResponse?.({ success: true, frame: true });
+      return true;
+    }
+    if (msg.action === 'locateChildFrameRect') {
+      sendResponse?.(locateChildFrameRect(msg.childFrameUrl));
       return true;
     }
   });
