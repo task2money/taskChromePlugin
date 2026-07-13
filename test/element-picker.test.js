@@ -7,9 +7,12 @@ const {
   buildElementLabel,
   buildCssPath,
   validateAdjustment,
+  validateScreenshotDataUrl,
   formatElementAdjustmentBlock,
   appendElementAdjustmentToDescription,
   truncateText,
+  resolveComposedElement,
+  pierceSameOriginIframe,
 } = require('../lib/element-picker.js');
 
 describe('buildElementLabel', () => {
@@ -45,6 +48,61 @@ describe('buildCssPath', () => {
     ]);
     assert.equal(path, 'ul > li.item:nth-of-type(3)');
   });
+
+  it('inserts >>> across shadow boundary', () => {
+    const path = buildCssPath([
+      { tagName: 'div', id: 'host', nthOfType: 1 },
+      { tagName: 'button', className: 'inner', nthOfType: 1, crossedShadowFromParent: true },
+    ]);
+    assert.equal(path, 'div#host >>> button.inner');
+  });
+});
+
+describe('resolveComposedElement', () => {
+  it('returns deepest non-excluded element from composedPath', () => {
+    const host = { nodeType: 1, id: 'host' };
+    const inner = { nodeType: 1, id: 'inner' };
+    const plugin = { nodeType: 1, id: 'taskplugin-float-root' };
+    const el = resolveComposedElement(
+      { composedPath: () => [plugin, inner, host] },
+      (n) => n.id === 'taskplugin-float-root',
+    );
+    assert.equal(el, inner);
+  });
+});
+
+describe('pierceSameOriginIframe', () => {
+  it('throws CROSS_ORIGIN_IFRAME when contentDocument inaccessible', () => {
+    const iframe = {
+      tagName: 'IFRAME',
+      get contentDocument() {
+        throw new Error('Blocked a frame');
+      },
+      getBoundingClientRect() {
+        return { left: 0, top: 0 };
+      },
+    };
+    assert.throws(
+      () => pierceSameOriginIframe(iframe, 10, 10),
+      (err) => err.code === 'CROSS_ORIGIN_IFRAME',
+    );
+  });
+
+  it('returns inner element for same-origin iframe mock', () => {
+    const inner = { nodeType: 1, tagName: 'BUTTON' };
+    const iframe = {
+      tagName: 'IFRAME',
+      contentDocument: {
+        elementFromPoint() {
+          return inner;
+        },
+      },
+      getBoundingClientRect() {
+        return { left: 5, top: 5 };
+      },
+    };
+    assert.equal(pierceSameOriginIframe(iframe, 15, 20), inner);
+  });
 });
 
 describe('validateAdjustment', () => {
@@ -55,6 +113,21 @@ describe('validateAdjustment', () => {
 
   it('accepts non-empty adjustment', () => {
     assert.equal(validateAdjustment('把按钮改成红色'), null);
+  });
+});
+
+describe('validateScreenshotDataUrl', () => {
+  it('allows empty (optional)', () => {
+    assert.equal(validateScreenshotDataUrl(''), null);
+    assert.equal(validateScreenshotDataUrl(undefined), null);
+  });
+
+  it('rejects non-image data url', () => {
+    assert.match(validateScreenshotDataUrl('data:text/plain;base64,YQ=='), /截图格式无效/);
+  });
+
+  it('accepts jpeg data url', () => {
+    assert.equal(validateScreenshotDataUrl('data:image/jpeg;base64,/9j/4AAQ'), null);
   });
 });
 
@@ -76,6 +149,23 @@ describe('formatElementAdjustmentBlock', () => {
     assert.match(block, /\*\*选择器\*\*: `body > button#ok`/);
     assert.match(block, /\*\*可见文本\*\*: "确定"/);
     assert.match(block, /\*\*调整期望\*\*: 放大字号/);
+  });
+
+  it('includes shadow/iframe context and screenshot markdown', () => {
+    const block = formatElementAdjustmentBlock({
+      pageUrl: 'https://a.test/',
+      element: {
+        label: 'span.x',
+        cssPath: 'div#host >>> span.x',
+        inShadow: true,
+        inIframe: true,
+      },
+      adjustment: '改色',
+      screenshotDataUrl: 'data:image/jpeg;base64,abc',
+    });
+    assert.match(block, /Shadow DOM/);
+    assert.match(block, /同源 iframe/);
+    assert.match(block, /!\[[^\]]*\]\(data:image\/jpeg;base64,abc\)/);
   });
 
   it('throws when pageUrl missing', () => {

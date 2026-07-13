@@ -134,6 +134,10 @@
         <h4 id="taskplugin-adjust-title">希望对这个元素做什么调整？</h4>
         <p class="taskplugin-modal-el" id="taskplugin-adjust-el-summary"></p>
         <textarea id="taskplugin-adjust-input" class="taskplugin-textarea" rows="4" placeholder="例如：把按钮改成红色、增大字号、调整间距..."></textarea>
+        <label class="taskplugin-shot-label">
+          <input type="checkbox" id="taskplugin-adjust-shot">
+          <span>附带元素截图（压缩 JPEG）</span>
+        </label>
         <div class="taskplugin-modal-actions">
           <button type="button" class="taskplugin-btn" id="taskplugin-adjust-cancel">取消</button>
           <button type="button" class="taskplugin-btn taskplugin-btn-primary taskplugin-btn-modal-primary" id="taskplugin-adjust-confirm">确认加入描述</button>
@@ -177,12 +181,17 @@
   const adjustCancel = document.getElementById('taskplugin-adjust-cancel');
   const adjustConfirm = document.getElementById('taskplugin-adjust-confirm');
   const adjustError = document.getElementById('taskplugin-adjust-error');
+  const adjustShot = document.getElementById('taskplugin-adjust-shot');
 
   let isOpen = false;
   let isLoggedIn = false;
   let pickMode = false;
   let highlightedEl = null;
+  let highlightDoc = null;
   let pendingElementSnapshot = null;
+  let pendingFrameElement = null;
+  let pickSource = 'float'; // float | devtools
+  let pickCrossOriginHintShown = false;
   let apiCfg = { baseUrl: 'http://183.250.1.132:18081', token: '' };
   let workspacesData = [];
   let projectsData = [];
