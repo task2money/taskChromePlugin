@@ -508,8 +508,14 @@ const Panel = (() => {
       fetchSingleBranchLists(wsId, checkedIds);
     });
     $('#btnCreateSingle').addEventListener('click', createSingleTask);
+    $('#btnPickElement')?.addEventListener('click', startPageElementPick);
     $('#singleFeatureParamsSource')?.addEventListener('change', onFeatureParamsSourceChange);
     initSingleDueDateDefault();
+    chrome.runtime.onMessage.addListener((msg) => {
+      if (msg?.action === 'elementPickResult' && msg.block) {
+        appendElementPickBlock(msg.block);
+      }
+    });
     // 项目勾选变化时，动态获取分支列表
     $('#singleProjects').addEventListener('change', (e) => {
       if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
@@ -519,6 +525,44 @@ const Panel = (() => {
         refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
       }
     });
+  }
+
+  function appendElementPickBlock(block) {
+    const ta = $('#singleTaskDesc');
+    if (!ta || !block) return;
+    const base = (ta.value || '').trimEnd();
+    ta.value = base ? `${base}\n\n${block}` : block;
+    showR('singleResult', 'success', '✅ 已将页面元素调整加入任务描述');
+    console.log('[taskChromePlugin] panel received elementPickResult, len=', block.length);
+  }
+
+  async function startPageElementPick() {
+    const tabId = chrome.devtools?.inspectedWindow?.tabId;
+    if (!tabId) {
+      showR('singleResult', 'error', '无法获取当前检查页 tabId');
+      return;
+    }
+    const btn = $('#btnPickElement');
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = '选择中…';
+    }
+    try {
+      const r = await sendMessage({
+        action: 'startElementPick',
+        tabId,
+        source: 'devtools',
+      });
+      if (!r?.success) throw new Error(r?.error || '启动失败');
+      showR('singleResult', 'success', '请在页面中点击目标元素（Esc 取消）');
+    } catch (e) {
+      showR('singleResult', 'error', `无法启动指针选择: ${e.message}`);
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '🖱️ 指针选择';
+      }
+    }
   }
 
   async function refreshRequestList() {
