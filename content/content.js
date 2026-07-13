@@ -316,7 +316,20 @@
       pickBtn.textContent = pickMode ? '✕ 取消选择' : '🖱️ 指针选择';
       pickBtn.title = pickMode ? '取消指针选择（Esc）' : '指针选择页面元素后填写调整期望';
     }
-    if (!pickMode) clearHighlight();
+    if (!pickMode) {
+      clearHighlight();
+      btn.textContent = '+';
+      btn.title = 'TaskPlugin — 快速创建任务';
+      btn.classList.remove('taskplugin-picking-fab');
+    } else {
+      // 选元素时收起面板，避免遮挡；悬浮球变为取消入口
+      panel.classList.remove('taskplugin-open');
+      btn.classList.remove('taskplugin-active');
+      isOpen = false;
+      btn.textContent = '✕';
+      btn.title = '取消指针选择（Esc）';
+      btn.classList.add('taskplugin-picking-fab');
+    }
     console.log('[taskChromePlugin] element pick mode:', pickMode ? 'on' : 'off');
   }
 
@@ -513,6 +526,11 @@
   btn.addEventListener('click', async (e) => {
     if (hasMoved) {
       hasMoved = false;
+      return;
+    }
+    // 选元素模式下，点击悬浮球 = 取消选择
+    if (pickMode) {
+      setPickMode(false);
       return;
     }
     isOpen = !isOpen;

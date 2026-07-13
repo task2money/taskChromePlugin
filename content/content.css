@@ -66,6 +66,12 @@
   transform: rotate(45deg) !important;
   box-shadow: 0 4px 20px rgba(243, 139, 168, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
 }
+#taskplugin-float-btn.taskplugin-picking-fab {
+  background: linear-gradient(135deg, #f9e2af, #fab387) !important;
+  border-color: rgba(249, 226, 175, 0.6) !important;
+  transform: none !important;
+  box-shadow: 0 4px 20px rgba(249, 226, 175, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
 
 /* 面板 */
 #taskplugin-float-panel {
