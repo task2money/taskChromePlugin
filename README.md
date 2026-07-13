@@ -8,6 +8,7 @@
 - 点击扩展图标 → 输入服务器地址、账号（用户名或邮箱）、访问令牌
 - 访问令牌在 task2app **个人资料 → 访问令牌** 中生成（以 `at_` 开头）；登录后自动存储 Session Token，用于后续 API 调用
 - 令牌格式不正确时插件会提前提示，无需发起网络请求
+- **服务器地址会自动保留**：失焦/登录尝试时写入本地；退出登录只清 token，不重置地址
 
 ### 1. 单请求创建任务
 - 打开 DevTools (F12) → 切换到 **TaskPlugin** 面板
@@ -62,7 +63,8 @@ taskChromePlugin/
 ├── test/
     ├── har-request.test.js        # node --test 单元测试
     ├── capture-status.test.js
-    └── create-task-payload.test.js
+    ├── create-task-payload.test.js
+    └── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
 ├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test
 └── package.json                   # npm test
 ```
@@ -73,7 +75,7 @@ taskChromePlugin/
 cd taskChromePlugin && npm test
 ```
 
-覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**。
+覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**、**baseUrl 登出后仍保留**。
 
 ### CI
 
@@ -107,6 +109,7 @@ cd taskChromePlugin && npm test
 ## 数据存储
 
 - Token 和配置存储在 `chrome.storage.local`
+- **服务器地址**（`baseUrl`）在输入失焦、登录尝试、登录成功时持久化；退出登录保留上次地址
 - 捕获的错误请求最多保留 500 条
 - 工作空间/项目选择自动记忆
 

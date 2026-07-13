@@ -33,10 +33,36 @@ const Popup = (() => {
   let initRetryTimer = null;
   const STATE_CHECK_TIMEOUT = 5000; // 登录状态检查最长 5 秒
 
+  async function restoreRememberedFormFields() {
+    const cfg = await Storage.getApiConfig();
+    const cred = await Storage.getCredentials();
+    const baseUrlInput = $('#baseUrl');
+    if (baseUrlInput) baseUrlInput.value = cfg.baseUrl;
+    const usernameInput = $('#username');
+    if (usernameInput && cred.username && !cred.username.startsWith('(')) {
+      usernameInput.value = cred.username;
+    }
+  }
+
+  async function persistBaseUrlFromInput() {
+    const baseUrlInput = $('#baseUrl');
+    if (!baseUrlInput) return;
+    const baseUrl = baseUrlInput.value.trim();
+    if (!baseUrl) return;
+    await Storage.saveBaseUrl(baseUrl);
+  }
+
   async function init() {
     // 打开 popup 即表示用户已看到错误，重置角标
     try { chrome.runtime.sendMessage({ action: 'resetBadge' }); } catch (_) { /* ignore */ }
     bindEvents();
+
+    // 先恢复上次服务器地址/账号，避免状态检查失败时回落到 HTML 默认值
+    try {
+      await restoreRememberedFormFields();
+    } catch (e) {
+      console.warn('[TaskPlugin] 恢复表单字段失败:', e);
+    }
 
     // 5 秒后如果 spinner 还在，显示重试按钮
     initRetryTimer = setTimeout(() => {
@@ -58,6 +84,7 @@ const Popup = (() => {
     } catch (e) {
       console.error('[TaskPlugin] loadState 失败:', e);
       showLoginUI(e.message || undefined);
+      try { await restoreRememberedFormFields(); } catch (_) { /* ignore */ }
     } finally {
       clearTimeout(initRetryTimer);
       const spinner = $('#loadingSpinner');
@@ -247,6 +274,13 @@ const Popup = (() => {
     // 退出登录
     $('#btnLogout').addEventListener('click', handleLogout);
 
+    // 服务器地址：失焦/变更时自动保留上次输入
+    const baseUrlInput = $('#baseUrl');
+    if (baseUrlInput) {
+      baseUrlInput.addEventListener('change', () => { persistBaseUrlFromInput().catch(() => {}); });
+      baseUrlInput.addEventListener('blur', () => { persistBaseUrlFromInput().catch(() => {}); });
+    }
+
     // 重试初始化
     $('#btnRetryInit').addEventListener('click', retryInit);
 
@@ -315,6 +349,9 @@ const Popup = (() => {
       return showResult('loginResult', '访问令牌格式无效，应以 at_ 开头', 'error');
     }
 
+    // 登录成功与否都先记住服务器地址
+    await Storage.saveBaseUrl(baseUrl);
+
     const btn = $('#btnLogin');
     const loginResult = $('#loginResult');
     if (!btn) return;
@@ -350,8 +387,8 @@ const Popup = (() => {
   // ---- 登出 ----
 
   async function handleLogout() {
-    await Storage.saveApiConfig('', '');
-    await Storage.saveCredentials('', '');
+    // 仅清除登录态，保留上次服务器地址
+    await Storage.clearAuth();
     notifyContentScriptsAuthChanged();
     await loadState();
   }
