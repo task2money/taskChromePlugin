@@ -565,17 +565,9 @@ async function handleMessage(message, sender) {
 
     case 'elementPickResult':
       {
-        // 广播给 DevTools panel / 其他扩展页
-        try {
-          await chrome.runtime.sendMessage({
-            action: 'elementPickResult',
-            block: message.block,
-            pageUrl: message.pageUrl,
-          });
-        } catch (_) {
-          // 无监听方时 runtime 可能报错，仍视为成功投递尝试
-        }
-        console.log('[taskChromePlugin] elementPickResult broadcast, blockLen=', String(message.block || '').length);
+        // content script 的 runtime.sendMessage 会同时送达 SW 与 DevTools panel；
+        // 此处仅确认投递，避免再广播导致 panel 重复追加。
+        console.log('[taskChromePlugin] elementPickResult ack, blockLen=', String(message.block || '').length);
         return { success: true };
       }
 
