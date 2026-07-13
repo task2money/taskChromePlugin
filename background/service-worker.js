@@ -6,7 +6,7 @@
  *  - 作为 DevTools panel 与 popup 之间的消息桥梁
  */
 
-importScripts('../lib/storage.js', '../lib/api.js', '../lib/capture-status.js');
+importScripts('../lib/storage.js', '../lib/create-task-payload.js', '../lib/api.js', '../lib/capture-status.js');
 
 // ---- 顶层注册 webRequest 监听器 (MV3 最佳实践) ----
 
@@ -354,6 +354,33 @@ async function handleMessage(message, sender) {
       try {
         API.init(message.baseUrl, message.token);
         const data = await API.getBranches(message.companyId, message.projectId, message.repoUrl);
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+
+    case 'getDeliverableTypes':
+      try {
+        API.init(message.baseUrl, message.token);
+        const data = await API.getDeliverableTypes(message.companyId, message.workspaceId);
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+
+    case 'getInstalledImages':
+      try {
+        API.init(message.baseUrl, message.token);
+        const data = await API.getInstalledImages(message.companyId);
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message };
+      }
+
+    case 'getPersonalFeatureParamsConfigs':
+      try {
+        API.init(message.baseUrl, message.token);
+        const data = await API.getPersonalFeatureParamsConfigs();
         return { success: true, data };
       } catch (e) {
         return { success: false, error: e.message };

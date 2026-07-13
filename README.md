@@ -12,7 +12,12 @@
 ### 1. 单请求创建任务
 - 打开 DevTools (F12) → 切换到 **TaskPlugin** 面板
 - 在 Network 面板中点击选中一个请求 → 点击「刷新选中请求」
-- 选择目标工作空间 → 勾选项目 → 编辑标题/描述 → 点击「创建任务」
+- 选择工作空间 → 勾选项目 → 填写与 **工作面板创建任务** 对齐的参数（进度列、交付物、镜像、环境变量参数、截止日期、自动运行、分支策略等）→ 点击「创建任务」
+- **环境变量参数为必填**（公司默认 / 工作空间默认 / 个人配置），与 work-panel 一致
+- 优先级为 **高(0) / 中(1) / 低(2)**
+- 勾选项目后可为**每个仓库单独填写基准分支**（对齐 CreateTaskModal）
+- 页内浮窗支持**协作人员多选**
+- 批量创建同样暴露交付物 / 镜像 / 环境变量参数 / 截止日期 / 自动运行 / 逐仓基准分支
 - 支持捕获 **Canceled**（客户端中止，status=0）请求，列表中显示为 `Canceled`
 
 ### 2. 批量错误捕获
@@ -50,12 +55,14 @@ taskChromePlugin/
 │   └── popup.css                  # 弹窗样式
 └── lib/
     ├── api.js                     # API 客户端 (REST 封装)
+    ├── create-task-payload.js     # 创建任务 payload（对齐 work-panel）
     ├── har-request.js             # HAR 解析纯函数（DevTools + 单测）
     ├── capture-status.js          # 批量捕获状态码匹配
     └── storage.js                 # chrome.storage 封装
 ├── test/
     ├── har-request.test.js        # node --test 单元测试
-    └── capture-status.test.js
+    ├── capture-status.test.js
+    └── create-task-payload.test.js
 ├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test
 └── package.json                   # npm test
 ```
@@ -66,7 +73,7 @@ taskChromePlugin/
 cd taskChromePlugin && npm test
 ```
 
-覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`。
+覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**。
 
 ### CI
 
@@ -83,7 +90,17 @@ cd taskChromePlugin && npm test
 | GET | `/api/user/{userId}/accounts/users/me/` | 获取当前用户及所属公司列表 |
 | GET | `/api/tenant/{companyId}/workspaces/` | 获取指定租户的工作空间列表，返回 `[]` 或 `{items: []}` 或 `{data: []}` |
 | GET | `/api/tenant/{companyId}/projects/?workspace_id={id}` | 获取项目列表 |
-| POST | `/api/tenant/{companyId}/workspace/{workspaceId}/todos/` | 创建单个任务 |
+| POST | `/api/tenant/{companyId}/workspace/{workspaceId}/todos/` | 创建单个任务（字段对齐 work-panel） |
+| GET | `/api/tenant/{companyId}/workspaces/{workspaceId}/progress-system/` | 进度列 |
+| GET | `/api/tenant/{companyId}/manage-deliverable-system/?workspace_id=` | 交付物类别 |
+| GET | `/api/tenant/{companyId}/installed-images/` | 已安装镜像 |
+| GET | `/api/personal/feature-params-configs/` | 个人环境变量配置 |
+
+### 创建任务 body 关键字段
+
+与工作面板一致：`title`、`description`、`priority`(0/1/2)、`workspace_id`、`owner`、`assignees`、`progress_column_id`、`deliverable_obj_id`、`container_image_id`、`due_date`、`auto_run`、`feature_params_source`（必填）、`personal_feature_params_config_id`、`branch_strategy`、`projects[{project_id,repo_index,base_branch,target_branch}]`。
+
+纯函数构建器：`lib/create-task-payload.js`（单测见 `test/create-task-payload.test.js`）。
 
 所有需要认证的请求自动携带 `Authorization` 头：session token 为 `Token <token>`，`at_` 访问令牌为 `Bearer <token>`。
 

@@ -65,10 +65,9 @@
             <option value="">进度列</option>
           </select>
           <select id="singlePriority" class="form-select" style="flex:1">
-            <option value="low">低</option>
-            <option value="medium" selected>中</option>
-            <option value="high">高</option>
-            <option value="critical">紧急</option>
+            <option value="0">高</option>
+            <option value="1" selected>中</option>
+            <option value="2">低</option>
           </select>
           <select id="singleOwner" class="form-select" style="flex:2">
             <option value="">负责人</option>
@@ -95,6 +94,64 @@
               <button id="btnRefreshSingleBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
             </div>
             <datalist id="singleMergeTargetList"></datalist>
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:8px">
+          <label>逐仓基准分支 <span class="hint-inline">— 对齐工作面板；空则用项目默认分支</span></label>
+          <div id="singleRepoBases" class="repo-bases">
+            <p class="placeholder">勾选项目后按仓库填写基准分支</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 对齐 work-panel 的创建参数 -->
+      <div class="section">
+        <h3>⚙️ 创建参数 <span class="hint-inline">— 与工作面板创建任务一致</span></h3>
+        <div class="target-row">
+          <div style="flex:1">
+            <label>交付物类别</label>
+            <select id="singleDeliverable" class="form-select">
+              <option value="">加载中...</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>已安装镜像</label>
+            <select id="singleContainerImage" class="form-select">
+              <option value="">无</option>
+            </select>
+          </div>
+        </div>
+        <div class="target-row" style="margin-top:6px">
+          <div style="flex:1">
+            <label>环境变量参数 <span class="hint-inline">— 必填</span></label>
+            <select id="singleFeatureParamsSource" class="form-select">
+              <option value="">-- 请选择 --</option>
+              <option value="company">公司默认</option>
+              <option value="workspace">工作空间默认</option>
+              <option value="personal">个人配置</option>
+            </select>
+          </div>
+          <div style="flex:1" id="singlePersonalConfigWrap" hidden>
+            <label>个人配置</label>
+            <select id="singlePersonalConfig" class="form-select">
+              <option value="">-- 请选择个人配置 --</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>截止日期</label>
+            <input type="datetime-local" id="singleDueDate" class="form-input">
+          </div>
+        </div>
+        <div class="form-row" style="margin-top:6px">
+          <label class="toggle-label">
+            <input type="checkbox" id="singleAutoRun">
+            是否自动运行（创建后按项目运行模版启动云服务器）
+          </label>
+        </div>
+        <div class="form-row">
+          <label>协作人员 (可多选)</label>
+          <div id="singleAssignees" class="checkbox-group">
+            <p class="placeholder">选择工作空间后加载成员</p>
           </div>
         </div>
       </div>
@@ -166,6 +223,51 @@
           </select>
         </div>
         <div class="form-row">
+          <label>交付物类别</label>
+          <select id="batchDeliverable" class="form-select">
+            <option value="">请先选择工作空间</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>已安装镜像</label>
+          <select id="batchContainerImage" class="form-select">
+            <option value="">无</option>
+          </select>
+        </div>
+        <div class="target-row">
+          <div style="flex:1">
+            <label>环境变量参数 <span class="hint-inline">— 必填</span></label>
+            <select id="batchFeatureParamsSource" class="form-select">
+              <option value="">-- 请选择 --</option>
+              <option value="company">公司默认</option>
+              <option value="workspace">工作空间默认</option>
+              <option value="personal">个人配置</option>
+            </select>
+          </div>
+          <div style="flex:1" id="batchPersonalConfigWrap" hidden>
+            <label>个人配置</label>
+            <select id="batchPersonalConfig" class="form-select">
+              <option value="">-- 请选择个人配置 --</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label>截止日期</label>
+            <input type="datetime-local" id="batchDueDate" class="form-input">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="toggle-label">
+            <input type="checkbox" id="batchAutoRun">
+            是否自动运行（批量任务共用）
+          </label>
+        </div>
+        <div class="form-row">
+          <label>逐仓基准分支 <span class="hint-inline">— 批量任务共用</span></label>
+          <div id="batchRepoBases" class="repo-bases">
+            <p class="placeholder">勾选项目后按仓库填写基准分支</p>
+          </div>
+        </div>
+        <div class="form-row">
           <label>工作分支 <span class="hint-inline">— 选择模板或输入分支名，所有批量任务共用</span></label>
           <input type="text" id="batchWorkBranch" class="form-input" placeholder="选择模板或输入分支名" list="batchWorkBranchList">
           <datalist id="batchWorkBranchList"></datalist>
@@ -221,6 +323,7 @@
   </div>
 
   <script src="../lib/storage.js"></script>
+  <script src="../lib/create-task-payload.js"></script>
   <script src="../lib/api.js"></script>
   <script src="panel.js"></script>
 </body>

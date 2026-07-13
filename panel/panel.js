@@ -145,6 +145,7 @@ const Panel = (() => {
     } else if (members.length === 1) {
       sel.value = String(members[0].id);
     }
+    renderAssigneeCheckboxes(companyId);
   }
 
   async function loadProgressColumns(companyId, wsId, selectId) {
@@ -507,12 +508,15 @@ const Panel = (() => {
       fetchSingleBranchLists(wsId, checkedIds);
     });
     $('#btnCreateSingle').addEventListener('click', createSingleTask);
+    $('#singleFeatureParamsSource')?.addEventListener('change', onFeatureParamsSourceChange);
+    initSingleDueDateDefault();
     // 项目勾选变化时，动态获取分支列表
     $('#singleProjects').addEventListener('change', (e) => {
       if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
         const wsId = $('#singleWorkspace').value;
         const checkedIds = getSelectedProjectIds('singleProjects');
         fetchSingleBranchLists(wsId, checkedIds);
+        refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
       }
     });
   }
@@ -698,18 +702,26 @@ const Panel = (() => {
       $('#singleProjects').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       $('#singleOwner').innerHTML = '<option value="">请先选择工作空间</option>';
       $('#singleProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
+      $('#singleDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
+      $('#singleAssignees').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
+      if ($('#singleRepoBases')) {
+        $('#singleRepoBases').innerHTML = '<p class="placeholder">勾选项目后按仓库填写基准分支</p>';
+      }
       fetchAndPopulateBranches('singleWorkBranchList', '', [], 'work');
       fetchAndPopulateBranches('singleMergeTargetList', '', [], 'merge');
       return;
     }
-    await loadProjects(wsId, 'singleProjects', companyId);
-    // Load members from the workspace's company
-    const ws = workspaces.find(w => (w.id || w._id) === wsId);
+    const ws = workspaces.find(w => String(w.id || w._id) === String(wsId));
     const companyId = ws?.company_id || ws?.companyId;
+    await loadProjects(wsId, 'singleProjects', companyId);
     if (companyId) {
-      await loadMembers(companyId);
+      await loadMembers(String(companyId));
       await loadProgressColumns(String(companyId), wsId, 'singleProgressColumn');
+      await loadDeliverableTypes(String(companyId), wsId);
+      await loadInstalledImages(String(companyId));
     }
+    await loadPersonalFeatureParamsConfigs();
+    initSingleDueDateDefault();
     // 恢复选中后加载分支
     const checkedIds = getSelectedProjectIds('singleProjects');
     if (checkedIds.length) {
@@ -717,6 +729,143 @@ const Panel = (() => {
     } else {
       fetchAndPopulateBranches('singleWorkBranchList', wsId, [], 'work');
       fetchAndPopulateBranches('singleMergeTargetList', wsId, [], 'merge');
+    }
+    refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
+  }
+
+  function initSingleDueDateDefault() {
+    initDueDateDefault('singleDueDate');
+  }
+
+  async function loadDeliverableTypes(companyId, wsId) {
+    return loadDeliverableTypesInto('singleDeliverable', companyId, wsId);
+  }
+
+  async function loadInstalledImages(companyId) {
+    return loadInstalledImagesInto('singleContainerImage', companyId);
+  }
+
+  async function loadPersonalFeatureParamsConfigs() {
+    return loadPersonalFeatureParamsInto('singlePersonalConfig');
+  }
+
+  function onFeatureParamsSourceChange() {
+    const source = $('#singleFeatureParamsSource')?.value || '';
+    const wrap = $('#singlePersonalConfigWrap');
+    if (wrap) wrap.hidden = source !== 'personal';
+  }
+
+  function renderAssigneeCheckboxes(companyId) {
+    const box = $('#singleAssignees');
+    if (!box) return;
+    const members = membersCache[companyId] || [];
+    if (!members.length) {
+      box.innerHTML = '<p class="placeholder">暂无成员</p>';
+      return;
+    }
+    let h = '';
+    for (const m of members) {
+      const mid = String(m.id);
+      const name = m.member_name || m.name || mid;
+      h += `<label><input type="checkbox" class="assignee-check" value="${escHtml(mid)}"> ${escHtml(name)}</label>`;
+    }
+    box.innerHTML = h;
+  }
+
+  function getSelectedAssigneeIds() {
+    return Array.from(document.querySelectorAll('#singleAssignees .assignee-check:checked')).map((cb) => cb.value);
+  }
+
+  function refreshRepoBaseEditors(repoContainerId, projectsContainerId, wsId) {
+    const box = $(`#${repoContainerId}`);
+    if (!box) return;
+    const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(box);
+    const ids = getSelectedProjectIds(projectsContainerId);
+    const list = projectsCache[wsId] || [];
+    box.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
+      projectIds: ids,
+      projectsList: list,
+      previousValues: prev,
+      inputClass: 'form-input',
+      emptyHint: '勾选项目后按仓库填写基准分支',
+    });
+  }
+
+  function initDueDateDefault(inputId) {
+    const el = $(`#${inputId}`);
+    if (!el || el.value) return;
+    if (typeof CreateTaskPayload !== 'undefined') {
+      el.value = CreateTaskPayload.getDefaultTaskDeadline();
+    }
+  }
+
+  async function loadDeliverableTypesInto(selectId, companyId, wsId) {
+    const sel = $(`#${selectId}`);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">加载中...</option>';
+    if (!(await ensureApiReady())) {
+      sel.innerHTML = '<option value="">请先登录</option>';
+      return;
+    }
+    try {
+      const data = await API.getDeliverableTypes(companyId, wsId);
+      const types = data?.current_deliverable_objs || [];
+      sel.innerHTML = types.length
+        ? types.map((t) => `<option value="${escHtml(String(t.id))}">${escHtml(t.name || t.id)}</option>`).join('')
+        : '<option value="">无可用交付物类别</option>';
+    } catch (e) {
+      if (handleApiAuthFailure(e)) {
+        sel.innerHTML = '<option value="">请重新登录</option>';
+        return;
+      }
+      sel.innerHTML = `<option value="">加载失败: ${escHtml(e.message)}</option>`;
+    }
+  }
+
+  async function loadInstalledImagesInto(selectId, companyId) {
+    const sel = $(`#${selectId}`);
+    if (!sel) return;
+    sel.innerHTML = '<option value="">加载中...</option>';
+    if (!(await ensureApiReady())) {
+      sel.innerHTML = '<option value="">请先登录</option>';
+      return;
+    }
+    try {
+      const data = await API.getInstalledImages(companyId);
+      const images = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
+      let h = '<option value="">无</option>';
+      for (const img of images) {
+        const iid = img.id || img._id;
+        const label = `${img.name || iid}:${img.version || img.tag || 'latest'}`;
+        h += `<option value="${escHtml(String(iid))}">${escHtml(label)}</option>`;
+      }
+      sel.innerHTML = h;
+      if (images.length === 1) sel.value = String(images[0].id || images[0]._id);
+    } catch (e) {
+      if (handleApiAuthFailure(e)) {
+        sel.innerHTML = '<option value="">请重新登录</option>';
+        return;
+      }
+      sel.innerHTML = `<option value="">加载失败: ${escHtml(e.message)}</option>`;
+    }
+  }
+
+  async function loadPersonalFeatureParamsInto(selectId) {
+    const sel = $(`#${selectId}`);
+    if (!sel) return;
+    if (!(await ensureApiReady())) return;
+    try {
+      const data = await API.getPersonalFeatureParamsConfigs();
+      const configs = data?.configs || (Array.isArray(data) ? data : []);
+      let h = '<option value="">-- 请选择个人配置 --</option>';
+      for (const c of configs) {
+        const cid = c.id || c._id;
+        h += `<option value="${escHtml(String(cid))}">${escHtml(c.name || c.title || cid)}</option>`;
+      }
+      sel.innerHTML = h;
+    } catch (e) {
+      console.warn('[taskChromePlugin] loadPersonalFeatureParamsInto:', e.message);
+      sel.innerHTML = `<option value="">加载失败: ${escHtml(e.message)}</option>`;
     }
   }
 
@@ -771,16 +920,22 @@ const Panel = (() => {
   async function createSingleTask() {
     const wsId = $('#singleWorkspace').value;
     const checkedIds = getSelectedProjectIds('singleProjects');
-    // 从缓存中获取完整项目信息，构建包含 base_branch 和 target_branch 的 projects 数组
     const cached = projectsCache[wsId] || [];
     const title = $('#singleTaskTitle').value.trim();
     const desc = $('#singleTaskDesc').value.trim();
     const priority = $('#singlePriority').value;
     const owner = $('#singleOwner').value.trim();
     const progressColumnId = $('#singleProgressColumn').value;
-    // 分支策略输入
     const workBranch = ($('#singleWorkBranch').value || '').trim();
     const mergeTarget = ($('#singleMergeTarget').value || '').trim();
+    const repoBaseBranches = CreateTaskPayload.readRepoBaseBranchesFromRoot($('#singleRepoBases'));
+    const deliverableObjId = ($('#singleDeliverable').value || '').trim();
+    const containerImageId = ($('#singleContainerImage').value || '').trim();
+    const featureParamsSource = ($('#singleFeatureParamsSource').value || '').trim();
+    const personalConfigId = ($('#singlePersonalConfig').value || '').trim();
+    const dueDate = ($('#singleDueDate').value || '').trim();
+    const autoRun = Boolean($('#singleAutoRun')?.checked);
+    const assignees = getSelectedAssigneeIds();
 
     if (!wsId) return showR('singleResult', 'error', '请选择工作空间');
     if (!checkedIds.length) return showR('singleResult', 'error', '请勾选至少一个项目');
@@ -789,46 +944,35 @@ const Panel = (() => {
     if (!selectedRequest) return showR('singleResult', 'error', '请从请求列表中选择一个请求');
     if (!(await ensureApiReady())) return showR('singleResult', 'error', '请先登录或会话已过期');
 
-    // 将项目展开为 API 所需的 repo 级条目（含 repo_index）
-    const projects = [];
-    for (const pid of checkedIds) {
-      const proj = cached.find(p => String(p.id || p._id) === String(pid));
-      const repos = Array.isArray(proj?.git_repos) ? proj.git_repos.filter(u => u && String(u).trim()) : [];
-      if (repos.length === 0) {
-        projects.push({
-          project_id: pid,
-          repo_index: 0,
-          base_branch: proj?.base_branch || proj?.default_branch || 'main',
-          target_branch: workBranch,
-        });
-      } else {
-        for (let i = 0; i < repos.length; i++) {
-          projects.push({
-            project_id: pid,
-            repo_index: i,
-            base_branch: proj?.base_branch || proj?.default_branch || 'main',
-            target_branch: workBranch,
-          });
-        }
-      }
-    }
+    const form = {
+      title,
+      description: desc,
+      priority,
+      workspaceId: wsId,
+      owner,
+      assignees,
+      progress_column_id: progressColumnId,
+      deliverable_obj_id: deliverableObjId,
+      container_image_id: containerImageId,
+      due_date: dueDate,
+      auto_run: autoRun,
+      feature_params_source: featureParamsSource,
+      personal_feature_params_config_id: personalConfigId,
+      workBranch,
+      mergeTarget,
+      repoBaseBranches,
+      projectIds: checkedIds,
+      projectsList: cached,
+    };
+    const blocked = CreateTaskPayload.validateCreateTaskForm(form);
+    if (blocked) return showR('singleResult', 'error', blocked);
 
     const btn = $('#btnCreateSingle');
     btn.disabled = true; btn.textContent = '创建中...';
     try {
       await Storage.saveLastProjectIds(checkedIds);
-      // 描述由 fillRequestDetail 自动填充，已包含完整的请求/响应头体
       const mapping = await sendMessage({ action: 'getEndpointMapping' });
-      const taskData = { title, description: desc, priority, workspaceId: wsId, projects, owner, source: 'chrome-devtools' };
-      if (progressColumnId) taskData.progress_column_id = progressColumnId;
-      // 若填写了分支名，设置 branch_strategy
-      if (workBranch || mergeTarget) {
-        taskData.branch_strategy = {
-          work_branch_name: workBranch,
-          merge_target_branch_name: mergeTarget,
-          target_branch_name: workBranch,
-        };
-      }
+      const taskData = CreateTaskPayload.buildCreateTaskPayload(form);
       const r = await sendMessage({
         action: 'createTask', baseUrl: apiConfig.baseUrl, token: apiConfig.token,
         endpointMapping: mapping.success ? mapping.data : undefined,
@@ -856,16 +1000,19 @@ const Panel = (() => {
       fetchBatchBranchLists(wsId, checkedIds);
     });
     $('#btnRefreshErrors').addEventListener('click', refreshCapturedCount);
-    // 项目勾选变化时，动态获取分支列表
+    $('#batchFeatureParamsSource')?.addEventListener('change', onBatchFeatureParamsSourceChange);
+    // 项目勾选变化时，动态获取分支列表 + 逐仓基准分支
     $('#batchProjects').addEventListener('change', (e) => {
       if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
         const wsId = $('#batchWorkspace').value;
         const checkedIds = getSelectedProjectIds('batchProjects');
         fetchBatchBranchLists(wsId, checkedIds);
+        refreshRepoBaseEditors('batchRepoBases', 'batchProjects', wsId);
       }
     });
     $('#btnClearErrors').addEventListener('click', clearCapturedErrors);
     $('#btnCreateBatch').addEventListener('click', createBatchTasks);
+    initDueDateDefault('batchDueDate');
     loadCaptureConfig();
     loadWorkspaces('batchWorkspace');
     refreshCapturedCount();
@@ -916,6 +1063,10 @@ const Panel = (() => {
     if (!id) {
       $('#batchProjects').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       $('#batchProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
+      if ($('#batchDeliverable')) $('#batchDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
+      if ($('#batchRepoBases')) {
+        $('#batchRepoBases').innerHTML = '<p class="placeholder">勾选项目后按仓库填写基准分支</p>';
+      }
       fetchAndPopulateBranches('batchWorkBranchList', '', [], 'work');
       fetchAndPopulateBranches('batchMergeTargetList', '', [], 'merge');
       return;
@@ -925,7 +1076,11 @@ const Panel = (() => {
     await loadProjects(id, 'batchProjects', companyId);
     if (companyId) {
       await loadProgressColumns(String(companyId), id, 'batchProgressColumn');
+      await loadDeliverableTypesInto('batchDeliverable', String(companyId), id);
+      await loadInstalledImagesInto('batchContainerImage', String(companyId));
     }
+    await loadPersonalFeatureParamsInto('batchPersonalConfig');
+    initDueDateDefault('batchDueDate');
     // 恢复选中后加载分支
     const checkedIds = getSelectedProjectIds('batchProjects');
     if (checkedIds.length) {
@@ -934,6 +1089,13 @@ const Panel = (() => {
       fetchAndPopulateBranches('batchWorkBranchList', id, [], 'work');
       fetchAndPopulateBranches('batchMergeTargetList', id, [], 'merge');
     }
+    refreshRepoBaseEditors('batchRepoBases', 'batchProjects', id);
+  }
+
+  function onBatchFeatureParamsSourceChange() {
+    const source = $('#batchFeatureParamsSource')?.value || '';
+    const wrap = $('#batchPersonalConfigWrap');
+    if (wrap) wrap.hidden = source !== 'personal';
   }
 
   async function createBatchTasks() {
@@ -942,34 +1104,37 @@ const Panel = (() => {
     const progressColumnId = $('#batchProgressColumn').value;
     const workBranch = ($('#batchWorkBranch').value || '').trim();
     const mergeTarget = ($('#batchMergeTarget').value || '').trim();
+    const repoBaseBranches = CreateTaskPayload.readRepoBaseBranchesFromRoot($('#batchRepoBases'));
+    const deliverableObjId = ($('#batchDeliverable')?.value || '').trim();
+    const containerImageId = ($('#batchContainerImage')?.value || '').trim();
+    const featureParamsSource = ($('#batchFeatureParamsSource')?.value || '').trim();
+    const personalConfigId = ($('#batchPersonalConfig')?.value || '').trim();
+    const dueDate = ($('#batchDueDate')?.value || '').trim();
+    const autoRun = Boolean($('#batchAutoRun')?.checked);
+
     if (!wsId) return showR('batchResult', 'error', '请选择工作空间');
     if (!checkedIds.length) return showR('batchResult', 'error', '请勾选至少一个项目');
     if (!(await ensureApiReady())) return showR('batchResult', 'error', '请先登录或会话已过期');
 
-    // 从缓存中获取完整项目信息，构建包含 base_branch 和 target_branch 的 projects 数组
-    const cached = projectsCache[wsId] || [];
-    const projects = [];
-    for (const pid of checkedIds) {
-      const proj = cached.find(p => String(p.id || p._id) === String(pid));
-      const repos = Array.isArray(proj?.git_repos) ? proj.git_repos.filter(u => u && String(u).trim()) : [];
-      if (repos.length === 0) {
-        projects.push({
-          project_id: pid,
-          repo_index: 0,
-          base_branch: proj?.base_branch || proj?.default_branch || 'main',
-          target_branch: workBranch,
-        });
-      } else {
-        for (let i = 0; i < repos.length; i++) {
-          projects.push({
-            project_id: pid,
-            repo_index: i,
-            base_branch: proj?.base_branch || proj?.default_branch || 'main',
-            target_branch: workBranch,
-          });
-        }
-      }
+    const featureGate = CreateTaskPayload.validateCreateTaskForm({
+      title: 'batch',
+      workspaceId: wsId,
+      owner: 'pending',
+      projectIds: checkedIds,
+      feature_params_source: featureParamsSource,
+      personal_feature_params_config_id: personalConfigId,
+    });
+    if (featureGate && /环境变量参数/.test(featureGate)) {
+      return showR('batchResult', 'error', featureGate);
     }
+
+    const cached = projectsCache[wsId] || [];
+    const projects = CreateTaskPayload.buildProjectsFromSelection({
+      projectIds: checkedIds,
+      projectsList: cached,
+      workBranch,
+      repoBaseBranches,
+    });
 
     const r = await sendMessage({ action: 'getCapturedErrors' });
     if (!r.success || !r.data?.length) return showR('batchResult', 'error', '没有捕获到错误请求');
@@ -983,30 +1148,29 @@ const Panel = (() => {
         const statusLabel = e.canceled || e.statusCode === 0 ? 'Canceled' : String(e.statusCode);
         let desc = `**自动捕获**\n- URL: ${e.url}\n- 方法: ${e.method}\n- 状态码: ${statusLabel} ${e.statusLine || ''}\n- 时间: ${new Date(e.capturedAt || e.timeStamp).toISOString()}`;
         if (e.error) desc += `\n- 错误: ${e.error}`;
-        // 响应头
         if (e.responseHeaders && Object.keys(e.responseHeaders).length) {
           desc += `\n\n**响应头**:\n\`\`\`\n${Object.entries(e.responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
         }
-        // 请求头
         if (e.requestHeaders && Object.keys(e.requestHeaders).length) {
           desc += `\n\n**请求头**:\n\`\`\`\n${Object.entries(e.requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
         }
-        const task = {
+        return CreateTaskPayload.buildCreateTaskPayload({
           title: `[${e.method}] ${extractPath(e.url)} → ${statusLabel}`,
           description: desc,
           priority: e.canceled || e.statusCode === 0 ? 'medium' : (e.statusCode >= 500 ? 'high' : 'medium'),
-          workspaceId: wsId, projects,
-          source: 'chrome-auto-capture', sourceUrl: e.url, sourceStatusCode: e.statusCode, sourceMethod: e.method, capturedAt: e.capturedAt || e.timeStamp,
-        };
-        if (progressColumnId) task.progress_column_id = progressColumnId;
-        if (workBranch || mergeTarget) {
-          task.branch_strategy = {
-            work_branch_name: workBranch,
-            merge_target_branch_name: mergeTarget,
-            target_branch_name: workBranch,
-          };
-        }
-        return task;
+          workspaceId: wsId,
+          projects,
+          progress_column_id: progressColumnId,
+          deliverable_obj_id: deliverableObjId,
+          container_image_id: containerImageId,
+          due_date: dueDate,
+          auto_run: autoRun,
+          feature_params_source: featureParamsSource,
+          personal_feature_params_config_id: personalConfigId,
+          workBranch,
+          mergeTarget,
+          owner: $('#singleOwner')?.value || undefined,
+        });
       });
       const mapping = await sendMessage({ action: 'getEndpointMapping' });
       const b = await sendMessage({

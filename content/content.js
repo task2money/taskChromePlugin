@@ -37,11 +37,53 @@
         <div class="taskplugin-form-group">
           <label>优先级</label>
           <select class="taskplugin-select" id="taskplugin-priority">
-            <option value="low">低</option>
-            <option value="medium" selected>中</option>
-            <option value="high">高</option>
-            <option value="critical">紧急</option>
+            <option value="0">高</option>
+            <option value="1" selected>中</option>
+            <option value="2">低</option>
           </select>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>进度状态</label>
+          <select class="taskplugin-select" id="taskplugin-progress">
+            <option value="">-- 请先选择工作空间 --</option>
+          </select>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>交付物类别</label>
+          <select class="taskplugin-select" id="taskplugin-deliverable">
+            <option value="">-- 请先选择工作空间 --</option>
+          </select>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>已安装镜像</label>
+          <select class="taskplugin-select" id="taskplugin-image">
+            <option value="">无</option>
+          </select>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>环境变量参数 <span style="color:#f38ba8;font-size:10px;">*必填</span></label>
+          <select class="taskplugin-select" id="taskplugin-feature-params">
+            <option value="">-- 请选择 --</option>
+            <option value="company">公司默认</option>
+            <option value="workspace">工作空间默认</option>
+            <option value="personal">个人配置</option>
+          </select>
+        </div>
+        <div class="taskplugin-form-group" id="taskplugin-personal-wrap" style="display:none">
+          <label>个人配置</label>
+          <select class="taskplugin-select" id="taskplugin-personal-config">
+            <option value="">-- 请选择个人配置 --</option>
+          </select>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>截止日期</label>
+          <input class="taskplugin-input" type="datetime-local" id="taskplugin-due-date">
+        </div>
+        <div class="taskplugin-form-group">
+          <label class="taskplugin-mini-toggle" style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="taskplugin-auto-run">
+            <span>是否自动运行</span>
+          </label>
         </div>
         <div class="taskplugin-form-group">
           <label>工作空间</label>
@@ -53,6 +95,18 @@
           <label>项目 (可多选)</label>
           <div class="taskplugin-checkbox-list" id="taskplugin-projects">
             <span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>
+          </div>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>逐仓基准分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 对齐工作面板</span></label>
+          <div id="taskplugin-repo-bases" class="taskplugin-checkbox-list">
+            <span style="color:#6c7086;font-size:11px;">勾选项目后按仓库填写</span>
+          </div>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>协作人员 (可多选)</label>
+          <div class="taskplugin-checkbox-list" id="taskplugin-assignees">
+            <span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>
           </div>
         </div>
         <div class="taskplugin-form-group">
@@ -83,8 +137,19 @@
   const resultDiv = document.getElementById('taskplugin-result');
   const mergeTarget = document.getElementById('taskplugin-merge-target');
   const workBranch = document.getElementById('taskplugin-work-branch');
+  const repoBasesDiv = document.getElementById('taskplugin-repo-bases');
+  const assigneesDiv = document.getElementById('taskplugin-assignees');
   const titleInput = document.getElementById('taskplugin-title');
   const descInput = document.getElementById('taskplugin-desc');
+  const progressSelect = document.getElementById('taskplugin-progress');
+  const deliverableSelect = document.getElementById('taskplugin-deliverable');
+  const imageSelect = document.getElementById('taskplugin-image');
+  const featureParamsSelect = document.getElementById('taskplugin-feature-params');
+  const personalWrap = document.getElementById('taskplugin-personal-wrap');
+  const personalConfigSelect = document.getElementById('taskplugin-personal-config');
+  const dueDateInput = document.getElementById('taskplugin-due-date');
+  const autoRunInput = document.getElementById('taskplugin-auto-run');
+  let membersData = [];
 
   const floatEnabledToggle = document.getElementById('taskplugin-float-enabled');
 
@@ -400,17 +465,62 @@
     }
   }
 
-  // ---- 事件 ----
+  function refreshFloatRepoBases() {
+    if (!repoBasesDiv || typeof CreateTaskPayload === 'undefined') return;
+    const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv);
+    const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+    repoBasesDiv.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
+      projectIds: pids,
+      projectsList: projectsData,
+      previousValues: prev,
+      inputClass: 'taskplugin-input',
+      emptyHint: '勾选项目后按仓库填写',
+    });
+  }
 
+  function renderAssignees() {
+    if (!assigneesDiv) return;
+    if (!membersData.length) {
+      assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">暂无成员</span>';
+      return;
+    }
+    let html = '';
+    for (const m of membersData) {
+      const mid = String(m.id);
+      const name = m.member_name || m.name || mid;
+      html += `<label><input type="checkbox" class="taskplugin-assignee" value="${esc(mid)}"> ${esc(name)}</label>`;
+    }
+    assigneesDiv.innerHTML = html;
+  }
+
+  function getSelectedAssigneeIds() {
+    if (!assigneesDiv) return [];
+    return Array.from(assigneesDiv.querySelectorAll('.taskplugin-assignee:checked')).map((cb) => cb.value);
+  }
+
+  // ---- 事件 ----
   wsSelect.addEventListener('change', async () => {
     const wsId = wsSelect.value;
     if (!wsId) {
       projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
+      if (progressSelect) progressSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+      if (deliverableSelect) deliverableSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+      if (repoBasesDiv) repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">勾选项目后按仓库填写</span>';
+      if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
+      membersData = [];
       await seedBranchDatalists([]);
       return;
     }
     await loadProjects(wsId);
+    await loadWorkspaceCreateMeta(wsId);
+    refreshFloatRepoBases();
     await seedBranchDatalists([]);
+  });
+
+  featureParamsSelect?.addEventListener('change', () => {
+    if (personalWrap) {
+      personalWrap.style.display = featureParamsSelect.value === 'personal' ? '' : 'none';
+    }
   });
 
   workBranch.addEventListener('change', () => applyPresetIfNeeded(workBranch));
@@ -420,8 +530,62 @@
     if (e.target.type !== 'checkbox') return;
     const wsId = wsSelect.value;
     const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    refreshFloatRepoBases();
     await fetchBranchesForFloatingPanel(wsId, pids);
   });
+
+  async function loadWorkspaceCreateMeta(wsId) {
+    const ws = workspacesData.find(w => String(w.id || w._id) === String(wsId));
+    const companyId = ws?.company_id || ws?.companyId;
+    if (!companyId) return;
+    try {
+      await initApiClient();
+      const [colsResp, delivResp, imagesResp, personalResp, membersResp] = await Promise.all([
+        API.fetchProgressColumns(String(companyId), wsId).catch((e) => ({ __err: e })),
+        API.getDeliverableTypes(String(companyId), wsId).catch((e) => ({ __err: e })),
+        API.getInstalledImages(String(companyId)).catch((e) => ({ __err: e })),
+        API.getPersonalFeatureParamsConfigs().catch((e) => ({ __err: e })),
+        API.getMembers(String(companyId)).catch((e) => ({ __err: e })),
+      ]);
+
+      if (progressSelect && !colsResp.__err) {
+        const columns = colsResp?.columns || [];
+        progressSelect.innerHTML = columns.length
+          ? columns.map((c) => `<option value="${esc(String(c.id))}">${esc(c.name || c.id)}</option>`).join('')
+          : '<option value="">无进度列</option>';
+      }
+      if (deliverableSelect && !delivResp.__err) {
+        const types = delivResp?.current_deliverable_objs || [];
+        deliverableSelect.innerHTML = types.length
+          ? types.map((t) => `<option value="${esc(String(t.id))}">${esc(t.name || t.id)}</option>`).join('')
+          : '<option value="">无可用类别</option>';
+      }
+      if (imageSelect && !imagesResp.__err) {
+        const images = Array.isArray(imagesResp) ? imagesResp : (imagesResp?.results || imagesResp?.items || imagesResp?.data || []);
+        let h = '<option value="">无</option>';
+        for (const img of images) {
+          const id = img.id || img._id;
+          h += `<option value="${esc(String(id))}">${esc(`${img.name || id}:${img.version || img.tag || 'latest'}`)}</option>`;
+        }
+        imageSelect.innerHTML = h;
+        if (images.length === 1) imageSelect.value = String(images[0].id || images[0]._id);
+      }
+      if (personalConfigSelect && !personalResp.__err) {
+        const configs = personalResp?.configs || (Array.isArray(personalResp) ? personalResp : []);
+        personalConfigSelect.innerHTML = '<option value="">-- 请选择个人配置 --</option>'
+          + configs.map((c) => `<option value="${esc(String(c.id || c._id))}">${esc(c.name || c.title || c.id)}</option>`).join('');
+      }
+      if (!membersResp.__err) {
+        membersData = Array.isArray(membersResp) ? membersResp : (membersResp?.results || membersResp?.data || []);
+        renderAssignees();
+      }
+      if (dueDateInput && !dueDateInput.value && typeof CreateTaskPayload !== 'undefined') {
+        dueDateInput.value = CreateTaskPayload.getDefaultTaskDeadline();
+      }
+    } catch (e) {
+      console.warn('[taskChromePlugin] loadWorkspaceCreateMeta 失败:', e.message);
+    }
+  }
 
   // 提交
   submitBtn.addEventListener('click', async () => {
@@ -454,8 +618,8 @@
 
       const wb = workBranch.value.trim();
       const mt = mergeTarget.value.trim();
+      const repoBaseBranches = CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv);
 
-      // 构建带源信息的描述
       let fullDesc = desc;
       const sourceInfo = [
         `---`,
@@ -464,25 +628,34 @@
       ];
       fullDesc = fullDesc + '\n\n' + sourceInfo.join('\n');
 
-      const taskData = {
+      const form = {
         title,
         description: fullDesc,
         priority,
         workspaceId: wsId,
         projectIds: pids,
+        projectsList: projectsData,
         owner,
-        source: 'chrome-content-script',
-        sourceUrl: window.location.href,
-        sourceTitle: document.title,
+        assignees: getSelectedAssigneeIds(),
+        progress_column_id: progressSelect?.value || '',
+        deliverable_obj_id: deliverableSelect?.value || '',
+        container_image_id: imageSelect?.value || '',
+        feature_params_source: featureParamsSelect?.value || '',
+        personal_feature_params_config_id: personalConfigSelect?.value || '',
+        due_date: dueDateInput?.value || '',
+        auto_run: Boolean(autoRunInput?.checked),
+        workBranch: wb,
+        mergeTarget: mt,
+        repoBaseBranches,
       };
 
-      if (wb || mt) {
-        taskData.branch_strategy = {
-          work_branch_name: wb,
-          merge_target_branch_name: mt,
-          target_branch_name: wb,
-        };
+      const blocked = CreateTaskPayload.validateCreateTaskForm(form);
+      if (blocked) {
+        showResult(blocked, 'error');
+        return;
       }
+
+      const taskData = CreateTaskPayload.buildCreateTaskPayload(form);
 
       const resp = await sendMessageWithTimeout({
         action: 'createTask',
