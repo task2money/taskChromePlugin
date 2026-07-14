@@ -82,7 +82,8 @@ async function handleRequestCompleted(details) {
     const tabId = details.tabId;
     if (tabId < 0) return;
 
-    if (details.statusCode >= 500 && details.statusCode < 600) {
+    // 角标示数仅计 5xx（与捕获配置无关；4xx/Canceled 不计入）
+    if (CaptureStatus.isHttp5xx(details.statusCode)) {
       const prev = tab5xxCounts.get(tabId) || 0;
       tab5xxCounts.set(tabId, prev + 1);
       if (tabId === activeTabId) {
@@ -256,7 +257,8 @@ async function handleMessage(message, sender) {
       {
         let list = [...devToolsRequests];
         if (message.filter?.errorsOnly) {
-          list = list.filter((r) => r.statusCode >= 400);
+          // 与插件角标示数一致：仅 5xx
+          list = CaptureStatus.filterBadgeCountableRequests(list);
         }
         list.sort((a, b) => b.timestamp - a.timestamp);
         return { success: true, data: list.slice(0, message.limit || 50) };

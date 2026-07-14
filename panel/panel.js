@@ -1087,9 +1087,15 @@ const Panel = (() => {
   async function refreshCapturedCount() {
     try {
       const r = await sendMessage({ action: 'getCapturedErrors' });
-      const n = r?.success ? (r.data?.length || 0) : 0;
+      const all = r?.success ? (r.data || []) : [];
+      // 示数仅计 5xx；总捕获条数另注（可含 2xx/4xx/Canceled）
+      const n5xx = CaptureStatus.filterBadgeCountableRequests(all).length;
+      const nAll = all.length;
       const el = $('#capturedCount');
-      if (el) { el.style.display = 'inline'; el.innerHTML = ` | 已捕获错误: <strong>${n}</strong> 条`; }
+      if (el) {
+        el.style.display = 'inline';
+        el.innerHTML = ` | 5xx 示数: <strong>${n5xx}</strong>${nAll !== n5xx ? `（总捕获 ${nAll}）` : ''} 条`;
+      }
     } catch (_) { /* ignore */ }
   }
 
@@ -1183,7 +1189,11 @@ const Panel = (() => {
     const r = await sendMessage({ action: 'getCapturedErrors' });
     if (!r.success || !r.data?.length) return showR('batchResult', 'error', '没有捕获到错误请求');
 
-    const errors = r.data;
+    // 批量建任务仅针对 5xx（与插件角标示数一致）
+    const errors = CaptureStatus.filterBadgeCountableRequests(r.data);
+    if (!errors.length) {
+      return showR('batchResult', 'error', '没有可建任务的 5xx 请求（示数仅计 5xx）');
+    }
     const btn = $('#btnCreateBatch');
     btn.disabled = true; btn.textContent = `创建中 (${errors.length})...`;
     try {
@@ -1247,9 +1257,10 @@ const Panel = (() => {
     const c = $('#errorList');
     try {
       const r = await sendMessage({ action: 'getCapturedErrors' });
-      if (!r.success || !r.data?.length) { c.innerHTML = '<p class="placeholder">暂无捕获的错误请求</p>'; return; }
+      const only5xx = CaptureStatus.filterBadgeCountableRequests(r?.success ? (r.data || []) : []);
+      if (!only5xx.length) { c.innerHTML = '<p class="placeholder">暂无 5xx 错误请求（示数仅计 5xx）</p>'; return; }
       let h = '';
-      for (const e of [...r.data].reverse()) {
+      for (const e of [...only5xx].reverse()) {
         const s = (e.url || '').length > 100 ? e.url.slice(0, 100) + '...' : e.url;
         h += `<div class="error-item">
           <div class="err-url"><span class="req-method ${e.method}">${e.method}</span><span class="err-status">${e.canceled ? 'Canceled' : e.statusCode}</span>${escHtml(s)}</div>
