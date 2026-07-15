@@ -16,24 +16,47 @@ const Popup = (() => {
    * 防止 Service Worker 未就绪时消息无限挂起导致 popup 卡死
    */
   function sendMessageWithTimeout(action, timeoutMs = 3000) {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`消息超时: ${action.action || action}`));
-      }, timeoutMs);
+    const race = (typeof withTimeout === 'function')
+      ? withTimeout
+      : (p, ms, label) => Promise.race([
+        p,
+        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label || '操作'}超时`)), ms)),
+      ]);
 
-      try {
-        chrome.runtime.sendMessage(action)
-          .then((res) => { clearTimeout(timer); resolve(res); })
-          .catch((err) => { clearTimeout(timer); reject(err); });
-      } catch (syncErr) {
-        clearTimeout(timer);
-        reject(syncErr);
-      }
-    });
+    try {
+      return race(chrome.runtime.sendMessage(action), timeoutMs, `消息(${action.action || action})`);
+    } catch (syncErr) {
+      return Promise.reject(syncErr);
+    }
   }
 
   let initRetryTimer = null;
+  let eventsBound = false;
   const STATE_CHECK_TIMEOUT = 5000; // 登录状态检查最长 5 秒
+  const STORAGE_READ_TIMEOUT = 2000; // storage 读取最长 2 秒
+
+  function hideLoadingUI() {
+    if (initRetryTimer) {
+      clearTimeout(initRetryTimer);
+      initRetryTimer = null;
+    }
+    const spinner = $('#loadingSpinner');
+    if (spinner) spinner.style.display = 'none';
+    const retryBtn = $('#btnRetryInit');
+    if (retryBtn) retryBtn.style.display = 'none';
+  }
+
+  function isStillShowingLoadingOnly() {
+    const spinner = $('#loadingSpinner');
+    const loginSec = $('#loginSection');
+    const devGuide = $('#devtoolsGuide');
+    const reqSec = $('#requestsSection');
+    const spinnerVisible = spinner && spinner.style.display !== 'none';
+    const loginHidden = !loginSec || loginSec.style.display === 'none';
+    const guideHidden = !devGuide || devGuide.style.display === 'none';
+    const reqHidden = !reqSec || reqSec.style.display === 'none';
+    return spinnerVisible && loginHidden && guideHidden && reqHidden;
+  }
 
   async function restoreRememberedFormFields() {
     const cfg = await Storage.getApiConfig();
@@ -54,46 +77,60 @@ const Popup = (() => {
     await Storage.saveBaseUrl(baseUrl);
   }
 
+  /**
+   * Popup 启动：看门狗 + storage/消息超时，确保 spinner 不会永久卡住。
+   * 历史 bug：catch 中 await restoreRememberedFormFields() 会阻塞 finally，
+   * 一旦 chrome.storage 挂起，UI 永远停在「正在检查登录状态...」。
+   */
   async function init() {
-    // 打开 popup 即表示用户已看到错误，重置角标
-    try { chrome.runtime.sendMessage({ action: 'resetBadge' }); } catch (_) { /* ignore */ }
-    bindEvents();
+    const watchdog = (typeof startWatchdog === 'function')
+      ? startWatchdog(STATE_CHECK_TIMEOUT + 800, () => {
+        console.error('[TaskPlugin] init watchdog: 强制结束加载态');
+        if (isStillShowingLoadingOnly()) {
+          showLoginUI('登录状态检查超时，请重试');
+        }
+        hideLoadingUI();
+      })
+      : { cancel() { return false; } };
 
-    // 先恢复上次服务器地址/账号，避免状态检查失败时回落到 HTML 默认值
     try {
-      await restoreRememberedFormFields();
-    } catch (e) {
-      console.warn('[TaskPlugin] 恢复表单字段失败:', e);
-    }
+      // 打开 popup 即表示用户已看到错误，重置角标
+      try { chrome.runtime.sendMessage({ action: 'resetBadge' }); } catch (_) { /* ignore */ }
+      bindEvents();
 
-    // 5 秒后如果 spinner 还在，显示重试按钮
-    initRetryTimer = setTimeout(() => {
-      const spinner = $('#loadingSpinner');
-      const retryBtn = $('#btnRetryInit');
-      if (spinner && spinner.style.display !== 'none' && retryBtn) {
-        retryBtn.style.display = 'inline-block';
+      // 先恢复上次服务器地址/账号（带超时，失败不阻塞）
+      try {
+        await withTimeout(restoreRememberedFormFields(), STORAGE_READ_TIMEOUT, '恢复表单字段');
+      } catch (e) {
+        console.warn('[TaskPlugin] 恢复表单字段失败:', e.message || e);
       }
-    }, STATE_CHECK_TIMEOUT);
 
-    try {
-      // 状态检查必须在 5 秒内完成，超时视为登录失败
-      await Promise.race([
-        loadState(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('登录状态检查超时，请检查网络后重试')), STATE_CHECK_TIMEOUT)
-        ),
-      ]);
+      // 5 秒后如果 spinner 还在，显示重试按钮
+      initRetryTimer = setTimeout(() => {
+        const spinner = $('#loadingSpinner');
+        const retryBtn = $('#btnRetryInit');
+        if (spinner && spinner.style.display !== 'none' && retryBtn) {
+          retryBtn.style.display = 'inline-block';
+        }
+      }, STATE_CHECK_TIMEOUT);
+
+      try {
+        await withTimeout(loadState(), STATE_CHECK_TIMEOUT, '登录状态检查');
+      } catch (e) {
+        console.error('[TaskPlugin] loadState 失败:', e);
+        showLoginUI(e.message || undefined);
+        // 禁止在 finally 前 await storage —— 会阻塞 hideLoadingUI
+      }
     } catch (e) {
-      console.error('[TaskPlugin] loadState 失败:', e);
+      console.error('[TaskPlugin] init 失败:', e);
       showLoginUI(e.message || undefined);
-      try { await restoreRememberedFormFields(); } catch (_) { /* ignore */ }
     } finally {
-      clearTimeout(initRetryTimer);
-      const spinner = $('#loadingSpinner');
-      if (spinner) spinner.style.display = 'none';
-      const retryBtn = $('#btnRetryInit');
-      if (retryBtn) retryBtn.style.display = 'none';
+      watchdog.cancel();
+      hideLoadingUI();
     }
+
+    // finally 之后再尽力恢复表单，失败忽略
+    restoreRememberedFormFields().catch(() => {});
   }
 
   async function retryInit() {
@@ -184,6 +221,15 @@ const Popup = (() => {
     if (reqSec) reqSec.style.display = 'block';
   }
 
+  async function loadStateFromStorage() {
+    const cfg = await Storage.getApiConfig();
+    const cred = await Storage.getCredentials();
+    const isExpired = cfg.token ? await Storage.isTokenExpired() : false;
+    const remaining = await Storage.getTokenRemainingSeconds();
+    const expiryHint = Storage.formatTokenExpiryHint(remaining);
+    return { cfg, cred, isExpired, expiryHint };
+  }
+
   async function loadState() {
     // 与悬浮面板同源：经 SW 读取并执行过期字段迁移
     let cfg;
@@ -191,7 +237,8 @@ const Popup = (() => {
     let isExpired = false;
     let expiryHint = null;
     try {
-      const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, STATE_CHECK_TIMEOUT);
+      // 留出余量给 storage 回退，避免与外层 STATE_CHECK_TIMEOUT 叠满
+      const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, Math.max(1500, STATE_CHECK_TIMEOUT - STORAGE_READ_TIMEOUT));
       if (r?.success && r.data) {
         cfg = {
           baseUrl: r.data.baseUrl,
@@ -207,14 +254,16 @@ const Popup = (() => {
         isExpired = !!r.data.expired;
         expiryHint = r.data.expiryHint || Storage.formatTokenExpiryHint(r.data.remainingSeconds);
       }
-    } catch (_) { /* fall through */ }
+    } catch (e) {
+      console.warn('[TaskPlugin] getAuthStatus 失败，回退 Storage:', e.message || e);
+    }
 
     if (!cfg) {
-      cfg = await Storage.getApiConfig();
-      cred = await Storage.getCredentials();
-      isExpired = cfg.token ? await Storage.isTokenExpired() : false;
-      const remaining = await Storage.getTokenRemainingSeconds();
-      expiryHint = Storage.formatTokenExpiryHint(remaining);
+      const local = await withTimeout(loadStateFromStorage(), STORAGE_READ_TIMEOUT, '读取本地登录态');
+      cfg = local.cfg;
+      cred = local.cred;
+      isExpired = local.isExpired;
+      expiryHint = local.expiryHint;
     }
 
     const baseUrl = cfg.baseUrl;
@@ -339,6 +388,9 @@ const Popup = (() => {
   }
 
   function bindEvents() {
+    if (eventsBound) return;
+    eventsBound = true;
+
     // 登录按钮 — 账号 + 访问令牌
     $('#btnLogin').addEventListener('click', handleTokenLogin);
 
@@ -604,4 +656,18 @@ const Popup = (() => {
   return { init };
 })();
 
-document.addEventListener('DOMContentLoaded', () => Popup.init());
+document.addEventListener('DOMContentLoaded', () => {
+  Popup.init().catch((e) => {
+    console.error('[TaskPlugin] Popup.init 未捕获异常:', e);
+    const spinner = document.querySelector('#loadingSpinner');
+    if (spinner) spinner.style.display = 'none';
+    const loginSec = document.querySelector('#loginSection');
+    if (loginSec) loginSec.style.display = 'block';
+    const status = document.querySelector('#popupStatus');
+    if (status) {
+      status.style.display = 'inline';
+      status.textContent = '⚠️ 未登录';
+      status.className = 'badge badge-disconnected';
+    }
+  });
+});
