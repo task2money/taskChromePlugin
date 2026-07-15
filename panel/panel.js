@@ -10,6 +10,8 @@ const Panel = (() => {
   // ---- State ----
   let apiConfig = { baseUrl: 'http://183.250.1.132:18081', token: '' };
   let isLoggedIn = false;
+  /** 上一轮 refreshAuthState 的登录态，用于检测「已登录→过期/登出」翻转 */
+  let wasLoggedIn = false;
   let selectedRequest = null;
   let recentRequests = [];
   let workspaces = [];
@@ -76,6 +78,7 @@ const Panel = (() => {
     // 立即加载工作空间（不等待用户点击请求）
     loadWorkspaces('singleWorkspace');
     await checkConnection();
+    startAuthBadgeTimer();
     // 数据由 postMessage 推送；若 1.5s 内未收到则从 SW 兜底
     setTimeout(async () => {
       if (recentRequests.length === 0) {
@@ -108,7 +111,7 @@ const Panel = (() => {
       return;
     }
     try {
-      const data = await API.getMembers(companyId);
+      const data = await swApi('getMembers', { companyId });
       const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
       membersCache[companyId] = members;
       renderMemberOptions(companyId);
@@ -161,7 +164,7 @@ const Panel = (() => {
       return;
     }
     try {
-      const data = await API.fetchProgressColumns(companyId, wsId);
+      const data = await swApi('fetchProgressColumns', { companyId, workspaceId: wsId });
       const columns = data?.columns || [];
       progressColumnsCache[cacheKey] = columns;
       renderProgressColumnOptions(selectId, cacheKey);
@@ -186,18 +189,109 @@ const Panel = (() => {
     if (columns.length > 0) sel.value = String(columns[0].id);
   }
 
-  async function refreshAuthState() {
-    apiConfig = await Storage.getApiConfig();
-    const cred = await Storage.getCredentials();
-    if (cred.userId) currentUserId = String(cred.userId);
-    if (cred.memberId) currentMemberId = String(cred.memberId);
-    const expired = await Storage.isTokenExpired();
-    isLoggedIn = !!(apiConfig.token && !expired);
-    if (isLoggedIn) {
-      const mapping = await Storage.getEndpointMapping();
-      API.init(apiConfig.baseUrl, apiConfig.token, mapping, cred.userId || '');
+  let authBadgeTimer = null;
+  const AUTH_BADGE_REFRESH_MS = 60 * 1000;
+
+  /**
+   * 清空 workspace / 项目 / 成员等会话相关缓存，并重置选择器 UI。
+   * @param {{ reason?: 'expired'|'logout'|'auth_failure', notify?: boolean }} [opts]
+   */
+  function clearWorkspaceAuthCaches(opts = {}) {
+    const reason = opts.reason || 'expired';
+    const notify = opts.notify !== false;
+
+    workspaces = [];
+    projectsCache = {};
+    membersCache = {};
+    progressColumnsCache = {};
+
+    const wsHint = reason === 'logout'
+      ? '-- 请先登录 --'
+      : '-- 会话过期，请重新登录 --';
+
+    for (const id of ['singleWorkspace', 'batchWorkspace']) {
+      const sel = $(`#${id}`);
+      if (sel) sel.innerHTML = `<option value="">${wsHint}</option>`;
     }
-    updateStatusBadge(expired);
+
+    const singleProjects = $('#singleProjects');
+    if (singleProjects) singleProjects.innerHTML = '<p class="placeholder">请先重新登录</p>';
+    const batchProjects = $('#batchProjects');
+    if (batchProjects) batchProjects.innerHTML = '<p class="placeholder">请先重新登录</p>';
+
+    const ownerSel = $('#singleOwner');
+    if (ownerSel) ownerSel.innerHTML = '<option value="">请重新登录</option>';
+    const progressSel = $('#singleProgressColumn');
+    if (progressSel) progressSel.innerHTML = '<option value="">请重新登录</option>';
+    const deliverableSel = $('#singleDeliverable');
+    if (deliverableSel) deliverableSel.innerHTML = '<option value="">请重新登录</option>';
+    const assignees = $('#singleAssignees');
+    if (assignees) assignees.innerHTML = '<p class="placeholder">请先重新登录</p>';
+    const repoBases = $('#singleRepoBases');
+    if (repoBases) repoBases.innerHTML = '<p class="placeholder">请先重新登录</p>';
+
+    const batchProgress = $('#batchProgressColumn');
+    if (batchProgress) batchProgress.innerHTML = '<option value="">请重新登录</option>';
+    const batchDeliverable = $('#batchDeliverable');
+    if (batchDeliverable) batchDeliverable.innerHTML = '<option value="">请重新登录</option>';
+
+    if (notify) {
+      const msg = reason === 'logout'
+        ? '⚠️ 已退出登录，请在扩展弹窗中重新登录'
+        : '⏰ 会话已过期，工作空间缓存已清空，请在扩展弹窗中重新登录';
+      showR('singleResult', 'error', msg);
+      showR('batchResult', 'error', msg);
+    }
+  }
+
+  /**
+   * 检测登录态翻转：已登录 → 未登录/过期时清缓存并提示。
+   * @param {boolean} nextLoggedIn
+   * @param {{ expired?: boolean, tokenPresent?: boolean }} [meta]
+   */
+  function handleAuthSessionTransition(nextLoggedIn, meta = {}) {
+    const prev = wasLoggedIn;
+    wasLoggedIn = nextLoggedIn;
+    if (!prev || nextLoggedIn) return;
+    const reason = meta.tokenPresent || meta.expired ? 'expired' : 'logout';
+    clearWorkspaceAuthCaches({ reason, notify: true });
+  }
+
+  async function refreshAuthState() {
+    let expired = false;
+    let expiryHint = null;
+    try {
+      const r = await sendMessage({ action: 'getAuthStatus', _timeout: 5000 });
+      if (r?.success && r.data) {
+        apiConfig = {
+          baseUrl: r.data.baseUrl,
+          token: r.data.token || '',
+          tokenExpiresAt: r.data.tokenExpiresAt || 0,
+          tokenIssuedAt: r.data.tokenIssuedAt || 0,
+        };
+        if (r.data.userId) currentUserId = String(r.data.userId);
+        if (r.data.memberId) currentMemberId = String(r.data.memberId);
+        expired = !!r.data.expired;
+        isLoggedIn = !!r.data.loggedIn;
+        expiryHint = r.data.expiryHint || Storage.formatTokenExpiryHint(r.data.remainingSeconds);
+      } else {
+        throw new Error(r?.error || 'getAuthStatus 失败');
+      }
+    } catch (_) {
+      apiConfig = await Storage.getApiConfig();
+      const cred = await Storage.getCredentials();
+      if (cred.userId) currentUserId = String(cred.userId);
+      if (cred.memberId) currentMemberId = String(cred.memberId);
+      expired = await Storage.isTokenExpired();
+      isLoggedIn = !!(apiConfig.token && !expired);
+      const remaining = await Storage.getTokenRemainingSeconds();
+      expiryHint = Storage.formatTokenExpiryHint(remaining);
+    }
+    handleAuthSessionTransition(isLoggedIn, {
+      expired,
+      tokenPresent: !!apiConfig.token,
+    });
+    updateStatusBadge(expired, expiryHint);
     return isLoggedIn;
   }
 
@@ -209,38 +303,66 @@ const Panel = (() => {
   function handleApiAuthFailure(err) {
     const msg = String(err?.message || err || '');
     if (!/\b401\b/.test(msg)) return false;
+    const prev = wasLoggedIn || isLoggedIn;
     isLoggedIn = false;
+    wasLoggedIn = false;
     updateStatusBadge(true);
+    if (prev) {
+      clearWorkspaceAuthCaches({ reason: 'auth_failure', notify: true });
+    }
     return true;
   }
 
   function bindAuthListener() {
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg.action !== 'authStateChanged') return;
-      projectsCache = {};
-      refreshAuthState().then(() => {
-        loadWorkspaces('singleWorkspace');
-        if ($('#batchWorkspace')?.value) {
-          loadWorkspaces('batchWorkspace');
+      refreshAuthState().then((loggedIn) => {
+        if (loggedIn) {
+          loadWorkspaces('singleWorkspace');
+          if ($('#batchWorkspace')) {
+            loadWorkspaces('batchWorkspace');
+          }
         }
+        // 未登录时 clearWorkspaceAuthCaches 已由 handleAuthSessionTransition 处理
       }).catch((e) => {
         console.warn('[taskChromePlugin] panel authStateChanged 刷新失败:', e.message);
       });
     });
   }
 
-  function updateStatusBadge(expired = false) {
+  function updateStatusBadge(expired = false, expiryHint = null) {
     const badge = $('#statusBadge');
+    if (!badge) return;
     if (!apiConfig.token) {
       badge.textContent = '⚠️ 未登录';
       badge.className = 'badge badge-disconnected';
-    } else if (expired || !isLoggedIn) {
+      badge.title = '请先在扩展弹窗中登录';
+      return;
+    }
+    if (expired || !isLoggedIn) {
       badge.textContent = '⏰ 会话过期';
       badge.className = 'badge badge-disconnected';
-    } else {
-      badge.textContent = '✅ 已连接';
-      badge.className = 'badge badge-connected';
+      badge.title = '请在扩展弹窗中重新登录';
+      return;
     }
+    if (expiryHint?.text) {
+      badge.textContent = expiryHint.text;
+      badge.className = expiryHint.level === 'critical' ? 'badge badge-disconnected' : 'badge badge-warning';
+      badge.title = '登录会话即将过期，请尽快重新登录';
+      return;
+    }
+    badge.textContent = '✅ 已连接';
+    badge.className = 'badge badge-connected';
+    badge.title = '';
+  }
+
+  function startAuthBadgeTimer() {
+    if (authBadgeTimer) clearInterval(authBadgeTimer);
+    authBadgeTimer = setInterval(() => {
+      refreshAuthState().catch((e) => {
+        console.warn('[taskChromePlugin] panel 定时刷新登录态失败:', e.message);
+      });
+    }, AUTH_BADGE_REFRESH_MS);
   }
 
   async function checkConnection() {
@@ -277,6 +399,23 @@ const Panel = (() => {
         resolve({ error: syncErr?.message || '消息发送异常' });
       }
     });
+  }
+
+  /**
+   * 经 Service Worker 调用业务 API（与悬浮面板同源，走 initApiFromMessage）
+   */
+  async function swApi(action, extra = {}, timeoutMs = 15000) {
+    const r = await sendMessage({
+      action,
+      baseUrl: apiConfig.baseUrl,
+      token: apiConfig.token,
+      _timeout: timeoutMs,
+      ...extra,
+    });
+    if (!r?.success) {
+      throw new Error(r?.error || `${action} 失败`);
+    }
+    return r.data;
   }
 
   // ---- Merge Target Branch Helpers ----
@@ -444,7 +583,11 @@ const Panel = (() => {
 
       const shortRepo = extractRepoLabel(repoUrl);
       try {
-        const resp = await API.getBranches(String(companyId), pid, repoUrl);
+        const resp = await swApi('getBranches', {
+          companyId: String(companyId),
+          projectId: pid,
+          repoUrl,
+        });
         const branches = Array.isArray(resp?.branches) ? resp.branches : (Array.isArray(resp) ? resp : []);
         for (const b of branches) {
           const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');
@@ -709,7 +852,7 @@ const Panel = (() => {
     }
     sel.innerHTML = '<option value="">加载中...</option>';
     try {
-      const data = await API.getWorkspaces();
+      const data = await swApi('getWorkspaces');
       workspaces = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       renderWorkspaceOptions(selectId);
       // 自动选择 workspace：优先上次选择的，其次唯一 workspace
@@ -852,7 +995,7 @@ const Panel = (() => {
       return;
     }
     try {
-      const data = await API.getDeliverableTypes(companyId, wsId);
+      const data = await swApi('getDeliverableTypes', { companyId, workspaceId: wsId });
       const types = data?.current_deliverable_objs || [];
       sel.innerHTML = types.length
         ? types.map((t) => `<option value="${escHtml(String(t.id))}">${escHtml(t.name || t.id)}</option>`).join('')
@@ -875,7 +1018,7 @@ const Panel = (() => {
       return;
     }
     try {
-      const data = await API.getInstalledImages(companyId);
+      const data = await swApi('getInstalledImages', { companyId });
       const images = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       let h = '<option value="">无</option>';
       for (const img of images) {
@@ -899,7 +1042,7 @@ const Panel = (() => {
     if (!sel) return;
     if (!(await ensureApiReady())) return;
     try {
-      const data = await API.getPersonalFeatureParamsConfigs();
+      const data = await swApi('getPersonalFeatureParamsConfigs');
       const configs = data?.configs || (Array.isArray(data) ? data : []);
       let h = '<option value="">-- 请选择个人配置 --</option>';
       for (const c of configs) {
@@ -922,7 +1065,7 @@ const Panel = (() => {
     }
     if (projectsCache[wsId]) { renderProjectCheckboxes(containerId, projectsCache[wsId]); return; }
     try {
-      const data = await API.getProjects(wsId, companyId);
+      const data = await swApi('getProjects', { workspaceId: wsId, companyId });
       const projs = Array.isArray(data) ? data : (data?.items || data?.data || []);
       projectsCache[wsId] = projs;
       renderProjectCheckboxes(containerId, projs);

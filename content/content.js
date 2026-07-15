@@ -27,14 +27,29 @@
       <div class="taskplugin-panel-body">
         <div class="taskplugin-captured-url" id="taskplugin-page-url"></div>
         <div class="taskplugin-form-group">
+          <label>工作空间</label>
+          <select class="taskplugin-select" id="taskplugin-workspace">
+            <option value="">-- 请先登录 --</option>
+          </select>
+        </div>
+        <div class="taskplugin-form-group">
+          <label>项目 (可多选)</label>
+          <div class="taskplugin-checkbox-list" id="taskplugin-projects">
+            <span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>
+          </div>
+        </div>
+        <div class="taskplugin-form-group">
           <label>标题</label>
           <input class="taskplugin-input" id="taskplugin-title" placeholder="任务标题">
         </div>
         <div class="taskplugin-form-group">
-          <label class="taskplugin-label-row">
+          <div class="taskplugin-label-row">
             <span>描述</span>
-            <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择页面元素后填写调整期望">🖱️ 指针选择</button>
-          </label>
+            <span class="taskplugin-label-actions">
+              <button type="button" class="taskplugin-btn taskplugin-btn-reset" id="taskplugin-desc-reset" title="清空任务描述" disabled>重置</button>
+              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择页面元素后填写调整期望">🖱️ 指针选择</button>
+            </span>
+          </div>
           <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（可用指针选择页面元素）"></textarea>
         </div>
         <div class="taskplugin-form-group">
@@ -90,18 +105,6 @@
               <span class="taskplugin-toggle-hint">创建后按项目运行模版启动云服务器</span>
             </span>
           </label>
-        </div>
-        <div class="taskplugin-form-group">
-          <label>工作空间</label>
-          <select class="taskplugin-select" id="taskplugin-workspace">
-            <option value="">-- 请先登录 --</option>
-          </select>
-        </div>
-        <div class="taskplugin-form-group">
-          <label>项目 (可多选)</label>
-          <div class="taskplugin-checkbox-list" id="taskplugin-projects">
-            <span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>
-          </div>
         </div>
         <div class="taskplugin-form-group">
           <label>逐仓基准分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 对齐工作面板</span></label>
@@ -163,6 +166,7 @@
   const assigneesDiv = document.getElementById('taskplugin-assignees');
   const titleInput = document.getElementById('taskplugin-title');
   const descInput = document.getElementById('taskplugin-desc');
+  const descResetBtn = document.getElementById('taskplugin-desc-reset');
   const progressSelect = document.getElementById('taskplugin-progress');
   const deliverableSelect = document.getElementById('taskplugin-deliverable');
   const imageSelect = document.getElementById('taskplugin-image');
@@ -236,6 +240,8 @@
       //    防止 Service Worker 延迟 / 启动失败导致按钮无响应
       setupDrag();
       setupElementPicker();
+      setupDescReset();
+      bindAuthStorageListener();
 
       // 1. 同步初始化 datalist（不依赖网络/存储）
       seedBranchDatalists();
@@ -254,6 +260,8 @@
       if (urlEl) urlEl.textContent = `📍 ${window.location.href}`;
 
       await refreshAuthAndWorkspaces();
+
+      startAuthBadgeTimer();
 
       floatEnabledToggle.addEventListener('change', async () => {
         const enabled = floatEnabledToggle.checked;
@@ -629,6 +637,7 @@
         showResult('已将元素调整期望发送到 DevTools 面板', 'success');
       } else {
         descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, payload);
+        syncDescResetButton();
         console.log('[taskChromePlugin] element adjustment appended to float description');
         closeAdjustModal();
         showResult('已将元素调整期望加入任务描述', 'success');
@@ -664,6 +673,31 @@
       e.preventDefault();
       confirmAdjustModal();
     });
+  }
+
+  function syncDescResetButton() {
+    if (!descResetBtn) return;
+    if (typeof CreateTaskPayload === 'undefined' || typeof CreateTaskPayload.shouldEnableDescReset !== 'function') {
+      throw new Error('CreateTaskPayload.shouldEnableDescReset 未加载');
+    }
+    descResetBtn.disabled = !CreateTaskPayload.shouldEnableDescReset(descInput.value);
+  }
+
+  function setupDescReset() {
+    if (!descResetBtn) {
+      console.warn('[taskChromePlugin] desc reset button missing');
+      return;
+    }
+    descInput.addEventListener('input', syncDescResetButton);
+    descResetBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (descResetBtn.disabled) return;
+      descInput.value = '';
+      syncDescResetButton();
+      descInput.focus();
+    });
+    syncDescResetButton();
   }
 
   // ---- Drag Logic ----
@@ -744,13 +778,23 @@
   });
 
   // ================================================================
-  //  登录 / 工作空间 / 项目
+  //  登录 / 工作空间 / 项目（业务 API 一律经 Service Worker，避免页面上下文差异）
   // ================================================================
 
-  async function initApiClient() {
-    const mapping = await Storage.getEndpointMapping();
-    const cred = await Storage.getCredentials();
-    API.init(apiCfg.baseUrl, apiCfg.token, mapping, cred.userId || '');
+  /**
+   * 经 SW 调用业务 API。SW 会回退到 storage 中的 baseUrl/token。
+   */
+  async function swApi(action, extra = {}, timeoutMs = 12000) {
+    const r = await sendMessageWithTimeout({
+      action,
+      baseUrl: apiCfg.baseUrl,
+      token: apiCfg.token,
+      ...extra,
+    }, timeoutMs);
+    if (!r?.success) {
+      throw new Error(r?.error || `${action} 失败`);
+    }
+    return r.data;
   }
 
   async function resolveTaskOwner(endpointMapping, wsId) {
@@ -762,8 +806,7 @@
     const companyId = ws?.company_id || ws?.companyId;
     if (companyId && cred.userId) {
       try {
-        await initApiClient();
-        const data = await API.getMembers(String(companyId));
+        const data = await swApi('getMembers', { companyId: String(companyId) });
         const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
         const mine = members.find((m) => String(m.user_id || m.userId) === String(cred.userId));
         if (mine?.id) return String(mine.id);
@@ -775,30 +818,86 @@
     return '';
   }
 
+  /**
+   * 经 Service Worker 读取登录态（与 Popup 同源），避免 content script
+   * 直读 storage 与过期字段不同步、或扩展上下文异常时误判未登录。
+   */
+  async function fetchAuthStatusFromBackground() {
+    const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, 5000);
+    if (!r?.success || !r.data) {
+      throw new Error(r?.error || 'getAuthStatus 失败');
+    }
+    return r.data;
+  }
+
+  function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalidated = false } = {}) {
+    if (invalidated) {
+      badge.textContent = '请刷新页面';
+      badge.className = 'taskplugin-badge taskplugin-badge-err';
+      badge.title = '扩展已重载，请刷新本页后重试';
+      return;
+    }
+    if (!loggedIn) {
+      badge.textContent = expired ? '会话过期' : '未登录';
+      badge.className = 'taskplugin-badge taskplugin-badge-err';
+      badge.title = expired ? '请在扩展弹窗中重新登录' : '请先在扩展弹窗中登录';
+      return;
+    }
+    if (expiryHint?.text) {
+      badge.textContent = expiryHint.text;
+      badge.className = expiryHint.level === 'critical'
+        ? 'taskplugin-badge taskplugin-badge-warn taskplugin-badge-critical'
+        : 'taskplugin-badge taskplugin-badge-warn';
+      badge.title = '登录会话即将过期，请尽快在扩展弹窗中重新登录';
+      return;
+    }
+    badge.textContent = '已登录';
+    badge.className = 'taskplugin-badge taskplugin-badge-ok';
+    badge.title = '';
+  }
+
   async function checkLoginStatus() {
     try {
-      const cfg = await Storage.getApiConfig();
-      const expired = await Storage.isTokenExpired();
-      if (cfg.token && !expired) {
+      let cfg;
+      let expired = false;
+      let loggedIn = false;
+      let expiryHint = null;
+      try {
+        const auth = await fetchAuthStatusFromBackground();
+        cfg = {
+          baseUrl: auth.baseUrl,
+          token: auth.token || '',
+          tokenExpiresAt: auth.tokenExpiresAt || 0,
+          tokenIssuedAt: auth.tokenIssuedAt || 0,
+        };
+        expired = !!auth.expired;
+        loggedIn = !!auth.loggedIn;
+        expiryHint = auth.expiryHint || Storage.formatTokenExpiryHint(auth.remainingSeconds);
+      } catch (bgErr) {
+        console.warn('[taskChromePlugin] getAuthStatus 回退 Storage:', bgErr.message);
+        cfg = await Storage.getApiConfig();
+        expired = await Storage.isTokenExpired();
+        loggedIn = !!(cfg.token && !expired);
+        const remaining = await Storage.getTokenRemainingSeconds();
+        expiryHint = Storage.formatTokenExpiryHint(remaining);
+      }
+
+      apiCfg = cfg;
+      if (loggedIn) {
         isLoggedIn = true;
-        apiCfg = cfg;
-        await initApiClient();
-        badge.textContent = '已登录';
-        badge.className = 'taskplugin-badge taskplugin-badge-ok';
+        applyLoginBadge(true, { expiryHint });
         wsSelect.innerHTML = '<option value="">加载中...</option>';
       } else {
         isLoggedIn = false;
-        apiCfg = cfg;
-        badge.textContent = expired ? '会话过期' : '未登录';
-        badge.className = 'taskplugin-badge taskplugin-badge-err';
+        applyLoginBadge(false, { expired: !!(cfg.token && expired) });
         wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
       }
     } catch (e) {
       console.warn('[taskChromePlugin] checkLoginStatus 失败:', e.message);
       isLoggedIn = false;
-      badge.textContent = '未登录';
-      badge.className = 'taskplugin-badge taskplugin-badge-err';
-      wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
+      const invalidated = /Extension context invalidated/i.test(String(e.message || e));
+      applyLoginBadge(false, { invalidated });
+      wsSelect.innerHTML = `<option value="">-- ${invalidated ? '请刷新页面后重试' : '请先登录'} --</option>`;
     }
   }
 
@@ -810,14 +909,49 @@
     }
   }
 
+  /** 仅刷新登录角标（不重载工作空间），供定时器使用 */
+  async function refreshAuthBadgeOnly() {
+    await checkLoginStatus();
+  }
+
+  function startAuthBadgeTimer() {
+    if (window.__taskpluginAuthBadgeTimer) {
+      clearInterval(window.__taskpluginAuthBadgeTimer);
+    }
+    window.__taskpluginAuthBadgeTimer = setInterval(() => {
+      refreshAuthBadgeOnly().catch((e) => {
+        console.warn('[taskChromePlugin] 悬浮面板定时刷新登录态失败:', e.message);
+      });
+    }, 60 * 1000);
+  }
+
   function handleApiAuthFailure(err) {
     const msg = String(err?.message || err || '');
     if (!/\b401\b/.test(msg)) return false;
     isLoggedIn = false;
     badge.textContent = '会话失效';
     badge.className = 'taskplugin-badge taskplugin-badge-err';
+    badge.title = '请在扩展弹窗中重新登录';
     wsSelect.innerHTML = '<option value="">-- 请在扩展中重新登录 --</option>';
     return true;
+  }
+
+  /** storage 变更时同步登录态（Popup 登录后即使 tabs.sendMessage 失败也能恢复） */
+  function bindAuthStorageListener() {
+    try {
+      if (!chrome.storage?.onChanged) return;
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
+          return;
+        }
+        refreshAuthAndWorkspaces().catch((e) => {
+          console.warn('[taskChromePlugin] storage.onChanged 刷新失败:', e.message);
+        });
+      });
+    } catch (e) {
+      console.warn('[taskChromePlugin] bindAuthStorageListener 失败:', e.message);
+    }
   }
 
   async function loadWorkspaces() {
@@ -827,8 +961,7 @@
     }
     wsSelect.innerHTML = '<option value="">加载中...</option>';
     try {
-      await initApiClient();
-      const data = await API.getWorkspaces();
+      const data = await swApi('getWorkspaces');
 
       workspacesData = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       if (!workspacesData.length) {
@@ -851,10 +984,9 @@
   async function loadProjects(wsId) {
     projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
     try {
-      await initApiClient();
       const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
       const companyId = ws?.company_id || ws?.companyId;
-      const data = await API.getProjects(wsId, companyId);
+      const data = await swApi('getProjects', { workspaceId: wsId, companyId });
 
       projectsData = Array.isArray(data) ? data : (data?.items || data?.data || []);
       if (!projectsData.length) {
@@ -949,13 +1081,13 @@
     const companyId = ws?.company_id || ws?.companyId;
     if (!companyId) return;
     try {
-      await initApiClient();
+      const cid = String(companyId);
       const [colsResp, delivResp, imagesResp, personalResp, membersResp] = await Promise.all([
-        API.fetchProgressColumns(String(companyId), wsId).catch((e) => ({ __err: e })),
-        API.getDeliverableTypes(String(companyId), wsId).catch((e) => ({ __err: e })),
-        API.getInstalledImages(String(companyId)).catch((e) => ({ __err: e })),
-        API.getPersonalFeatureParamsConfigs().catch((e) => ({ __err: e })),
-        API.getMembers(String(companyId)).catch((e) => ({ __err: e })),
+        swApi('fetchProgressColumns', { companyId: cid, workspaceId: wsId }).catch((e) => ({ __err: e })),
+        swApi('getDeliverableTypes', { companyId: cid, workspaceId: wsId }).catch((e) => ({ __err: e })),
+        swApi('getInstalledImages', { companyId: cid }).catch((e) => ({ __err: e })),
+        swApi('getPersonalFeatureParamsConfigs').catch((e) => ({ __err: e })),
+        swApi('getMembers', { companyId: cid }).catch((e) => ({ __err: e })),
       ]);
 
       if (progressSelect && !colsResp.__err) {
@@ -1075,11 +1207,18 @@
         taskData,
       }, 15000);
 
-      if (!resp.success) throw new Error(resp.error);
+      if (!resp?.success) {
+        if (handleApiAuthFailure({ message: resp?.error })) {
+          showResult('会话失效，请重新登录', 'error');
+          return;
+        }
+        throw new Error(resp?.error || '创建失败');
+      }
 
       showResult(`✅ 任务创建成功! ID: ${resp.data?.id || resp.data?._id || '(已创建)'}`, 'success');
       titleInput.value = '';
       descInput.value = '';
+      syncDescResetButton();
     } catch (e) {
       showResult(`❌ 创建失败: ${e.message}`, 'error');
     } finally {
@@ -1173,8 +1312,11 @@
       if (!repoUrl) continue;
 
       try {
-        await initApiClient();
-        const resp = await API.getBranches(String(companyId), pid, repoUrl);
+        const resp = await swApi('getBranches', {
+          companyId: String(companyId),
+          projectId: pid,
+          repoUrl,
+        });
         const branches = Array.isArray(resp?.branches) ? resp.branches : (Array.isArray(resp) ? resp : []);
         for (const b of branches) {
           const name = typeof b === 'string' ? b : (b.name || b.branch_name || '');

@@ -86,4 +86,74 @@ describe('Storage baseUrl persistence', () => {
     assert.equal(cfg.baseUrl, 'http://new.example:2');
     assert.equal(cfg.token, 'tok');
   });
+
+  it('saveApiConfig without expiresIn clears stale expired tokenExpiresAt', async () => {
+    const past = Math.floor(Date.now() / 1000) - 3600;
+    await Storage.set({
+      baseUrl: 'http://gw.example',
+      token: 'old-tok',
+      tokenExpiresAt: past,
+      tokenIssuedAt: past - 7200,
+    });
+
+    await Storage.saveApiConfig('http://gw.example', 'new-tok');
+
+    const cfg = await Storage.getApiConfig();
+    assert.equal(cfg.token, 'new-tok');
+    assert.equal(cfg.tokenExpiresAt, 0);
+    assert.equal(await Storage.isTokenExpired(), false);
+  });
+
+  it('saveApiConfig without expiresIn keeps still-valid tokenExpiresAt', async () => {
+    const future = Math.floor(Date.now() / 1000) + 7200;
+    await Storage.set({
+      baseUrl: 'http://gw.example',
+      token: 'old-tok',
+      tokenExpiresAt: future,
+      tokenIssuedAt: future - 3600,
+    });
+
+    await Storage.saveApiConfig('http://gw.example', 'new-tok');
+
+    const cfg = await Storage.getApiConfig();
+    assert.equal(cfg.token, 'new-tok');
+    assert.equal(cfg.tokenExpiresAt, future);
+    assert.equal(await Storage.isTokenExpired(), false);
+  });
+
+  it('migrateStaleTokenExpiryOnce clears expired expiry once', async () => {
+    const past = Math.floor(Date.now() / 1000) - 120;
+    await Storage.set({
+      token: 'tok',
+      tokenExpiresAt: past,
+      tokenIssuedAt: past - 100,
+    });
+
+    assert.equal(await Storage.isTokenExpired(), true);
+    const cleared = await Storage.migrateStaleTokenExpiryOnce();
+    assert.equal(cleared, true);
+    assert.equal(await Storage.isTokenExpired(), false);
+
+    // second call is no-op even if we set expired again before flag
+    await Storage.set({ tokenExpiresAt: past });
+    const clearedAgain = await Storage.migrateStaleTokenExpiryOnce();
+    assert.equal(clearedAgain, false);
+  });
+
+  it('formatTokenExpiryHint returns null when far from expiry or unknown', () => {
+    assert.equal(Storage.formatTokenExpiryHint(Infinity), null);
+    assert.equal(Storage.formatTokenExpiryHint(-1), null);
+    assert.equal(Storage.formatTokenExpiryHint(0), null);
+    assert.equal(Storage.formatTokenExpiryHint(20 * 60), null);
+  });
+
+  it('formatTokenExpiryHint warns under 15 minutes and critical under 5', () => {
+    const warn = Storage.formatTokenExpiryHint(10 * 60);
+    assert.equal(warn.level, 'warn');
+    assert.match(warn.text, /10分钟后过期/);
+
+    const critical = Storage.formatTokenExpiryHint(90);
+    assert.equal(critical.level, 'critical');
+    assert.match(critical.text, /2分钟后过期/);
+  });
 });

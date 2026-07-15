@@ -8,6 +8,8 @@ const Popup = (() => {
 
   let capturedRequests = [];
   let selectedReqId = null;
+  let authBadgeTimer = null;
+  const AUTH_BADGE_REFRESH_MS = 60 * 1000;
 
   /**
    * 带超时的 chrome.runtime.sendMessage 封装
@@ -183,8 +185,37 @@ const Popup = (() => {
   }
 
   async function loadState() {
-    const cfg = await Storage.getApiConfig();
-    const cred = await Storage.getCredentials();
+    // 与悬浮面板同源：经 SW 读取并执行过期字段迁移
+    let cfg;
+    let cred;
+    let isExpired = false;
+    let expiryHint = null;
+    try {
+      const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, STATE_CHECK_TIMEOUT);
+      if (r?.success && r.data) {
+        cfg = {
+          baseUrl: r.data.baseUrl,
+          token: r.data.token || '',
+          tokenExpiresAt: r.data.tokenExpiresAt || 0,
+          tokenIssuedAt: r.data.tokenIssuedAt || 0,
+        };
+        cred = {
+          username: r.data.username || '',
+          userId: r.data.userId || '',
+          memberId: r.data.memberId || '',
+        };
+        isExpired = !!r.data.expired;
+        expiryHint = r.data.expiryHint || Storage.formatTokenExpiryHint(r.data.remainingSeconds);
+      }
+    } catch (_) { /* fall through */ }
+
+    if (!cfg) {
+      cfg = await Storage.getApiConfig();
+      cred = await Storage.getCredentials();
+      isExpired = cfg.token ? await Storage.isTokenExpired() : false;
+      const remaining = await Storage.getTokenRemainingSeconds();
+      expiryHint = Storage.formatTokenExpiryHint(remaining);
+    }
 
     const baseUrl = cfg.baseUrl;
 
@@ -197,8 +228,6 @@ const Popup = (() => {
     }
 
     if (cfg.token) {
-      // 检查 token 是否过期
-      const isExpired = await Storage.isTokenExpired();
       if (isExpired) {
         showTokenExpiredUI(cred.username);
         return;
@@ -206,16 +235,72 @@ const Popup = (() => {
 
       // 立即显示已登录 UI（不等待子模块）
       showLoggedInUI(cred.username);
+      applyExpiryHintToPopup(expiryHint);
+      startAuthBadgeTimer();
 
       // 子模块异步延迟加载 — 不阻塞登录状态检查
       loadSubModules();
     } else {
+      stopAuthBadgeTimer();
       showLoginUI();
     }
   }
 
+  function applyExpiryHintToPopup(expiryHint) {
+    const status = $('#popupStatus');
+    if (!status) return;
+    if (!expiryHint?.text) {
+      // 已登录且无临近过期时保持隐藏（header 已显示用户）
+      if ($('#headerUserArea')?.style.display !== 'none') {
+        status.style.display = 'none';
+        status.textContent = '';
+        status.title = '';
+      }
+      return;
+    }
+    status.style.display = 'inline';
+    status.textContent = expiryHint.text;
+    status.className = expiryHint.level === 'critical' ? 'badge badge-disconnected' : 'badge badge-warning';
+    status.title = '登录会话即将过期，请尽快重新登录';
+  }
+
+  async function refreshAuthBadgeOnly() {
+    try {
+      const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, 5000);
+      if (!r?.success || !r.data) return;
+      if (!r.data.token) {
+        stopAuthBadgeTimer();
+        showLoginUI();
+        return;
+      }
+      if (r.data.expired) {
+        stopAuthBadgeTimer();
+        showTokenExpiredUI(r.data.username);
+        return;
+      }
+      const hint = r.data.expiryHint || Storage.formatTokenExpiryHint(r.data.remainingSeconds);
+      applyExpiryHintToPopup(hint);
+    } catch (e) {
+      console.warn('[TaskPlugin] popup 定时刷新登录态失败:', e.message);
+    }
+  }
+
+  function startAuthBadgeTimer() {
+    stopAuthBadgeTimer();
+    authBadgeTimer = setInterval(() => {
+      refreshAuthBadgeOnly();
+    }, AUTH_BADGE_REFRESH_MS);
+  }
+
+  function stopAuthBadgeTimer() {
+    if (authBadgeTimer) {
+      clearInterval(authBadgeTimer);
+      authBadgeTimer = null;
+    }
+  }
+
   /**
-   * 延迟加载子模块（悬浮球配置、跟踪配置、请求列表、token 有效期提醒）
+   * 延迟加载子模块（悬浮球配置、跟踪配置、请求列表）
    * 不阻塞登录状态检查，失败静默忽略
    */
   async function loadSubModules() {
@@ -228,20 +313,6 @@ const Popup = (() => {
       for (const r of results) {
         if (r.status === 'rejected') {
           console.warn('[TaskPlugin] loadState 子模块加载失败:', r.reason);
-        }
-      }
-    } catch (_) { /* ignore */ }
-
-    // 后台检查 token 剩余时间，接近过期时显示提醒
-    try {
-      const remaining = await Storage.getTokenRemainingSeconds();
-      if (remaining > 0 && remaining < 300) { // 5 分钟内过期
-        const status = $('#popupStatus');
-        if (status) {
-          const mins = Math.ceil(remaining / 60);
-          status.style.display = 'inline';
-          status.textContent = `⏰ ${mins}分钟后过期`;
-          status.className = 'badge badge-warning';
         }
       }
     } catch (_) { /* ignore */ }
@@ -388,6 +459,7 @@ const Popup = (() => {
 
   async function handleLogout() {
     // 仅清除登录态，保留上次服务器地址
+    stopAuthBadgeTimer();
     await Storage.clearAuth();
     notifyContentScriptsAuthChanged();
     await loadState();

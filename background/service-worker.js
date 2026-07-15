@@ -192,6 +192,38 @@ function applyEndpointOwner(mapping) {
   }
 }
 
+/**
+ * 从消息或 storage 初始化 API（content script 可不传 baseUrl/token）
+ */
+async function initApiFromMessage(message = {}) {
+  const cfg = await Storage.getApiConfig();
+  const mapping = message.endpointMapping != null
+    ? message.endpointMapping
+    : await Storage.getEndpointMapping();
+  const cred = await Storage.getCredentials();
+  const baseUrl = message.baseUrl || cfg.baseUrl;
+  const token = message.token || cfg.token;
+  API.init(baseUrl, token, mapping, cred.userId || '');
+  if (cred.userId) API.setUserId(cred.userId);
+  applyEndpointOwner(mapping);
+  return { baseUrl, token, mapping, cred, cfg };
+}
+
+/** 向所有标签页广播登录态变更（content script / panel 监听） */
+async function broadcastAuthStateChanged() {
+  try {
+    const tabs = await chrome.tabs.query({});
+    await Promise.allSettled(
+      tabs.map((tab) => {
+        if (!tab.id) return Promise.resolve();
+        return chrome.tabs.sendMessage(tab.id, { action: 'authStateChanged' }).catch(() => {});
+      }),
+    );
+  } catch (e) {
+    console.warn('[taskChromePlugin] broadcastAuthStateChanged 失败:', e.message || e);
+  }
+}
+
 // ---- 内存中的请求缓存 (DevTools 转发) ----
 
 let devToolsRequests = [];
@@ -227,6 +259,28 @@ async function handleMessage(message, sender) {
           remainingSeconds: await Storage.getTokenRemainingSeconds(),
         },
       };
+
+    case 'getAuthStatus':
+      {
+        await Storage.migrateStaleTokenExpiryOnce();
+        const cfg = await Storage.getApiConfig();
+        const cred = await Storage.getCredentials();
+        const expired = await Storage.isTokenExpired();
+        const remainingSeconds = await Storage.getTokenRemainingSeconds();
+        return {
+          success: true,
+          data: {
+            ...cfg,
+            username: cred.username || '',
+            userId: cred.userId || '',
+            memberId: cred.memberId || '',
+            expired,
+            loggedIn: !!(cfg.token && !expired),
+            remainingSeconds,
+            expiryHint: Storage.formatTokenExpiryHint(remainingSeconds),
+          },
+        };
+      }
 
     // ---- 请求追踪 ----
 
@@ -281,9 +335,11 @@ async function handleMessage(message, sender) {
         const result = await API.login(message.username, message.password);
         const token = result.token || result.access_token;
         if (token) {
-          await Storage.saveApiConfig(message.baseUrl, token);
+          const expiresIn = Number(result.expires_in || result.expiresIn || 0);
+          await Storage.saveApiConfig(message.baseUrl, token, expiresIn);
           const cc = result.user?.current_company;
           await Storage.saveCredentials(message.username, result.user?.id || '', cc?.member_id || '');
+          await broadcastAuthStateChanged();
         }
         return { success: true, data: result };
       } catch (e) {
@@ -306,10 +362,12 @@ async function handleMessage(message, sender) {
         const result = await API.loginWithAccessToken(message.username, message.accessToken);
         const token = result.token || result.access_token;
         if (token) {
-          await Storage.saveApiConfig(message.baseUrl, token);
+          const expiresIn = Number(result.expires_in || result.expiresIn || 0);
+          await Storage.saveApiConfig(message.baseUrl, token, expiresIn);
           const cc = result.user?.current_company;
           const displayName = message.username || result.user?.username || result.user?.email || '';
           await Storage.saveCredentials(displayName, result.user?.id || '', cc?.member_id || '');
+          await broadcastAuthStateChanged();
         }
         return { success: true, data: result };
       } catch (e) {
@@ -320,9 +378,7 @@ async function handleMessage(message, sender) {
 
     case 'getWorkspaces':
       try {
-        API.init(message.baseUrl, message.token, message.endpointMapping);
-        const cred = await Storage.getCredentials();
-        if (cred.userId) API.setUserId(cred.userId);
+        await initApiFromMessage(message);
         const data = await API.getWorkspaces(message.companyId);
         return { success: true, data };
       } catch (e) {
@@ -331,9 +387,7 @@ async function handleMessage(message, sender) {
 
     case 'getProjects':
       try {
-        API.init(message.baseUrl, message.token, message.endpointMapping);
-        const cred = await Storage.getCredentials();
-        if (cred.userId) API.setUserId(cred.userId);
+        await initApiFromMessage(message);
         const data = await API.getProjects(message.workspaceId, message.companyId);
         return { success: true, data };
       } catch (e) {
@@ -342,7 +396,7 @@ async function handleMessage(message, sender) {
 
     case 'getMembers':
       try {
-        API.init(message.baseUrl, message.token);
+        await initApiFromMessage(message);
         const data = await API.getMembers(message.companyId);
         return { success: true, data };
       } catch (e) {
@@ -351,7 +405,7 @@ async function handleMessage(message, sender) {
 
     case 'fetchProgressColumns':
       try {
-        API.init(message.baseUrl, message.token);
+        await initApiFromMessage(message);
         const data = await API.fetchProgressColumns(message.companyId, message.workspaceId);
         return { success: true, data };
       } catch (e) {
@@ -360,7 +414,7 @@ async function handleMessage(message, sender) {
 
     case 'getBranches':
       try {
-        API.init(message.baseUrl, message.token);
+        await initApiFromMessage(message);
         const data = await API.getBranches(message.companyId, message.projectId, message.repoUrl);
         return { success: true, data };
       } catch (e) {
@@ -369,7 +423,7 @@ async function handleMessage(message, sender) {
 
     case 'getDeliverableTypes':
       try {
-        API.init(message.baseUrl, message.token);
+        await initApiFromMessage(message);
         const data = await API.getDeliverableTypes(message.companyId, message.workspaceId);
         return { success: true, data };
       } catch (e) {
@@ -378,7 +432,7 @@ async function handleMessage(message, sender) {
 
     case 'getInstalledImages':
       try {
-        API.init(message.baseUrl, message.token);
+        await initApiFromMessage(message);
         const data = await API.getInstalledImages(message.companyId);
         return { success: true, data };
       } catch (e) {
@@ -387,7 +441,7 @@ async function handleMessage(message, sender) {
 
     case 'getPersonalFeatureParamsConfigs':
       try {
-        API.init(message.baseUrl, message.token);
+        await initApiFromMessage(message);
         const data = await API.getPersonalFeatureParamsConfigs();
         return { success: true, data };
       } catch (e) {
@@ -398,10 +452,7 @@ async function handleMessage(message, sender) {
 
     case 'createTask':
       try {
-        API.init(message.baseUrl, message.token, message.endpointMapping);
-        const cred = await Storage.getCredentials();
-        if (cred.userId) API.setUserId(cred.userId);
-        applyEndpointOwner(message.endpointMapping);
+        await initApiFromMessage(message);
         const taskData = await enrichTaskDataWithOwner(message.taskData);
         const data = await API.createTask(taskData);
         await Storage.addTaskHistory({
@@ -430,10 +481,7 @@ async function handleMessage(message, sender) {
 
     case 'createTasksBatch':
       try {
-        API.init(message.baseUrl, message.token, message.endpointMapping);
-        const cred = await Storage.getCredentials();
-        if (cred.userId) API.setUserId(cred.userId);
-        applyEndpointOwner(message.endpointMapping);
+        await initApiFromMessage(message);
         const tasksData = [];
         for (const task of message.tasksData || []) {
           tasksData.push(await enrichTaskDataWithOwner(task));
@@ -777,6 +825,7 @@ async function cropCaptureToElement(dataUrl, rect, dpr, maxWidth) {
 // ---- 启动时恢复配置 ----
 (async function init() {
   try {
+    await Storage.migrateStaleTokenExpiryOnce();
     const cfg = await Storage.getApiConfig();
     const mapping = await Storage.getEndpointMapping();
     const cred = await Storage.getCredentials();

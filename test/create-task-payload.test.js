@@ -13,6 +13,7 @@ const {
   repoBaseBranchKey,
   normalizeAssignees,
   buildRepoBaseEditorsHtml,
+  shouldEnableDescReset,
 } = require('../lib/create-task-payload.js');
 
 describe('normalizePriority', () => {
@@ -287,5 +288,19 @@ describe('buildCreateTaskPayload', () => {
       merge_target_branch_name: 'develop',
       target_branch_name: 'feature/a',
     });
+  });
+});
+
+describe('shouldEnableDescReset', () => {
+  it('disables when description is empty or nullish', () => {
+    assert.equal(shouldEnableDescReset(''), false);
+    assert.equal(shouldEnableDescReset(null), false);
+    assert.equal(shouldEnableDescReset(undefined), false);
+  });
+
+  it('enables when description has any content (including whitespace)', () => {
+    assert.equal(shouldEnableDescReset('x'), true);
+    assert.equal(shouldEnableDescReset(' '), true);
+    assert.equal(shouldEnableDescReset('任务描述'), true);
   });
 });

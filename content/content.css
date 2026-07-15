@@ -147,6 +147,8 @@
   font-weight: 500 !important;
 }
 .taskplugin-badge-ok { background: rgba(166, 227, 161, 0.2) !important; color: #a6e3a1 !important; }
+.taskplugin-badge-warn { background: rgba(250, 179, 135, 0.25) !important; color: #fab387 !important; }
+.taskplugin-badge-critical { background: rgba(243, 139, 168, 0.25) !important; color: #f38ba8 !important; }
 .taskplugin-badge-err { background: rgba(243, 139, 168, 0.2) !important; color: #f38ba8 !important; }
 
 /* 面板滚动区 */
@@ -297,7 +299,7 @@
 .taskplugin-result-success { background: rgba(166, 227, 161, 0.15) !important; color: #a6e3a1 !important; border: 1px solid #a6e3a1 !important; }
 .taskplugin-result-error { background: rgba(243, 139, 168, 0.15) !important; color: #f38ba8 !important; border: 1px solid #f38ba8 !important; }
 
-/* 描述行：标签 + 指针选择 */
+/* 描述行：标签 + 重置 / 指针选择 */
 .taskplugin-label-row {
   display: flex !important;
   align-items: center !important;
@@ -305,9 +307,33 @@
   gap: 8px !important;
   margin-bottom: 3px !important;
 }
-.taskplugin-label-row > span {
+.taskplugin-label-row > span:first-child {
   font-size: 11px !important;
   color: #a6adc8 !important;
+}
+.taskplugin-label-actions {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  flex-shrink: 0 !important;
+}
+.taskplugin-btn-reset {
+  width: auto !important;
+  padding: 3px 8px !important;
+  font-size: 11px !important;
+  flex-shrink: 0 !important;
+  border-color: #585b70 !important;
+  color: #bac2de !important;
+  background: rgba(69, 71, 90, 0.45) !important;
+}
+.taskplugin-btn-reset:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.18) !important;
+  border-color: #f38ba8 !important;
+  color: #f38ba8 !important;
+}
+.taskplugin-btn-reset:disabled {
+  opacity: .45 !important;
+  cursor: not-allowed !important;
 }
 .taskplugin-btn-pick {
   width: auto !important;
