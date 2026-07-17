@@ -8,7 +8,7 @@
 
 const Panel = (() => {
   // ---- State ----
-  let apiConfig = { baseUrl: 'http://183.250.1.132:18081', token: '' };
+  let apiConfig = { baseUrl: 'https://daydaymoney.com', token: '' };
   let isLoggedIn = false;
   /** 上一轮 refreshAuthState 的登录态，用于检测「已登录→过期/登出」翻转 */
   let wasLoggedIn = false;
@@ -696,10 +696,15 @@ const Panel = (() => {
         tabId,
         source: 'devtools',
       });
-      if (!r?.success) throw new Error(r?.error || '启动失败');
+      if (!r?.success) {
+        const err = new Error(r?.error || '启动失败');
+        const tid = extractTraceId(r);
+        if (tid) err.traceId = tid;
+        throw err;
+      }
       showR('singleResult', 'success', '请在页面中点击目标元素（Esc 取消）');
     } catch (e) {
-      showR('singleResult', 'error', `无法启动指针选择: ${e.message}`);
+      showR('singleResult', 'error', `无法启动指针选择: ${e.message}`, e.traceId);
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -1165,10 +1170,15 @@ const Panel = (() => {
         endpointMapping: mapping.success ? mapping.data : undefined,
         taskData,
       });
-      if (!r.success) throw new Error(r.error);
+      if (!r.success) {
+        const err = new Error(r.error);
+        const tid = extractTraceId(r);
+        if (tid) err.traceId = tid;
+        throw err;
+      }
       showR('singleResult', 'success', `✅ 任务创建成功! ID: ${r.data?.id || r.data?._id || '(已创建)'}`);
     } catch (e) {
-      showR('singleResult', 'error', `❌ 创建失败: ${e.message}`);
+      showR('singleResult', 'error', `❌ 创建失败: ${e.message}`, e.traceId);
     } finally { btn.disabled = false; btn.textContent = '✅ 创建任务'; }
   }
 
@@ -1375,12 +1385,17 @@ const Panel = (() => {
         endpointMapping: mapping.success ? mapping.data : undefined,
         tasksData: tasks,
       });
-      if (!b.success) throw new Error(b.error);
+      if (!b.success) {
+        const err = new Error(b.error);
+        const tid = extractTraceId(b);
+        if (tid) err.traceId = tid;
+        throw err;
+      }
       showR('batchResult', 'success', `✅ 批量创建完成! 共 ${tasks.length} 个任务`);
       await sendMessage({ action: 'clearCapturedErrors' });
       await refreshCapturedCount();
     } catch (e) {
-      showR('batchResult', 'error', `❌ 失败: ${e.message}`);
+      showR('batchResult', 'error', `❌ 失败: ${e.message}`, e.traceId);
     } finally { btn.disabled = false; btn.textContent = '📦 批量创建任务'; }
   }
 
@@ -1512,7 +1527,12 @@ const Panel = (() => {
           endpointMapping: mapping.success ? mapping.data : undefined,
           tasksData: record.tasksData || record.taskData,
         });
-        if (!res.success) throw new Error(res.error);
+        if (!res.success) {
+          const err = new Error(res.error);
+          const tid = extractTraceId(res);
+          if (tid) err.traceId = tid;
+          throw err;
+        }
         await Storage.updateTaskHistory(recordId, { status: 'success', response: res.data, retryCount: (record.retryCount || 0) + 1, error: null });
       } else {
         const res = await sendMessage({
@@ -1520,14 +1540,19 @@ const Panel = (() => {
           endpointMapping: mapping.success ? mapping.data : undefined,
           taskData: record.taskData,
         });
-        if (!res.success) throw new Error(res.error);
+        if (!res.success) {
+          const err = new Error(res.error);
+          const tid = extractTraceId(res);
+          if (tid) err.traceId = tid;
+          throw err;
+        }
         await Storage.updateTaskHistory(recordId, { status: 'success', response: res.data, retryCount: (record.retryCount || 0) + 1, error: null });
       }
       showR('historyResult', 'success', '✅ 重试成功!');
       await refreshHistory();
     } catch (e) {
       await Storage.updateTaskHistory(recordId, { status: 'failed', error: e.message, retryCount: (record.retryCount || 0) + 1 });
-      showR('historyResult', 'error', `❌ 重试失败: ${e.message}`);
+      showR('historyResult', 'error', `❌ 重试失败: ${e.message}`, e.traceId);
       await refreshHistory();
     }
     if (btn) { btn.disabled = false; btn.textContent = '🔁 重试'; }
@@ -1591,11 +1616,20 @@ const Panel = (() => {
   // ---- Utility ----
   function extractPath(url) { try { return new URL(url).pathname; } catch (_) { return url; } }
   function escHtml(s) { const d = document.createElement('div'); d.textContent = String(s); return d.innerHTML; }
-  function showR(target, type, msg) {
+  function showR(target, type, msg, traceId) {
     const el = $(`#${target}`);
     if (!el) return;
-    el.textContent = msg; el.className = `result ${type}`;
-    setTimeout(() => { el.className = 'result'; }, 8000);
+    el.textContent = msg;
+    el.className = `result ${type}`;
+    if (type === 'error') {
+      setDataTraceId(el, traceId);
+    } else {
+      setDataTraceId(el, '');
+    }
+    setTimeout(() => {
+      el.className = 'result';
+      el.removeAttribute('data-traceId');
+    }, 8000);
   }
 
   return { init };

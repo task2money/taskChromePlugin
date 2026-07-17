@@ -196,7 +196,7 @@
   let pendingFrameElement = null;
   let pickSource = 'float'; // float | devtools
   let pickCrossOriginHintShown = false;
-  let apiCfg = { baseUrl: 'http://183.250.1.132:18081', token: '' };
+  let apiCfg = { baseUrl: 'https://daydaymoney.com', token: '' };
   let workspacesData = [];
   let projectsData = [];
 
@@ -1212,7 +1212,10 @@
           showResult('会话失效，请重新登录', 'error');
           return;
         }
-        throw new Error(resp?.error || '创建失败');
+        const err = new Error(resp?.error || '创建失败');
+        const tid = extractTraceId(resp);
+        if (tid) err.traceId = tid;
+        throw err;
       }
 
       showResult(`✅ 任务创建成功! ID: ${resp.data?.id || resp.data?._id || '(已创建)'}`, 'success');
@@ -1220,7 +1223,7 @@
       descInput.value = '';
       syncDescResetButton();
     } catch (e) {
-      showResult(`❌ 创建失败: ${e.message}`, 'error');
+      showResult(`❌ 创建失败: ${e.message}`, 'error', e.traceId);
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = '✅ 创建任务';
@@ -1378,10 +1381,18 @@
     return '';
   }
 
-  function showResult(msg, type) {
+  function showResult(msg, type, traceId) {
     resultDiv.textContent = msg;
     resultDiv.className = `taskplugin-result taskplugin-show taskplugin-result-${type}`;
-    setTimeout(() => { resultDiv.className = 'taskplugin-result'; }, 6000);
+    if (type === 'error') {
+      setDataTraceId(resultDiv, traceId);
+    } else {
+      setDataTraceId(resultDiv, '');
+    }
+    setTimeout(() => {
+      resultDiv.className = 'taskplugin-result';
+      resultDiv.removeAttribute('data-traceId');
+    }, 6000);
   }
 
   function esc(s) {

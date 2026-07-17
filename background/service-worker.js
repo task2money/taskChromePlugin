@@ -9,9 +9,12 @@
 importScripts(
   '../lib/storage.js',
   '../lib/create-task-payload.js',
+  '../lib/client-public-ip.js',
   '../lib/api.js',
   '../lib/capture-status.js',
   '../lib/element-picker.js',
+  '../lib/async-timeout.js',
+  '../lib/login-finalize.js',
 );
 
 // ---- 顶层注册 webRequest 监听器 (MV3 最佳实践) ----
@@ -209,6 +212,9 @@ async function initApiFromMessage(message = {}) {
   return { baseUrl, token, mapping, cred, cfg };
 }
 
+/** 单标签广播超时：discarded/frozen 页上 sendMessage 可能永不 resolve */
+const AUTH_BROADCAST_TAB_TIMEOUT_MS = 800;
+
 /** 向所有标签页广播登录态变更（content script / panel 监听） */
 async function broadcastAuthStateChanged() {
   try {
@@ -216,12 +222,49 @@ async function broadcastAuthStateChanged() {
     await Promise.allSettled(
       tabs.map((tab) => {
         if (!tab.id) return Promise.resolve();
-        return chrome.tabs.sendMessage(tab.id, { action: 'authStateChanged' }).catch(() => {});
+        const send = chrome.tabs.sendMessage(tab.id, { action: 'authStateChanged' }).catch(() => {});
+        if (typeof withTimeout === 'function') {
+          return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'auth broadcast').catch(() => {});
+        }
+        return send;
       }),
     );
   } catch (e) {
     console.warn('[taskChromePlugin] broadcastAuthStateChanged 失败:', e.message || e);
   }
+}
+
+/** 登录成功：持久化（带超时）+ 异步广播，绝不因广播阻塞 Popup */
+async function completeLoginAndRespond(baseUrl, token, expiresIn, username, userId, memberId, result) {
+  // 先写入内存会话，保证即便 storage 短暂失败也能继续
+  API.init(baseUrl, token, null, userId || '');
+  if (memberId) API.setOwner(memberId);
+
+  const persistOpts = {
+    saveApiConfig: (url, tok, exp) => Storage.saveApiConfig(url, tok, exp),
+    saveCredentials: (name, uid, mid) => Storage.saveCredentials(name, uid, mid),
+    baseUrl,
+    token,
+    expiresIn,
+    username,
+    userId,
+    memberId,
+    withTimeout,
+    timeoutMs: 3000,
+    broadcast: broadcastAuthStateChanged,
+  };
+
+  try {
+    await finalizeLoginSuccess(persistOpts);
+  } catch (e) {
+    console.warn('[taskChromePlugin] 保存登录态失败/超时，后台重试:', e?.message || e);
+    // 后台再试一次（无超时包装由 storage 自身决定），广播仍不阻塞响应
+    void persistLoginCredentials({ ...persistOpts, timeoutMs: 0 }).catch((err) => {
+      console.warn('[taskChromePlugin] 登录态后台重试仍失败:', err?.message || err);
+    });
+    scheduleAuthBroadcast(broadcastAuthStateChanged);
+  }
+  return { success: true, data: result };
 }
 
 // ---- 内存中的请求缓存 (DevTools 转发) ----
@@ -327,23 +370,30 @@ async function handleMessage(message, sender) {
 
     case 'login':
       try {
-        API.init(message.baseUrl, undefined, message.endpointMapping);
+        // 清空内存脏 Token，避免登录请求带 Authorization
+        API.init(message.baseUrl, '', message.endpointMapping, '');
         if (message.endpointMapping) {
           API.setEndpointMapping(message.endpointMapping);
           if (message.endpointMapping.owner) API.setOwner(message.endpointMapping.owner);
         }
         const result = await API.login(message.username, message.password);
         const token = result.token || result.access_token;
-        if (token) {
-          const expiresIn = Number(result.expires_in || result.expiresIn || 0);
-          await Storage.saveApiConfig(message.baseUrl, token, expiresIn);
-          const cc = result.user?.current_company;
-          await Storage.saveCredentials(message.username, result.user?.id || '', cc?.member_id || '');
-          await broadcastAuthStateChanged();
+        if (!token) {
+          return { success: false, error: '登录成功但未返回 session token，请重试' };
         }
-        return { success: true, data: result };
+        const expiresIn = Number(result.expires_in || result.expiresIn || 0);
+        const cc = result.user?.current_company;
+        return await completeLoginAndRespond(
+          message.baseUrl,
+          token,
+          expiresIn,
+          message.username,
+          result.user?.id || '',
+          cc?.member_id || '',
+          result,
+        );
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'loginWithAccessToken':
@@ -354,24 +404,42 @@ async function handleMessage(message, sender) {
         if (!API.isAccessTokenFormat(message.accessToken)) {
           return { success: false, error: '访问令牌格式无效，应以 at_ 开头' };
         }
-        API.init(message.baseUrl, undefined, message.endpointMapping);
+        // 清空内存脏 Token，登录走 requestUnauthenticated
+        API.init(message.baseUrl, '', message.endpointMapping, '');
         if (message.endpointMapping) {
           API.setEndpointMapping(message.endpointMapping);
           if (message.endpointMapping.owner) API.setOwner(message.endpointMapping.owner);
         }
         const result = await API.loginWithAccessToken(message.username, message.accessToken);
         const token = result.token || result.access_token;
-        if (token) {
-          const expiresIn = Number(result.expires_in || result.expiresIn || 0);
-          await Storage.saveApiConfig(message.baseUrl, token, expiresIn);
-          const cc = result.user?.current_company;
-          const displayName = message.username || result.user?.username || result.user?.email || '';
-          await Storage.saveCredentials(displayName, result.user?.id || '', cc?.member_id || '');
-          await broadcastAuthStateChanged();
+        if (!token) {
+          return { success: false, error: '登录成功但未返回 session token，请重试' };
         }
-        return { success: true, data: result };
+        const expiresIn = Number(result.expires_in || result.expiresIn || 0);
+        const cc = result.user?.current_company;
+        const displayName = message.username || result.user?.username || result.user?.email || '';
+        return await completeLoginAndRespond(
+          message.baseUrl,
+          token,
+          expiresIn,
+          displayName,
+          result.user?.id || '',
+          cc?.member_id || '',
+          result,
+        );
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
+    case 'logout':
+      try {
+        await Storage.clearAuth();
+        API.clearSession();
+        // 登出同样不得被标签页广播拖死
+        scheduleAuthBroadcast(broadcastAuthStateChanged);
+        return { success: true };
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     // ---- 工作空间/项目/成员 ----
@@ -382,7 +450,7 @@ async function handleMessage(message, sender) {
         const data = await API.getWorkspaces(message.companyId);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getProjects':
@@ -391,7 +459,7 @@ async function handleMessage(message, sender) {
         const data = await API.getProjects(message.workspaceId, message.companyId);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getMembers':
@@ -400,7 +468,7 @@ async function handleMessage(message, sender) {
         const data = await API.getMembers(message.companyId);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'fetchProgressColumns':
@@ -409,7 +477,7 @@ async function handleMessage(message, sender) {
         const data = await API.fetchProgressColumns(message.companyId, message.workspaceId);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getBranches':
@@ -418,7 +486,7 @@ async function handleMessage(message, sender) {
         const data = await API.getBranches(message.companyId, message.projectId, message.repoUrl);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getDeliverableTypes':
@@ -427,7 +495,7 @@ async function handleMessage(message, sender) {
         const data = await API.getDeliverableTypes(message.companyId, message.workspaceId);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getInstalledImages':
@@ -436,7 +504,7 @@ async function handleMessage(message, sender) {
         const data = await API.getInstalledImages(message.companyId);
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getPersonalFeatureParamsConfigs':
@@ -445,7 +513,7 @@ async function handleMessage(message, sender) {
         const data = await API.getPersonalFeatureParamsConfigs();
         return { success: true, data };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     // ---- 任务创建 ----
@@ -476,7 +544,7 @@ async function handleMessage(message, sender) {
           error: e.message,
           taskData: message.taskData,
         });
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'createTasksBatch':
@@ -515,7 +583,7 @@ async function handleMessage(message, sender) {
           error: e.message,
           tasksData: tasksArr,
         });
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     // ---- 捕获、存储、配置 ----
@@ -577,7 +645,7 @@ async function handleMessage(message, sender) {
       try {
         return { success: true, data: await Storage.getFloatBallConfig() };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'saveFloatBallConfig':
@@ -585,14 +653,14 @@ async function handleMessage(message, sender) {
         await Storage.saveFloatBallConfig(message.enabled);
         return { success: true };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'getFloatBallPosition':
       try {
         return { success: true, data: await Storage.getFloatBallPosition() };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'saveFloatBallPosition':
@@ -600,7 +668,7 @@ async function handleMessage(message, sender) {
         await Storage.saveFloatBallPosition(message.x, message.y);
         return { success: true };
       } catch (e) {
-        return { success: false, error: e.message };
+        return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
     case 'startElementPick':
@@ -695,7 +763,7 @@ async function handleMessage(message, sender) {
           return { success: true, dataUrl: cropped };
         } catch (e) {
           console.error('[taskChromePlugin] captureElementScreenshot failed:', e);
-          return { success: false, error: e.message || '截图失败' };
+          return { success: false, error: e.message || '截图失败', traceId: e.traceId || '' };
         }
       }
 
@@ -715,7 +783,7 @@ async function handleMessage(message, sender) {
           return { success: true, url, data };
         } catch (e) {
           console.error('[taskChromePlugin] uploadPluginScreenshot failed:', e);
-          return { success: false, error: e.message || '上传失败' };
+          return { success: false, error: e.message || '上传失败', traceId: e.traceId || '' };
         }
       }
 
