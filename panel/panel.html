@@ -3,6 +3,20 @@
 <head>
   <meta charset="utf-8">
   <link rel="stylesheet" href="panel.css">
+  <!-- 尽早缓冲 DevTools onShown 推送的 initRequests，避免 panel.js await 前消息丢失导致列表卡在「正在加载」 -->
+  <script>
+    window.__tcpRequestMsgEarly = window.__tcpRequestMsgEarly || [];
+    window.addEventListener('message', function (event) {
+      var d = event && event.data;
+      if (!d || !d.action) return;
+      if (d.action !== 'initRequests' && d.action !== 'newRequest' && d.action !== 'requestUpdated') return;
+      if (typeof window.__tcpRequestMsgSink === 'function') {
+        window.__tcpRequestMsgSink(d);
+        return;
+      }
+      window.__tcpRequestMsgEarly.push(d);
+    });
+  </script>
 </head>
 <body>
   <div id="app">
@@ -328,6 +342,7 @@
   <script src="../lib/dom-trace.js"></script>
   <script src="../lib/capture-status.js"></script>
   <script src="../lib/create-task-payload.js"></script>
+  <script src="../lib/panel-request-bootstrap.js"></script>
   <script src="panel.js"></script>
 </body>
 </html>

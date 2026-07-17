@@ -45,7 +45,7 @@ describe('Storage baseUrl persistence', () => {
 
   it('getApiConfig returns default when no baseUrl saved', async () => {
     const cfg = await Storage.getApiConfig();
-    assert.equal(cfg.baseUrl, 'http://183.250.1.132:18081');
+    assert.equal(cfg.baseUrl, 'https://daydaymoney.com');
   });
 
   it('saveBaseUrl persists custom address across getApiConfig', async () => {

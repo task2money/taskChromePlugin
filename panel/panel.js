@@ -20,6 +20,15 @@ const Panel = (() => {
   let progressColumnsCache = {};
   let currentUserId = '';  // set after login
   let currentMemberId = '';  // from login response current_company.member_id
+  /** 请求列表是否已完成至少一次引导刷新（用于离开 HTML 初始 loading） */
+  let requestListBootstrapped = false;
+
+  const Bootstrap = (typeof PanelRequestBootstrap !== 'undefined')
+    ? PanelRequestBootstrap
+    : null;
+  const requestMsgBuffer = Bootstrap
+    ? Bootstrap.createRequestMessageBuffer()
+    : null;
 
   // ---- DOM ----
   const $ = (sel) => document.querySelector(sel);
@@ -40,8 +49,60 @@ const Panel = (() => {
     return 'ok';
   }
 
+  function handleRequestMessage(data) {
+    if (!data?.action) return;
+    if (data.action === 'initRequests') {
+      recentRequests = data.requests || [];
+      recentRequests.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      applyRequestFilters();
+    } else if (data.action === 'newRequest') {
+      if (!data.request) return;
+      recentRequests.unshift(data.request);
+      if (recentRequests.length > 500) recentRequests.pop();
+      applyRequestFilters();
+    } else if (data.action === 'requestUpdated') {
+      const updated = data.request;
+      if (!updated?.id) return;
+      const idx = recentRequests.findIndex((r) => r.id === updated.id);
+      if (idx >= 0) {
+        recentRequests[idx] = updated;
+        if (selectedRequest?.id === updated.id) {
+          selectedRequest = updated;
+          fillRequestDetail(updated);
+        }
+      }
+    }
+  }
+
+  /**
+   * 接通 head 内早期缓冲 + PanelRequestBootstrap 缓冲。
+   * 必须在任何 await 之前调用，避免 onShown 的 initRequests 丢失。
+   */
+  function bindRequestMessagePipeline() {
+    if (requestMsgBuffer) {
+      requestMsgBuffer.setConsumer(handleRequestMessage);
+      window.__tcpRequestMsgSink = (data) => requestMsgBuffer.push(data);
+    } else {
+      window.__tcpRequestMsgSink = handleRequestMessage;
+      window.addEventListener('message', (event) => {
+        if (!event.data) return;
+        handleRequestMessage(event.data);
+      });
+    }
+    const early = Array.isArray(window.__tcpRequestMsgEarly)
+      ? window.__tcpRequestMsgEarly.splice(0, window.__tcpRequestMsgEarly.length)
+      : [];
+    for (const data of early) {
+      if (requestMsgBuffer) requestMsgBuffer.push(data);
+      else handleRequestMessage(data);
+    }
+  }
+
   // ---- Init ----
   async function init() {
+    // 先挂请求列表管道，再做任何 await（修复卡在「正在加载请求列表...」）
+    bindRequestMessagePipeline();
+
     await refreshAuthState();
     await loadSavedOwner();
     bindTabs();
@@ -51,45 +112,26 @@ const Panel = (() => {
     bindErrorListTab();
     bindHistoryTab();
     initBranchDatalistPresets();
-    // 监听来自 devtools.js 的 postMessage（直接接收请求，不依赖 service worker）
-    window.addEventListener('message', (event) => {
-      if (!event.data) return;
-      if (event.data.action === 'initRequests') {
-        recentRequests = event.data.requests || [];
-        recentRequests.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        applyRequestFilters();
-      } else if (event.data.action === 'newRequest') {
-        recentRequests.unshift(event.data.request);
-        if (recentRequests.length > 500) recentRequests.pop();
-        applyRequestFilters();
-      } else if (event.data.action === 'requestUpdated') {
-        const updated = event.data.request;
-        if (!updated?.id) return;
-        const idx = recentRequests.findIndex((r) => r.id === updated.id);
-        if (idx >= 0) {
-          recentRequests[idx] = updated;
-          if (selectedRequest?.id === updated.id) {
-            selectedRequest = updated;
-            fillRequestDetail(updated);
-          }
-        }
-      }
-    });
     // 立即加载工作空间（不等待用户点击请求）
     loadWorkspaces('singleWorkspace');
     await checkConnection();
     startAuthBadgeTimer();
-    // 数据由 postMessage 推送；若 1.5s 内未收到则从 SW 兜底
+    // 数据由 postMessage 推送；若 1.5s 内未收到则从 SW 兜底（空列表也必须刷新 UI）
     setTimeout(async () => {
       if (recentRequests.length === 0) {
         try {
           const res = await sendMessage({ action: 'getRecentRequests', filter: {}, limit: 200 });
-          if (res.success && res.data?.length > 0) {
-            recentRequests = res.data;
+          const merged = Bootstrap
+            ? Bootstrap.mergeFallbackRecentRequests(recentRequests, res)
+            : ((res?.success && res.data?.length > 0) ? res.data : recentRequests);
+          recentRequests = merged;
+          if (recentRequests.length > 0) {
             recentRequests.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-            applyRequestFilters();
           }
         } catch (_) { /* ignore */ }
+      }
+      if (!Bootstrap || Bootstrap.mustRefreshRequestListUiAfterFallback()) {
+        applyRequestFilters();
       }
     }, 1500);
     setRequestLoading(false);
@@ -720,19 +762,24 @@ const Panel = (() => {
 
   function setRequestLoading(loading) {
     const el = $('#selectedRequest');
-    if (loading && recentRequests.length === 0) {
+    if (!el) return;
+    if (loading && recentRequests.length === 0 && !requestListBootstrapped) {
       el.innerHTML = '<p class="placeholder">⏳ 加载中...</p>';
       el.classList.add('empty');
+      return;
     }
+    // loading=false 或已有数据：必须刷新，清除 HTML 初始「正在加载请求列表...」
+    applyRequestFilters();
   }
 
   /**
    * 前端实时过滤 — 按搜索文本 + 方法 + 状态码
    */
   function applyRequestFilters() {
-    const search = ($('#requestSearch').value || '').toLowerCase();
-    const method = $('#requestMethodFilter').value;
-    const status = $('#requestStatusFilter').value;
+    requestListBootstrapped = true;
+    const search = ($('#requestSearch')?.value || '').toLowerCase();
+    const method = $('#requestMethodFilter')?.value || '';
+    const status = $('#requestStatusFilter')?.value || '';
 
     let filtered = recentRequests.filter((r) => {
       // 搜索：匹配 URL 或方法或状态码
@@ -760,11 +807,13 @@ const Panel = (() => {
     filtered.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
     renderRequestList(filtered.slice(0, 100));
-    $('#requestCount').textContent = `共 ${filtered.length} 条`;
+    const countEl = $('#requestCount');
+    if (countEl) countEl.textContent = `共 ${filtered.length} 条`;
   }
 
   function renderRequestList(requests) {
     const container = $('#selectedRequest');
+    if (!container) return;
     if (requests.length === 0) {
       container.innerHTML = `<div class="empty-state">
         <p class="placeholder">暂无匹配的请求</p>

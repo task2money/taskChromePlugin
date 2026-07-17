@@ -257,6 +257,7 @@ describe('buildCreateTaskPayload', () => {
     assert.equal(payload.container_image_id, 'img-1');
     assert.equal(payload.due_date, '2026-07-23T15:01');
     assert.equal(payload.auto_run, true);
+    assert.equal(payload.client_public_ip, undefined);
     assert.equal(payload.feature_params_source, 'workspace');
     assert.deepEqual(payload.branch_strategy, {
       work_branch_name: 'feature/x',
@@ -288,6 +289,19 @@ describe('buildCreateTaskPayload', () => {
       merge_target_branch_name: 'develop',
       target_branch_name: 'feature/a',
     });
+  });
+
+  it('forwards client_public_ip when provided for auto_run SG whitelist', () => {
+    const payload = buildCreateTaskPayload({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o',
+      feature_params_source: 'none',
+      auto_run: true,
+      client_public_ip: '203.0.113.55',
+      projects: [{ project_id: 'p1', repo_index: 0, base_branch: 'main', target_branch: 'f' }],
+    });
+    assert.equal(payload.client_public_ip, '203.0.113.55');
   });
 });
 

@@ -71,6 +71,7 @@ taskChromePlugin/
 │   └── pick-frame.js              # 跨域/子 frame 轻量选元素（all_frames）
 ├── lib/
     ├── api.js                     # API 客户端 (REST 封装)
+    ├── client-public-ip.js        # auto_run 时附带用户公网 IP（查 client-ip）
     ├── create-task-payload.js     # 创建任务 payload（对齐 work-panel）
     ├── element-picker.js          # 指针选元素：快照/描述拼接（纯函数）
     ├── har-request.js             # HAR 解析纯函数（DevTools + 单测）
@@ -81,27 +82,35 @@ taskChromePlugin/
     ├── capture-status.test.js
     ├── create-task-payload.test.js
     ├── element-picker.test.js     # 元素描述拼接 / 校验 / Shadow pierce
-    └── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
-├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test
-└── package.json                   # npm test
+    ├── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
+    ├── api-login.test.js          # 登录无脏 Authorization / storage 不阻塞
+    └── login-finalize.test.js     # 登录收尾：广播不阻塞 success
+├── e2e/
+    ├── playwright.config.js
+    └── popup-token-login.playwright.test.js  # Popup 令牌登录 Playwright E2E
+├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test；登录链路改动另跑 E2E
+└── package.json                   # npm test / test:e2e:popup-login
 ```
 
 ## 测试
 
 ```bash
 cd taskChromePlugin && npm test
+cd taskChromePlugin && npm run test:e2e:popup-login
+# 安装 git hook：
+bash scripts/hooks/install.sh
 ```
 
-覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**、**baseUrl 登出后仍保留**、**element-picker（含 closed Shadow / screenshotUrl）**。
+覆盖：Canceled HAR 条目（无 response）、正常 200、headers 缺失不抛错、harKey 去重、缓冲区截断、`matchStatusCode`、`shouldEnrichHarBody`、**work-panel 对齐的 create-task payload**、**baseUrl 登出后仍保留**、**element-picker（含 closed Shadow / screenshotUrl）**、**令牌登录成功后 UI 进入已登录态（含广播挂起场景）**。
 
 ### CI
 
 - 工作流：仓库根 `.github/workflows/task-chrome-plugin-test.yml`（仅 `taskChromePlugin/**` 变更时触发）
-- 本地 pre-commit：`taskChromePlugin/scripts/hooks/pre-commit`（暂存 lib/devtools/background/test 时跑 `npm test`）
+- 本地 pre-commit：`bash scripts/hooks/install.sh` 后，暂存 lib/devtools/background/popup/test 时跑 `npm test`；改动登录链路时另跑 `npm run test:e2e:popup-login`
 
 ## API 接口约定
 
-插件默认连接 `http://183.250.1.132:18081`（taskGateway API 网关），可在登录界面修改。注意：`http://183.250.1.132:4000` 为 Vue 前端站点，不代理 `/api` 请求。期望以下 REST 端点：
+插件默认连接 `https://daydaymoney.com`，可在登录界面修改。注意：`http://183.250.1.132:4000` 为本地 Vue 前端站点，不代理 `/api` 请求。期望以下 REST 端点：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
