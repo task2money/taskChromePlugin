@@ -1,7 +1,7 @@
 /**
  * 跨域 / 所有 iframe 内的轻量选元素脚本（all_frames）
  * 顶层完整浮窗由 content.js 负责；本脚本在子 frame 响应 pick 模式。
- * 支持 Shift+点击选择同父相邻兄弟区间。
+ * 支持 ⌘/Ctrl+点击累加多选，Enter 确认。
  */
 (() => {
   if (window === window.top) return; // 顶层由 content.js 处理
@@ -10,7 +10,7 @@
 
   let pickMode = false;
   let highlightedEls = [];
-  let rangeAnchorEl = null;
+  let pickSelection = [];
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;
@@ -47,18 +47,14 @@
     }
   }
 
-  function clearRangeAnchor() {
-    rangeAnchorEl = null;
-  }
-
   function setPickMode(on) {
     pickMode = !!on;
     document.documentElement.classList.toggle('taskplugin-picking', pickMode);
     if (!pickMode) {
       clearHighlight();
-      clearRangeAnchor();
+      pickSelection = [];
     } else {
-      clearRangeAnchor();
+      pickSelection = [];
     }
     console.log('[taskChromePlugin] pick-frame mode:', pickMode ? 'on' : 'off', location.href);
   }
@@ -113,23 +109,14 @@
     if (!pickMode) return;
     const { el } = resolveTarget(e);
     if (!el) {
-      clearHighlight();
+      if (pickSelection.length) applyHighlightMany(pickSelection);
+      else clearHighlight();
       return;
     }
-    if (
-      e.shiftKey
-      && rangeAnchorEl
-      && rangeAnchorEl.parentElement
-      && el.parentElement === rangeAnchorEl.parentElement
-      && typeof ElementPicker !== 'undefined'
-    ) {
-      const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
-      if (range && range.length) {
-        applyHighlightMany(range);
-        return;
-      }
-    }
-    applyHighlightMany([el]);
+    const hoverSet = pickSelection.includes(el)
+      ? pickSelection
+      : pickSelection.concat([el]);
+    applyHighlightMany(hoverSet);
   }
 
   function onClick(e) {
@@ -145,35 +132,12 @@
     }
 
     try {
-      if (e.shiftKey) {
-        if (!rangeAnchorEl || !rangeAnchorEl.parentElement || el.parentElement !== rangeAnchorEl.parentElement) {
-          rangeAnchorEl = el;
-          applyHighlightMany([el]);
-          console.log('[taskChromePlugin] pick-frame range anchor set:', el.tagName);
-          return;
-        }
-        const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
-        if (!range || range.length === 0) {
-          rangeAnchorEl = el;
-          applyHighlightMany([el]);
-          return;
-        }
-        const snapshot = range.length === 1
-          ? ElementPicker.snapshotElement(range[0], {
-            closedShadow,
-            inIframe: true,
-            crossOriginIframe: true,
-          })
-          : ElementPicker.snapshotSiblingRange(range, {
-            closedShadow,
-            inIframe: true,
-            crossOriginIframe: true,
-          });
-        relaySnapshot(snapshot, unionRectsInFrame(range));
+      if (e.metaKey || e.ctrlKey) {
+        pickSelection = ElementPicker.toggleDisjointSelection(pickSelection, el);
+        applyHighlightMany(pickSelection.length ? pickSelection : [el]);
         return;
       }
-
-      clearRangeAnchor();
+      pickSelection = [];
       const snapshot = ElementPicker.snapshotElement(el, {
         closedShadow,
         inIframe: true,
@@ -181,21 +145,34 @@
       });
       const rect = el.getBoundingClientRect();
       relaySnapshot(snapshot, {
-        left: rect.left,
-        top: rect.top,
-        width: rect.width,
-        height: rect.height,
+        left: rect.left, top: rect.top, width: rect.width, height: rect.height,
       });
     } catch (err) {
       console.warn('[taskChromePlugin] pick-frame snapshot failed:', err.message || err);
-      clearRangeAnchor();
+      pickSelection = [];
       setPickMode(false);
     }
   }
 
   function onKeyDown(e) {
-    if (e.key === 'Escape' && pickMode) {
+    if (!pickMode) return;
+    if (e.key === 'Enter' && pickSelection.length > 0) {
       e.preventDefault();
+      const snapshot = ElementPicker.snapshotDisjointSelection(pickSelection, {
+        inIframe: true,
+        crossOriginIframe: true,
+      });
+      relaySnapshot(snapshot, unionRectsInFrame(pickSelection));
+      pickSelection = [];
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      if (pickSelection.length > 0) {
+        pickSelection = [];
+        clearHighlight();
+        return;
+      }
       setPickMode(false);
     }
   }
