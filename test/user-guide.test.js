@@ -41,7 +41,8 @@ describe('UserGuide sections', () => {
     assert.match(html, /data-guide-surface="float"/);
     assert.match(html, /data-guide-id="element-pick"/);
     assert.match(html, /使用说明/);
-    assert.match(html, /Shift/);
+    assert.match(html, /Ctrl|⌘|多选/);
+    assert.doesNotMatch(html, /Shift\+点击/);
   });
 
   it('renderFullGuideHtml for panel includes batch section', () => {
