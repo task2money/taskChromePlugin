@@ -51,11 +51,13 @@ const Popup = (() => {
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
     const reqSec = $('#requestsSection');
+    const userGuideSec = $('#popupGuideSection');
     const spinnerVisible = spinner && spinner.style.display !== 'none';
     const loginHidden = !loginSec || loginSec.style.display === 'none';
     const guideHidden = !devGuide || devGuide.style.display === 'none';
     const reqHidden = !reqSec || reqSec.style.display === 'none';
-    return spinnerVisible && loginHidden && guideHidden && reqHidden;
+    const userGuideHidden = !userGuideSec || userGuideSec.style.display === 'none';
+    return spinnerVisible && loginHidden && guideHidden && reqHidden && userGuideHidden;
   }
 
   async function restoreRememberedFormFields() {
@@ -133,6 +135,23 @@ const Popup = (() => {
     restoreRememberedFormFields().catch(() => {});
   }
 
+  function mountPopupUserGuide() {
+    const host = $('#popup-user-guide');
+    const section = $('#popupGuideSection');
+    if (!host) return;
+    if (typeof UserGuide === 'undefined') {
+      console.warn('[taskChromePlugin] UserGuide 未加载，弹窗使用说明跳过');
+      return;
+    }
+    UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false }));
+    if (section) section.style.display = 'block';
+  }
+
+  function setPopupGuideVisible(visible) {
+    const section = $('#popupGuideSection');
+    if (section) section.style.display = visible ? 'block' : 'none';
+  }
+
   async function retryInit() {
     const spinner = $('#loadingSpinner');
     const retryBtn = $('#btnRetryInit');
@@ -144,6 +163,7 @@ const Popup = (() => {
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
+    setPopupGuideVisible(false);
 
     await init();
   }
@@ -162,6 +182,8 @@ const Popup = (() => {
     if (loginSec) loginSec.style.display = 'block';
     if (devGuide) devGuide.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
+    setPopupGuideVisible(true);
+    mountPopupUserGuide();
 
     // 显示错误信息或默认提示
     if (loginHint) {
@@ -192,6 +214,8 @@ const Popup = (() => {
     if (loginSec) loginSec.style.display = 'block';
     if (devGuide) devGuide.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
+    setPopupGuideVisible(true);
+    mountPopupUserGuide();
 
     const loginHint = $('#loginHint');
     if (loginHint) {
@@ -219,6 +243,8 @@ const Popup = (() => {
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
+    setPopupGuideVisible(true);
+    mountPopupUserGuide();
   }
 
   async function loadStateFromStorage() {

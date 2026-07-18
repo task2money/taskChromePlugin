@@ -33,6 +33,7 @@
       <button class="tab" data-tab="batch">📦 批量错误捕获</button>
       <button class="tab" data-tab="errors">⚠️ 错误列表</button>
       <button class="tab" data-tab="history">📜 历史记录</button>
+      <button class="tab" data-tab="guide">📖 使用说明</button>
     </nav>
 
     <!-- Tab: 单请求创建 -->
@@ -184,7 +185,7 @@
         </div>
         <div class="form-row">
           <label class="label-row">描述
-            <button type="button" id="btnPickElement" class="btn btn-sm" title="在页面中指针选择元素并填写调整期望">🖱️ 指针选择</button>
+            <button type="button" id="btnPickElement" class="btn btn-sm" title="在页面中指针选择元素；列表可 Shift+点击选相邻兄弟">🖱️ 指针选择</button>
           </label>
           <textarea id="singleTaskDesc" class="form-textarea" rows="14" placeholder="点击请求列表中的请求 → 自动填充；或用指针选择页面元素"></textarea>
         </div>
@@ -337,6 +338,14 @@
         <div id="historyResult" class="result"></div>
       </div>
     </section>
+
+    <!-- Tab: 使用说明 -->
+    <section id="tab-guide" class="tab-content">
+      <div class="section">
+        <h3>📖 使用说明</h3>
+        <div id="panel-user-guide" class="tcp-guide-host"></div>
+      </div>
+    </section>
   </div>
 
   <script src="../lib/storage.js"></script>
@@ -344,6 +353,7 @@
   <script src="../lib/capture-status.js"></script>
   <script src="../lib/create-task-payload.js"></script>
   <script src="../lib/panel-request-bootstrap.js"></script>
+  <script src="../lib/user-guide.js"></script>
   <script src="panel.js"></script>
 </body>
 </html>

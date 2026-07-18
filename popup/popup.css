@@ -225,6 +225,27 @@ body {
   max-height: 150px; overflow-y: auto; line-height: 1.3;
 }
 
+/* === User Guide (UserGuide SSOT) === */
+.tcp-guide-host { font-size: 11px; color: #a6adc8; }
+.tcp-guide-root,
+.tcp-guide-section {
+  background: #181825; border: 1px solid #313244; border-radius: 6px;
+  margin-bottom: 6px; overflow: hidden;
+}
+.tcp-guide-root-summary,
+.tcp-guide-summary {
+  cursor: pointer; padding: 8px 10px; font-weight: 600; color: #89b4fa;
+  font-size: 11px; list-style: none;
+}
+.tcp-guide-root-summary::-webkit-details-marker,
+.tcp-guide-summary::-webkit-details-marker { display: none; }
+.tcp-guide-body { padding: 0 6px 6px; }
+.tcp-guide-steps {
+  margin: 0 0 0 16px; padding: 0 8px 8px 0;
+  font-size: 10px; line-height: 1.45; color: #cdd6f4;
+}
+.tcp-guide-steps li { margin-bottom: 3px; }
+
 /* === DevTools Guide === */
 .devtools-guide {
   background: linear-gradient(135deg, #1e2030, #282840);

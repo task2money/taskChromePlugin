@@ -158,6 +158,46 @@
   flex: 1 !important;
 }
 
+/* 使用说明（UserGuide） */
+.taskplugin-user-guide-host {
+  margin-bottom: 10px !important;
+}
+#taskplugin-float-root .tcp-guide-root,
+#taskplugin-float-root .tcp-guide-section {
+  background: #252536 !important;
+  border: 1px solid #313244 !important;
+  border-radius: 8px !important;
+  margin-bottom: 6px !important;
+  padding: 0 !important;
+}
+#taskplugin-float-root .tcp-guide-root-summary,
+#taskplugin-float-root .tcp-guide-summary {
+  cursor: pointer !important;
+  list-style: none !important;
+  padding: 8px 10px !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #89b4fa !important;
+  user-select: none !important;
+}
+#taskplugin-float-root .tcp-guide-root-summary::-webkit-details-marker,
+#taskplugin-float-root .tcp-guide-summary::-webkit-details-marker {
+  display: none !important;
+}
+#taskplugin-float-root .tcp-guide-body {
+  padding: 0 8px 8px !important;
+}
+#taskplugin-float-root .tcp-guide-steps {
+  margin: 0 0 0 16px !important;
+  padding: 0 8px 8px 0 !important;
+  font-size: 10px !important;
+  color: #a6adc8 !important;
+  line-height: 1.45 !important;
+}
+#taskplugin-float-root .tcp-guide-steps li {
+  margin-bottom: 4px !important;
+}
+
 /* 自动捕获的 URL */
 .taskplugin-captured-url {
   background: #252536 !important;

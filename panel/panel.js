@@ -4,6 +4,7 @@
  * Tab 2: 批量错误捕获 & 创建
  * Tab 3: 错误列表查看
  * Tab 4: 历史记录 & 重试
+ * Tab 5: 使用说明（lib/user-guide.js）
  */
 
 const Panel = (() => {
@@ -98,10 +99,22 @@ const Panel = (() => {
     }
   }
 
+  function mountUserGuide() {
+    const host = $('#panel-user-guide');
+    if (!host) return;
+    if (typeof UserGuide === 'undefined') {
+      console.warn('[taskChromePlugin] UserGuide 未加载，面板使用说明跳过');
+      host.textContent = '使用说明模块未加载';
+      return;
+    }
+    UserGuide.mount(host, UserGuide.renderFullGuideHtml({ surface: 'panel' }));
+  }
+
   // ---- Init ----
   async function init() {
     // 先挂请求列表管道，再做任何 await（修复卡在「正在加载请求列表...」）
     bindRequestMessagePipeline();
+    mountUserGuide();
 
     await refreshAuthState();
     await loadSavedOwner();

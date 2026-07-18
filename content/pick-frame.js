@@ -1,6 +1,7 @@
 /**
  * 跨域 / 所有 iframe 内的轻量选元素脚本（all_frames）
  * 顶层完整浮窗由 content.js 负责；本脚本在子 frame 响应 pick 模式。
+ * 支持 Shift+点击选择同父相邻兄弟区间。
  */
 (() => {
   if (window === window.top) return; // 顶层由 content.js 处理
@@ -8,7 +9,8 @@
   window.__taskpluginPickFrame = true;
 
   let pickMode = false;
-  let highlightedEl = null;
+  let highlightedEls = [];
+  let rangeAnchorEl = null;
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;
@@ -19,16 +21,45 @@
   }
 
   function clearHighlight() {
-    if (highlightedEl) {
-      highlightedEl.classList.remove('taskplugin-el-highlight');
-      highlightedEl = null;
+    for (const el of highlightedEls) {
+      try {
+        el.classList.remove('taskplugin-el-highlight');
+      } catch (_) { /* detached */ }
     }
+    highlightedEls = [];
+  }
+
+  function applyHighlightMany(els) {
+    const list = (Array.isArray(els) ? els : [els]).filter((el) => el && el.nodeType === 1);
+    if (list.length === 0) {
+      clearHighlight();
+      return;
+    }
+    const same =
+      list.length === highlightedEls.length
+      && list.every((el, i) => el === highlightedEls[i]);
+    if (same) return;
+    clearHighlight();
+    ensureHighlightStyle();
+    for (const el of list) {
+      el.classList.add('taskplugin-el-highlight');
+      highlightedEls.push(el);
+    }
+  }
+
+  function clearRangeAnchor() {
+    rangeAnchorEl = null;
   }
 
   function setPickMode(on) {
     pickMode = !!on;
     document.documentElement.classList.toggle('taskplugin-picking', pickMode);
-    if (!pickMode) clearHighlight();
+    if (!pickMode) {
+      clearHighlight();
+      clearRangeAnchor();
+    } else {
+      clearRangeAnchor();
+    }
     console.log('[taskChromePlugin] pick-frame mode:', pickMode ? 'on' : 'off', location.href);
   }
 
@@ -53,6 +84,31 @@
     };
   }
 
+  function unionRectsInFrame(els) {
+    if (typeof ElementPicker !== 'undefined' && typeof ElementPicker.unionClientRects === 'function') {
+      return ElementPicker.unionClientRects(
+        els.map((el) => {
+          const r = el.getBoundingClientRect();
+          return { left: r.left, top: r.top, width: r.width, height: r.height };
+        }),
+      );
+    }
+    const r = els[0].getBoundingClientRect();
+    return { left: r.left, top: r.top, width: r.width, height: r.height };
+  }
+
+  function relaySnapshot(snapshot, rectInFrame) {
+    setPickMode(false);
+    chrome.runtime.sendMessage({
+      action: 'elementPickedInFrame',
+      snapshot,
+      rectInFrame,
+      frameUrl: location.href,
+    }).catch((err) => {
+      console.warn('[taskChromePlugin] pick-frame relay failed:', err.message || err);
+    });
+  }
+
   function onMouseOver(e) {
     if (!pickMode) return;
     const { el } = resolveTarget(e);
@@ -60,11 +116,20 @@
       clearHighlight();
       return;
     }
-    if (highlightedEl === el) return;
-    clearHighlight();
-    ensureHighlightStyle();
-    highlightedEl = el;
-    highlightedEl.classList.add('taskplugin-el-highlight');
+    if (
+      e.shiftKey
+      && rangeAnchorEl
+      && rangeAnchorEl.parentElement
+      && el.parentElement === rangeAnchorEl.parentElement
+      && typeof ElementPicker !== 'undefined'
+    ) {
+      const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
+      if (range && range.length) {
+        applyHighlightMany(range);
+        return;
+      }
+    }
+    applyHighlightMany([el]);
   }
 
   function onClick(e) {
@@ -80,28 +145,50 @@
     }
 
     try {
+      if (e.shiftKey) {
+        if (!rangeAnchorEl || !rangeAnchorEl.parentElement || el.parentElement !== rangeAnchorEl.parentElement) {
+          rangeAnchorEl = el;
+          applyHighlightMany([el]);
+          console.log('[taskChromePlugin] pick-frame range anchor set:', el.tagName);
+          return;
+        }
+        const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
+        if (!range || range.length === 0) {
+          rangeAnchorEl = el;
+          applyHighlightMany([el]);
+          return;
+        }
+        const snapshot = range.length === 1
+          ? ElementPicker.snapshotElement(range[0], {
+            closedShadow,
+            inIframe: true,
+            crossOriginIframe: true,
+          })
+          : ElementPicker.snapshotSiblingRange(range, {
+            closedShadow,
+            inIframe: true,
+            crossOriginIframe: true,
+          });
+        relaySnapshot(snapshot, unionRectsInFrame(range));
+        return;
+      }
+
+      clearRangeAnchor();
       const snapshot = ElementPicker.snapshotElement(el, {
         closedShadow,
         inIframe: true,
         crossOriginIframe: true,
       });
       const rect = el.getBoundingClientRect();
-      setPickMode(false);
-      chrome.runtime.sendMessage({
-        action: 'elementPickedInFrame',
-        snapshot,
-        rectInFrame: {
-          left: rect.left,
-          top: rect.top,
-          width: rect.width,
-          height: rect.height,
-        },
-        frameUrl: location.href,
-      }).catch((err) => {
-        console.warn('[taskChromePlugin] pick-frame relay failed:', err.message || err);
+      relaySnapshot(snapshot, {
+        left: rect.left,
+        top: rect.top,
+        width: rect.width,
+        height: rect.height,
       });
     } catch (err) {
       console.warn('[taskChromePlugin] pick-frame snapshot failed:', err.message || err);
+      clearRangeAnchor();
       setPickMode(false);
     }
   }

@@ -2,6 +2,8 @@
 
 从 Chrome DevTools Network 面板捕获 HTTP 请求并创建任务的浏览器扩展。
 
+**使用说明**：扩展内浮窗 / DevTools「使用说明」Tab / 弹窗均可展开查看；完整文稿见 [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)。**新增用户可见功能须同步更新说明**（目录规则 [`ai.md`](./ai.md)）。
+
 ## 功能
 
 ### 0. 登录认证
@@ -13,10 +15,11 @@
 ### 0.5 页内浮窗 — 指针选择元素
 - 打开任意网页 → 点击右下角悬浮球 → 描述旁「🖱️ 指针选择」
 - 再点击页面上的目标元素 → 弹出对话框填写**调整期望**
-- 确认后自动把**元素标识、调整期望、页面链接**追加到任务描述
+- **列表 / 兄弟节点**：按住 **Shift** 点击起点，再 **Shift+点击** 同父下的相邻兄弟，一次选中连续区间（悬停预览多元素高亮）；普通点击仍为单选
+- 确认后自动把**元素标识、调整期望、页面链接**追加到任务描述（多选含兄弟区间与区间选择器）
 - 支持 **open / closed Shadow DOM**（选择器含 `>>>`；closed 会在描述中标注）与 **同源 / 跨域 iframe**（含多层嵌套：经 frame 祖先链累加视口坐标）
 - 选中 **原生控件**（video/audio/部分 input 等）时标注 **UA Shadow 内部不可穿透**（浏览器限制，选中宿主）
-- 可选勾选「附带元素截图」：裁剪后**上传媒体存储**，描述写入 **https URL**（支持 CDN 基址与 TTL；上传失败会报错）
+- 可选勾选「附带元素截图」：裁剪后**上传媒体存储**，描述写入 **https URL**（支持 CDN 基址与 TTL；上传失败会报错）；多选截取区间并集
 - DevTools **TaskPlugin** 面板描述旁同样可触发指针选择，结果追加到面板任务描述
 - Esc 或再次点击悬浮球可取消选元素模式；弹窗取消不写入描述
 
@@ -74,14 +77,18 @@ taskChromePlugin/
     ├── client-public-ip.js        # auto_run 时附带用户公网 IP（查 client-ip）
     ├── create-task-payload.js     # 创建任务 payload（对齐 work-panel）
     ├── element-picker.js          # 指针选元素：快照/描述拼接（纯函数）
+    ├── user-guide.js              # 使用说明 UI 渲染 SSOT（浮窗/面板/弹窗）
     ├── har-request.js             # HAR 解析纯函数（DevTools + 单测）
     ├── capture-status.js          # 批量捕获状态码匹配
     └── storage.js                 # chrome.storage 封装
+├── docs/USER_GUIDE.md              # 人可读使用说明（与 user-guide.js 同步）
+├── ai.md                          # 目录 Companion：新增功能须写使用说明
 ├── test/
     ├── har-request.test.js        # node --test 单元测试
     ├── capture-status.test.js
     ├── create-task-payload.test.js
     ├── element-picker.test.js     # 元素描述拼接 / 校验 / Shadow pierce
+    ├── user-guide.test.js         # 使用说明章节与 USER_GUIDE.md 同步
     ├── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
     ├── api-login.test.js          # 登录无脏 Authorization / storage 不阻塞
     └── login-finalize.test.js     # 登录收尾：广播不阻塞 success

@@ -25,6 +25,7 @@
         </div>
       </div>
       <div class="taskplugin-panel-body">
+        <div id="taskplugin-user-guide" class="taskplugin-user-guide-host"></div>
         <div class="taskplugin-captured-url" id="taskplugin-page-url"></div>
         <div class="taskplugin-form-group">
           <label>工作空间</label>
@@ -47,7 +48,7 @@
             <span>描述</span>
             <span class="taskplugin-label-actions">
               <button type="button" class="taskplugin-btn taskplugin-btn-reset" id="taskplugin-desc-reset" title="清空任务描述" disabled>重置</button>
-              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择页面元素后填写调整期望">🖱️ 指针选择</button>
+              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择页面元素；列表中可 Shift+点击选相邻兄弟">🖱️ 指针选择</button>
             </span>
           </div>
           <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（可用指针选择页面元素）"></textarea>
@@ -152,6 +153,17 @@
 
   document.body.appendChild(root);
 
+  // ---- 使用说明（SSOT: lib/user-guide.js）----
+  (function mountFloatUserGuide() {
+    const host = document.getElementById('taskplugin-user-guide');
+    if (!host) return;
+    if (typeof UserGuide === 'undefined') {
+      console.warn('[taskChromePlugin] UserGuide 未加载，浮窗使用说明跳过');
+      return;
+    }
+    UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'float', open: false }));
+  })();
+
   // ---- Refs ----
   const btn = document.getElementById('taskplugin-float-btn');
   const panel = document.getElementById('taskplugin-float-panel');
@@ -190,12 +202,15 @@
   let isOpen = false;
   let isLoggedIn = false;
   let pickMode = false;
-  let highlightedEl = null;
+  let highlightedEls = [];
   let highlightDoc = null;
   let pendingElementSnapshot = null;
   let pendingFrameElement = null;
   let pickSource = 'float'; // float | devtools
   let pickCrossOriginHintShown = false;
+  /** Shift 兄弟区间锚点（同父连续多选） */
+  let rangeAnchorEl = null;
+  let rangeAnchorFrame = null;
   let apiCfg = { baseUrl: 'https://daydaymoney.com', token: '' };
   let workspacesData = [];
   let projectsData = [];
@@ -328,21 +343,68 @@
   }
 
   function clearHighlight() {
-    if (highlightedEl) {
-      highlightedEl.classList.remove('taskplugin-el-highlight');
-      highlightedEl = null;
+    for (const el of highlightedEls) {
+      try {
+        el.classList.remove('taskplugin-el-highlight');
+      } catch (_) { /* detached */ }
     }
+    highlightedEls = [];
     highlightDoc = null;
   }
 
-  function applyHighlight(el, doc) {
-    if (!el || el.nodeType !== 1) return;
-    if (highlightedEl === el) return;
+  function applyHighlightMany(els, doc) {
+    const list = (Array.isArray(els) ? els : [els]).filter((el) => el && el.nodeType === 1);
+    if (list.length === 0) {
+      clearHighlight();
+      return;
+    }
+    const same =
+      list.length === highlightedEls.length
+      && list.every((el, i) => el === highlightedEls[i]);
+    if (same) return;
     clearHighlight();
-    ensureHighlightStyle(doc || el.ownerDocument || document);
-    highlightedEl = el;
-    highlightDoc = doc || el.ownerDocument || document;
-    highlightedEl.classList.add('taskplugin-el-highlight');
+    const owner = doc || list[0].ownerDocument || document;
+    ensureHighlightStyle(owner);
+    highlightDoc = owner;
+    for (const el of list) {
+      el.classList.add('taskplugin-el-highlight');
+      highlightedEls.push(el);
+    }
+  }
+
+  function applyHighlight(el, doc) {
+    applyHighlightMany(el ? [el] : [], doc);
+  }
+
+  function clearRangeAnchor() {
+    rangeAnchorEl = null;
+    rangeAnchorFrame = null;
+  }
+
+  function samePickFrame(a, b) {
+    return a === b;
+  }
+
+  function viewportRectForElements(els, frameElement) {
+    const rects = (els || []).map((el) => {
+      const rect = el.getBoundingClientRect();
+      if (!frameElement) {
+        return {
+          left: rect.left,
+          top: rect.top,
+          width: rect.width,
+          height: rect.height,
+        };
+      }
+      const fr = frameElement.getBoundingClientRect();
+      return {
+        left: fr.left + rect.left,
+        top: fr.top + rect.top,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+    return ElementPicker.unionClientRects(rects);
   }
 
   /**
@@ -396,20 +458,24 @@
     pickBtn?.classList.toggle('taskplugin-pick-active', pickMode);
     if (pickBtn) {
       pickBtn.textContent = pickMode ? '✕ 取消选择' : '🖱️ 指针选择';
-      pickBtn.title = pickMode ? '取消指针选择（Esc）' : '指针选择页面元素后填写调整期望';
+      pickBtn.title = pickMode
+        ? '取消指针选择（Esc）；已锚定起点时 Shift+点击同列表兄弟完成多选'
+        : '指针选择页面元素；列表中可 Shift+点击选相邻兄弟';
     }
     if (!pickMode) {
       clearHighlight();
+      clearRangeAnchor();
       btn.textContent = '+';
       btn.title = 'TaskPlugin — 快速创建任务';
       btn.classList.remove('taskplugin-picking-fab');
       chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
     } else {
+      clearRangeAnchor();
       panel.classList.remove('taskplugin-open');
       btn.classList.remove('taskplugin-active');
       isOpen = false;
       btn.textContent = '✕';
-      btn.title = '取消指针选择（Esc）';
+      btn.title = '取消指针选择（Esc）；列表可 Shift+点击选相邻兄弟';
       btn.classList.add('taskplugin-picking-fab');
       chrome.runtime.sendMessage({
         action: 'broadcastStartElementPick',
@@ -424,7 +490,7 @@
   function onPickMouseOver(e) {
     if (!pickMode) return;
     if (typeof ElementPicker === 'undefined') return;
-    const { el, crossOrigin } = resolvePickTarget(e);
+    const { el, frameElement, crossOrigin } = resolvePickTarget(e);
     if (crossOrigin) {
       clearHighlight();
       return;
@@ -433,7 +499,33 @@
       clearHighlight();
       return;
     }
+    if (
+      e.shiftKey
+      && rangeAnchorEl
+      && rangeAnchorEl.parentElement
+      && el.parentElement === rangeAnchorEl.parentElement
+      && samePickFrame(frameElement, rangeAnchorFrame)
+    ) {
+      const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
+      if (range && range.length) {
+        applyHighlightMany(range, el.ownerDocument);
+        return;
+      }
+    }
     applyHighlight(el, el.ownerDocument);
+  }
+
+  function finishPickWithElements(els, frameElement, closedShadow) {
+    const list = (Array.isArray(els) ? els : [els]).filter((el) => el && el.nodeType === 1);
+    if (list.length === 0) return;
+    pendingFrameElement = frameElement;
+    pendingElementSnapshot = list.length === 1
+      ? ElementPicker.snapshotElement(list[0], { frameElement, closedShadow })
+      : ElementPicker.snapshotSiblingRange(list, { frameElement, closedShadow });
+    pendingElementSnapshot._viewportRect = viewportRectForElements(list, frameElement);
+    clearRangeAnchor();
+    setPickMode(false);
+    openAdjustModal(pendingElementSnapshot);
   }
 
   function onPickClick(e) {
@@ -450,7 +542,7 @@
       // 跨域：继续等待子 frame 的 elementPickedInFrame；给一次提示
       if (!pickCrossOriginHintShown) {
         pickCrossOriginHintShown = true;
-        showResult('已进入跨域 iframe 选择：请直接点击框内元素', 'success');
+        showResult('已进入跨域 iframe 选择：请直接点击框内元素（列表可 Shift+点击多选）', 'success');
       }
       return;
     }
@@ -461,32 +553,38 @@
     if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
 
     try {
-      pendingFrameElement = frameElement;
-      pendingElementSnapshot = ElementPicker.snapshotElement(el, {
-        frameElement,
-        closedShadow,
-      });
-      const rect = el.getBoundingClientRect();
-      let topRect = rect;
-      if (frameElement) {
-        const fr = frameElement.getBoundingClientRect();
-        topRect = {
-          left: fr.left + rect.left,
-          top: fr.top + rect.top,
-          width: rect.width,
-          height: rect.height,
-        };
+      if (e.shiftKey) {
+        if (
+          !rangeAnchorEl
+          || !rangeAnchorEl.parentElement
+          || el.parentElement !== rangeAnchorEl.parentElement
+          || !samePickFrame(frameElement, rangeAnchorFrame)
+        ) {
+          rangeAnchorEl = el;
+          rangeAnchorFrame = frameElement;
+          applyHighlightMany([el], el.ownerDocument);
+          btn.title = '已锚定起点：再 Shift+点击同列表相邻兄弟完成多选（Esc 取消）';
+          if (pickBtn) pickBtn.title = btn.title;
+          console.log('[taskChromePlugin] sibling range anchor set:', el.tagName);
+          return;
+        }
+        const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
+        if (!range || range.length === 0) {
+          rangeAnchorEl = el;
+          rangeAnchorFrame = frameElement;
+          applyHighlightMany([el], el.ownerDocument);
+          btn.title = '无法组成兄弟区间，已重置锚点；再 Shift+点击终点';
+          return;
+        }
+        finishPickWithElements(range, frameElement, closedShadow);
+        return;
       }
-      pendingElementSnapshot._viewportRect = {
-        left: topRect.left,
-        top: topRect.top,
-        width: topRect.width,
-        height: topRect.height,
-      };
-      setPickMode(false);
-      openAdjustModal(pendingElementSnapshot);
+
+      clearRangeAnchor();
+      finishPickWithElements([el], frameElement, closedShadow);
     } catch (err) {
       console.warn('[taskChromePlugin] snapshotElement 失败:', err.message || err);
+      clearRangeAnchor();
       setPickMode(false);
     }
   }
@@ -507,6 +605,7 @@
   function openAdjustModal(snapshot) {
     if (!adjustModal) return;
     const ctx = [
+      snapshot.multi && snapshot.siblingCount ? `兄弟×${snapshot.siblingCount}` : '',
       snapshot.inClosedShadow ? 'closed-Shadow' : (snapshot.inShadow ? 'Shadow' : ''),
       snapshot.uaShadowOpaque ? 'UA-Shadow不可穿透' : (snapshot.uaShadowHost ? '原生宿主' : ''),
       snapshot.crossOriginIframe ? 'x-iframe' : (snapshot.inIframe ? 'iframe' : ''),
