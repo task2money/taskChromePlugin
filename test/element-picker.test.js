@@ -373,6 +373,8 @@ describe('disjoint multi pick', () => {
         multi: true,
         selectionKind: 'disjoint',
         label: '多选 ×2',
+        visibleText: 'Save | Help',
+        cssPath: '',
         elements: [
           { label: 'button.save', cssPath: 'button.save', visibleText: 'Save' },
           { label: 'a.help', cssPath: 'footer > a.help', visibleText: 'Help' },
@@ -383,9 +385,14 @@ describe('disjoint multi pick', () => {
     assert.match(block, /选择.*多选 ×2/);
     assert.match(block, /元素 1.*button\.save/);
     assert.match(block, /选择器 1.*button\.save/);
+    assert.match(block, /可见文本 1.*Save/);
     assert.match(block, /元素 2.*a\.help/);
+    assert.match(block, /可见文本 2.*Help/);
     assert.match(block, /两个入口都要更明显/);
     assert.doesNotMatch(block, /兄弟区间/);
+    assert.doesNotMatch(block, /^- \*\*可见文本\*\*:/m);
+    assert.doesNotMatch(block, /^- \*\*元素\*\*:/m);
+    assert.doesNotMatch(block, /^- \*\*选择器\*\*:/m);
   });
 });
 
