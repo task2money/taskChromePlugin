@@ -48,7 +48,7 @@
             <span>描述</span>
             <span class="taskplugin-label-actions">
               <button type="button" class="taskplugin-btn taskplugin-btn-reset" id="taskplugin-desc-reset" title="清空任务描述" disabled>重置</button>
-              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择页面元素；列表中可 Shift+点击选相邻兄弟">🖱️ 指针选择</button>
+              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择；⌘/Ctrl+点击多选，Enter 确认">🖱️ 指针选择</button>
             </span>
           </div>
           <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（可用指针选择页面元素）"></textarea>
@@ -208,9 +208,9 @@
   let pendingFrameElement = null;
   let pickSource = 'float'; // float | devtools
   let pickCrossOriginHintShown = false;
-  /** Shift 兄弟区间锚点（同父连续多选） */
-  let rangeAnchorEl = null;
-  let rangeAnchorFrame = null;
+  /** Cmd/Ctrl 累加多选（同 frame 内，点击顺序） */
+  let pickSelection = [];
+  let pickSelectionFrame = null; // Element|null，与第一次累加的 frameElement 对齐
   let apiCfg = { baseUrl: 'https://daydaymoney.com', token: '' };
   let workspacesData = [];
   let projectsData = [];
@@ -376,9 +376,13 @@
     applyHighlightMany(el ? [el] : [], doc);
   }
 
-  function clearRangeAnchor() {
-    rangeAnchorEl = null;
-    rangeAnchorFrame = null;
+  function clearPickSelection() {
+    pickSelection = [];
+    pickSelectionFrame = null;
+  }
+
+  function isMetaClick(e) {
+    return !!(e && (e.metaKey || e.ctrlKey));
   }
 
   function samePickFrame(a, b) {
@@ -459,23 +463,23 @@
     if (pickBtn) {
       pickBtn.textContent = pickMode ? '✕ 取消选择' : '🖱️ 指针选择';
       pickBtn.title = pickMode
-        ? '取消指针选择（Esc）；已锚定起点时 Shift+点击同列表兄弟完成多选'
-        : '指针选择页面元素；列表中可 Shift+点击选相邻兄弟';
+        ? '取消指针选择（Esc）；⌘/Ctrl+点击多选，Enter 确认'
+        : '指针选择；⌘/Ctrl+点击多选，Enter 确认';
     }
     if (!pickMode) {
       clearHighlight();
-      clearRangeAnchor();
+      clearPickSelection();
       btn.textContent = '+';
       btn.title = 'TaskPlugin — 快速创建任务';
       btn.classList.remove('taskplugin-picking-fab');
       chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
     } else {
-      clearRangeAnchor();
+      clearPickSelection();
       panel.classList.remove('taskplugin-open');
       btn.classList.remove('taskplugin-active');
       isOpen = false;
       btn.textContent = '✕';
-      btn.title = '取消指针选择（Esc）；列表可 Shift+点击选相邻兄弟';
+      btn.title = '取消指针选择（Esc）；⌘/Ctrl+点击多选，Enter 确认';
       btn.classList.add('taskplugin-picking-fab');
       chrome.runtime.sendMessage({
         action: 'broadcastStartElementPick',
@@ -488,31 +492,18 @@
   }
 
   function onPickMouseOver(e) {
-    if (!pickMode) return;
-    if (typeof ElementPicker === 'undefined') return;
+    if (!pickMode || typeof ElementPicker === 'undefined') return;
     const { el, frameElement, crossOrigin } = resolvePickTarget(e);
-    if (crossOrigin) {
-      clearHighlight();
+    if (crossOrigin || !el || isPluginDom(el)) {
+      // 仍显示已选集合高亮（若同文档）
+      if (pickSelection.length) applyHighlightMany(pickSelection, pickSelection[0].ownerDocument);
+      else clearHighlight();
       return;
     }
-    if (!el || isPluginDom(el)) {
-      clearHighlight();
-      return;
-    }
-    if (
-      e.shiftKey
-      && rangeAnchorEl
-      && rangeAnchorEl.parentElement
-      && el.parentElement === rangeAnchorEl.parentElement
-      && samePickFrame(frameElement, rangeAnchorFrame)
-    ) {
-      const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
-      if (range && range.length) {
-        applyHighlightMany(range, el.ownerDocument);
-        return;
-      }
-    }
-    applyHighlight(el, el.ownerDocument);
+    const hoverSet = pickSelection.includes(el)
+      ? pickSelection
+      : pickSelection.concat([el]);
+    applyHighlightMany(hoverSet, el.ownerDocument);
   }
 
   function finishPickWithElements(els, frameElement, closedShadow) {
@@ -521,9 +512,9 @@
     pendingFrameElement = frameElement;
     pendingElementSnapshot = list.length === 1
       ? ElementPicker.snapshotElement(list[0], { frameElement, closedShadow })
-      : ElementPicker.snapshotSiblingRange(list, { frameElement, closedShadow });
+      : ElementPicker.snapshotDisjointSelection(list, { frameElement, closedShadow });
     pendingElementSnapshot._viewportRect = viewportRectForElements(list, frameElement);
-    clearRangeAnchor();
+    clearPickSelection();
     setPickMode(false);
     openAdjustModal(pendingElementSnapshot);
   }
@@ -542,7 +533,7 @@
       // 跨域：继续等待子 frame 的 elementPickedInFrame；给一次提示
       if (!pickCrossOriginHintShown) {
         pickCrossOriginHintShown = true;
-        showResult('已进入跨域 iframe 选择：请直接点击框内元素（列表可 Shift+点击多选）', 'success');
+        showResult('已进入跨域 iframe 选择：请直接点击框内元素（⌘/Ctrl+点击多选）', 'success');
       }
       return;
     }
@@ -553,46 +544,51 @@
     if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
 
     try {
-      if (e.shiftKey) {
-        if (
-          !rangeAnchorEl
-          || !rangeAnchorEl.parentElement
-          || el.parentElement !== rangeAnchorEl.parentElement
-          || !samePickFrame(frameElement, rangeAnchorFrame)
-        ) {
-          rangeAnchorEl = el;
-          rangeAnchorFrame = frameElement;
-          applyHighlightMany([el], el.ownerDocument);
-          btn.title = '已锚定起点：再 Shift+点击同列表相邻兄弟完成多选（Esc 取消）';
-          if (pickBtn) pickBtn.title = btn.title;
-          console.log('[taskChromePlugin] sibling range anchor set:', el.tagName);
+      if (isMetaClick(e)) {
+        if (pickSelection.length > 0 && !samePickFrame(frameElement, pickSelectionFrame)) {
+          showResult('多选仅限同一 frame，请先清空或在同一框架内选择', 'error');
           return;
         }
-        const range = ElementPicker.collectContiguousSiblings(rangeAnchorEl, el);
-        if (!range || range.length === 0) {
-          rangeAnchorEl = el;
-          rangeAnchorFrame = frameElement;
-          applyHighlightMany([el], el.ownerDocument);
-          btn.title = '无法组成兄弟区间，已重置锚点；再 Shift+点击终点';
-          return;
-        }
-        finishPickWithElements(range, frameElement, closedShadow);
+        if (pickSelection.length === 0) pickSelectionFrame = frameElement || null;
+        pickSelection = ElementPicker.toggleDisjointSelection(pickSelection, el);
+        if (pickSelection.length === 0) pickSelectionFrame = null;
+        applyHighlightMany(pickSelection.length ? pickSelection : [el], el.ownerDocument);
+        const tip = pickSelection.length
+          ? `已选 ${pickSelection.length} 个：Enter 确认；⌘/Ctrl+点击继续增删（Esc 清空）`
+          : '已清空多选：⌘/Ctrl+点击添加，或普通点击单选';
+        btn.title = tip;
+        if (pickBtn) pickBtn.title = tip;
         return;
       }
 
-      clearRangeAnchor();
+      // 普通点击：立即单选
+      clearPickSelection();
       finishPickWithElements([el], frameElement, closedShadow);
     } catch (err) {
       console.warn('[taskChromePlugin] snapshotElement 失败:', err.message || err);
-      clearRangeAnchor();
+      clearPickSelection();
       setPickMode(false);
     }
   }
 
   function onPickKeyDown(e) {
+    if (e.key === 'Enter' && pickMode) {
+      if (pickSelection.length === 0) return;
+      e.preventDefault();
+      finishPickWithElements(pickSelection, pickSelectionFrame, false);
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (pickMode) {
       e.preventDefault();
+      if (pickSelection.length > 0) {
+        clearPickSelection();
+        clearHighlight();
+        const tip = '已清空多选；Esc 再按退出指针模式';
+        btn.title = tip;
+        if (pickBtn) pickBtn.title = tip;
+        return;
+      }
       setPickMode(false);
       return;
     }
@@ -605,13 +601,22 @@
   function openAdjustModal(snapshot) {
     if (!adjustModal) return;
     const ctx = [
-      snapshot.multi && snapshot.siblingCount ? `兄弟×${snapshot.siblingCount}` : '',
+      snapshot.selectionKind === 'disjoint' && snapshot.elements?.length
+        ? `多选×${snapshot.elements.length}`
+        : '',
       snapshot.inClosedShadow ? 'closed-Shadow' : (snapshot.inShadow ? 'Shadow' : ''),
       snapshot.uaShadowOpaque ? 'UA-Shadow不可穿透' : (snapshot.uaShadowHost ? '原生宿主' : ''),
       snapshot.crossOriginIframe ? 'x-iframe' : (snapshot.inIframe ? 'iframe' : ''),
       snapshot.frameNestingDepth > 1 ? `nest×${snapshot.frameNestingDepth}` : '',
     ].filter(Boolean).join('+');
-    adjustElSummary.textContent = `${snapshot.label}${ctx ? ` [${ctx}]` : ''}${snapshot.visibleText ? ` — "${snapshot.visibleText}"` : ''}`;
+    let summary = `${snapshot.label}${ctx ? ` [${ctx}]` : ''}`;
+    if (snapshot.selectionKind === 'disjoint' && Array.isArray(snapshot.elements)) {
+      const labels = snapshot.elements.map((x) => x.label).filter(Boolean).join('、');
+      if (labels) summary += ` — ${labels}`;
+    } else if (snapshot.visibleText) {
+      summary += ` — "${snapshot.visibleText}"`;
+    }
+    adjustElSummary.textContent = summary;
     if (snapshot.uaShadowOpaque) {
       adjustError.textContent = '提示：原生控件内部（UA Shadow）无法选中，已选中宿主元素。';
       adjustError.className = 'taskplugin-result taskplugin-show';
