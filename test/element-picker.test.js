@@ -26,6 +26,8 @@ const {
   snapshotDisjointSelection,
   unionClientRects,
   snapshotElement,
+  prefixCssPathWithFrames,
+  applyFramePrefixesToSnapshot,
 } = require('../lib/element-picker.js');
 
 /** 构造同父兄弟 mock（供兄弟区间单测） */
@@ -414,5 +416,60 @@ describe('truncateText', () => {
     const out = truncateText('a'.repeat(200), 10);
     assert.equal(out.length, 11);
     assert.ok(out.endsWith('…'));
+  });
+});
+
+describe('prefixCssPathWithFrames / applyFramePrefixesToSnapshot', () => {
+  it('prefixCssPathWithFrames joins frame prefixes before cssPath', () => {
+    assert.equal(
+      prefixCssPathWithFrames('button.save', ['iframe#host', 'iframe.nested']),
+      'iframe#host >>> iframe.nested >>> button.save',
+    );
+  });
+
+  it('prefixCssPathWithFrames returns empty when cssPath is blank', () => {
+    assert.equal(prefixCssPathWithFrames('', ['iframe#host']), '');
+    assert.equal(prefixCssPathWithFrames('   ', ['iframe#host']), '');
+  });
+
+  it('applyFramePrefixesToSnapshot prefixes aggregate cssPath and per-element paths', () => {
+    const next = applyFramePrefixesToSnapshot(
+      {
+        cssPath: 'div.root',
+        elements: [
+          { label: 'a', cssPath: 'button.save' },
+          { label: 'b', cssPath: 'footer > a.help' },
+          { label: 'c', cssPath: '' },
+        ],
+      },
+      ['iframe#host'],
+    );
+    assert.equal(next.cssPath, 'iframe#host >>> div.root');
+    assert.equal(next.elements[0].cssPath, 'iframe#host >>> button.save');
+    assert.equal(next.elements[1].cssPath, 'iframe#host >>> footer > a.help');
+    assert.equal(next.elements[2].cssPath, '');
+  });
+
+  it('applyFramePrefixesToSnapshot prefixes disjoint multi-select with empty aggregate cssPath', () => {
+    const next = applyFramePrefixesToSnapshot(
+      {
+        selectionKind: 'disjoint',
+        cssPath: '',
+        elements: [
+          { label: 'button.save', cssPath: 'button.save' },
+          { label: 'a.help', cssPath: 'footer > a.help' },
+        ],
+      },
+      ['iframe.outer', 'iframe.inner'],
+    );
+    assert.equal(next.cssPath, '');
+    assert.equal(next.elements[0].cssPath, 'iframe.outer >>> iframe.inner >>> button.save');
+    assert.equal(next.elements[1].cssPath, 'iframe.outer >>> iframe.inner >>> footer > a.help');
+  });
+
+  it('applyFramePrefixesToSnapshot is a no-op without prefixes', () => {
+    const snap = { cssPath: 'button.save', elements: [{ cssPath: 'a' }] };
+    assert.equal(applyFramePrefixesToSnapshot(snap, []), snap);
+    assert.equal(applyFramePrefixesToSnapshot(snap, null), snap);
   });
 });

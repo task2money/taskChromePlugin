@@ -1563,7 +1563,7 @@
           height: leafRect.height || 0,
         };
       }
-      if (msg.snapshot.cssPath && typeof ElementPicker !== 'undefined') {
+      if (typeof ElementPicker !== 'undefined') {
         const prefixes = [];
         const path = msg.framePath || [];
         let doc = document;
@@ -1581,7 +1581,10 @@
           }
         }
         if (prefixes.length) {
-          pendingElementSnapshot.cssPath = `${prefixes.join(' >>> ')} >>> ${msg.snapshot.cssPath}`;
+          pendingElementSnapshot = ElementPicker.applyFramePrefixesToSnapshot(
+            pendingElementSnapshot,
+            prefixes,
+          );
         }
       }
       openAdjustModal(pendingElementSnapshot);
