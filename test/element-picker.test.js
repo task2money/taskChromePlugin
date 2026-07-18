@@ -22,9 +22,8 @@ const {
   buildFramePathFromRoot,
   accumulateFrameViewportRect,
   findIframeElementByUrl,
-  collectContiguousSiblings,
-  buildSiblingRangeCssPath,
-  snapshotSiblingRange,
+  toggleDisjointSelection,
+  snapshotDisjointSelection,
   unionClientRects,
   snapshotElement,
 } = require('../lib/element-picker.js');
@@ -335,72 +334,63 @@ describe('appendElementAdjustmentToDescription', () => {
   });
 });
 
-describe('sibling range pick', () => {
-  it('collectContiguousSiblings returns ordered slice including endpoints', () => {
-    const { els } = makeSiblingList(['li', 'li', 'li', 'li']);
-    const range = collectContiguousSiblings(els[3], els[1]);
-    assert.equal(range.length, 3);
-    assert.equal(range[0], els[1]);
-    assert.equal(range[2], els[3]);
+describe('disjoint multi pick', () => {
+  it('toggleDisjointSelection appends then removes in click order', () => {
+    const { els } = makeSiblingList(['div', 'span', 'p']);
+    let sel = [];
+    sel = toggleDisjointSelection(sel, els[0]);
+    sel = toggleDisjointSelection(sel, els[2]);
+    sel = toggleDisjointSelection(sel, els[1]);
+    assert.deepEqual(sel.map((e) => e.tagName), ['DIV', 'P', 'SPAN']);
+    sel = toggleDisjointSelection(sel, els[2]);
+    assert.deepEqual(sel.map((e) => e.tagName), ['DIV', 'SPAN']);
   });
 
-  it('collectContiguousSiblings returns null for different parents', () => {
-    const a = makeSiblingList(['li', 'li']);
-    const b = makeSiblingList(['li', 'li'], { parentId: 'other' });
-    assert.equal(collectContiguousSiblings(a.els[0], b.els[0]), null);
-  });
-
-  it('buildSiblingRangeCssPath uses nth-of-type for same-tag siblings', () => {
-    const { els } = makeSiblingList(['li', 'li', 'li', 'li']);
-    const path = buildSiblingRangeCssPath(els.slice(1, 4));
-    assert.match(path, /ul#list/);
-    assert.match(path, /li\.item:nth-of-type\(n\+2\):nth-of-type\(-n\+4\)/);
-  });
-
-  it('buildSiblingRangeCssPath falls back to nth-child for mixed tags', () => {
-    const { els } = makeSiblingList(['li', 'div', 'li']);
-    const path = buildSiblingRangeCssPath(els.slice(0, 2));
-    assert.match(path, /:nth-child\(n\+1\):nth-child\(-n\+2\)/);
-  });
-
-  it('snapshotSiblingRange marks multi and siblingRange metadata', () => {
-    const { els } = makeSiblingList(['li', 'li', 'li']);
-    const snap = snapshotSiblingRange(els.slice(0, 3));
+  it('snapshotDisjointSelection marks selectionKind and preserves click order', () => {
+    const { els } = makeSiblingList(['div', 'span', 'p']);
+    const snap = snapshotDisjointSelection([els[2], els[0]]);
     assert.equal(snap.multi, true);
-    assert.equal(snap.siblingCount, 3);
-    assert.match(snap.label, /×3/);
-    assert.equal(snap.siblingRange.startChildIndex, 1);
-    assert.equal(snap.siblingRange.endChildIndex, 3);
-    assert.equal(snap.siblings.length, 3);
+    assert.equal(snap.selectionKind, 'disjoint');
+    assert.equal(snap.label, '多选 ×2');
+    assert.equal(snap.elements.length, 2);
+    assert.equal(snap.elements[0].tagName, 'p');
+    assert.equal(snap.elements[1].tagName, 'div');
   });
 
-  it('snapshotSiblingRange with one element matches snapshotElement label', () => {
-    const { els } = makeSiblingList(['li', 'li']);
-    const multi = snapshotSiblingRange([els[0]]);
+  it('snapshotDisjointSelection with one element matches snapshotElement', () => {
+    const { els } = makeSiblingList(['div', 'span']);
+    const multi = snapshotDisjointSelection([els[0]]);
     const single = snapshotElement(els[0]);
     assert.equal(multi.label, single.label);
     assert.equal(multi.cssPath, single.cssPath);
-    assert.equal(multi.multi, undefined);
+    assert.equal(multi.selectionKind, undefined);
   });
 
-  it('formatElementAdjustmentBlock includes sibling range line for multi', () => {
+  it('formatElementAdjustmentBlock lists disjoint elements with shared adjustment', () => {
     const block = formatElementAdjustmentBlock({
       pageUrl: 'https://a.test/',
       element: {
         multi: true,
-        label: 'li.item ×3',
-        cssPath: 'ul#list > li.item:nth-of-type(n+1):nth-of-type(-n+3)',
-        siblingRange: { startChildIndex: 1, endChildIndex: 3, count: 3 },
-        visibleText: 'a | b | c',
+        selectionKind: 'disjoint',
+        label: '多选 ×2',
+        elements: [
+          { label: 'button.save', cssPath: 'button.save', visibleText: 'Save' },
+          { label: 'a.help', cssPath: 'footer > a.help', visibleText: 'Help' },
+        ],
       },
-      adjustment: '统一改样式',
+      adjustment: '两个入口都要更明显',
     });
-    assert.match(block, /li\.item ×3/);
-    assert.match(block, /兄弟区间.*第 1–3 项（共 3 个）/);
-    assert.match(block, /统一改样式/);
+    assert.match(block, /选择.*多选 ×2/);
+    assert.match(block, /元素 1.*button\.save/);
+    assert.match(block, /选择器 1.*button\.save/);
+    assert.match(block, /元素 2.*a\.help/);
+    assert.match(block, /两个入口都要更明显/);
+    assert.doesNotMatch(block, /兄弟区间/);
   });
+});
 
-  it('unionClientRects returns bounding union', () => {
+describe('unionClientRects', () => {
+  it('returns bounding union', () => {
     const u = unionClientRects([
       { left: 10, top: 20, width: 30, height: 10 },
       { left: 15, top: 40, width: 40, height: 20 },
