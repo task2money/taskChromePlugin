@@ -516,6 +516,18 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    case 'resolveAidevMeta':
+      try {
+        await initApiFromMessage(message);
+        const data = await API.resolveAidevMeta({
+          serviceId: message.serviceId,
+          tag: message.tag,
+        });
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
     // ---- 任务创建 ----
 
     case 'createTask':
