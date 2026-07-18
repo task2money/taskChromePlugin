@@ -960,7 +960,32 @@
     badge.title = '';
   }
 
-  async function checkLoginStatus() {
+  function applyWorkspaceSelectFromAuth({ loggedIn, mode, invalidated = false }) {
+    if (typeof FloatWorkspaceSelect === 'undefined') {
+      console.warn('[taskChromePlugin] FloatWorkspaceSelect 未加载');
+      if (!loggedIn) {
+        wsSelect.innerHTML = `<option value="">-- ${invalidated ? '请刷新页面后重试' : '请先登录'} --</option>`;
+      } else if (mode !== 'badgeOnly') {
+        wsSelect.innerHTML = '<option value="">加载中...</option>';
+      }
+      return;
+    }
+    const action = FloatWorkspaceSelect.resolveFloatWorkspaceSelectAction({
+      loggedIn,
+      mode,
+      invalidated,
+    });
+    const text = FloatWorkspaceSelect.floatWorkspaceSelectPlaceholder(action);
+    if (text == null) return;
+    wsSelect.innerHTML = `<option value="">${text}</option>`;
+  }
+
+  /**
+   * @param {{ mode?: 'full' | 'badgeOnly' }} [opts]
+   *   full：完整鉴权刷新（可进入「加载中」再由 loadWorkspaces 填充）
+   *   badgeOnly：仅角标，已登录时不得冲掉工作空间下拉框
+   */
+  async function checkLoginStatus({ mode = 'full' } = {}) {
     try {
       let cfg;
       let expired = false;
@@ -990,24 +1015,23 @@
       if (loggedIn) {
         isLoggedIn = true;
         applyLoginBadge(true, { expiryHint });
-        wsSelect.innerHTML = '<option value="">加载中...</option>';
       } else {
         isLoggedIn = false;
         applyLoginBadge(false, { expired: !!(cfg.token && expired) });
-        wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
       }
+      applyWorkspaceSelectFromAuth({ loggedIn, mode });
     } catch (e) {
       console.warn('[taskChromePlugin] checkLoginStatus 失败:', e.message);
       isLoggedIn = false;
       const invalidated = /Extension context invalidated/i.test(String(e.message || e));
       applyLoginBadge(false, { invalidated });
-      wsSelect.innerHTML = `<option value="">-- ${invalidated ? '请刷新页面后重试' : '请先登录'} --</option>`;
+      applyWorkspaceSelectFromAuth({ loggedIn: false, mode, invalidated });
     }
   }
 
   async function refreshAuthAndWorkspaces() {
     workspacesData = [];
-    await checkLoginStatus();
+    await checkLoginStatus({ mode: 'full' });
     if (isLoggedIn) {
       await loadWorkspaces();
     }
@@ -1015,7 +1039,7 @@
 
   /** 仅刷新登录角标（不重载工作空间），供定时器使用 */
   async function refreshAuthBadgeOnly() {
-    await checkLoginStatus();
+    await checkLoginStatus({ mode: 'badgeOnly' });
   }
 
   function startAuthBadgeTimer() {
