@@ -1,0 +1,7 @@
+# aidevpush.yaml — service identity (do NOT put workspace_id / project_id / company_id)
+version: 1
+service_id: taskChromePlugin
+display_name: Task Chrome Plugin
+tags:
+  - svc:taskChromePlugin
+  - domain:browser

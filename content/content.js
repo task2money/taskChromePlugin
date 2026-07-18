@@ -27,6 +27,7 @@
       <div class="taskplugin-panel-body">
         <div id="taskplugin-user-guide" class="taskplugin-user-guide-host"></div>
         <div class="taskplugin-captured-url" id="taskplugin-page-url"></div>
+        <div id="taskplugin-aidev-status" class="taskplugin-aidev-status" hidden></div>
         <div class="taskplugin-form-group">
           <label>工作空间</label>
           <select class="taskplugin-select" id="taskplugin-workspace">
@@ -214,6 +215,8 @@
   let apiCfg = { baseUrl: 'https://daydaymoney.com', token: '' };
   let workspacesData = [];
   let projectsData = [];
+  let pendingAidevMatches = null;
+  const aidevStatusEl = document.getElementById('taskplugin-aidev-status');
 
   /**
    * 带超时的 chrome.runtime.sendMessage 封装
@@ -901,6 +904,29 @@
     return r.data;
   }
 
+  /**
+   * 获取工作空间创建任务字段设置（与 createTaskFieldSettings.js 对齐）。
+   * 返回字段名 → 是否可见的映射，例如 { description: true, code_lang: false, ... }。
+   * 用于隐藏 Web 端工作空间配置中关闭的字段，保持插件与工作面板行为一致。
+   *
+   * 若 SW 尚未实现对应 API action，静默回退默认配置（全部开启，仅 code_lang / structured_fields 关闭）。
+   * @param {string} companyId
+   * @returns {Promise<Record<string, boolean>>}
+   */
+  async function fetchCreateTaskFieldSettings(companyId) {
+    try {
+      const fields = await swApi('getCreateTaskFieldSettings', { companyId });
+      if (fields && typeof fields === 'object') return fields;
+    } catch (_) { /* SW 尚未实现则静默回退默认 */ }
+    // 默认值：与 defaultCreateTaskFieldSettings() 对齐
+    return {
+      description: true, task_kind: true, code_lang: false,
+      structured_fields: false, project_branch: true, container_image: true,
+      feature_params: true, priority: true, due_date: true,
+      auto_run: true, owner: true, assignees: true,
+    };
+  }
+
   async function resolveTaskOwner(endpointMapping, wsId) {
     if (endpointMapping?.owner) return String(endpointMapping.owner);
     const cred = await Storage.getCredentials();
@@ -1102,10 +1128,66 @@
         const name = ws.name || ws.displayName || ws.title || id;
         wsSelect.innerHTML += `<option value="${id}">${esc(name)}</option>`;
       }
+      await applyAidevMetaAfterWorkspacesLoaded();
     } catch (e) {
       console.warn('[taskChromePlugin] loadWorkspaces 失败:', e.message);
       if (handleApiAuthFailure(e)) return;
       wsSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+    }
+  }
+
+  function setAidevStatus(text, visible = true) {
+    if (!aidevStatusEl) return;
+    if (!visible || !text) {
+      aidevStatusEl.hidden = true;
+      aidevStatusEl.textContent = '';
+      return;
+    }
+    aidevStatusEl.textContent = text;
+    aidevStatusEl.hidden = false;
+  }
+
+  function checkAidevMatchingProjects(wsId) {
+    if (!pendingAidevMatches?.length || typeof AidevMeta === 'undefined') return;
+    const pids = AidevMeta.projectIdsForWorkspace(pendingAidevMatches, wsId);
+    if (!pids.length) return;
+    for (const cb of projectsDiv.querySelectorAll('input[type="checkbox"]')) {
+      if (pids.includes(String(cb.value))) cb.checked = true;
+    }
+  }
+
+  async function applyAidevMetaAfterWorkspacesLoaded() {
+    pendingAidevMatches = null;
+    if (typeof AidevMeta === 'undefined') {
+      setAidevStatus('', false);
+      return;
+    }
+
+    const meta = AidevMeta.readAidevMetaFromDocument(document);
+    if (!meta?.service_id) {
+      setAidevStatus('', false);
+      return;
+    }
+
+    try {
+      const resp = await swApi('resolveAidevMeta', { serviceId: meta.service_id });
+      const matches = Array.isArray(resp?.matches) ? resp.matches : [];
+      setAidevStatus(AidevMeta.formatAidevResolveStatus(matches));
+      if (!matches.length) return;
+
+      pendingAidevMatches = matches;
+      const wsIds = AidevMeta.uniqueWorkspaceIdsFromMatches(matches);
+      if (wsIds.length === 1) {
+        wsSelect.value = wsIds[0];
+        await loadProjects(wsIds[0]);
+        checkAidevMatchingProjects(wsIds[0]);
+        await loadWorkspaceCreateMeta(wsIds[0]);
+        refreshFloatRepoBases();
+        await seedBranchDatalists([]);
+      }
+    } catch (e) {
+      console.warn('[taskChromePlugin] aidev resolve 失败:', e.message);
+      setAidevStatus(`元信息反查失败: ${e.message}`);
     }
   }
 
@@ -1128,6 +1210,7 @@
         html += `<label><input type="checkbox" value="${id}"> ${esc(name)}</label>`;
       }
       projectsDiv.innerHTML = html;
+      checkAidevMatchingProjects(wsId);
     } catch (e) {
       console.warn('[taskChromePlugin] loadProjects 失败:', e.message);
       if (handleApiAuthFailure(e)) return;

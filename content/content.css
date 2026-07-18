@@ -158,6 +158,17 @@
   flex: 1 !important;
 }
 
+.taskplugin-aidev-status {
+  margin: 0 0 8px !important;
+  padding: 6px 8px !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  color: #a6e3a1 !important;
+  background: rgba(166, 227, 161, 0.08) !important;
+  border: 1px solid rgba(166, 227, 161, 0.25) !important;
+  border-radius: 6px !important;
+}
+
 /* 使用说明（UserGuide） */
 .taskplugin-user-guide-host {
   margin-bottom: 10px !important;

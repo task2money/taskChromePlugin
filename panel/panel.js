@@ -23,6 +23,7 @@ const Panel = (() => {
   let currentMemberId = '';  // from login response current_company.member_id
   /** 请求列表是否已完成至少一次引导刷新（用于离开 HTML 初始 loading） */
   let requestListBootstrapped = false;
+  let pendingAidevMatches = null;
 
   const Bootstrap = (typeof PanelRequestBootstrap !== 'undefined')
     ? PanelRequestBootstrap
@@ -109,6 +110,14 @@ const Panel = (() => {
     }
     UserGuide.mount(host, UserGuide.renderFullGuideHtml({ surface: 'panel' }));
   }
+
+  /**
+   * 工作空间字段设置（TODO）：
+   * 工作空间可配置创建任务表单字段的显隐（见 createTaskFieldSettings.js）。
+   * 插件应在 init 或 onSingleWorkspaceChange 时调 fetchCreateTaskFieldSettings(companyId)，
+   * 然后用 isCreateTaskFieldEnabled(settings, key) 判断各字段是否显示。
+   * 已隐藏的字段应在面板中设置 display:none，保持与 Web 端工作面板行为一致。
+   */
 
   // ---- Init ----
   async function init() {
@@ -910,6 +919,60 @@ const Panel = (() => {
   }
 
   // ---- Workspace / Projects ----
+  function setPanelAidevStatus(text, visible = true) {
+    const el = $('#panel-aidev-status');
+    if (!el) return;
+    if (!visible || !text) {
+      el.hidden = true;
+      el.textContent = '';
+      return;
+    }
+    el.textContent = text;
+    el.hidden = false;
+  }
+
+  function checkPanelAidevMatchingProjects(containerId, wsId) {
+    if (!pendingAidevMatches?.length || typeof AidevMeta === 'undefined') return;
+    const pids = AidevMeta.projectIdsForWorkspace(pendingAidevMatches, wsId);
+    if (!pids.length) return;
+    const c = $(`#${containerId}`);
+    if (!c) return;
+    for (const cb of c.querySelectorAll('.project-check')) {
+      if (pids.includes(String(cb.value))) cb.checked = true;
+    }
+  }
+
+  async function applyAidevMetaAfterWorkspacesLoaded(selectId) {
+    pendingAidevMatches = null;
+    if (typeof AidevMeta === 'undefined') {
+      setPanelAidevStatus('', false);
+      return null;
+    }
+
+    const meta = await AidevMeta.readAidevMetaFromInspectedWindow();
+    if (!meta?.service_id) {
+      setPanelAidevStatus('', false);
+      return null;
+    }
+
+    if (selectId !== 'singleWorkspace') return null;
+
+    try {
+      const resp = await swApi('resolveAidevMeta', { serviceId: meta.service_id });
+      const matches = Array.isArray(resp?.matches) ? resp.matches : [];
+      setPanelAidevStatus(AidevMeta.formatAidevResolveStatus(matches));
+      if (!matches.length) return null;
+
+      pendingAidevMatches = matches;
+      const wsIds = AidevMeta.uniqueWorkspaceIdsFromMatches(matches);
+      return wsIds.length === 1 ? wsIds[0] : null;
+    } catch (e) {
+      console.warn('[taskChromePlugin] panel aidev resolve:', e.message);
+      setPanelAidevStatus(`元信息反查失败: ${e.message}`);
+      return null;
+    }
+  }
+
   async function loadWorkspaces(selectId) {
     const sel = $(`#${selectId}`);
     if (!sel) return;
@@ -922,14 +985,17 @@ const Panel = (() => {
       const data = await swApi('getWorkspaces');
       workspaces = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       renderWorkspaceOptions(selectId);
-      // 自动选择 workspace：优先上次选择的，其次唯一 workspace
-      const last = await Storage.getLastWorkspace();
-      if (last && workspaces.some((w) => (w.id || w._id) === last)) {
-        sel.value = last;
-      } else if (workspaces.length === 1) {
-        sel.value = workspaces[0].id || workspaces[0]._id;
+      const aidevWsId = await applyAidevMetaAfterWorkspacesLoaded(selectId);
+      if (aidevWsId && workspaces.some((w) => String(w.id || w._id) === String(aidevWsId))) {
+        sel.value = aidevWsId;
+      } else {
+        const last = await Storage.getLastWorkspace();
+        if (last && workspaces.some((w) => (w.id || w._id) === last)) {
+          sel.value = last;
+        } else if (workspaces.length === 1) {
+          sel.value = workspaces[0].id || workspaces[0]._id;
+        }
       }
-      // 无论如何都触发 change，确保项目/负责人/进度列加载
       sel.dispatchEvent(new Event('change'));
     } catch (e) {
       if (handleApiAuthFailure(e)) {
@@ -1130,12 +1196,17 @@ const Panel = (() => {
       c.innerHTML = '<p class="placeholder">请先登录</p>';
       return;
     }
-    if (projectsCache[wsId]) { renderProjectCheckboxes(containerId, projectsCache[wsId]); return; }
+    if (projectsCache[wsId]) {
+      renderProjectCheckboxes(containerId, projectsCache[wsId]);
+      checkPanelAidevMatchingProjects(containerId, wsId);
+      return;
+    }
     try {
       const data = await swApi('getProjects', { workspaceId: wsId, companyId });
       const projs = Array.isArray(data) ? data : (data?.items || data?.data || []);
       projectsCache[wsId] = projs;
       renderProjectCheckboxes(containerId, projs);
+      checkPanelAidevMatchingProjects(containerId, wsId);
     } catch (e) {
       if (handleApiAuthFailure(e)) {
         c.innerHTML = '<p class="placeholder">请重新登录</p>';
