@@ -1,7 +1,9 @@
 #!/bin/bash
-# taskChromePlugin pre-commit：
-# 1) 暂存 lib/、popup/、background/、test/ 等时跑 node --test
-# 2) 涉及登录链路（popup/background/lib/api|login|storage|async-timeout）时跑 Playwright E2E
+# taskChromePlugin pre-commit（task2app 随机单测模式 + 登录 E2E）：
+# 1) 暂存的 test/*.test.js 优先跑
+# 2) 其余 unit 测例按比例随机抽测（每次提交至少 1 个）
+# 3) 暂存插件源码时跑 npm test
+# 4) 涉及登录链路时跑 Playwright E2E
 
 set -u
 
@@ -12,9 +14,27 @@ trap cleanup SIGINT SIGTERM EXIT
 
 cd "$(dirname "$0")/../.." || exit 1
 
+# 仅变更 hooks/文档时跳过抽测，便于自举提交钩子模板
+_bootstrap_staged="$(git diff --cached --name-only 2>/dev/null || true)"
+if [ -n "$_bootstrap_staged" ]; then
+    _only_hooks=1
+    while IFS= read -r _f; do
+        [ -z "$_f" ] && continue
+        case "$_f" in
+            scripts/hooks/*|README.md) ;;
+            *) _only_hooks=0; break ;;
+        esac
+    done <<< "$_bootstrap_staged"
+    if [ "$_only_hooks" -eq 1 ]; then
+        echo "Pre-commit bootstrap: only hooks/docs staged; skip random unit tests."
+        exit 0
+    fi
+fi
+
 echo "Running pre-commit Node tests in $(pwd)..."
 
 export PRE_COMMIT=1
+TEST_RATIO="${PRECOMMIT_TEST_RATIO:-30}"
 STAGED_FILES="$(git diff --cached --name-only 2>/dev/null || true)"
 
 should_run_all=false
@@ -33,15 +53,60 @@ while IFS= read -r f; do
     esac
 done <<< "$STAGED_FILES"
 
-while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    case "$f" in
-        test/*.test.js)
-            echo "Running staged test: $f"
-            node --test "$f" || exit 1
-            ;;
-    esac
-done <<< "$STAGED_FILES"
+collect_unit_tests() {
+    find test -type f -name '*.test.js' 2>/dev/null | sed 's#^\./##' | sort -u
+}
+
+TMP_ALL="$(mktemp)"
+TMP_STAGED="$(mktemp)"
+TMP_TO_RUN="$(mktemp)"
+trap 'rm -f "$TMP_ALL" "$TMP_STAGED" "$TMP_TO_RUN"' EXIT
+
+collect_unit_tests > "$TMP_ALL"
+
+while IFS= read -r test_file; do
+    [ -z "$test_file" ] && continue
+    if echo "$STAGED_FILES" | grep -qxF "$test_file" 2>/dev/null; then
+        echo "$test_file" >> "$TMP_STAGED"
+    fi
+done < "$TMP_ALL"
+
+if [ -s "$TMP_STAGED" ]; then
+    echo "Running staged unit tests..."
+    while IFS= read -r t; do
+        [ -z "$t" ] && continue
+        echo "Running: node --test $t"
+        node --test "$t" || exit 1
+    done < "$TMP_STAGED"
+fi
+
+if [ -s "$TMP_ALL" ]; then
+    echo "Running random unit tests (ratio=${TEST_RATIO}%)..."
+    while IFS= read -r t; do
+        [ -z "$t" ] && continue
+        [ -s "$TMP_STAGED" ] && grep -qxF "$t" "$TMP_STAGED" 2>/dev/null && continue
+        [ "$((RANDOM % 100))" -lt "$TEST_RATIO" ] && echo "$t" >> "$TMP_TO_RUN"
+    done < "$TMP_ALL"
+    if [ ! -s "$TMP_TO_RUN" ]; then
+        TMP_NS="$(mktemp)"
+        while IFS= read -r t; do
+            [ -z "$t" ] && continue
+            [ -s "$TMP_STAGED" ] && grep -qxF "$t" "$TMP_STAGED" 2>/dev/null && continue
+            echo "$t" >> "$TMP_NS"
+        done < "$TMP_ALL"
+        if [ -s "$TMP_NS" ]; then
+            lc=$(wc -l < "$TMP_NS" | tr -d ' ')
+            sed -n "$((RANDOM % lc + 1))p" "$TMP_NS" >> "$TMP_TO_RUN"
+            echo "(No test selected by random; running one at random)"
+        fi
+        rm -f "$TMP_NS"
+    fi
+    while IFS= read -r t; do
+        [ -z "$t" ] && continue
+        echo "Running: node --test $t"
+        node --test "$t" || exit 1
+    done < "$TMP_TO_RUN"
+fi
 
 if [ "$should_run_all" = true ]; then
     echo "Staged plugin source changed; running npm test..."

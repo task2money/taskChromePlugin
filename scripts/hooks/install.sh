@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# 将本目录钩子模板安装到 taskChromePlugin 仓库的 .git/hooks/
-# 用法（在 taskChromePlugin 根执行）：
+# 将本目录钩子模板安装到当前 git 仓库的 .git/hooks/。
+# 用法（在子仓根执行）：
 #   bash scripts/hooks/install.sh
 set -euo pipefail
 
