@@ -190,6 +190,20 @@ describe('shouldEnrichHarBody', () => {
     );
   });
 
+  it('returns false when entry has no getContent function', () => {
+    assert.equal(
+      shouldEnrichHarBody({ method: 'GET', statusCode: 200 }, {}),
+      false
+    );
+  });
+
+  it('returns true for any request with getContent and empty body', () => {
+    assert.equal(
+      shouldEnrichHarBody({ statusCode: 200, method: 'GET' }, { getContent: () => {} }),
+      true
+    );
+  });
+
   it('returns true for 4xx/5xx without body', () => {
     assert.equal(
       shouldEnrichHarBody({ statusCode: 404 }, { getContent: () => {} }),
@@ -208,13 +222,6 @@ describe('shouldEnrichHarBody', () => {
     assert.equal(
       shouldEnrichHarBody({ method: 'POST', statusCode: 201 }, { getContent: () => {} }),
       true
-    );
-  });
-
-  it('returns false for GET 200 without getContent', () => {
-    assert.equal(
-      shouldEnrichHarBody({ method: 'GET', statusCode: 200 }, {}),
-      false
     );
   });
 });

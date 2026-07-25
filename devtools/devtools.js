@@ -78,14 +78,25 @@ function pushPanelInitRequests() {
   } catch (_) { /* ignore */ }
 }
 
+/**
+ * 通过 entry.getContent() 异步拉取响应体并回填到 req.responseBody。
+ * 注意：函数名保留为 enrichRequestBody 与历史调用兼容，
+ * 实际填充的是 responseBody（即响应体），而非请求体。
+ */
 async function enrichRequestBody(req, entry) {
   if (req.responseBody || typeof entry.getContent !== 'function') return req;
   try {
     const body = await new Promise((resolve) => {
-      entry.getContent((content) => resolve(content || ''));
+      entry.getContent((content, encoding) => {
+        // encoding 为 "base64" 时表示二进制内容，保留原样（面板会以文本显示）
+        resolve(content || '');
+      });
     });
     if (body) req.responseBody = body;
-  } catch (_) { /* ignore */ }
+  } catch (e) {
+    // 不要静默吞没 —— 响应体获取失败是诊断网络问题的关键信号
+    console.warn('[taskChromePlugin] getContent 获取响应体失败:', e?.message || e, req.url);
+  }
   return req;
 }
 
@@ -102,7 +113,7 @@ async function enrichBackfillBodies(targets, options = {}) {
       await enrichRequestBody(req, entry);
       if ((req.responseBody || '') !== before) {
         enriched += 1;
-        notifyRequestUpdated(req);
+        // body 已在 push 之前填充完毕，无需 notifyRequestUpdated
       }
     }));
   }
@@ -112,15 +123,12 @@ async function enrichBackfillBodies(targets, options = {}) {
 
 async function ingestHarEntry(entry, options = {}) {
   const req = HarRequest.buildRequestFromHarEntry(entry);
+  // 先 enrich body，再推送 —— 消除竞态条件，确保 panel 收到完整请求
+  if (options.enrichBody !== false) {
+    await enrichRequestBody(req, entry);
+  }
   if (!pushRequest(req, { notifyPanel: options.notifyPanel !== false })) {
     return null;
-  }
-  if (options.enrichBody !== false) {
-    const before = req.responseBody || '';
-    await enrichRequestBody(req, entry);
-    if ((req.responseBody || '') !== before) {
-      notifyRequestUpdated(req);
-    }
   }
   return req;
 }
@@ -137,17 +145,9 @@ async function backfillFromHar(options = {}) {
       const entries = har?.log?.entries || [];
       const entryIndex = HarRequest.indexHarEntriesByKey(entries);
       const { added: candidates } = HarRequest.mergeHarEntries(entries, seenHarKeys);
-      const actuallyAdded = [];
-      let added = 0;
 
-      for (const req of candidates) {
-        if (pushRequest(req, { notifyPanel: options.notifyPanel !== false })) {
-          added += 1;
-          actuallyAdded.push(req);
-        }
-      }
-
-      const enrichTargets = actuallyAdded
+      // 先 enrich body，再推送 —— 消除竞态，确保 panel 收到完整请求
+      const enrichTargets = candidates
         .map((req) => ({ req, entry: entryIndex.get(req.harKey) }))
         .filter(({ req, entry }) => entry && HarRequest.shouldEnrichHarBody(req, entry));
 
@@ -155,10 +155,17 @@ async function backfillFromHar(options = {}) {
         ? await enrichBackfillBodies(enrichTargets, options)
         : { enriched: 0, attempted: 0 };
 
+      let added = 0;
+      for (const req of candidates) {
+        if (pushRequest(req, { notifyPanel: options.notifyPanel !== false })) {
+          added += 1;
+        }
+      }
+
       if (added > 0) {
         console.log(
           `[taskChromePlugin] HAR 补录 ${added} 条请求` +
-          (enrichResult.enriched > 0 ? `，异步拉取 body ${enrichResult.enriched} 条` : '')
+          (enrichResult.enriched > 0 ? `，拉取 body ${enrichResult.enriched} 条` : '')
         );
       }
       return { added, ...enrichResult };
