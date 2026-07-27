@@ -414,8 +414,8 @@ html.taskplugin-picking #taskplugin-float-root * {
   cursor: pointer !important;
 }
 
-/* hover 高亮（由 JS 添加 class） */
-.taskplugin-el-highlight {
+/* hover 高亮（由 JS 添加 class；仅在 pick 模式下生效，防止组件静态类名误触发） */
+html.taskplugin-picking .taskplugin-el-highlight {
   outline: 2px solid #89b4fa !important;
   outline-offset: 2px !important;
   box-shadow: 0 0 0 4px rgba(137, 180, 250, 0.35) !important;

@@ -341,7 +341,7 @@
     if (!doc || doc.getElementById('taskplugin-el-hl-style')) return;
     const s = doc.createElement('style');
     s.id = 'taskplugin-el-hl-style';
-    s.textContent = '.taskplugin-el-highlight{outline:2px solid #89b4fa!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(137,180,250,.35)!important;}';
+    s.textContent = 'html.taskplugin-picking .taskplugin-el-highlight{outline:2px solid #89b4fa!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(137,180,250,.35)!important;}';
     (doc.head || doc.documentElement).appendChild(s);
   }
 
