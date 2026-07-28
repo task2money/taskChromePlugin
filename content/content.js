@@ -759,6 +759,12 @@
       e.preventDefault();
       confirmAdjustModal();
     });
+    adjustInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && adjustModal && !adjustModal.hidden) {
+        e.preventDefault();
+        confirmAdjustModal();
+      }
+    });
   }
 
   function syncDescResetButton() {

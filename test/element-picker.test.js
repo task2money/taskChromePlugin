@@ -207,8 +207,11 @@ describe('deepElementFromPoint / hitTestInRoot', () => {
 });
 
 describe('validateAdjustment', () => {
-  it('rejects empty adjustment', () => {
-    assert.equal(validateAdjustment(''), '请填写希望对该元素做什么调整');
+  it('allows empty adjustment', () => {
+    assert.equal(validateAdjustment(''), null);
+  });
+  it('rejects overly long adjustment', () => {
+    assert.equal(validateAdjustment('a'.repeat(2001)), '调整期望过长（最多 2000 字）');
   });
 });
 
