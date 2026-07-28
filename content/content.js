@@ -49,7 +49,7 @@
             <span>描述</span>
             <span class="taskplugin-label-actions">
               <button type="button" class="taskplugin-btn taskplugin-btn-reset" id="taskplugin-desc-reset" title="清空任务描述" disabled>重置</button>
-              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择；⌘/Ctrl+点击多选，Enter 确认">🖱️ 指针选择</button>
+              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择 (Ctrl+Shift+X)；⌘/Ctrl+点击多选，Enter 确认">🖱️ 指针选择</button>
             </span>
           </div>
           <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（可用指针选择页面元素）"></textarea>
@@ -466,14 +466,14 @@
     if (pickBtn) {
       pickBtn.textContent = pickMode ? '✕ 取消选择' : '🖱️ 指针选择';
       pickBtn.title = pickMode
-        ? '取消指针选择（Esc）；⌘/Ctrl+点击多选，Enter 确认'
-        : '指针选择；⌘/Ctrl+点击多选，Enter 确认';
+        ? '取消指针选择（Esc / Ctrl+Shift+X）；⌘/Ctrl+点击多选，Enter 确认'
+        : '指针选择 (Ctrl+Shift+X)；⌘/Ctrl+点击多选，Enter 确认';
     }
     if (!pickMode) {
       clearHighlight();
       clearPickSelection();
       btn.textContent = '+';
-      btn.title = 'TaskPlugin — 快速创建任务';
+      btn.title = 'TaskPlugin — 快速创建任务 (Ctrl+Shift+X 指针选择)';
       btn.classList.remove('taskplugin-picking-fab');
       chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
     } else {
@@ -482,7 +482,7 @@
       btn.classList.remove('taskplugin-active');
       isOpen = false;
       btn.textContent = '✕';
-      btn.title = '取消指针选择（Esc）；⌘/Ctrl+点击多选，Enter 确认';
+      btn.title = '取消指针选择（Esc / Ctrl+Shift+X）；⌘/Ctrl+点击多选，Enter 确认';
       btn.classList.add('taskplugin-picking-fab');
       chrome.runtime.sendMessage({
         action: 'broadcastStartElementPick',
@@ -1629,6 +1629,13 @@
       refreshAuthAndWorkspaces().catch((e) => {
         console.warn('[taskChromePlugin] authStateChanged 刷新失败:', e.message);
       });
+    }
+    if (msg.action === 'toggleElementPick') {
+      console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');
+      if (adjustModal && !adjustModal.hidden) closeAdjustModal();
+      setPickMode(!pickMode, 'float');
+      sendResponse?.({ success: true, pickMode });
+      return true;
     }
     if (msg.action === 'startElementPick') {
       console.log('[taskChromePlugin] startElementPick from', msg.source || 'devtools');

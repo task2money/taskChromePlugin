@@ -902,6 +902,21 @@ async function cropCaptureToElement(dataUrl, rect, dpr, maxWidth) {
   return `data:image/jpeg;base64,${btoa(binary)}`;
 }
 
+// ---- 键盘快捷键命令 ----
+
+chrome.commands.onCommand.addListener(async (command) => {
+  if (command !== 'toggle-element-picker') return;
+  try {
+    const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+    const tabId = tabs[0]?.id;
+    if (!tabId) return;
+    await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' }, { frameId: 0 });
+    console.log('[taskChromePlugin] toggleElementPick via shortcut sent to tab', tabId);
+  } catch (e) {
+    console.warn('[taskChromePlugin] toggleElementPick shortcut failed:', e.message || e);
+  }
+});
+
 // ---- 启动时恢复配置 ----
 (async function init() {
   try {
