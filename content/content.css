@@ -386,24 +386,6 @@
   opacity: .45 !important;
   cursor: not-allowed !important;
 }
-.taskplugin-btn-pick {
-  width: auto !important;
-  padding: 3px 8px !important;
-  font-size: 11px !important;
-  flex-shrink: 0 !important;
-  border-color: #89b4fa !important;
-  color: #89b4fa !important;
-  background: rgba(137, 180, 250, 0.12) !important;
-}
-.taskplugin-btn-pick:hover {
-  background: rgba(137, 180, 250, 0.25) !important;
-}
-.taskplugin-btn-pick.taskplugin-pick-active {
-  background: rgba(243, 139, 168, 0.2) !important;
-  border-color: #f38ba8 !important;
-  color: #f38ba8 !important;
-}
-
 /* 选元素模式：十字光标 */
 html.taskplugin-picking,
 html.taskplugin-picking * {

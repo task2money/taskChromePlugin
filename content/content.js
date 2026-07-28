@@ -49,10 +49,9 @@
             <span>描述</span>
             <span class="taskplugin-label-actions">
               <button type="button" class="taskplugin-btn taskplugin-btn-reset" id="taskplugin-desc-reset" title="清空任务描述" disabled>重置</button>
-              <button type="button" class="taskplugin-btn taskplugin-btn-pick" id="taskplugin-pick-btn" title="指针选择 (Ctrl+Shift+X)；⌘/Ctrl+点击多选，Enter 确认">🖱️ 指针选择</button>
             </span>
           </div>
-          <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（可用指针选择页面元素）"></textarea>
+          <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（按 Ctrl+Shift+X 指针选择页面元素）"></textarea>
         </div>
         <div class="taskplugin-form-group">
           <label>优先级</label>
@@ -191,7 +190,6 @@
   let membersData = [];
 
   const floatEnabledToggle = document.getElementById('taskplugin-float-enabled');
-  const pickBtn = document.getElementById('taskplugin-pick-btn');
   const adjustModal = document.getElementById('taskplugin-adjust-modal');
   const adjustElSummary = document.getElementById('taskplugin-adjust-el-summary');
   const adjustInput = document.getElementById('taskplugin-adjust-input');
@@ -462,13 +460,6 @@
       pickCrossOriginHintShown = false;
     }
     document.documentElement.classList.toggle('taskplugin-picking', pickMode);
-    pickBtn?.classList.toggle('taskplugin-pick-active', pickMode);
-    if (pickBtn) {
-      pickBtn.textContent = pickMode ? '✕ 取消选择' : '🖱️ 指针选择';
-      pickBtn.title = pickMode
-        ? '取消指针选择（Esc / Ctrl+Shift+X）；⌘/Ctrl+点击多选，Enter 确认'
-        : '指针选择 (Ctrl+Shift+X)；⌘/Ctrl+点击多选，Enter 确认';
-    }
     if (!pickMode) {
       clearHighlight();
       clearPickSelection();
@@ -560,7 +551,6 @@
           ? `已选 ${pickSelection.length} 个：Enter 确认；⌘/Ctrl+点击继续增删（Esc 清空）`
           : '已清空多选：⌘/Ctrl+点击添加，或普通点击单选';
         btn.title = tip;
-        if (pickBtn) pickBtn.title = tip;
         return;
       }
 
@@ -589,7 +579,6 @@
         clearHighlight();
         const tip = '已清空多选；Esc 再按退出指针模式';
         btn.title = tip;
-        if (pickBtn) pickBtn.title = tip;
         return;
       }
       setPickMode(false);
@@ -759,16 +748,6 @@
   }
 
   function setupElementPicker() {
-    if (!pickBtn) {
-      console.warn('[taskChromePlugin] pick button missing');
-      return;
-    }
-    pickBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (adjustModal && !adjustModal.hidden) closeAdjustModal();
-      setPickMode(!pickMode, 'float');
-    });
     document.addEventListener('mouseover', onPickMouseOver, true);
     document.addEventListener('click', onPickClick, true);
     document.addEventListener('keydown', onPickKeyDown, true);
