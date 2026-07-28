@@ -724,6 +724,16 @@
       };
       const block = ElementPicker.formatElementAdjustmentBlock(payload);
 
+      // 将调整内容复制到剪贴板
+      let copied = false;
+      try {
+        await navigator.clipboard.writeText(block);
+        copied = true;
+        console.log('[taskChromePlugin] element adjustment copied to clipboard');
+      } catch (clipErr) {
+        console.warn('[taskChromePlugin] clipboard copy failed:', clipErr.message || clipErr);
+      }
+
       if (source === 'devtools') {
         const relay = await sendMessageWithTimeout({
           action: 'elementPickResult',
@@ -733,13 +743,15 @@
         if (!relay?.success) throw new Error(relay?.error || '回传 DevTools 失败');
         console.log('[taskChromePlugin] element pick result relayed to DevTools');
         closeAdjustModal();
-        showResult('已将元素调整期望发送到 DevTools 面板', 'success');
+        const clipSuffix = copied ? '，并已复制到剪贴板' : '';
+        showResult(`已将元素调整期望发送到 DevTools 面板${clipSuffix}`, 'success');
       } else {
         descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, payload);
         syncDescResetButton();
         console.log('[taskChromePlugin] element adjustment appended to float description');
         closeAdjustModal();
-        showResult('已将元素调整期望加入任务描述', 'success');
+        const clipSuffix = copied ? '，并已复制到剪贴板' : '';
+        showResult(`已将元素调整期望加入任务描述${clipSuffix}`, 'success');
       }
     } catch (ex) {
       console.warn('[taskChromePlugin] confirmAdjustModal failed:', ex.message || ex);
