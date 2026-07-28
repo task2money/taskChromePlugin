@@ -616,7 +616,7 @@
       adjustError.className = 'taskplugin-result';
       adjustError.textContent = '';
     }
-    adjustInput.value = '';
+    adjustInput.value = '解决这个问题';
     if (adjustShot) adjustShot.checked = false;
     adjustModal.hidden = false;
     if (!isOpen) {
