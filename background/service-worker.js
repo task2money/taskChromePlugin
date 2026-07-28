@@ -628,6 +628,32 @@ async function handleMessage(message, sender) {
       await Storage.saveTrackingConfig(message.enabled);
       return { success: true };
 
+    case 'getSyncDescriptionConfig':
+      return { success: true, data: await Storage.getSyncDescriptionConfig() };
+
+    case 'setSyncDescriptionConfig':
+      await Storage.saveSyncDescriptionConfig(message.enabled);
+      return { success: true };
+
+    case 'syncDescription':
+      {
+        // 将描述广播到所有其他标签页（排除发送者）
+        const senderTabId = sender?.tab?.id;
+        if (senderTabId == null) return { success: true };
+        try {
+          const tabs = await chrome.tabs.query({});
+          for (const tab of tabs) {
+            if (tab.id == null || tab.id === senderTabId) continue;
+            chrome.tabs.sendMessage(tab.id, {
+              action: 'syncDescriptionUpdate',
+              description: message.description,
+              sourceUrl: message.sourceUrl,
+            }).catch(() => {});
+          }
+        } catch (_) { /* ignore */ }
+        return { success: true };
+      }
+
     case 'getTaskHistory':
       return { success: true, data: await Storage.getTaskHistory() };
 
