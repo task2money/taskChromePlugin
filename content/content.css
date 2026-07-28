@@ -350,6 +350,33 @@
 .taskplugin-result-success { background: rgba(166, 227, 161, 0.15) !important; color: #a6e3a1 !important; border: 1px solid #a6e3a1 !important; }
 .taskplugin-result-error { background: rgba(243, 139, 168, 0.15) !important; color: #f38ba8 !important; border: 1px solid #f38ba8 !important; }
 
+/* 创建成功后的页面 toast（面板外） */
+#taskplugin-page-toast {
+  position: fixed !important;
+  bottom: 88px !important;
+  right: 24px !important;
+  z-index: 2147483646 !important;
+  max-width: min(360px, calc(100vw - 48px)) !important;
+  padding: 10px 14px !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: #a6e3a1 !important;
+  background: rgba(30, 30, 46, 0.94) !important;
+  border: 1px solid #a6e3a1 !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35) !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: translateY(8px) !important;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+  display: none !important;
+}
+#taskplugin-page-toast.taskplugin-page-toast-show {
+  display: block !important;
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+}
+
 /* 描述行：标签 + 重置 / 指针选择 */
 .taskplugin-label-row {
   display: flex !important;
