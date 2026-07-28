@@ -50,14 +50,16 @@ const Popup = (() => {
     const spinner = $('#loadingSpinner');
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
+    const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
     const userGuideSec = $('#popupGuideSection');
     const spinnerVisible = spinner && spinner.style.display !== 'none';
     const loginHidden = !loginSec || loginSec.style.display === 'none';
     const guideHidden = !devGuide || devGuide.style.display === 'none';
+    const shortcutsHidden = !shortcutsSec || shortcutsSec.style.display === 'none';
     const reqHidden = !reqSec || reqSec.style.display === 'none';
     const userGuideHidden = !userGuideSec || userGuideSec.style.display === 'none';
-    return spinnerVisible && loginHidden && guideHidden && reqHidden && userGuideHidden;
+    return spinnerVisible && loginHidden && guideHidden && shortcutsHidden && reqHidden && userGuideHidden;
   }
 
   async function restoreRememberedFormFields() {
@@ -157,11 +159,13 @@ const Popup = (() => {
     const retryBtn = $('#btnRetryInit');
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
+    const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
     if (spinner) spinner.style.display = 'flex';
     if (retryBtn) retryBtn.style.display = 'none';
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'none';
+    if (shortcutsSec) shortcutsSec.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
     setPopupGuideVisible(false);
 
@@ -173,6 +177,7 @@ const Popup = (() => {
     const headerArea = $('#headerUserArea');
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
+    const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
     const loginHint = $('#loginHint');
     const loginResult = $('#loginResult');
@@ -181,6 +186,7 @@ const Popup = (() => {
     if (headerArea) headerArea.style.display = 'none';
     if (loginSec) loginSec.style.display = 'block';
     if (devGuide) devGuide.style.display = 'none';
+    if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
     setPopupGuideVisible(true);
     mountPopupUserGuide();
@@ -210,9 +216,11 @@ const Popup = (() => {
     // 显示重新登录按钮
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
+    const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
     if (loginSec) loginSec.style.display = 'block';
     if (devGuide) devGuide.style.display = 'none';
+    if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
     setPopupGuideVisible(true);
     mountPopupUserGuide();
@@ -236,12 +244,14 @@ const Popup = (() => {
     const headerUser = $('#headerUser');
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
+    const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
     if (status) status.style.display = 'none';
     if (headerArea) headerArea.style.display = 'flex';
     if (headerUser) headerUser.textContent = '👤 ' + (username || '(已登录)');
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'block';
+    if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
     setPopupGuideVisible(true);
     mountPopupUserGuide();

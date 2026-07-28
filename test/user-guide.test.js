@@ -15,6 +15,7 @@ const REQUIRED_IDS = [
   'devtools-single',
   'devtools-batch',
   'popup-extras',
+  'keyboard-shortcuts',
 ];
 
 describe('UserGuide sections', () => {

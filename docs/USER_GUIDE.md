@@ -51,6 +51,14 @@
 1. 登录后可开关「显示悬浮球」「跟踪请求（保留刷新前的记录）」。
 2. 请求预览可展开查看近期捕获；详细建任务请用 DevTools TaskPlugin 或页内浮窗。
 
+## ⌨️ 快捷键
+
+1. **Ctrl+Shift+X**（Mac: ⌘+Shift+X）：切换指针选择模式，在任意页面选取元素加入任务描述。
+2. **F12**：打开 Chrome DevTools → 切换到 TaskPlugin 面板创建任务或批量捕获错误。
+3. **Esc**：取消指针选择；多选状态下先清空多选，再按退出指针模式；关闭调整弹窗。
+4. **⌘/Ctrl + 点击**：指针选择模式下累加多选不关联元素（再点取消），仅限同一 frame。
+5. **Enter**：指针选择模式下确认多选，打开调整弹窗填写期望。
+
 ---
 
 ## 章节 ID（与 `user-guide.js` 对齐）
@@ -64,3 +72,4 @@
 | `devtools-single` | DevTools — 单请求创建任务 |
 | `devtools-batch` | DevTools — 批量错误捕获 |
 | `popup-extras` | 扩展弹窗 — 其它开关 |
+| `keyboard-shortcuts` | ⌨️ 快捷键 |
