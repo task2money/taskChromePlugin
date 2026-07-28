@@ -199,7 +199,10 @@
   const adjustShot = document.getElementById('taskplugin-adjust-shot');
 
   let isOpen = false;
+  /** 本次打开浮窗（鉴权/aidev 完成后）的表单快照；创建成功后还原 */
+  let openSnapshot = null;
   let isLoggedIn = false;
+  let pageToastTimer = null;
   let pickMode = false;
   let highlightedEls = [];
   let highlightDoc = null;
@@ -866,6 +869,7 @@
 
     if (isOpen) {
       await refreshAuthAndWorkspaces();
+      openSnapshot = captureOpenSnapshot();
     }
   });
 
@@ -1414,10 +1418,24 @@
         throw err;
       }
 
-      showResult(`✅ 任务创建成功! ID: ${resp.data?.id || resp.data?._id || '(已创建)'}`, 'success');
-      titleInput.value = '';
-      descInput.value = '';
-      syncDescResetButton();
+      const AfterCreate = typeof FloatPanelAfterCreate !== 'undefined' ? FloatPanelAfterCreate : null;
+      const taskId = AfterCreate
+        ? AfterCreate.extractCreatedTaskId(resp.data)
+        : (resp.data?.id || resp.data?._id || '(已创建)');
+      const toastMsg = AfterCreate
+        ? AfterCreate.formatFloatCreateSuccessToast(taskId)
+        : `✅ 任务创建成功! ID: ${taskId}`;
+
+      hideFloatPanel();
+      try {
+        await restoreOpenSnapshot(openSnapshot);
+      } catch (restoreErr) {
+        console.warn('[taskChromePlugin] restoreOpenSnapshot 失败:', restoreErr?.message || restoreErr);
+        titleInput.value = '';
+        descInput.value = '';
+        syncDescResetButton();
+      }
+      showPageToast(toastMsg);
     } catch (e) {
       showResult(`❌ 创建失败: ${e.message}`, 'error', e.traceId);
     } finally {
@@ -1589,6 +1607,142 @@
       resultDiv.className = 'taskplugin-result';
       resultDiv.removeAttribute('data-traceId');
     }, 6000);
+  }
+
+  function captureOpenSnapshot() {
+    const AfterCreate = typeof FloatPanelAfterCreate !== 'undefined' ? FloatPanelAfterCreate : null;
+    const raw = {
+      workspaceId: wsSelect.value || '',
+      projectIds: Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value),
+      title: titleInput.value,
+      description: descInput.value,
+      priority: document.getElementById('taskplugin-priority')?.value || '1',
+      progress_column_id: progressSelect?.value || '',
+      deliverable_obj_id: deliverableSelect?.value || '',
+      container_image_id: imageSelect?.value || '',
+      feature_params_source: featureParamsSelect?.value || '',
+      personal_feature_params_config_id: personalConfigSelect?.value || '',
+      due_date: dueDateInput?.value || '',
+      auto_run: Boolean(autoRunInput?.checked),
+      repoBaseBranches: (typeof CreateTaskPayload !== 'undefined' && repoBasesDiv)
+        ? CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv)
+        : {},
+      assigneeIds: getSelectedAssigneeIds(),
+      workBranch: workBranch.value,
+      mergeTarget: mergeTarget.value,
+    };
+    return AfterCreate ? AfterCreate.normalizeOpenSnapshot(raw) : raw;
+  }
+
+  function applyScalarFieldsFromSnapshot(snap) {
+    titleInput.value = snap.title || '';
+    descInput.value = snap.description || '';
+    syncDescResetButton();
+    const priorityEl = document.getElementById('taskplugin-priority');
+    if (priorityEl) priorityEl.value = snap.priority || '1';
+    if (workBranch) workBranch.value = snap.workBranch || '';
+    if (mergeTarget) mergeTarget.value = snap.mergeTarget || '';
+    if (autoRunInput) autoRunInput.checked = Boolean(snap.auto_run);
+    if (featureParamsSelect) {
+      featureParamsSelect.value = snap.feature_params_source || '';
+      if (personalWrap) {
+        personalWrap.style.display = featureParamsSelect.value === 'personal' ? '' : 'none';
+      }
+    }
+  }
+
+  async function restoreOpenSnapshot(snap) {
+    if (!snap) {
+      titleInput.value = '';
+      descInput.value = '';
+      syncDescResetButton();
+      return;
+    }
+    const AfterCreate = typeof FloatPanelAfterCreate !== 'undefined' ? FloatPanelAfterCreate : null;
+    const normalized = AfterCreate ? AfterCreate.normalizeOpenSnapshot(snap) : snap;
+
+    applyScalarFieldsFromSnapshot(normalized);
+
+    const wsId = normalized.workspaceId || '';
+    if (!wsId) {
+      wsSelect.value = '';
+      projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
+      if (progressSelect) progressSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+      if (deliverableSelect) deliverableSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+      if (repoBasesDiv) repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">勾选项目后按仓库填写</span>';
+      if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
+      membersData = [];
+      if (dueDateInput) dueDateInput.value = normalized.due_date || '';
+      await seedBranchDatalists([]);
+      return;
+    }
+
+    wsSelect.value = wsId;
+    await loadProjects(wsId);
+    const projectSet = new Set(normalized.projectIds || []);
+    for (const cb of projectsDiv.querySelectorAll('input[type="checkbox"]')) {
+      cb.checked = projectSet.has(String(cb.value));
+    }
+    await loadWorkspaceCreateMeta(wsId);
+
+    if (progressSelect && normalized.progress_column_id) {
+      progressSelect.value = normalized.progress_column_id;
+    }
+    if (deliverableSelect && normalized.deliverable_obj_id) {
+      deliverableSelect.value = normalized.deliverable_obj_id;
+    }
+    if (imageSelect) imageSelect.value = normalized.container_image_id || '';
+    if (personalConfigSelect) {
+      personalConfigSelect.value = normalized.personal_feature_params_config_id || '';
+    }
+    if (dueDateInput) dueDateInput.value = normalized.due_date || '';
+
+    const assigneeSet = new Set(normalized.assigneeIds || []);
+    if (assigneesDiv) {
+      for (const cb of assigneesDiv.querySelectorAll('.taskplugin-assignee')) {
+        cb.checked = assigneeSet.has(String(cb.value));
+      }
+    }
+
+    if (repoBasesDiv && typeof CreateTaskPayload !== 'undefined') {
+      repoBasesDiv.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
+        projectIds: normalized.projectIds || [],
+        projectsList: projectsData,
+        previousValues: normalized.repoBaseBranches || {},
+        inputClass: 'taskplugin-input',
+        emptyHint: '勾选项目后按仓库填写',
+      });
+    }
+
+    await fetchBranchesForFloatingPanel(wsId, normalized.projectIds || []);
+    if (workBranch) workBranch.value = normalized.workBranch || '';
+    if (mergeTarget) mergeTarget.value = normalized.mergeTarget || '';
+  }
+
+  function hideFloatPanel() {
+    isOpen = false;
+    panel.classList.remove('taskplugin-open');
+    btn.classList.remove('taskplugin-active');
+    if (pickMode) setPickMode(false);
+    if (adjustModal && !adjustModal.hidden) closeAdjustModal();
+    resultDiv.className = 'taskplugin-result';
+    resultDiv.textContent = '';
+    resultDiv.removeAttribute('data-traceId');
+  }
+
+  function showPageToast(msg) {
+    let toast = document.getElementById('taskplugin-page-toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'taskplugin-page-toast';
+      root.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.className = 'taskplugin-page-toast taskplugin-page-toast-show';
+    if (pageToastTimer) clearTimeout(pageToastTimer);
+    pageToastTimer = setTimeout(() => {
+      toast.classList.remove('taskplugin-page-toast-show');
+    }, 3000);
   }
 
   function esc(s) {
