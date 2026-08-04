@@ -268,6 +268,47 @@ async function completeLoginAndRespond(baseUrl, token, expiresIn, username, user
   return { success: true, data: result };
 }
 
+/**
+ * 从浏览器 Cookie 中读取 Web 登录 token，自动桥接到插件。
+ * 主站登录后 taskAuth 会 Set-Cookie: token=<api_token>，
+ * 插件可通过 chrome.cookies API 读取并恢复登录态，无需手动输入 token。
+ */
+async function tryAutoDetectTokenFromCookie(baseUrl) {
+  try {
+    const cookie = await chrome.cookies.get({
+      url: (baseUrl || 'https://aidevpush.com') + '/',
+      name: 'token',
+    });
+    if (!cookie || !cookie.value) return null;
+
+    // 快速验证 token 有效性（3s 超时，不阻塞弹窗打开）
+    const resp = await fetch(`${baseUrl}/api/accounts/users/me/`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Token ${cookie.value}`,
+        'Accept': 'application/json',
+      },
+      signal: AbortSignal.timeout(3000),
+    });
+    if (!resp.ok) return null;
+
+    const user = await resp.json().catch(() => ({}));
+    const username = user?.username || user?.email || '';
+    const userId = user?.id ? String(user.id) : '';
+
+    // 持久化到 storage，后续请求直接使用
+    await Storage.saveApiConfig(baseUrl, cookie.value, 0);
+    if (username || userId) {
+      await Storage.saveCredentials(username, userId, '');
+    }
+    console.log('[taskChromePlugin] Auto-detected web login via token cookie:', username || userId || '(anonymous)');
+    return cookie.value;
+  } catch (e) {
+    console.warn('[taskChromePlugin] Cookie token auto-detect error:', e.message || e);
+    return null;
+  }
+}
+
 // ---- 内存中的请求缓存 (DevTools 转发) ----
 
 let devToolsRequests = [];
@@ -307,9 +348,25 @@ async function handleMessage(message, sender) {
     case 'getAuthStatus':
       {
         await Storage.migrateStaleTokenExpiryOnce();
-        const cfg = await Storage.getApiConfig();
-        const cred = await Storage.getCredentials();
-        const expired = await Storage.isTokenExpired();
+        let cfg = await Storage.getApiConfig();
+        let cred = await Storage.getCredentials();
+        let expired = cfg.token ? await Storage.isTokenExpired() : false;
+
+        // 如果 storage 中没有 token，尝试从 Cookie 读取（自动检测 Web 登录态）
+        if (!cfg.token) {
+          try {
+            const cookieToken = await tryAutoDetectTokenFromCookie(cfg.baseUrl);
+            if (cookieToken) {
+              // 重新读取 storage（tryAutoDetectTokenFromCookie 已写入）
+              cfg = await Storage.getApiConfig();
+              cred = await Storage.getCredentials();
+              expired = false;
+            }
+          } catch (e) {
+            console.warn('[taskChromePlugin] Cookie token detection failed:', e.message || e);
+          }
+        }
+
         const remainingSeconds = await Storage.getTokenRemainingSeconds();
         return {
           success: true,
