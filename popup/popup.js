@@ -255,6 +255,63 @@ const Popup = (() => {
     if (reqSec) reqSec.style.display = 'block';
     setPopupGuideVisible(true);
     mountPopupUserGuide();
+
+    // 加载多账号列表（异步，不阻塞 UI）
+    loadSavedAccounts().catch(() => {});
+  }
+
+  // ---- 多账号列表 ----
+
+  async function loadSavedAccounts() {
+    let accounts = [];
+    let activeUserId = null;
+    try {
+      const r = await sendMessageWithTimeout({ action: 'getSavedAccounts' }, 5000);
+      if (r?.success && Array.isArray(r.data)) {
+        accounts = r.data;
+      }
+      const a = await sendMessageWithTimeout({ action: 'getActiveAccount' }, 5000);
+      if (a?.success && a.data) {
+        activeUserId = a.data.userId;
+      }
+    } catch (e) {
+      console.warn('[TaskPlugin] 加载多账号列表失败:', e.message || e);
+      return;
+    }
+
+    renderAccountList(accounts, activeUserId);
+  }
+
+  function renderAccountList(accounts, activeUserId) {
+    const section = $('#accountsSection');
+    const list = $('#savedAccountsList');
+    const count = $('#accountCount');
+    if (!section || !list) return;
+
+    if (!accounts || accounts.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+
+    section.style.display = 'block';
+    if (count) count.textContent = `(${accounts.length})`;
+
+    let html = '';
+    for (const acct of accounts) {
+      const isActive = acct.userId === activeUserId;
+      const avatar = acct.avatarUrl
+        ? `<img src="${escHtml(acct.avatarUrl)}" class="acct-avatar" alt="" onerror="this.style.display='none'">`
+        : '<span class="acct-avatar-placeholder">👤</span>';
+      const name = escHtml(acct.username || acct.userId || '(未知)');
+      const activeBadge = isActive ? '<span class="acct-active-badge">✓ 当前</span>' : '';
+
+      html += `<div class="account-item${isActive ? ' active' : ''}">
+        ${avatar}
+        <span class="acct-name">${name}</span>
+        ${activeBadge}
+      </div>`;
+    }
+    list.innerHTML = html;
   }
 
   async function loadStateFromStorage() {

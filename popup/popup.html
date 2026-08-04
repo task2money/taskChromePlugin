@@ -25,6 +25,12 @@
 
     <!-- 登录区域 — 账号 + 访问令牌 -->
     <section id="loginSection" class="section" style="display:none">
+
+    <!-- 多账号列表（已登录时显示） -->
+    <section id="accountsSection" class="section" style="display:none">
+      <h3>👥 已保存账号 <span id="accountCount" class="hint-inline"></span></h3>
+      <div id="savedAccountsList" class="accounts-list"></div>
+    </section>
       <h3>🔐 登录</h3>
       <p id="loginHint" class="hint" style="margin-bottom:12px">输入 task2app 账号与访问令牌（在账号中心 → 访问令牌 中生成）。</p>
       <div class="form-row">
@@ -140,6 +146,7 @@
   </div>
 
   <script src="../lib/storage.js"></script>
+  <script src="../lib/multi-account.js"></script>
   <script src="../lib/dom-trace.js"></script>
   <script src="../lib/api.js"></script>
   <script src="../lib/async-timeout.js"></script>

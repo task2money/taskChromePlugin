@@ -1842,6 +1842,17 @@
       refreshAuthAndWorkspaces().catch((e) => {
         console.warn('[taskChromePlugin] authStateChanged 刷新失败:', e.message);
       });
+      // 同时通知页面账号状态已变更（多账号桥接）
+      try {
+        window.postMessage({
+          source: 'taskfe-account-bridge',
+          action: 'accountStateChanged',
+          requestId: null,
+          success: true,
+          data: { event: 'authStateChanged' },
+          error: null,
+        }, '*');
+      } catch { /* ignore */ }
     }
     if (msg.action === 'toggleElementPick') {
       console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');

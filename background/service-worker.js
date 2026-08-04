@@ -15,6 +15,7 @@ importScripts(
   '../lib/element-picker.js',
   '../lib/async-timeout.js',
   '../lib/login-finalize.js',
+  '../lib/multi-account.js',
 );
 
 // ---- 顶层注册 webRequest 监听器 (MV3 最佳实践) ----
@@ -825,6 +826,89 @@ async function handleMessage(message, sender) {
         }
       }
 
+    // ---- 多账号管理 (Multi-Account Bridge) ----
+
+    case 'getSavedAccounts':
+      {
+        const list = await MultiAccount.listSavedAccounts();
+        return { success: true, data: list };
+      }
+
+    case 'upsertSavedAccount':
+      {
+        const result = await MultiAccount.upsertSavedAccount(message);
+        return { success: true, data: result };
+      }
+
+    case 'removeSavedAccount':
+      {
+        const result = await MultiAccount.removeSavedAccount(message.userId);
+        return { success: true, data: result };
+      }
+
+    case 'getActiveToken':
+      {
+        const token = await MultiAccount.getActiveToken();
+        return { success: true, data: token };
+      }
+
+    case 'getActiveAccount':
+      {
+        const account = await MultiAccount.getActiveAccount();
+        return { success: true, data: account };
+      }
+
+    case 'getCurrentUserId':
+      {
+        const userId = await MultiAccount.getActiveCurrentUserId();
+        return { success: true, data: userId };
+      }
+
+    case 'switchAccount':
+      {
+        try {
+          const account = await MultiAccount.setActiveUserId(message.userId);
+          // 同步 token 到现有 API 模块，使后续 API 调用使用新账号
+          API.init(
+            undefined,        // 保持 baseUrl 不变
+            account.token,
+            undefined,        // 保持 endpointMapping
+            account.userId,
+          );
+          await Storage.saveApiConfig('', account.token, 0);
+          await Storage.saveCredentials(account.username, account.userId, '');
+          // 广播账号切换事件到所有 tab，触发前端状态刷新
+          broadcastAuthStateChanged().catch(() => {});
+          return { success: true, data: account };
+        } catch (e) {
+          return { success: false, error: e.message };
+        }
+      }
+
+    case 'setActiveAccount':
+      {
+        try {
+          const upsertResult = await MultiAccount.upsertSavedAccount(message);
+          const account = await MultiAccount.setActiveUserId(upsertResult.upserted.userId);
+          // 同步到现有 API/Storage 层
+          API.init(undefined, account.token, undefined, account.userId);
+          await Storage.saveApiConfig('', account.token, 0);
+          await Storage.saveCredentials(account.username, account.userId, '');
+          broadcastAuthStateChanged().catch(() => {});
+          return { success: true, data: upsertResult };
+        } catch (e) {
+          return { success: false, error: e.message };
+        }
+      }
+
+    case 'clearSavedAccounts':
+      {
+        await MultiAccount.clearSavedAccounts();
+        await Storage.clearAuth();
+        API.init(undefined, '', undefined, '');
+        return { success: true };
+      }
+
     default:
       return { error: `Unknown action: ${message.action}` };
   }
@@ -965,4 +1049,112 @@ chrome.commands.onCommand.addListener(async (command) => {
   } catch (e) {
     console.error('[taskChromePlugin] Service Worker 初始化失败:', e);
   }
+
+  // 启动账号过期定期检查（每 30 分钟）
+  startAccountExpiryCheck();
 })();
+
+// ---- 账号过期主动检测 ----
+
+const ACCOUNT_CHECK_ALARM_NAME = 'accountExpiryCheck';
+const ACCOUNT_CHECK_INTERVAL_MIN = 30; // 每 30 分钟检查一次
+
+/**
+ * 启动定期账号过期检测 alarm。
+ * MV3 Service Worker 可能随时被终止，alarm 会唤醒 SW 重新初始化。
+ */
+function startAccountExpiryCheck() {
+  chrome.alarms.get(ACCOUNT_CHECK_ALARM_NAME, (existing) => {
+    if (!existing) {
+      chrome.alarms.create(ACCOUNT_CHECK_ALARM_NAME, {
+        delayInMinutes: 3,  // 首次启动 3 分钟后检查
+        periodInMinutes: ACCOUNT_CHECK_INTERVAL_MIN,
+      });
+      console.log('[taskChromePlugin] 账号过期检测已启动（每30分钟）');
+    }
+  });
+}
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ACCOUNT_CHECK_ALARM_NAME) {
+    checkAllAccountsForExpiry().catch((e) => {
+      console.warn('[taskChromePlugin] 账号过期检测失败:', e.message || e);
+    });
+  }
+});
+
+/**
+ * 检查所有已保存账号的 token 有效性。
+ * 对每个账号调用 /api/accounts/users/me/ 探测，401/403 表示失效。
+ * 失效账号通过 postMessage 广播给所有页面。
+ */
+async function checkAllAccountsForExpiry() {
+  let accounts = [];
+  try {
+    const list = await MultiAccount.listSavedAccounts();
+    if (!Array.isArray(list) || list.length === 0) return;
+    accounts = list;
+  } catch (e) {
+    console.warn('[taskChromePlugin] 获取已保存账号列表失败:', e.message || e);
+    return;
+  }
+
+  const expiredAccounts = [];
+  const baseUrl = (await Storage.getApiConfig()).baseUrl;
+
+  for (const acct of accounts) {
+    if (!acct.token || !acct.userId) continue;
+    try {
+      const resp = await fetch(`${baseUrl}/api/accounts/users/me/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${acct.token}`,
+          'Accept': 'application/json',
+        },
+        signal: AbortSignal.timeout(10000),
+      });
+      if (resp.status === 401 || resp.status === 403) {
+        expiredAccounts.push({
+          userId: acct.userId,
+          username: acct.username || '',
+        });
+      }
+    } catch (e) {
+      // 网络错误不视为过期（可能是离线），静默跳过
+      if (e.name === 'TimeoutError' || e.name === 'AbortError') {
+        console.warn(`[taskChromePlugin] 账号 ${acct.username} token 检查超时`);
+      }
+    }
+  }
+
+  if (expiredAccounts.length > 0) {
+    console.log(`[taskChromePlugin] 检测到 ${expiredAccounts.length} 个账号 token 已过期:`,
+      expiredAccounts.map(a => a.username || a.userId).join(', '));
+    broadcastAccountExpired(expiredAccounts);
+  }
+}
+
+/**
+ * 向所有标签页广播 accountExpired 事件。
+ * content script / page-bridge 会将事件转发给页面。
+ */
+async function broadcastAccountExpired(expiredAccounts) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    await Promise.allSettled(
+      tabs.map((tab) => {
+        if (!tab.id) return Promise.resolve();
+        const send = chrome.tabs.sendMessage(tab.id, {
+          action: 'accountExpired',
+          data: { accounts: expiredAccounts },
+        }).catch(() => {});
+        if (typeof withTimeout === 'function') {
+          return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'accountExpired broadcast').catch(() => {});
+        }
+        return send;
+      }),
+    );
+  } catch (e) {
+    console.warn('[taskChromePlugin] broadcastAccountExpired 失败:', e.message || e);
+  }
+}
