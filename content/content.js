@@ -220,7 +220,7 @@
   /** Cmd/Ctrl 累加多选（同 frame 内，点击顺序） */
   let pickSelection = [];
   let pickSelectionFrame = null; // Element|null，与第一次累加的 frameElement 对齐
-  let apiCfg = { baseUrl: 'https://daydaymoney.com', token: '' };
+  let apiCfg = { baseUrl: 'https://aidevpush.com', token: '' };
   let workspacesData = [];
   let projectsData = [];
   let pendingAidevMatches = null;

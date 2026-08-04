@@ -23,7 +23,7 @@ test.describe('Shift+Click sibling range selection', () => {
   test('Shift+click selects siblings in range and shows "兄弟区间" indicator', async ({ page }) => {
     // 1. Inject chrome API stubs + mock ElementPicker before page load
     await page.addInitScript(() => {
-      const store = { token: '', baseUrl: 'https://daydaymoney.com' };
+      const store = { token: '', baseUrl: 'https://aidevpush.com' };
 
       window.chrome = {
         runtime: {

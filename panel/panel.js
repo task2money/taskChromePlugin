@@ -9,7 +9,7 @@
 
 const Panel = (() => {
   // ---- State ----
-  let apiConfig = { baseUrl: 'https://daydaymoney.com', token: '' };
+  let apiConfig = { baseUrl: 'https://aidevpush.com', token: '' };
   let isLoggedIn = false;
   /** 上一轮 refreshAuthState 的登录态，用于检测「已登录→过期/登出」翻转 */
   let wasLoggedIn = false;

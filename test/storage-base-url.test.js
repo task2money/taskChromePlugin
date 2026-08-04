@@ -45,7 +45,7 @@ describe('Storage baseUrl persistence', () => {
 
   it('getApiConfig returns default when no baseUrl saved', async () => {
     const cfg = await Storage.getApiConfig();
-    assert.equal(cfg.baseUrl, 'https://daydaymoney.com');
+    assert.equal(cfg.baseUrl, 'https://aidevpush.com');
   });
 
   it('saveBaseUrl persists custom address across getApiConfig', async () => {
@@ -57,10 +57,10 @@ describe('Storage baseUrl persistence', () => {
   it('getApiConfig migrates legacy IP:port baseUrl to default gateway', async () => {
     await Storage.set({ baseUrl: 'http://10.0.0.1:4000' });
     const cfg = await Storage.getApiConfig();
-    assert.equal(cfg.baseUrl, 'https://daydaymoney.com');
+    assert.equal(cfg.baseUrl, 'https://aidevpush.com');
     // 验证迁移后存储也被更新
     const raw = await Storage.get(['baseUrl']);
-    assert.equal(raw.baseUrl, 'https://daydaymoney.com');
+    assert.equal(raw.baseUrl, 'https://aidevpush.com');
   });
 
   it('clearAuth clears token but keeps baseUrl', async () => {

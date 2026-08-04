@@ -396,7 +396,7 @@ test.describe('跨页面同步任务描述', () => {
     // 注入 chrome stubs（已登录态）
     await page.addInitScript(() => {
       const store = {
-        baseUrl: 'https://daydaymoney.com',
+        baseUrl: 'https://aidevpush.com',
         token: 'fake-token',
         tokenExpiresAt: 0,
         tokenIssuedAt: 0,

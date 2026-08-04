@@ -21,7 +21,7 @@ describe('scheduleAuthBroadcast', () => {
     const done = finalizeLoginSuccess({
       saveApiConfig: async () => {},
       saveCredentials: async () => {},
-      baseUrl: 'https://daydaymoney.com',
+      baseUrl: 'https://aidevpush.com',
       token: 'session-token',
       expiresIn: 0,
       username: 'u@test.com',
@@ -62,7 +62,7 @@ describe('persistLoginCredentials', () => {
       saveCredentials: async (username, userId, memberId) => {
         calls.push(['saveCredentials', username, userId, memberId]);
       },
-      baseUrl: 'https://daydaymoney.com',
+      baseUrl: 'https://aidevpush.com',
       token: '351fc90c6d0b447d4d0deebe09bc27c30a82b2b1',
       expiresIn: 0,
       username: 'ljy124818167@qq.com',
@@ -72,7 +72,7 @@ describe('persistLoginCredentials', () => {
       timeoutMs: 500,
     });
     assert.deepEqual(calls, [
-      ['saveApiConfig', 'https://daydaymoney.com', '351fc90c6d0b447d4d0deebe09bc27c30a82b2b1', 0],
+      ['saveApiConfig', 'https://aidevpush.com', '351fc90c6d0b447d4d0deebe09bc27c30a82b2b1', 0],
       ['saveCredentials', 'ljy124818167@qq.com', '850256676127797248', '850256677331562497'],
     ]);
   });
@@ -82,7 +82,7 @@ describe('persistLoginCredentials', () => {
       () => persistLoginCredentials({
         saveApiConfig: () => new Promise(() => {}),
         saveCredentials: async () => {},
-        baseUrl: 'https://daydaymoney.com',
+        baseUrl: 'https://aidevpush.com',
         token: 'tok',
         expiresIn: 0,
         username: 'u',

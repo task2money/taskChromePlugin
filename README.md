@@ -118,7 +118,7 @@ bash scripts/hooks/install.sh
 
 ## API 接口约定
 
-插件默认连接 `https://daydaymoney.com`，可在登录界面修改。注意：`http://<ip>:4000` 为本地 Vue 前端站点，不代理 `/api` 请求。期望以下 REST 端点：
+插件默认连接 `https://aidevpush.com`，可在登录界面修改。注意：`http://<ip>:4000` 为本地 Vue 前端站点，不代理 `/api` 请求。期望以下 REST 端点：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|

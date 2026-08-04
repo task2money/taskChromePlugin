@@ -70,7 +70,7 @@ async function installChromeStub(page, opts = {}) {
 
   await page.addInitScript(({ loginOk, loginDelayMs: delay, hangBroadcast: hang }) => {
     const store = {
-      baseUrl: 'https://daydaymoney.com',
+      baseUrl: 'https://aidevpush.com',
       token: '',
       tokenExpiresAt: 0,
       tokenIssuedAt: 0,
@@ -171,7 +171,7 @@ test.describe('Popup token login', () => {
 
     await expect(page.locator('#loginSection')).toBeVisible({ timeout: 10000 });
 
-    await page.locator('#baseUrl').fill('https://daydaymoney.com');
+    await page.locator('#baseUrl').fill('https://aidevpush.com');
     await page.locator('#username').fill('ljy124818167@qq.com');
     await page.locator('#accessToken').fill('at_0123456789abcdef');
 
@@ -188,7 +188,7 @@ test.describe('Popup token login', () => {
     await page.goto(POPUP_URL);
     await expect(page.locator('#loginSection')).toBeVisible({ timeout: 10000 });
 
-    await page.locator('#baseUrl').fill('https://daydaymoney.com');
+    await page.locator('#baseUrl').fill('https://aidevpush.com');
     await page.locator('#username').fill('ljy124818167@qq.com');
     await page.locator('#accessToken').fill('at_trace17346d83d6656def');
 
