@@ -225,3 +225,49 @@ describe('shouldEnrichHarBody', () => {
     );
   });
 });
+
+describe('filterBackfillCandidates', () => {
+  it('keeps candidates inside the window', () => {
+    const now = Date.now();
+    const req = { harKey: 'k1', timestamp: now - 60 * 1000 };
+    const kept = HarRequest.filterBackfillCandidates([req], { cutoffMs: now - 5 * 60 * 1000 });
+    assert.deepEqual(kept, [req]);
+  });
+
+  it('skips candidates older than the window (cleaned by the 30s sweep)', () => {
+    const now = Date.now();
+    const old = { harKey: 'k1', timestamp: now - 6 * 60 * 1000 };
+    const fresh = { harKey: 'k2', timestamp: now - 1000 };
+    const kept = HarRequest.filterBackfillCandidates([old, fresh], { cutoffMs: now - 5 * 60 * 1000 });
+    assert.deepEqual(kept, [fresh]);
+  });
+
+  it('skips candidates whose harKey is already in the buffer', () => {
+    const now = Date.now();
+    const dup = { harKey: 'k1', timestamp: now - 1000 };
+    const known = new Set(['k1', 'k2']);
+    const kept = HarRequest.filterBackfillCandidates([dup, { harKey: 'k3', timestamp: now - 1000 }], {
+      cutoffMs: now - 5 * 60 * 1000,
+      knownKeys: known,
+    });
+    assert.equal(kept.length, 1);
+    assert.equal(kept[0].harKey, 'k3');
+  });
+
+  it('is a no-op filter when options are absent', () => {
+    const reqs = [{ harKey: 'k1', timestamp: 1 }, { harKey: 'k2', timestamp: 2 }];
+    const kept = HarRequest.filterBackfillCandidates(reqs);
+    assert.deepEqual(kept, reqs);
+  });
+
+  it('handles non-array input', () => {
+    assert.deepEqual(HarRequest.filterBackfillCandidates(undefined, {}), []);
+    assert.deepEqual(HarRequest.filterBackfillCandidates(null, {}), []);
+  });
+
+  it('keeps requests with unknown timestamp (parse fallback)', () => {
+    const req = { harKey: 'k1', timestamp: 0 };
+    const kept = HarRequest.filterBackfillCandidates([req], { cutoffMs: Date.now() });
+    assert.deepEqual(kept, [req]);
+  });
+});

@@ -10,6 +10,7 @@ const recentRequests = [];
 const seenHarKeys = new Set();
 const MAX_BUFFER = 200;
 const MAX_SEEN_KEYS = 2000;
+const CLEANUP_WINDOW_MS = 5 * 60 * 1000; // 清理线程的过期窗口（与下方 setInterval 一致）
 const BACKFILL_ENRICH_MAX = 25;
 const BACKFILL_ENRICH_CONCURRENCY = 5;
 let panelWindowRef = null;
@@ -144,7 +145,14 @@ async function backfillFromHar(options = {}) {
       const har = await chrome.devtools.network.getHAR();
       const entries = har?.log?.entries || [];
       const entryIndex = HarRequest.indexHarEntriesByKey(entries);
-      const { added: candidates } = HarRequest.mergeHarEntries(entries, seenHarKeys);
+      const { added: mergedCandidates } = HarRequest.mergeHarEntries(entries, seenHarKeys);
+      // 清理线程每 30s 会把超过 CLEANUP_WINDOW_MS 的请求移出缓冲区并遗忘 harKey；
+      // 若补录时把这些旧条目重新加入，panel 列表会出现重复项。与清理窗口对齐跳过，
+      // 同时对仍在缓冲区内的请求按 harKey 去重（seenHarKeys 逐出后它们可能被再次补录）。
+      const candidates = HarRequest.filterBackfillCandidates(mergedCandidates, {
+        cutoffMs: Date.now() - CLEANUP_WINDOW_MS,
+        knownKeys: new Set(recentRequests.map((r) => r.harKey).filter(Boolean)),
+      });
 
       // 先 enrich body，再推送 —— 消除竞态，确保 panel 收到完整请求
       const enrichTargets = candidates
@@ -196,7 +204,7 @@ chrome.devtools.network.onNavigated.addListener(() => {
 
 // 清理过期请求 (每30秒)
 setInterval(() => {
-  const cutoff = Date.now() - 5 * 60 * 1000;
+  const cutoff = Date.now() - CLEANUP_WINDOW_MS;
   while (recentRequests.length > 0 && recentRequests[0].timestamp < cutoff) {
     const removed = recentRequests.shift();
     if (removed?.harKey) seenHarKeys.delete(removed.harKey);
