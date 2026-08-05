@@ -135,23 +135,20 @@ test.describe('Shift+Click sibling range selection', () => {
     });
 
     // 2. Create test HTML page
-    await page.setContent(`
-      <!DOCTYPE html>
-      <html>
-      <head><meta charset="utf-8"></head>
-      <body>
-        <h1>Sibling Range Select Test</h1>
-        <ul id="test-list">
-          <li>Item A</li>
-          <li>Item B</li>
-          <li>Item C</li>
-          <li>Item D</li>
-          <li>Item E</li>
-        </ul>
-        <div id="result"></div>
-      </body>
-      </html>
-    `);
+    // 注意：本环境 Playwright 的 addInitScript 在 setContent 文档上不生效，
+    // 需先 goto 空白页（init script 在该文档运行），再注入页面内容
+    await page.goto('about:blank');
+    await page.evaluate(`document.body.innerHTML = [
+      '<h1>Sibling Range Select Test</h1>',
+      '<ul id="test-list">',
+      '  <li>Item A</li>',
+      '  <li>Item B</li>',
+      '  <li>Item C</li>',
+      '  <li>Item D</li>',
+      '  <li>Item E</li>',
+      '</ul>',
+      '<div id="result"></div>',
+    ].join('\\n');`);
 
     // 3. Select items using ElementPicker.toggleRangeSelection
     const result = await page.evaluate(() => {
@@ -215,10 +212,10 @@ test.describe('Shift+Click sibling range selection', () => {
       };
     });
 
-    await page.setContent(`
-      <ul id="list1"><li>A1</li><li>A2</li></ul>
-      <ul id="list2"><li>B1</li><li>B2</li></ul>
-    `);
+    await page.goto('about:blank');
+    await page.evaluate(
+      `document.body.innerHTML = '<ul id="list1"><li>A1</li><li>A2</li></ul><ul id="list2"><li>B1</li><li>B2</li></ul>';`,
+    );
 
     const result = await page.evaluate(() => {
       const a1 = document.querySelector('#list1 li:first-child');

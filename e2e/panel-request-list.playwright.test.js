@@ -33,10 +33,13 @@ const PANEL_HTML = `<!DOCTYPE html>
 
 test.describe('DevTools Panel — 请求列表引导冒烟', () => {
   test('面板加载后不应长期停留在「正在加载请求列表...」', async ({ page }) => {
-    await page.setContent(PANEL_HTML);
+    // 注意：本环境 Playwright 的 addInitScript 在 setContent 文档上不生效，
+    // 统一改为 goto 空白页 + evaluate 注入内容与模拟逻辑
+    await page.goto('about:blank');
+    await page.evaluate(`document.body.innerHTML = ${JSON.stringify(PANEL_HTML)};`);
 
     // 模拟 PanelRequestBootstrap：1.5s 后加载完成
-    await page.addInitScript(() => {
+    await page.evaluate(() => {
       window.simulateRequestLoad = (hasRequests) => {
         const sel = document.getElementById('selectedRequest');
         const list = document.getElementById('requestList');
@@ -79,9 +82,10 @@ test.describe('DevTools Panel — 请求列表引导冒烟', () => {
   });
 
   test('有请求时应展示请求列表项', async ({ page }) => {
-    await page.setContent(PANEL_HTML);
+    await page.goto('about:blank');
+    await page.evaluate(`document.body.innerHTML = ${JSON.stringify(PANEL_HTML)};`);
 
-    await page.addInitScript(() => {
+    await page.evaluate(() => {
       setTimeout(() => {
         const sel = document.getElementById('selectedRequest');
         const list = document.getElementById('requestList');

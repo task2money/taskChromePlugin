@@ -211,6 +211,13 @@
   /** 收到同步更新时禁止再次广播，防止反馈循环 */
   let suppressSyncBroadcast = false;
   let pickMode = false;
+  /**
+   * 快捷键兜底（页内 keydown）：chrome.commands 注册失败/被占用时，
+   * 按键事件会穿透到页面，此监听保证 Cmd/Ctrl+Shift+X 依然可用。
+   * 与 chrome.commands 消息路径共享去抖，防止浏览器命令与 keydown 双触发。
+   */
+  let lastShortcutToggleAt = 0;
+  const SHORTCUT_DEBOUNCE_MS = 300;
   let highlightedEls = [];
   let highlightDoc = null;
   let pendingElementSnapshot = null;
@@ -787,10 +794,33 @@
     }
   }
 
+  /**
+   * 快捷键兜底切换：与 chrome.commands → toggleElementPick 消息路径等价。
+   * 仅在浏览器级快捷键注册失败（Mac 已知 bug / 键位被占用）导致按键穿透到页面时触发。
+   */
+  function togglePickModeFromShortcut() {
+    const now = Date.now();
+    if (now - lastShortcutToggleAt < SHORTCUT_DEBOUNCE_MS) return; // 防双触发
+    lastShortcutToggleAt = now;
+    if (adjustModal && !adjustModal.hidden) closeAdjustModal();
+    setPickMode(!pickMode, 'float');
+  }
+
+  /** 页内 keydown 兜底：Cmd/Ctrl+Shift+X 切换指针选择模式 */
+  function onShortcutKeyDown(e) {
+    if (e.repeat) return;
+    if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
+    const k = e.key;
+    if (k !== 'x' && k !== 'X') return;
+    e.preventDefault();
+    togglePickModeFromShortcut();
+  }
+
   function setupElementPicker() {
     document.addEventListener('mouseover', onPickMouseOver, true);
     document.addEventListener('click', onPickClick, true);
     document.addEventListener('keydown', onPickKeyDown, true);
+    document.addEventListener('keydown', onShortcutKeyDown, true);
     adjustCancel?.addEventListener('click', (e) => {
       e.preventDefault();
       closeAdjustModal();
@@ -1856,9 +1886,18 @@
     }
     if (msg.action === 'toggleElementPick') {
       console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');
-      if (adjustModal && !adjustModal.hidden) closeAdjustModal();
-      setPickMode(!pickMode, 'float');
-      sendResponse?.({ success: true, pickMode });
+      // 与页内 keydown 兜底监听共享去抖时间戳：
+      // 浏览器级命令与按键穿透可能对同一次按键双触发，任一路径处理过则忽略另一路径
+      const now = Date.now();
+      if (now - lastShortcutToggleAt >= SHORTCUT_DEBOUNCE_MS) {
+        lastShortcutToggleAt = now;
+        if (adjustModal && !adjustModal.hidden) closeAdjustModal();
+        const nextPickMode = !pickMode;
+        setPickMode(nextPickMode, 'float');
+        sendResponse?.({ success: true, pickMode: nextPickMode });
+      } else {
+        sendResponse?.({ success: true, pickMode, debounced: true });
+      }
       return true;
     }
     if (msg.action === 'startElementPick') {

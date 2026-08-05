@@ -838,6 +838,12 @@ const Popup = (() => {
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
+  // 快捷键排查入口：chrome:// 页面无法直接 <a href>，需经 tabs.create 打开
+  document.getElementById('taskplugin-shortcut-settings')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(() => {});
+  });
+
   Popup.init().catch((e) => {
     console.error('[TaskPlugin] Popup.init 未捕获异常:', e);
     const spinner = document.querySelector('#loadingSpinner');

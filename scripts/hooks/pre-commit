@@ -12,7 +12,9 @@ cleanup() {
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-cd "$(dirname "$0")/../.." || exit 1
+# 兼容子模块（gitdir 重定位到 ../.git/modules/<name>）场景：
+# 用 git 自身解析工作树根目录，而非相对 hooks 路径
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 # 仅变更 hooks/文档时跳过抽测，便于自举提交钩子模板
 _bootstrap_staged="$(git diff --cached --name-only 2>/dev/null || true)"

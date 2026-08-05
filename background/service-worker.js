@@ -1077,8 +1077,22 @@ chrome.commands.onCommand.addListener(async (command) => {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
     if (!tabId) return;
-    await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' }, { frameId: 0 });
-    console.log('[taskChromePlugin] toggleElementPick via shortcut sent to tab', tabId);
+    let resp;
+    try {
+      resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' }, { frameId: 0 });
+    } catch (frame0Err) {
+      // 顶层 frame 尚未注入 content script（受限页/刷新竞态）时，
+      // 回退为整 tab 广播，保证快捷键在内容脚本注入后立即可用
+      console.warn(
+        '[taskChromePlugin] toggleElementPick frame0 失败，回退整 tab 广播:',
+        frame0Err?.message || frame0Err,
+      );
+      resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' });
+    }
+    console.log(
+      '[taskChromePlugin] toggleElementPick via shortcut:',
+      resp?.success ? 'ok' : 'content script 未响应',
+    );
   } catch (e) {
     console.warn('[taskChromePlugin] toggleElementPick shortcut failed:', e.message || e);
   }
