@@ -23,7 +23,7 @@ if [ -n "$_bootstrap_staged" ]; then
     while IFS= read -r _f; do
         [ -z "$_f" ] && continue
         case "$_f" in
-            scripts/hooks/*|README.md) ;;
+            scripts/hooks/*|.githooks/*|README.md) ;;
             *) _only_hooks=0; break ;;
         esac
     done <<< "$_bootstrap_staged"
