@@ -72,6 +72,8 @@ const Panel = (() => {
           selectedRequest = updated;
           fillRequestDetail(updated);
         }
+        // 状态码/耗时等展示字段可能变化，必须重渲染列表
+        applyRequestFilters();
       }
     }
   }
@@ -778,7 +780,16 @@ const Panel = (() => {
   }
 
   async function refreshRequestList() {
-    // 数据由 devtools.js 通过 postMessage 实时推送，这里只需重新过滤
+    // 主动从 SW 拉取最新请求：devtools.js 每次 pushRequest 都会同步到 SW。
+    // 仅做本地过滤会导致 postMessage 丢失后列表永久停滞（无法刷新）。
+    try {
+      const res = await sendMessage({ action: 'getRecentRequests', filter: {}, limit: 200 });
+      if (res?.success && Array.isArray(res.data)) {
+        recentRequests = res.data;
+      }
+    } catch (_) {
+      // SW 不可达时保留本地数据，仍重新渲染
+    }
     applyRequestFilters();
   }
 
