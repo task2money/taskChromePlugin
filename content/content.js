@@ -221,10 +221,10 @@
   let lastShortcutToggleAt = 0;
   const SHORTCUT_DEBOUNCE_MS = 300;
   /**
-   * 页内兜底监听使用的快捷键修饰键：'cmd'（⌘+Shift+X）或 'ctrl'（Ctrl+Shift+X）。
-   * 由 Popup「快捷键」配置决定，未配置时按操作系统默认（Storage.getElementPickerShortcut）。
+   * 页内兜底监听使用的快捷键组合串（如 'Ctrl+Shift+X' / 'Alt+Shift+E'）。
+   * 由 Popup「快捷键」自定义配置决定，默认统一 Ctrl+Shift+X（Storage.getElementPickerShortcut）。
    */
-  let pickShortcutMode = 'ctrl';
+  let pickShortcutCombo = 'Ctrl+Shift+X';
   let highlightedEls = [];
   let highlightDoc = null;
   let pendingElementSnapshot = null;
@@ -303,11 +303,12 @@
         console.log('[taskChromePlugin] syncDescription enabled:', syncDescriptionEnabled);
       } catch (_) { /* ignore */ }
 
-      // 加载元素拾取快捷键配置（Popup 可选 ⌘/Ctrl+Shift+X，默认按操作系统）
+      // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 Ctrl+Shift+X）
       try {
-        pickShortcutMode = await Storage.getElementPickerShortcut();
-        console.log('[taskChromePlugin] pick shortcut mode:', pickShortcutMode);
-      } catch (_) { /* 保持默认 'ctrl' */ }
+        pickShortcutCombo = await Storage.getElementPickerShortcut();
+        renderShortcutHints();
+        console.log('[taskChromePlugin] pick shortcut combo:', pickShortcutCombo);
+      } catch (_) { /* 保持默认 'Ctrl+Shift+X' */ }
 
       await restoreFloatBallPosition();
 
@@ -513,7 +514,7 @@
       clearHighlight();
       clearPickSelection();
       btn.textContent = '+';
-      btn.title = 'TaskPlugin — 快速创建任务 (Ctrl+Shift+X 指针选择)';
+      renderShortcutHints();
       btn.classList.remove('taskplugin-picking-fab');
       chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
     } else {
@@ -522,7 +523,7 @@
       btn.classList.remove('taskplugin-active');
       isOpen = false;
       btn.textContent = '✕';
-      btn.title = '取消指针选择（Esc / Ctrl+Shift+X）；⌘/Ctrl+点击多选，Enter 确认';
+      renderShortcutHints();
       btn.classList.add('taskplugin-picking-fab');
       chrome.runtime.sendMessage({
         action: 'broadcastStartElementPick',
@@ -665,7 +666,7 @@
       adjustError.className = 'taskplugin-result';
       adjustError.textContent = '';
     }
-    adjustInput.value = '解决这个问题';
+    adjustInput.value = '请解决问题';
     if (adjustShot) adjustShot.checked = false;
     adjustModal.hidden = false;
     if (!isOpen) {
@@ -821,21 +822,28 @@
   }
 
   /**
-   * 页内 keydown 兜底：按用户选择的修饰键（⌘ 或 Ctrl）+ Shift + X 切换指针选择模式。
-   * 严格匹配：'cmd' 仅 ⌘+Shift+X 触发，'ctrl' 仅 Ctrl+Shift+X 触发（另一组合不生效），
-   * 保证 Popup 中的自由选择在页内兜底路径上同样严格生效。
+   * 页内 keydown 兜底：严格匹配用户自定义的组合串（默认 Ctrl+Shift+X）。
+   * Storage.matchShortcutKeydown 规则：组合中列出的修饰键必须按下、未列出的不得按下，
+   * 与浏览器级键位（chrome.commands.update）行为一致。
    */
   function onShortcutKeyDown(e) {
     if (e.repeat) return;
-    if (!e.shiftKey) return;
-    const k = e.key;
-    if (k !== 'x' && k !== 'X') return;
-    const modifierOk = pickShortcutMode === 'cmd'
-      ? e.metaKey && !e.ctrlKey
-      : e.ctrlKey && !e.metaKey;
-    if (!modifierOk) return;
+    if (!Storage.matchShortcutKeydown(e, pickShortcutCombo)) return;
     e.preventDefault();
     togglePickModeFromShortcut();
+  }
+
+  /** 快捷键提示文案跟随当前组合（默认 Ctrl+Shift+X） */
+  function renderShortcutHints() {
+    const combo = pickShortcutCombo || 'Ctrl+Shift+X';
+    const ta = document.getElementById('taskplugin-desc');
+    if (ta) ta.placeholder = `任务描述...（按 ${combo} 指针选择页面元素）`;
+    const fab = document.getElementById('taskplugin-float-btn');
+    if (fab) {
+      fab.title = pickMode
+        ? `取消指针选择（Esc / ${combo}）；⌘/Ctrl+点击多选，Enter 确认`
+        : `TaskPlugin — 快速创建任务 (${combo} 指针选择)`;
+    }
   }
 
   function setupElementPicker() {
@@ -1206,8 +1214,15 @@
     }
   }
 
+  /** 解析快捷键存储值 → 规范组合串（兼容旧版 'cmd'/'ctrl'，与 Storage.getElementPickerShortcut 迁移一致） */
+  function resolveShortcutCombo(v) {
+    if (v === 'cmd') return 'Command+Shift+X';
+    if (v === 'ctrl') return 'Ctrl+Shift+X';
+    return Storage.normalizeShortcut(v);
+  }
+
   /**
-   * storage 变更时同步快捷键模式：
+   * storage 变更时同步快捷键组合：
    * Popup 保存 elementPickerShortcut 后，即使 tabs.sendMessage 未送达
    * （如弹出前已加载的标签页），新配置也实时生效，无需刷新页面。
    */
@@ -1216,8 +1231,11 @@
       if (!chrome.storage?.onChanged) return;
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
-        const mode = changes.elementPickerShortcut?.newValue;
-        if (mode === 'cmd' || mode === 'ctrl') pickShortcutMode = mode;
+        const combo = resolveShortcutCombo(changes.elementPickerShortcut?.newValue);
+        if (combo) {
+          pickShortcutCombo = combo;
+          renderShortcutHints();
+        }
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindPickShortcutStorageListener 失败:', e.message);
@@ -1896,9 +1914,11 @@
       syncDescriptionEnabled = msg.enabled !== false;
     }
     if (msg.action === 'setElementPickerShortcut') {
-      if (msg.mode === 'cmd' || msg.mode === 'ctrl') {
-        pickShortcutMode = msg.mode;
-        console.log('[taskChromePlugin] setElementPickerShortcut from popup:', msg.mode);
+      const combo = resolveShortcutCombo(msg.shortcut);
+      if (combo) {
+        pickShortcutCombo = combo;
+        renderShortcutHints();
+        console.log('[taskChromePlugin] setElementPickerShortcut from popup:', combo);
       }
     }
     if (msg.action === 'syncDescriptionUpdate') {

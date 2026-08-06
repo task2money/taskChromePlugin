@@ -157,13 +157,13 @@ function dispatchCtrlShortcutKey() {
 }
 
 /**
- * 模拟 Popup 切换快捷键模式：写入 storage stub + 派发 setElementPickerShortcut 消息。
- * 与真实链路一致（popup 保存 storage 后广播到各 tab）。
+ * 模拟 Popup/SW 切换快捷键：写入 storage stub + 派发 setElementPickerShortcut 消息
+ * （新契约 shortcut 字段；旧版 'cmd'/'ctrl' 值由内容脚本迁移为组合串，行为意图不变）。
  */
 function setShortcutMode(mode) {
   return `(function () {
     window.chrome.storage.local._store.elementPickerShortcut = ${JSON.stringify(mode)};
-    const msg = { action: 'setElementPickerShortcut', mode: ${JSON.stringify(mode)} };
+    const msg = { action: 'setElementPickerShortcut', shortcut: ${JSON.stringify(mode)} };
     for (const fn of window.__onMessageHandlers) {
       try { fn(msg, { tab: { id: 1 } }, () => {}); } catch (_) {}
     }

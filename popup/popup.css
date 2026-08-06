@@ -315,34 +315,15 @@ body {
 .shortcut-choice-note {
   margin: 5px 0 0; font-size: 9px; color: #6c7086; line-height: 1.4;
 }
+.shortcut-custom-row {
+  display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;
+}
+.shortcut-custom-row kbd {
+  font-size: 11px; padding: 3px 8px;
+}
+#pickShortcutCaptureHint {
+  color: #fab387;
+}
+#pickShortcutResult.ok { color: #a6e3a1; }
+#pickShortcutResult.err { color: #f38ba8; }
 
-/* === 多账号列表 === */
-.accounts-list {
-  display: flex; flex-direction: column; gap: 4px;
-  max-height: 120px; overflow-y: auto;
-}
-.account-item {
-  display: flex; align-items: center; gap: 6px;
-  padding: 4px 8px; border-radius: 6px;
-  background: #252536; font-size: 11px;
-  transition: background 0.15s;
-}
-.account-item.active {
-  background: #2a3a5c; border: 1px solid #89b4fa40;
-}
-.acct-avatar {
-  width: 18px; height: 18px; border-radius: 50%;
-  object-fit: cover; flex-shrink: 0;
-}
-.acct-avatar-placeholder {
-  font-size: 14px; flex-shrink: 0; line-height: 1;
-}
-.acct-name {
-  flex: 1; overflow: hidden; text-overflow: ellipsis;
-  white-space: nowrap; color: #cdd6f4;
-}
-.acct-active-badge {
-  font-size: 9px; padding: 1px 5px; border-radius: 8px;
-  background: #89b4fa20; color: #89b4fa;
-  flex-shrink: 0; font-weight: 500;
-}

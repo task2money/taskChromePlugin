@@ -693,6 +693,9 @@ async function handleMessage(message, sender) {
       await Storage.saveSyncDescriptionConfig(message.enabled);
       return { success: true };
 
+    case 'setElementPickerShortcut':
+      return await applyElementPickerShortcut(message.shortcut);
+
     case 'syncDescription':
       {
         // 将描述广播到所有其他标签页（排除发送者）
@@ -1102,6 +1105,63 @@ async function toggleElementPickInTab(tabId) {
     '[taskChromePlugin] toggleElementPick via shortcut:',
     resp?.success ? 'ok' : 'content script 未响应',
   );
+}
+
+// ---- 元素拾取快捷键动态改绑（chrome.commands.update，Chrome 110+）----
+
+/** 运行时平台探测：macOS → true（chrome.commands.update 的修饰键规则按平台区分） */
+function isMacPlatform() {
+  try {
+    const plat = String(
+      navigator?.userAgentData?.platform || navigator?.platform || navigator?.userAgent || '',
+    ).toLowerCase();
+    return plat.includes('mac');
+  } catch {
+    return false;
+  }
+}
+
+/** 向所有标签页广播快捷键变更（内容脚本页内兜底监听跟随，storage.onChanged 双通道兜底） */
+async function broadcastElementPickerShortcut(shortcut) {
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (!tab.id) continue;
+      chrome.tabs.sendMessage(tab.id, { action: 'setElementPickerShortcut', shortcut }).catch(() => {});
+    }
+  } catch (e) {
+    console.warn('[taskChromePlugin] broadcastElementPickerShortcut 失败:', e.message || e);
+  }
+}
+
+/**
+ * 应用元素拾取快捷键（Popup「修改/恢复默认」统一入口）：
+ * 1) 规范校验；2) chrome.commands.update 改绑浏览器级键位（冲突等错误原样返回给 Popup）；
+ *    旧浏览器（< Chrome 110）降级为仅持久化 + 页内兜底生效；
+ * 3) 持久化规范串；4) 广播内容脚本。commands.update 的绑定由 Chrome 持久化，
+ *    故无需在 SW 启动时重复改绑（避免覆盖用户在 chrome://extensions/shortcuts 的手动设置）。
+ */
+async function applyElementPickerShortcut(shortcut) {
+  const normalized = Storage.normalizeShortcut(shortcut);
+  if (!normalized) {
+    return { success: false, error: `非法快捷键组合: ${String(shortcut)}` };
+  }
+  const binding = Storage.shortcutToPlatformBinding(normalized, isMacPlatform());
+  if (typeof chrome.commands?.update === 'function') {
+    try {
+      await chrome.commands.update({ name: 'toggle-element-picker', shortcut: binding });
+    } catch (e) {
+      // 常见原因：与其他扩展/浏览器命令冲突（"already in use by another extension"）
+      const msg = e?.message || '快捷键绑定失败';
+      console.warn('[taskChromePlugin] commands.update 失败:', msg);
+      return { success: false, error: msg, shortcut: normalized };
+    }
+  } else {
+    console.warn('[taskChromePlugin] chrome.commands.update 不可用（需 Chrome 110+），仅持久化 + 页内兜底生效');
+  }
+  await Storage.saveElementPickerShortcut(normalized);
+  broadcastElementPickerShortcut(normalized).catch(() => {});
+  return { success: true, data: { shortcut: normalized } };
 }
 
 chrome.commands.onCommand.addListener(async (command) => {

@@ -32,12 +32,13 @@ const userGuideMd = read('docs/USER_GUIDE.md');
 const userGuideJs = read('lib/user-guide.js');
 
 describe('键盘快捷键三层链路', () => {
-  it('manifest 注册 toggle-element-picker 命令及 Ctrl/⌘+Shift+X 建议键位', () => {
+  it('manifest 注册 toggle-element-picker 命令及默认 Ctrl+Shift+X 建议键位（mac 用 MacCtrl 保持字面 Control）', () => {
     assert.ok(manifest.commands, 'manifest.commands 缺失');
     const cmd = manifest.commands[COMMAND_NAME];
     assert.ok(cmd, `manifest.commands 缺少 ${COMMAND_NAME}`);
     assert.equal(cmd.suggested_key.default, SHORTCUT_KEY_HINT);
-    assert.equal(cmd.suggested_key.mac, 'Command+Shift+X');
+    // macOS 上普通 Ctrl 会被 Chrome 转换为 Command；字面 Control 须用 MacCtrl（与页内兜底 ctrlKey 匹配一致）
+    assert.equal(cmd.suggested_key.mac, 'MacCtrl+Shift+X');
     assert.ok(cmd.description);
   });
 
@@ -59,28 +60,37 @@ describe('键盘快捷键三层链路', () => {
       /document\.addEventListener\('keydown', onShortcutKeyDown, true\)/.test(content),
       '兜底 keydown 监听未以捕获阶段注册到 document',
     );
-    // 仅按用户选择的修饰键 + Shift + X 触发（Popup 可选 ⌘/Ctrl，默认按系统），忽略重复事件
-    assert.ok(content.includes('pickShortcutMode'), '缺少快捷键模式变量');
-    // 严格匹配：'cmd' 仅 ⌘+Shift+X（meta 且非 ctrl），'ctrl' 仅 Ctrl+Shift+X（ctrl 且非 meta）
-    assert.match(content, /e\.metaKey && !e\.ctrlKey/, 'cmd 模式缺少严格 meta 匹配');
-    assert.match(content, /e\.ctrlKey && !e\.metaKey/, 'ctrl 模式缺少严格 ctrl 匹配');
-    assert.match(content, /e\.shiftKey/);
-    assert.match(content, /k !== 'x' && k !== 'X'/);
+    // 组合串模型（默认 Ctrl+Shift+X，Popup 可自定义任意组合），严格匹配由 Storage.matchShortcutKeydown 承担
+    assert.ok(content.includes('pickShortcutCombo'), '缺少快捷键组合串变量');
+    assert.match(
+      content,
+      /Storage\.matchShortcutKeydown\(e, pickShortcutCombo\)/,
+      '兜底未使用严格组合匹配',
+    );
     assert.match(content, /e\.repeat/);
+    assert.ok(
+      content.includes('renderShortcutHints'),
+      '缺少快捷键提示文案同步函数',
+    );
     assert.ok(
       content.includes('lastShortcutToggleAt < SHORTCUT_DEBOUNCE_MS'),
       '兜底切换缺少与消息路径共享的去抖保护（防双触发）',
     );
   });
 
-  it('content.js 支持 Popup 切换快捷键模式并实时生效（消息 + storage.onChanged）', () => {
-    // Popup 保存后通过消息即时广播
+  it('content.js 支持 Popup 自定义快捷键并实时生效（消息 + storage.onChanged）', () => {
+    // Popup/SW 保存后通过消息即时广播
     assert.match(
       content,
       /msg\.action === 'setElementPickerShortcut'/,
       '缺少 setElementPickerShortcut 消息处理',
     );
-    assert.match(content, /pickShortcutMode = msg\.mode/, '消息处理未写入模式变量');
+    assert.match(
+      content,
+      /resolveShortcutCombo\(msg\.shortcut\)/,
+      '消息处理未解析组合串（含旧版迁移）',
+    );
+    assert.match(content, /pickShortcutCombo = combo/, '消息处理未写入组合串变量');
     // 新开的标签页 / 广播失败场景由 storage.onChanged 兜底
     assert.ok(
       content.includes('bindPickShortcutStorageListener'),
@@ -90,9 +100,9 @@ describe('键盘快捷键三层链路', () => {
       content.includes("changes.elementPickerShortcut?.newValue"),
       'storage 监听未读取 elementPickerShortcut 变更',
     );
-    // 初始化时从存储加载（默认按操作系统）
+    // 初始化时从存储加载（默认 Ctrl+Shift+X）
     assert.ok(
-      content.includes('pickShortcutMode = await Storage.getElementPickerShortcut()'),
+      content.includes('pickShortcutCombo = await Storage.getElementPickerShortcut()'),
       '初始化未加载快捷键配置',
     );
   });
@@ -116,22 +126,23 @@ describe('键盘快捷键三层链路', () => {
     assert.match(popupJs, /chrome\.tabs\.create\(\{\s*url: 'chrome:\/\/extensions\/shortcuts'\s*\}\)/);
   });
 
-  it('popup 提供 ⌘/Ctrl+Shift+X 自由选择 UI 并广播到内容脚本', () => {
-    // 两个单选选项 + 动态键位展示锚点
-    assert.ok(popupHtml.includes('name="pickShortcut"'), 'popup.html 缺少快捷键选择组');
-    assert.ok(popupHtml.includes('value="cmd"'), '缺少 cmd（⌘+Shift+X）选项');
-    assert.ok(popupHtml.includes('value="ctrl"'), '缺少 ctrl（Ctrl+Shift+X）选项');
+  it('popup 提供快捷键自定义 UI（按键捕获 + 恢复默认）并经 SW 改绑', () => {
+    // 自定义行 + 动态键位展示锚点
+    assert.ok(popupHtml.includes('id="btnPickShortcutEdit"'), 'popup.html 缺少「修改」按钮');
+    assert.ok(popupHtml.includes('id="btnPickShortcutReset"'), 'popup.html 缺少「恢复默认」按钮');
+    assert.ok(popupHtml.includes('id="pickShortcutCaptureHint"'), 'popup.html 缺少按键捕获提示');
+    assert.ok(popupHtml.includes('id="pickShortcutResult"'), 'popup.html 缺少结果提示');
     assert.ok(popupHtml.includes('id="pickShortcutKey"'), '缺少快捷键列表键位锚点');
     assert.ok(popupHtml.includes('id="pickShortcutHintKey"'), '缺少 hint 键位锚点');
-    // 保存 + 广播（tabs.sendMessage setElementPickerShortcut）
-    assert.ok(
-      popupJs.includes('Storage.saveElementPickerShortcut'),
-      'popup.js 缺少快捷键配置保存',
-    );
+    assert.ok(popupHtml.includes('Ctrl+Shift+X'), '默认组合未出现在 popup.html');
+    // 按键捕获 + 提交（经 SW chrome.commands.update 改绑）
+    assert.ok(popupJs.includes('startShortcutCapture'), 'popup.js 缺少按键捕获入口');
+    assert.ok(popupJs.includes('commitShortcut'), 'popup.js 缺少快捷键提交函数');
+    assert.ok(popupJs.includes('resetShortcut'), 'popup.js 缺少恢复默认函数');
     assert.match(
       popupJs,
-      /action: 'setElementPickerShortcut', mode/,
-      'popup.js 未广播 setElementPickerShortcut 到标签页',
+      /action: 'setElementPickerShortcut', shortcut/,
+      'popup.js 未发送 setElementPickerShortcut 到 SW',
     );
     assert.ok(
       popupJs.includes('renderPickShortcutDisplay'),
@@ -141,6 +152,29 @@ describe('键盘快捷键三层链路', () => {
       popupJs.includes('loadPickShortcutConfig'),
       'popup.js 缺少快捷键配置加载',
     );
+    // Esc 取消捕获
+    assert.match(popupJs, /e\.key === 'Escape'/, '捕获模式缺少 Esc 取消');
+  });
+
+  it('SW 通过 chrome.commands.update 动态改绑快捷键并广播内容脚本', () => {
+    assert.ok(sw.includes('applyElementPickerShortcut'), 'SW 缺少快捷键应用函数');
+    assert.match(sw, /chrome\.commands\.update\(\{ name: 'toggle-element-picker'/, 'SW 未调用 commands.update 改绑');
+    assert.ok(sw.includes("case 'setElementPickerShortcut'"), 'SW 缺少 setElementPickerShortcut 消息处理');
+    assert.ok(sw.includes('broadcastElementPickerShortcut'), 'SW 缺少快捷键广播函数');
+    assert.match(sw, /Storage\.normalizeShortcut\(shortcut\)/, 'SW 未校验快捷键组合');
+    assert.ok(sw.includes('Storage.shortcutToPlatformBinding'), 'SW 未做平台绑定转换（macOS MacCtrl）');
+  });
+
+  it('storage.js 提供快捷键组合串模型（默认/迁移/校验/匹配）', () => {
+    const storage = read('lib/storage.js');
+    assert.ok(storage.includes('SHORTCUT_DEFAULT'), 'storage.js 缺少默认快捷键常量');
+    assert.match(storage, /'Ctrl\+Shift\+X'/, '默认快捷键应为 Ctrl+Shift+X');
+    assert.ok(storage.includes('normalizeShortcut'), '缺少组合校验函数');
+    assert.ok(storage.includes('matchShortcutKeydown'), '缺少 keydown 严格匹配');
+    assert.ok(storage.includes('shortcutToPlatformBinding'), '缺少平台绑定转换');
+    // 旧版 cmd/ctrl 迁移保留
+    assert.match(storage, /if \(v === 'cmd'\) return 'Command\+Shift\+X'/, '缺少旧版 cmd 迁移');
+    assert.match(storage, /if \(v === 'ctrl'\) return this\.SHORTCUT_DEFAULT/, '缺少旧版 ctrl 迁移');
   });
 
   it('文档说明快捷键无效时的排查路径', () => {
@@ -161,15 +195,17 @@ describe('键盘快捷键三层链路', () => {
       pickFrame.includes('chrome.runtime.sendMessage({ action: \'toggleElementPickShortcut\' })'),
       'pick-frame.js 未转发快捷键到 SW',
     );
-    // 严格匹配用户选择的修饰键（与 content.js 同规则）
-    assert.match(pickFrame, /e\.metaKey && !e\.ctrlKey/, 'pick-frame cmd 模式缺少严格匹配');
-    assert.match(pickFrame, /e\.ctrlKey && !e\.metaKey/, 'pick-frame ctrl 模式缺少严格匹配');
+    // 严格匹配用户自定义的组合串（与 content.js Storage.matchShortcutKeydown 同规则，内联实现）
+    assert.ok(pickFrame.includes('matchShortcut'), 'pick-frame 缺少组合匹配函数');
+    assert.ok(pickFrame.includes('pickShortcutCombo'), 'pick-frame 缺少组合串变量');
+    assert.match(pickFrame, /e\.ctrlKey === mods\.includes\('Ctrl'\)/, 'pick-frame 缺少严格 ctrl 匹配');
     assert.match(pickFrame, /e\.repeat/, 'pick-frame 兜底缺少重复按键忽略');
-    // 模式从 storage 加载 + onChanged 实时同步
+    // 组合从 storage 加载（含旧版 cmd/ctrl 迁移）+ onChanged 实时同步
     assert.ok(
       pickFrame.includes('elementPickerShortcut'),
       'pick-frame.js 未读取 elementPickerShortcut 配置',
     );
+    assert.match(pickFrame, /v === 'cmd' \? 'Command\+Shift\+X'/, 'pick-frame 缺少旧版 cmd 迁移');
     assert.ok(
       pickFrame.includes('storage?.onChanged?.addListener'),
       'pick-frame.js 缺少 storage 变更监听',

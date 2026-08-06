@@ -258,63 +258,6 @@ const Popup = (() => {
     if (reqSec) reqSec.style.display = 'block';
     setPopupGuideVisible(true);
     mountPopupUserGuide();
-
-    // 加载多账号列表（异步，不阻塞 UI）
-    loadSavedAccounts().catch(() => {});
-  }
-
-  // ---- 多账号列表 ----
-
-  async function loadSavedAccounts() {
-    let accounts = [];
-    let activeUserId = null;
-    try {
-      const r = await sendMessageWithTimeout({ action: 'getSavedAccounts' }, 5000);
-      if (r?.success && Array.isArray(r.data)) {
-        accounts = r.data;
-      }
-      const a = await sendMessageWithTimeout({ action: 'getActiveAccount' }, 5000);
-      if (a?.success && a.data) {
-        activeUserId = a.data.userId;
-      }
-    } catch (e) {
-      console.warn('[TaskPlugin] 加载多账号列表失败:', e.message || e);
-      return;
-    }
-
-    renderAccountList(accounts, activeUserId);
-  }
-
-  function renderAccountList(accounts, activeUserId) {
-    const section = $('#accountsSection');
-    const list = $('#savedAccountsList');
-    const count = $('#accountCount');
-    if (!section || !list) return;
-
-    if (!accounts || accounts.length === 0) {
-      section.style.display = 'none';
-      return;
-    }
-
-    section.style.display = 'block';
-    if (count) count.textContent = `(${accounts.length})`;
-
-    let html = '';
-    for (const acct of accounts) {
-      const isActive = acct.userId === activeUserId;
-      const avatar = acct.avatarUrl
-        ? `<img src="${escHtml(acct.avatarUrl)}" class="acct-avatar" alt="" onerror="this.style.display='none'">`
-        : '<span class="acct-avatar-placeholder">👤</span>';
-      const name = escHtml(acct.username || acct.userId || '(未知)');
-      const activeBadge = isActive ? '<span class="acct-active-badge">✓ 当前</span>' : '';
-
-      html += `<div class="account-item${isActive ? ' active' : ''}">
-        ${avatar}
-        <span class="acct-name">${name}</span>
-        ${activeBadge}
-      </div>`;
-    }
-    list.innerHTML = html;
   }
 
   async function loadStateFromStorage() {
@@ -496,29 +439,120 @@ const Popup = (() => {
     }
   }
 
-  // ---- 元素拾取快捷键选择 ----
+  // ---- 元素拾取快捷键自定义（默认 Ctrl+Shift+X，可改任意组合）----
 
-  /** 按当前模式渲染快捷键显示（radio 选中态 + 列表/hint 中的键位文本） */
-  function renderPickShortcutDisplay(mode) {
-    const isCmd = mode === 'cmd';
-    const keyLabel = isCmd ? '⌘+Shift+X' : 'Ctrl+Shift+X';
+  /** 事件键名 → Chrome 命令键名（ArrowUp→Up、,→Comma、.→Period、空格→Space） */
+  function eventKeyToShortcutName(e) {
+    const k = e.key || '';
+    if (k === ' ') return 'Space';
+    if (k.startsWith('Arrow')) return k.slice(5);
+    if (k === ',') return 'Comma';
+    if (k === '.') return 'Period';
+    return k;
+  }
+
+  /** 渲染当前快捷键（列表/hint 键位锚点跟随） */
+  function renderPickShortcutDisplay(shortcut) {
+    const label = shortcut || 'Ctrl+Shift+X';
     for (const id of ['pickShortcutKey', 'pickShortcutHintKey']) {
       const el = document.getElementById(id);
-      if (el) el.textContent = keyLabel;
+      if (el) el.textContent = label;
     }
-    for (const radio of document.querySelectorAll('input[name="pickShortcut"]')) {
-      radio.checked = radio.value === mode;
+  }
+
+  function showShortcutResult(msg, type) {
+    const el = $('#pickShortcutResult');
+    if (!el) return;
+    el.textContent = msg;
+    el.className = `shortcut-choice-note ${type || ''}`;
+    setTimeout(() => {
+      if (el) { el.textContent = ''; el.className = 'shortcut-choice-note'; }
+    }, 6000);
+  }
+
+  let shortcutCapturing = false;
+  let shortcutCaptureHandler = null;
+
+  function setShortcutCapturing(active) {
+    shortcutCapturing = active;
+    const hint = $('#pickShortcutCaptureHint');
+    const editBtn = $('#btnPickShortcutEdit');
+    if (hint) hint.style.display = active ? 'block' : 'none';
+    if (editBtn) editBtn.textContent = active ? '✏️ 取消' : '✏️ 修改';
+  }
+
+  function cancelShortcutCapture() {
+    if (shortcutCaptureHandler) {
+      document.removeEventListener('keydown', shortcutCaptureHandler, true);
+      shortcutCaptureHandler = null;
     }
+    setShortcutCapturing(false);
+    loadPickShortcutConfig().catch(() => {});
+  }
+
+  /** 进入按键捕获模式：按下合法组合 → 经 SW chrome.commands.update 改绑 + 广播 */
+  function startShortcutCapture() {
+    if (shortcutCapturing) { cancelShortcutCapture(); return; }
+    setShortcutCapturing(true);
+    showShortcutResult('', '');
+    shortcutCaptureHandler = (e) => {
+      // 捕获阶段拦截，防止 Ctrl+W 等浏览器快捷键在捕获期间误触
+      e.preventDefault();
+      e.stopPropagation();
+      if (e.key === 'Escape') { cancelShortcutCapture(); return; }
+      const k = e.key || '';
+      if (['Control', 'Shift', 'Alt', 'Meta', 'OS', 'CapsLock', 'NumLock', 'ScrollLock'].includes(k)) return;
+      const mods = [];
+      if (e.ctrlKey) mods.push('Ctrl');
+      if (e.altKey) mods.push('Alt');
+      if (e.shiftKey) mods.push('Shift');
+      if (e.metaKey) mods.push('Command');
+      const combo = [...mods, eventKeyToShortcutName(e)].join('+');
+      const normalized = Storage.normalizeShortcut(combo);
+      if (!normalized) {
+        showShortcutResult('❌ 该组合不可用：须包含 Ctrl/Alt/Command（可选 Shift）与一个按键，且不得为 Tab/Esc/Enter', 'err');
+        return; // 保持捕获，等待合法组合
+      }
+      commitShortcut(normalized);
+    };
+    document.addEventListener('keydown', shortcutCaptureHandler, true);
+  }
+
+  /** 提交快捷键：SW 改绑浏览器级键位（冲突等错误回显）+ 持久化 + 广播 */
+  async function commitShortcut(shortcut) {
+    try {
+      const r = await sendMessageWithTimeout({ action: 'setElementPickerShortcut', shortcut }, 15000);
+      if (r?.success) {
+        renderPickShortcutDisplay(r.data?.shortcut || shortcut);
+        showShortcutResult(`✅ 快捷键已生效：${r.data?.shortcut || shortcut}`, 'ok');
+      } else {
+        const err = r?.error || '保存失败';
+        const friendly = /already in use|已.*占用/i.test(err)
+          ? '该组合已被其他扩展占用，请换一个'
+          : `保存失败：${err}`;
+        showShortcutResult(`❌ ${friendly}`, 'err');
+      }
+    } catch (e) {
+      showShortcutResult(`❌ ${e.message || '保存失败'}`, 'err');
+    } finally {
+      cancelShortcutCapture();
+    }
+  }
+
+  /** 恢复默认 Ctrl+Shift+X */
+  async function resetShortcut() {
+    showShortcutResult('', '');
+    await commitShortcut('Ctrl+Shift+X');
   }
 
   async function loadPickShortcutConfig() {
     try {
-      const mode = await withTimeout(
+      const shortcut = await withTimeout(
         Storage.getElementPickerShortcut(),
         STORAGE_READ_TIMEOUT,
         '读取快捷键配置',
       );
-      renderPickShortcutDisplay(mode);
+      renderPickShortcutDisplay(shortcut);
     } catch (e) {
       console.warn('[TaskPlugin] 读取快捷键配置失败:', e.message);
     }
@@ -575,25 +609,11 @@ const Popup = (() => {
       });
     }
 
-    // 元素拾取快捷键选择（⌘+Shift+X / Ctrl+Shift+X）
-    for (const radio of document.querySelectorAll('input[name="pickShortcut"]')) {
-      radio.addEventListener('change', async () => {
-        if (!radio.checked) return;
-        const mode = radio.value;
-        try {
-          await withTimeout(Storage.saveElementPickerShortcut(mode), STORAGE_READ_TIMEOUT, '保存快捷键选择');
-        } catch (_) { /* ignore */ }
-        try {
-          const tabs = await chrome.tabs.query({});
-          for (const tab of tabs) {
-            if (!tab.id) continue;
-            chrome.tabs.sendMessage(tab.id, { action: 'setElementPickerShortcut', mode }).catch(() => {});
-          }
-        } catch (_) { /* ignore */ }
-        renderPickShortcutDisplay(mode);
-        console.log('[TaskPlugin] 元素拾取快捷键已切换为:', mode);
-      });
-    }
+    // 元素拾取快捷键自定义（默认 Ctrl+Shift+X，可改任意组合）
+    const btnPickShortcutEdit = $('#btnPickShortcutEdit');
+    if (btnPickShortcutEdit) btnPickShortcutEdit.addEventListener('click', startShortcutCapture);
+    const btnPickShortcutReset = $('#btnPickShortcutReset');
+    if (btnPickShortcutReset) btnPickShortcutReset.addEventListener('click', resetShortcut);
 
     // 跨页面同步任务描述开关
     const syncDescToggle = $('#syncDescriptionToggle');

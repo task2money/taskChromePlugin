@@ -11,10 +11,10 @@
   let pickMode = false;
   let highlightedEls = [];
   let pickSelection = [];
-  // 页内兜底快捷键模式（与 content.js 一致：'cmd' 仅 ⌘+Shift+X，'ctrl' 仅 Ctrl+Shift+X，
-  // 默认 'ctrl'）。子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底
-  // 在子 frame 聚焦时不触发（OPT-20260806-016）— 此处检测并转发 SW。
-  let pickShortcutMode = 'ctrl';
+  // 页内兜底快捷键组合串（与 content.js 同规则：默认 Ctrl+Shift+X，Popup 可自定义）。
+  // 子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底在子 frame 聚焦时
+  // 不触发（OPT-20260806-016）— 此处检测并转发 SW。
+  let pickShortcutCombo = 'Ctrl+Shift+X';
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;
@@ -182,35 +182,57 @@
   }
 
   // 子 frame 内页内兜底快捷键（OPT-20260806-016）：
-  // 严格匹配用户选择的修饰键组合，转发 SW 走浏览器命令路径（toggleElementPickShortcut）
+  /**
+   * 严格匹配快捷键组合串（与 content.js Storage.matchShortcutKeydown 同规则，
+   * 内联实现避免依赖 storage.js）：组合中列出的修饰键必须按下、未列出的不得按下。
+   */
+  function matchShortcut(e, combo) {
+    if (!e || !combo) return false;
+    const parts = String(combo).split('+');
+    if (parts.length < 2) return false;
+    const keyName = parts[parts.length - 1];
+    const mods = parts.slice(0, -1);
+    const k = String(e.key || '');
+    let eventKey = k === ' ' ? 'Space' : k.startsWith('Arrow') ? k.slice(5) : k;
+    if (eventKey === ',') eventKey = 'Comma';
+    if (eventKey === '.') eventKey = 'Period';
+    const keyOk = keyName.length === 1
+      ? eventKey.toUpperCase() === keyName
+      : eventKey === keyName;
+    if (!keyOk) return false;
+    return e.ctrlKey === mods.includes('Ctrl')
+      && e.altKey === mods.includes('Alt')
+      && e.shiftKey === mods.includes('Shift')
+      && e.metaKey === mods.includes('Command');
+  }
+
+  // 严格匹配用户自定义的组合，转发 SW 走浏览器命令路径（toggleElementPickShortcut）
   // → 顶层 content.js 切换（共享去抖时间戳，浏览器命令与按键穿透不会双触发）。
   function onShortcutKeyDown(e) {
     if (e.repeat) return;
-    if (!e.shiftKey) return;
-    const k = e.key;
-    if (k !== 'x' && k !== 'X') return;
-    const modifierOk = pickShortcutMode === 'cmd'
-      ? e.metaKey && !e.ctrlKey
-      : e.ctrlKey && !e.metaKey;
-    if (!modifierOk) return;
+    if (!matchShortcut(e, pickShortcutCombo)) return;
     e.preventDefault();
     chrome.runtime.sendMessage({ action: 'toggleElementPickShortcut' }).catch((err) => {
       console.warn('[taskChromePlugin] pick-frame shortcut relay failed:', err?.message || err);
     });
   }
 
-  // 加载快捷键模式 + storage 实时同步（与 content.js bindPickShortcutStorageListener 对齐）
+  // 加载快捷键组合 + storage 实时同步（与 content.js bindPickShortcutStorageListener 对齐）
   try {
     chrome.storage?.local?.get({ elementPickerShortcut: '' }).then((res) => {
-      const mode = res && res.elementPickerShortcut;
-      if (mode === 'cmd' || mode === 'ctrl') pickShortcutMode = mode;
+      const v = res && res.elementPickerShortcut;
+      // 旧版 'cmd'/'ctrl' 模式迁移（与 Storage.getElementPickerShortcut 一致）
+      const combo = v === 'cmd' ? 'Command+Shift+X' : v === 'ctrl' ? 'Ctrl+Shift+X' : v;
+      if (typeof combo === 'string' && combo.includes('+')) pickShortcutCombo = combo;
     });
     chrome.storage?.onChanged?.addListener((changes, area) => {
       if (area !== 'local') return;
-      const mode = changes && changes.elementPickerShortcut && changes.elementPickerShortcut.newValue;
-      if (mode === 'cmd' || mode === 'ctrl') pickShortcutMode = mode;
+      const v = changes && changes.elementPickerShortcut && changes.elementPickerShortcut.newValue;
+      if (typeof v !== 'string') return;
+      const combo = v === 'cmd' ? 'Command+Shift+X' : v === 'ctrl' ? 'Ctrl+Shift+X' : v;
+      if (combo.includes('+')) pickShortcutCombo = combo;
     });
-  } catch (_) { /* 保持默认 'ctrl' */ }
+  } catch (_) { /* 保持默认 'Ctrl+Shift+X' */ }
 
   document.addEventListener('mouseover', onMouseOver, true);
   document.addEventListener('click', onClick, true);
