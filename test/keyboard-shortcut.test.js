@@ -58,14 +58,41 @@ describe('键盘快捷键三层链路', () => {
       /document\.addEventListener\('keydown', onShortcutKeyDown, true\)/.test(content),
       '兜底 keydown 监听未以捕获阶段注册到 document',
     );
-    // 仅在 Cmd/Ctrl + Shift + X 时触发，忽略重复事件
-    assert.match(content, /e\.metaKey \|\| e\.ctrlKey/);
+    // 仅按用户选择的修饰键 + Shift + X 触发（Popup 可选 ⌘/Ctrl，默认按系统），忽略重复事件
+    assert.ok(content.includes('pickShortcutMode'), '缺少快捷键模式变量');
+    // 严格匹配：'cmd' 仅 ⌘+Shift+X（meta 且非 ctrl），'ctrl' 仅 Ctrl+Shift+X（ctrl 且非 meta）
+    assert.match(content, /e\.metaKey && !e\.ctrlKey/, 'cmd 模式缺少严格 meta 匹配');
+    assert.match(content, /e\.ctrlKey && !e\.metaKey/, 'ctrl 模式缺少严格 ctrl 匹配');
     assert.match(content, /e\.shiftKey/);
     assert.match(content, /k !== 'x' && k !== 'X'/);
     assert.match(content, /e\.repeat/);
     assert.ok(
       content.includes('lastShortcutToggleAt < SHORTCUT_DEBOUNCE_MS'),
       '兜底切换缺少与消息路径共享的去抖保护（防双触发）',
+    );
+  });
+
+  it('content.js 支持 Popup 切换快捷键模式并实时生效（消息 + storage.onChanged）', () => {
+    // Popup 保存后通过消息即时广播
+    assert.match(
+      content,
+      /msg\.action === 'setElementPickerShortcut'/,
+      '缺少 setElementPickerShortcut 消息处理',
+    );
+    assert.match(content, /pickShortcutMode = msg\.mode/, '消息处理未写入模式变量');
+    // 新开的标签页 / 广播失败场景由 storage.onChanged 兜底
+    assert.ok(
+      content.includes('bindPickShortcutStorageListener'),
+      '缺少快捷键 storage 变更监听',
+    );
+    assert.ok(
+      content.includes("changes.elementPickerShortcut?.newValue"),
+      'storage 监听未读取 elementPickerShortcut 变更',
+    );
+    // 初始化时从存储加载（默认按操作系统）
+    assert.ok(
+      content.includes('pickShortcutMode = await Storage.getElementPickerShortcut()'),
+      '初始化未加载快捷键配置',
     );
   });
 
@@ -86,6 +113,33 @@ describe('键盘快捷键三层链路', () => {
     assert.ok(popupHtml.includes('chrome://extensions/shortcuts'));
     assert.ok(popupJs.includes("'chrome://extensions/shortcuts'"), 'popup.js 缺少跳转处理');
     assert.match(popupJs, /chrome\.tabs\.create\(\{\s*url: 'chrome:\/\/extensions\/shortcuts'\s*\}\)/);
+  });
+
+  it('popup 提供 ⌘/Ctrl+Shift+X 自由选择 UI 并广播到内容脚本', () => {
+    // 两个单选选项 + 动态键位展示锚点
+    assert.ok(popupHtml.includes('name="pickShortcut"'), 'popup.html 缺少快捷键选择组');
+    assert.ok(popupHtml.includes('value="cmd"'), '缺少 cmd（⌘+Shift+X）选项');
+    assert.ok(popupHtml.includes('value="ctrl"'), '缺少 ctrl（Ctrl+Shift+X）选项');
+    assert.ok(popupHtml.includes('id="pickShortcutKey"'), '缺少快捷键列表键位锚点');
+    assert.ok(popupHtml.includes('id="pickShortcutHintKey"'), '缺少 hint 键位锚点');
+    // 保存 + 广播（tabs.sendMessage setElementPickerShortcut）
+    assert.ok(
+      popupJs.includes('Storage.saveElementPickerShortcut'),
+      'popup.js 缺少快捷键配置保存',
+    );
+    assert.match(
+      popupJs,
+      /action: 'setElementPickerShortcut', mode/,
+      'popup.js 未广播 setElementPickerShortcut 到标签页',
+    );
+    assert.ok(
+      popupJs.includes('renderPickShortcutDisplay'),
+      'popup.js 缺少快捷键显示渲染函数',
+    );
+    assert.ok(
+      popupJs.includes('loadPickShortcutConfig'),
+      'popup.js 缺少快捷键配置加载',
+    );
   });
 
   it('文档说明快捷键无效时的排查路径', () => {

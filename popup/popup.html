@@ -68,7 +68,7 @@
       <h3>⌨️ 快捷键</h3>
       <div class="shortcuts-list">
         <div class="shortcut-item">
-          <kbd>Ctrl+Shift+X</kbd>
+          <kbd id="pickShortcutKey">Ctrl+Shift+X</kbd>
           <span class="shortcut-desc">切换指针选择模式</span>
         </div>
         <div class="shortcut-item">
@@ -88,7 +88,22 @@
           <span class="shortcut-desc">确认多选（指针模式下）</span>
         </div>
       </div>
-      <p class="shortcuts-hint">💡 在任意页面按 <kbd>Ctrl+Shift+X</kbd> 即可进入指针选择模式，选取元素加入任务描述。</p>
+
+      <!-- 元素拾取快捷键选择（页内兜底与说明跟随此选择，默认按操作系统） -->
+      <div class="shortcut-choice">
+        <p class="shortcut-choice-title">🎯 唤起元素拾取：</p>
+        <label class="radio-label">
+          <input type="radio" name="pickShortcut" value="cmd">
+          <span><kbd>⌘+Shift+X</kbd>（Mac 风格）</span>
+        </label>
+        <label class="radio-label">
+          <input type="radio" name="pickShortcut" value="ctrl">
+          <span><kbd>Ctrl+Shift+X</kbd>（Windows/Linux 风格）</span>
+        </label>
+        <p class="shortcut-choice-note">💡 默认按操作系统选择（Mac ⌘ / 其他 Ctrl）。浏览器级键位在 chrome://extensions/shortcuts 中固定按系统预设，如需更改请前往重新绑定。</p>
+      </div>
+
+      <p class="shortcuts-hint">💡 在任意页面按 <kbd id="pickShortcutHintKey">Ctrl+Shift+X</kbd> 即可进入指针选择模式，选取元素加入任务描述。</p>
       <p class="shortcuts-hint" style="margin-top:2px">⚠️ 快捷键无效？<a href="#" id="taskplugin-shortcut-settings">点此检查 chrome://extensions/shortcuts 中的键位绑定</a>（Mac 为 ⌘+Shift+X，可能被其他扩展占用）。</p>
     </section>
 

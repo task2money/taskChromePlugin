@@ -3,11 +3,14 @@
  *
  * 背景：chrome.commands 注册可能因 Mac 已知 bug / 键位冲突失败，此时按键事件穿透到
  * 页面。content.js 内置页内 keydown 兜底监听保证快捷键依然可用。
+ * 兜底监听严格匹配 Popup「快捷键」选择（'cmd' 仅 ⌘+Shift+X，'ctrl' 仅 Ctrl+Shift+X），
+ * 默认按操作系统；测试显式设置模式后验证组合生效与「另一组合不触发」。
  *
  * 验证（加载真实 lib 链 + content.js）：
- * 1. 页内 keydown 兜底：合成 Cmd+Shift+X 按键 → 进入指针选择模式；再按 → 退出
+ * 1. 页内 keydown 兜底：'cmd' 模式下合成 ⌘+Shift+X → 进入指针选择模式；再按 → 退出
  * 2. 浏览器命令路径（toggleElementPick 消息）依然可用
  * 3. 双触发保护：消息路径与 keydown 路径 300ms 内只生效一次
+ * 4. 'ctrl' 模式下 Ctrl+Shift+X 生效，且 ⌘+Shift+X 被严格忽略
  */
 
 const path = require('path');
@@ -103,8 +106,8 @@ function dispatchRuntimeMessage(handlerListExpr, messageExpr) {
   })()`;
 }
 
-/** 合成 Cmd+Shift+X 页内按键（浏览器级命令注册失败时按键会穿透到页面） */
-function dispatchShortcutKey() {
+/** 合成 ⌘+Shift+X 页内按键（浏览器级命令注册失败时按键会穿透到页面） */
+function dispatchCmdShortcutKey() {
   return `(function () {
     const ev = new KeyboardEvent('keydown', {
       key: 'x',
@@ -117,6 +120,37 @@ function dispatchShortcutKey() {
       cancelable: true,
     });
     document.body.dispatchEvent(ev);
+  })()`;
+}
+
+/** 合成 Ctrl+Shift+X 页内按键 */
+function dispatchCtrlShortcutKey() {
+  return `(function () {
+    const ev = new KeyboardEvent('keydown', {
+      key: 'X',
+      code: 'KeyX',
+      keyCode: 88,
+      which: 88,
+      ctrlKey: true,
+      shiftKey: true,
+      bubbles: true,
+      cancelable: true,
+    });
+    document.body.dispatchEvent(ev);
+  })()`;
+}
+
+/**
+ * 模拟 Popup 切换快捷键模式：写入 storage stub + 派发 setElementPickerShortcut 消息。
+ * 与真实链路一致（popup 保存 storage 后广播到各 tab；storage.onChanged 为 no-op stub）。
+ */
+function setShortcutMode(mode) {
+  return `(function () {
+    window.chrome.storage.local._store.elementPickerShortcut = ${JSON.stringify(mode)};
+    const msg = { action: 'setElementPickerShortcut', mode: ${JSON.stringify(mode)} };
+    for (const fn of window.__onMessageHandlers) {
+      try { fn(msg, { tab: { id: 1 } }, () => {}); } catch (_) {}
+    }
   })()`;
 }
 
@@ -155,25 +189,26 @@ async function waitPickState(page, expectedOn) {
 }
 
 test.describe('快捷键页内兜底', () => {
-  test('chrome.commands 注册失败时：页内 Cmd+Shift+X 可进入/退出指针选择模式', async ({ page }) => {
+  test('chrome.commands 注册失败时：「cmd」模式下页内 ⌘+Shift+X 可进入/退出指针选择模式', async ({ page }) => {
     await loadPluginIntoPage(page);
+    await page.evaluate(setShortcutMode('cmd'));
 
     // 初始：未选择模式
     expect(await pickState(page)).toEqual({ on: false, btnText: '+' });
 
-    // 第一次 Cmd+Shift+X → 进入指针选择模式
-    await page.evaluate(dispatchShortcutKey());
+    // 第一次 ⌘+Shift+X → 进入指针选择模式
+    await page.evaluate(dispatchCmdShortcutKey());
     await waitPickState(page, true);
     expect((await pickState(page)).on).toBe(true);
 
     // 去抖窗口（300ms）内的重复按键应被忽略，不产生双切换
-    await page.evaluate(dispatchShortcutKey());
+    await page.evaluate(dispatchCmdShortcutKey());
     await page.waitForTimeout(100);
     expect((await pickState(page)).on).toBe(true);
 
     // 窗口过后再次按键 → 退出指针选择模式
     await page.waitForTimeout(350);
-    await page.evaluate(dispatchShortcutKey());
+    await page.evaluate(dispatchCmdShortcutKey());
     await waitPickState(page, false);
     expect((await pickState(page)).on).toBe(false);
   });
@@ -203,9 +238,10 @@ test.describe('快捷键页内兜底', () => {
 
   test('双触发保护：同一次按键的 keydown 与浏览器命令只生效一次', async ({ page }) => {
     await loadPluginIntoPage(page);
+    await page.evaluate(setShortcutMode('cmd'));
 
     // 场景 A：keydown 先到（页面兜底处理），随后浏览器命令消息到达 → 应被忽略
-    await page.evaluate(dispatchShortcutKey());
+    await page.evaluate(dispatchCmdShortcutKey());
     await waitPickState(page, true);
     const debouncedA = await page.evaluate(
       dispatchRuntimeMessage('__onMessageHandlers', `{ action: 'toggleElementPick' }`),
@@ -217,26 +253,27 @@ test.describe('快捷键页内兜底', () => {
     await page.waitForTimeout(350); // 离开去抖窗口
     await page.evaluate(dispatchRuntimeMessage('__onMessageHandlers', `{ action: 'toggleElementPick' }`));
     await waitPickState(page, false);
-    await page.evaluate(dispatchShortcutKey()); // 紧接 keydown 穿透
+    await page.evaluate(dispatchCmdShortcutKey()); // 紧接 keydown 穿透
     await page.waitForTimeout(100);
     expect((await pickState(page)).on).toBe(false);
 
     // 窗口过后正常退出/恢复
     await page.waitForTimeout(350);
-    await page.evaluate(dispatchShortcutKey());
+    await page.evaluate(dispatchCmdShortcutKey());
     await waitPickState(page, true);
   });
 
-  test('Ctrl+Shift+X（Windows 修饰键）同样生效', async ({ page }) => {
+  test('「ctrl」模式下 Ctrl+Shift+X 生效，⌘+Shift+X 被严格忽略', async ({ page }) => {
     await loadPluginIntoPage(page);
+    await page.evaluate(setShortcutMode('ctrl'));
 
-    await page.evaluate(`(function () {
-      const ev = new KeyboardEvent('keydown', {
-        key: 'X', code: 'KeyX', keyCode: 88, which: 88,
-        ctrlKey: true, shiftKey: true, bubbles: true, cancelable: true,
-      });
-      document.body.dispatchEvent(ev);
-    })()`);
+    // 严格匹配：'ctrl' 模式下按 ⌘+Shift+X 不触发
+    await page.evaluate(dispatchCmdShortcutKey());
+    await page.waitForTimeout(100);
+    expect((await pickState(page)).on).toBe(false);
+
+    // Ctrl+Shift+X（Windows/Linux 修饰键）生效
+    await page.evaluate(dispatchCtrlShortcutKey());
     await waitPickState(page, true);
     expect((await pickState(page)).on).toBe(true);
   });

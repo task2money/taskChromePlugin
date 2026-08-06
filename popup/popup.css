@@ -293,6 +293,28 @@ body {
   background: #45475a; color: #cdd6f4; padding: 1px 5px;
   border-radius: 3px; font-family: 'SF Mono', monospace; font-size: 9px;
 }
+/* 元素拾取快捷键选择 */
+.shortcut-choice {
+  margin-top: 8px; padding: 6px 8px;
+  background: #181825; border: 1px solid #313244; border-radius: 5px;
+}
+.shortcut-choice-title {
+  margin: 0 0 5px; font-size: 10px; color: #a6adc8;
+}
+.radio-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0; font-size: 11px; color: #bac2de;
+  cursor: pointer;
+}
+.radio-label kbd {
+  display: inline-block; min-width: 90px; text-align: center;
+  background: #45475a; color: #cdd6f4; padding: 2px 6px;
+  border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px; font-weight: 600; border-bottom: 2px solid #585b70;
+}
+.shortcut-choice-note {
+  margin: 5px 0 0; font-size: 9px; color: #6c7086; line-height: 1.4;
+}
 
 /* === 多账号列表 === */
 .accounts-list {

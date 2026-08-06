@@ -133,8 +133,9 @@ const Popup = (() => {
       hideLoadingUI();
     }
 
-    // finally 之后再尽力恢复表单，失败忽略
+    // finally 之后再尽力恢复表单/快捷键配置，失败忽略
     restoreRememberedFormFields().catch(() => {});
+    loadPickShortcutConfig();
   }
 
   function mountPopupUserGuide() {
@@ -493,6 +494,34 @@ const Popup = (() => {
     }
   }
 
+  // ---- 元素拾取快捷键选择 ----
+
+  /** 按当前模式渲染快捷键显示（radio 选中态 + 列表/hint 中的键位文本） */
+  function renderPickShortcutDisplay(mode) {
+    const isCmd = mode === 'cmd';
+    const keyLabel = isCmd ? '⌘+Shift+X' : 'Ctrl+Shift+X';
+    for (const id of ['pickShortcutKey', 'pickShortcutHintKey']) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = keyLabel;
+    }
+    for (const radio of document.querySelectorAll('input[name="pickShortcut"]')) {
+      radio.checked = radio.value === mode;
+    }
+  }
+
+  async function loadPickShortcutConfig() {
+    try {
+      const mode = await withTimeout(
+        Storage.getElementPickerShortcut(),
+        STORAGE_READ_TIMEOUT,
+        '读取快捷键配置',
+      );
+      renderPickShortcutDisplay(mode);
+    } catch (e) {
+      console.warn('[TaskPlugin] 读取快捷键配置失败:', e.message);
+    }
+  }
+
   function bindEvents() {
     if (eventsBound) return;
     eventsBound = true;
@@ -541,6 +570,26 @@ const Popup = (() => {
         try {
           await sendMessageWithTimeout({ action: 'setTrackingConfig', enabled }, 5000);
         } catch (_) { /* ignore */ }
+      });
+    }
+
+    // 元素拾取快捷键选择（⌘+Shift+X / Ctrl+Shift+X）
+    for (const radio of document.querySelectorAll('input[name="pickShortcut"]')) {
+      radio.addEventListener('change', async () => {
+        if (!radio.checked) return;
+        const mode = radio.value;
+        try {
+          await withTimeout(Storage.saveElementPickerShortcut(mode), STORAGE_READ_TIMEOUT, '保存快捷键选择');
+        } catch (_) { /* ignore */ }
+        try {
+          const tabs = await chrome.tabs.query({});
+          for (const tab of tabs) {
+            if (!tab.id) continue;
+            chrome.tabs.sendMessage(tab.id, { action: 'setElementPickerShortcut', mode }).catch(() => {});
+          }
+        } catch (_) { /* ignore */ }
+        renderPickShortcutDisplay(mode);
+        console.log('[TaskPlugin] 元素拾取快捷键已切换为:', mode);
       });
     }
 

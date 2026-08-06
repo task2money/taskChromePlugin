@@ -218,6 +218,11 @@
    */
   let lastShortcutToggleAt = 0;
   const SHORTCUT_DEBOUNCE_MS = 300;
+  /**
+   * 页内兜底监听使用的快捷键修饰键：'cmd'（⌘+Shift+X）或 'ctrl'（Ctrl+Shift+X）。
+   * 由 Popup「快捷键」配置决定，未配置时按操作系统默认（Storage.getElementPickerShortcut）。
+   */
+  let pickShortcutMode = 'ctrl';
   let highlightedEls = [];
   let highlightDoc = null;
   let pendingElementSnapshot = null;
@@ -276,6 +281,7 @@
       setupDescReset();
       setupDescSyncListener();
       bindAuthStorageListener();
+      bindPickShortcutStorageListener();
 
       // 1. 同步初始化 datalist（不依赖网络/存储）
       seedBranchDatalists();
@@ -294,6 +300,12 @@
         syncDescriptionEnabled = syncCfg.enabled;
         console.log('[taskChromePlugin] syncDescription enabled:', syncDescriptionEnabled);
       } catch (_) { /* ignore */ }
+
+      // 加载元素拾取快捷键配置（Popup 可选 ⌘/Ctrl+Shift+X，默认按操作系统）
+      try {
+        pickShortcutMode = await Storage.getElementPickerShortcut();
+        console.log('[taskChromePlugin] pick shortcut mode:', pickShortcutMode);
+      } catch (_) { /* 保持默认 'ctrl' */ }
 
       await restoreFloatBallPosition();
 
@@ -806,12 +818,20 @@
     setPickMode(!pickMode, 'float');
   }
 
-  /** 页内 keydown 兜底：Cmd/Ctrl+Shift+X 切换指针选择模式 */
+  /**
+   * 页内 keydown 兜底：按用户选择的修饰键（⌘ 或 Ctrl）+ Shift + X 切换指针选择模式。
+   * 严格匹配：'cmd' 仅 ⌘+Shift+X 触发，'ctrl' 仅 Ctrl+Shift+X 触发（另一组合不生效），
+   * 保证 Popup 中的自由选择在页内兜底路径上同样严格生效。
+   */
   function onShortcutKeyDown(e) {
     if (e.repeat) return;
-    if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
+    if (!e.shiftKey) return;
     const k = e.key;
     if (k !== 'x' && k !== 'X') return;
+    const modifierOk = pickShortcutMode === 'cmd'
+      ? e.metaKey && !e.ctrlKey
+      : e.ctrlKey && !e.metaKey;
+    if (!modifierOk) return;
     e.preventDefault();
     togglePickModeFromShortcut();
   }
@@ -1181,6 +1201,24 @@
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindAuthStorageListener 失败:', e.message);
+    }
+  }
+
+  /**
+   * storage 变更时同步快捷键模式：
+   * Popup 保存 elementPickerShortcut 后，即使 tabs.sendMessage 未送达
+   * （如弹出前已加载的标签页），新配置也实时生效，无需刷新页面。
+   */
+  function bindPickShortcutStorageListener() {
+    try {
+      if (!chrome.storage?.onChanged) return;
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        const mode = changes.elementPickerShortcut?.newValue;
+        if (mode === 'cmd' || mode === 'ctrl') pickShortcutMode = mode;
+      });
+    } catch (e) {
+      console.warn('[taskChromePlugin] bindPickShortcutStorageListener 失败:', e.message);
     }
   }
 
@@ -1854,6 +1892,12 @@
     if (msg.action === 'setSyncDescriptionEnabled') {
       console.log('[taskChromePlugin] setSyncDescriptionEnabled from popup:', msg.enabled);
       syncDescriptionEnabled = msg.enabled !== false;
+    }
+    if (msg.action === 'setElementPickerShortcut') {
+      if (msg.mode === 'cmd' || msg.mode === 'ctrl') {
+        pickShortcutMode = msg.mode;
+        console.log('[taskChromePlugin] setElementPickerShortcut from popup:', msg.mode);
+      }
     }
     if (msg.action === 'syncDescriptionUpdate') {
       // 收到来自其他标签页的描述同步更新
