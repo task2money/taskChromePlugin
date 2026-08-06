@@ -222,9 +222,10 @@
   const SHORTCUT_DEBOUNCE_MS = 300;
   /**
    * 页内兜底监听使用的快捷键组合串（如 'Ctrl+Shift+X' / 'Alt+Shift+E'）。
-   * 由 Popup「快捷键」自定义配置决定，默认统一 Ctrl+Shift+X（Storage.getElementPickerShortcut）。
+   * 由 Popup「快捷键」自定义配置决定，默认平台分派：mac ⌘+Shift+X / 其他 Ctrl+Shift+X
+   * （Storage.getElementPickerShortcut；初始值取平台默认兜底 storage 读取失败路径）。
    */
-  let pickShortcutCombo = 'Ctrl+Shift+X';
+  let pickShortcutCombo = Storage.detectDefaultShortcut();
   let highlightedEls = [];
   let highlightDoc = null;
   let pendingElementSnapshot = null;
@@ -303,7 +304,7 @@
         console.log('[taskChromePlugin] syncDescription enabled:', syncDescriptionEnabled);
       } catch (_) { /* ignore */ }
 
-      // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 Ctrl+Shift+X）
+      // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）
       try {
         pickShortcutCombo = await Storage.getElementPickerShortcut();
         renderShortcutHints();
@@ -822,7 +823,7 @@
   }
 
   /**
-   * 页内 keydown 兜底：严格匹配用户自定义的组合串（默认 Ctrl+Shift+X）。
+   * 页内 keydown 兜底：严格匹配用户自定义的组合串（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）。
    * Storage.matchShortcutKeydown 规则：组合中列出的修饰键必须按下、未列出的不得按下，
    * 与浏览器级键位（chrome.commands.update）行为一致。
    */
@@ -833,7 +834,7 @@
     togglePickModeFromShortcut();
   }
 
-  /** 快捷键提示文案跟随当前组合（默认 Ctrl+Shift+X） */
+  /** 快捷键提示文案跟随当前组合（默认平台分派） */
   function renderShortcutHints() {
     const combo = pickShortcutCombo || 'Ctrl+Shift+X';
     const ta = document.getElementById('taskplugin-desc');

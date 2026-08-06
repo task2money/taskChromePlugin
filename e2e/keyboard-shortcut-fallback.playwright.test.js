@@ -157,6 +157,42 @@ function dispatchCtrlShortcutKey() {
 }
 
 /**
+ * OPT-20260806-047: 通用组合串合成器 — 按组合串生成任意修饰键组合的 keydown。
+ * 例：'Alt+Shift+E' → altKey+shiftKey+key 'e'；'Ctrl+Shift+X' → 与 dispatchCtrlShortcutKey 等价。
+ */
+function dispatchComboShortcutKey(combo) {
+  const parts = String(combo || '').split('+').map((p) => p.trim()).filter(Boolean)
+  const keyName = parts[parts.length - 1]
+  const mods = new Set(parts.slice(0, -1))
+  return `(function () {
+    const ev = new KeyboardEvent('keydown', {
+      key: '${keyName.toLowerCase()}',
+      code: 'Key${keyName.toUpperCase()}',
+      keyCode: ${keyName.toUpperCase().charCodeAt(0)},
+      which: ${keyName.toUpperCase().charCodeAt(0)},
+      ctrlKey: ${mods.has('Ctrl')},
+      altKey: ${mods.has('Alt')},
+      shiftKey: ${mods.has('Shift')},
+      metaKey: ${mods.has('Command')},
+      bubbles: true,
+      cancelable: true,
+    });
+    document.body.dispatchEvent(ev);
+  })()`;
+}
+
+/** 切换自定义组合串（新契约：任意组合如 'Alt+Shift+E'），写入 storage + 派发消息 */
+function setShortcutCombo(combo) {
+  return `(function () {
+    window.chrome.storage.local._store.elementPickerShortcut = ${JSON.stringify(combo)};
+    const msg = { action: 'setElementPickerShortcut', shortcut: ${JSON.stringify(combo)} };
+    for (const fn of window.__onMessageHandlers) {
+      try { fn(msg, { tab: { id: 1 } }, () => {}); } catch (_) {}
+    }
+  })()`;
+}
+
+/**
  * 模拟 Popup/SW 切换快捷键：写入 storage stub + 派发 setElementPickerShortcut 消息
  * （新契约 shortcut 字段；旧版 'cmd'/'ctrl' 值由内容脚本迁移为组合串，行为意图不变）。
  */
@@ -318,6 +354,54 @@ test.describe('快捷键页内兜底', () => {
 
     // Ctrl+Shift+X 生效 → 退出选择模式
     await page.evaluate(dispatchCtrlShortcutKey());
+    await waitPickState(page, false);
+  });
+
+  // ── OPT-20260806-047: 自定义组合串全链路（Alt+Shift+E 等任意组合） ──
+  test('自定义组合 Alt+Shift+E：进入/退出指针选择，其他修饰键组合被严格忽略', async ({ page }) => {
+    await loadPluginIntoPage(page);
+    // 初始：无自定义模式（默认按系统），Alt+Shift+E 不应触发
+    await page.evaluate(dispatchComboShortcutKey('Alt+Shift+E'));
+    await page.waitForTimeout(100);
+    expect((await pickState(page)).on).toBe(false);
+
+    // 切换为 Alt+Shift+E → 页内严格匹配该组合
+    await page.evaluate(setShortcutCombo('Alt+Shift+E'));
+
+    // Alt+Shift+E → 进入指针选择模式
+    await page.evaluate(dispatchComboShortcutKey('Alt+Shift+E'));
+    await waitPickState(page, true);
+
+    // 严格忽略：Ctrl+Shift+E / ⌘+Shift+E / Ctrl+Alt+E 均不触发（未列出的修饰键不得按下）
+    for (const combo of ['Ctrl+Shift+E', 'Command+Shift+E', 'Ctrl+Alt+E', 'Alt+Shift+X']) {
+      await page.evaluate(dispatchComboShortcutKey(combo));
+      await page.waitForTimeout(50);
+      expect((await pickState(page)).on, `${combo} must not trigger`).toBe(true);
+    }
+
+    // 再次 Alt+Shift+E → 退出选择模式
+    await page.waitForTimeout(350); // 离开去抖窗口
+    await page.evaluate(dispatchComboShortcutKey('Alt+Shift+E'));
+    await waitPickState(page, false);
+  });
+
+  test('storage onChanged 实时切换到自定义组合：旧组合立即失效、新组合生效', async ({ page }) => {
+    await loadPluginIntoPage(page);
+
+    // 直接写 storage（onChanged 实时路径）切换为 Alt+Shift+E
+    await page.evaluate(`chrome.storage.local.set({ elementPickerShortcut: 'Alt+Shift+E' })`);
+    await page.evaluate(dispatchComboShortcutKey('Alt+Shift+E'));
+    await waitPickState(page, true);
+
+    // 实时切换为 Ctrl+Alt+P：Alt+Shift+E 立即失效（状态保持，不退出）
+    await page.waitForTimeout(350);
+    await page.evaluate(`chrome.storage.local.set({ elementPickerShortcut: 'Ctrl+Alt+P' })`);
+    await page.evaluate(dispatchComboShortcutKey('Alt+Shift+E'));
+    await page.waitForTimeout(100);
+    expect((await pickState(page)).on).toBe(true);
+
+    // 新组合 Ctrl+Alt+P 生效 → 退出选择模式
+    await page.evaluate(dispatchComboShortcutKey('Ctrl+Alt+P'));
     await waitPickState(page, false);
   });
 });

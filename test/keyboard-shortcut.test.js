@@ -32,13 +32,13 @@ const userGuideMd = read('docs/USER_GUIDE.md');
 const userGuideJs = read('lib/user-guide.js');
 
 describe('键盘快捷键三层链路', () => {
-  it('manifest 注册 toggle-element-picker 命令及默认 Ctrl+Shift+X 建议键位（mac 用 MacCtrl 保持字面 Control）', () => {
+  it('manifest 注册 toggle-element-picker 命令及建议键位（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）', () => {
     assert.ok(manifest.commands, 'manifest.commands 缺失');
     const cmd = manifest.commands[COMMAND_NAME];
     assert.ok(cmd, `manifest.commands 缺少 ${COMMAND_NAME}`);
     assert.equal(cmd.suggested_key.default, SHORTCUT_KEY_HINT);
-    // macOS 上普通 Ctrl 会被 Chrome 转换为 Command；字面 Control 须用 MacCtrl（与页内兜底 ctrlKey 匹配一致）
-    assert.equal(cmd.suggested_key.mac, 'MacCtrl+Shift+X');
+    // Command 修饰键仅 macOS 有效；mac 默认 ⌘+Shift+X（用户要求），其他平台 Ctrl+Shift+X
+    assert.equal(cmd.suggested_key.mac, 'Command+Shift+X');
     assert.ok(cmd.description);
   });
 
@@ -234,6 +234,53 @@ describe('键盘快捷键三层链路', () => {
     assert.ok(
       fnBlock.includes('frame0 失败，回退整 tab 广播'),
       'toggleElementPickInTab 缺少整 tab 广播回退',
+    );
+  });
+
+  // ── OPT-20260806-048: Popup 展示「实际浏览器绑定 vs 配置」差异提示 ──
+  it('SW 提供 getElementPickerShortcutStatus（commands.getAll 对比实际绑定）', () => {
+    assert.ok(
+      sw.includes("case 'getElementPickerShortcutStatus'"),
+      'SW 缺少 getElementPickerShortcutStatus 消息分支',
+    );
+    assert.ok(
+      sw.includes('getElementPickerShortcutStatus'),
+      'SW 缺少 getElementPickerShortcutStatus 函数',
+    );
+    assert.ok(
+      sw.includes("chrome.commands?.getAll"),
+      'SW 未使用 commands.getAll 读取实际绑定',
+    );
+    assert.ok(
+      sw.includes('c.name === \'toggle-element-picker\''),
+      'SW 未按命令名查找实际绑定',
+    );
+    assert.ok(
+      sw.includes('differs'),
+      'SW 未计算绑定差异标志',
+    );
+  });
+
+  it('Popup 在绑定差异时渲染提示与恢复入口，并做 HTML 转义', () => {
+    assert.ok(
+      popupHtml.includes('pickShortcutDiffHint'),
+      'popup.html 缺少差异提示元素 pickShortcutDiffHint',
+    );
+    assert.ok(
+      popupJs.includes('checkShortcutBindingDiff'),
+      'popup.js 缺少 checkShortcutBindingDiff 函数',
+    );
+    assert.ok(
+      popupJs.includes("action: 'getElementPickerShortcutStatus'"),
+      'popup.js 未请求 SW 绑定状态',
+    );
+    assert.ok(
+      popupJs.includes('btnPickShortcutRestore'),
+      'popup.js 缺少恢复绑定按钮',
+    );
+    assert.ok(
+      popupJs.includes('escapeHtml'),
+      'popup.js 未对绑定串做 HTML 转义（XSS 防护）',
     );
   });
 });

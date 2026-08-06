@@ -696,6 +696,9 @@ async function handleMessage(message, sender) {
     case 'setElementPickerShortcut':
       return await applyElementPickerShortcut(message.shortcut);
 
+    case 'getElementPickerShortcutStatus':
+      return await getElementPickerShortcutStatus();
+
     case 'syncDescription':
       {
         // 将描述广播到所有其他标签页（排除发送者）
@@ -1108,18 +1111,7 @@ async function toggleElementPickInTab(tabId) {
 }
 
 // ---- 元素拾取快捷键动态改绑（chrome.commands.update，Chrome 110+）----
-
-/** 运行时平台探测：macOS → true（chrome.commands.update 的修饰键规则按平台区分） */
-function isMacPlatform() {
-  try {
-    const plat = String(
-      navigator?.userAgentData?.platform || navigator?.platform || navigator?.userAgent || '',
-    ).toLowerCase();
-    return plat.includes('mac');
-  } catch {
-    return false;
-  }
-}
+// 平台探测复用 Storage.isMacPlatform（chrome.commands.update 的修饰键规则按平台区分）
 
 /** 向所有标签页广播快捷键变更（内容脚本页内兜底监听跟随，storage.onChanged 双通道兜底） */
 async function broadcastElementPickerShortcut(shortcut) {
@@ -1146,7 +1138,7 @@ async function applyElementPickerShortcut(shortcut) {
   if (!normalized) {
     return { success: false, error: `非法快捷键组合: ${String(shortcut)}` };
   }
-  const binding = Storage.shortcutToPlatformBinding(normalized, isMacPlatform());
+  const binding = Storage.shortcutToPlatformBinding(normalized, Storage.isMacPlatform());
   if (typeof chrome.commands?.update === 'function') {
     try {
       await chrome.commands.update({ name: 'toggle-element-picker', shortcut: binding });
@@ -1162,6 +1154,39 @@ async function applyElementPickerShortcut(shortcut) {
   await Storage.saveElementPickerShortcut(normalized);
   broadcastElementPickerShortcut(normalized).catch(() => {});
   return { success: true, data: { shortcut: normalized } };
+}
+
+/**
+ * OPT-20260806-048: 读取「配置的快捷键 vs 浏览器实际绑定」差异。
+ * 用户可在 chrome://extensions/shortcuts 手动改绑（该绑定优先于配置、且插件
+ * 内不可感知 — SW 设计上不做启动重绑，避免覆盖手动设置）；Popup 据此展示提示
+ * 「浏览器实际绑定为 X，与配置 Y 不同，点此恢复」。
+ * 旧浏览器（<Chrome 110，无 commands.update）无 commands API 时返回 null 绑定。
+ */
+async function getElementPickerShortcutStatus() {
+  const configured = await Storage.getElementPickerShortcut();
+  let actual = null;
+  if (typeof chrome.commands?.getAll === 'function') {
+    try {
+      const commands = await chrome.commands.getAll();
+      const found = (commands || []).find((c) => c.name === 'toggle-element-picker');
+      actual = found?.shortcut || '';
+    } catch (e) {
+      console.warn('[taskChromePlugin] commands.getAll 失败:', e.message || e);
+      actual = null;
+    }
+  }
+  const binding = Storage.shortcutToPlatformBinding(configured, Storage.isMacPlatform());
+  const differs = actual != null && actual !== binding;
+  return {
+    success: true,
+    data: {
+      configured,
+      configuredBinding: binding,
+      actual: actual ?? null,
+      differs,
+    },
+  };
 }
 
 chrome.commands.onCommand.addListener(async (command) => {

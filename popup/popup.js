@@ -439,7 +439,7 @@ const Popup = (() => {
     }
   }
 
-  // ---- 元素拾取快捷键自定义（默认 Ctrl+Shift+X，可改任意组合）----
+  // ---- 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可改任意组合）----
 
   /** 事件键名 → Chrome 命令键名（ArrowUp→Up、,→Comma、.→Period、空格→Space） */
   function eventKeyToShortcutName(e) {
@@ -453,7 +453,7 @@ const Popup = (() => {
 
   /** 渲染当前快捷键（列表/hint 键位锚点跟随） */
   function renderPickShortcutDisplay(shortcut) {
-    const label = shortcut || 'Ctrl+Shift+X';
+    const label = shortcut || Storage.detectDefaultShortcut();
     for (const id of ['pickShortcutKey', 'pickShortcutHintKey']) {
       const el = document.getElementById(id);
       if (el) el.textContent = label;
@@ -539,10 +539,10 @@ const Popup = (() => {
     }
   }
 
-  /** 恢复默认 Ctrl+Shift+X */
+  /** 恢复默认（mac ⌘+Shift+X / 其他平台 Ctrl+Shift+X） */
   async function resetShortcut() {
     showShortcutResult('', '');
-    await commitShortcut('Ctrl+Shift+X');
+    await commitShortcut(Storage.detectDefaultShortcut());
   }
 
   async function loadPickShortcutConfig() {
@@ -553,9 +553,47 @@ const Popup = (() => {
         '读取快捷键配置',
       );
       renderPickShortcutDisplay(shortcut);
+      checkShortcutBindingDiff(shortcut).catch(() => {});
     } catch (e) {
       console.warn('[TaskPlugin] 读取快捷键配置失败:', e.message);
     }
+  }
+
+  /**
+   * OPT-20260806-048: 对比「浏览器实际绑定（chrome://extensions/shortcuts 手动改绑）
+   * vs 配置」，差异时展示提示与「恢复」按钮。旧浏览器/查询失败静默隐藏。
+   */
+  async function checkShortcutBindingDiff(configured) {
+    const hintEl = $('#pickShortcutDiffHint');
+    if (!hintEl) return;
+    hintEl.style.display = 'none';
+    hintEl.textContent = '';
+    try {
+      const r = await sendMessageWithTimeout({ action: 'getElementPickerShortcutStatus' }, 5000);
+      if (!r?.success || !r.data || !r.data.differs) return;
+      const cfg = r.data.configuredBinding || configured || '';
+      const act = r.data.actual || '';
+      hintEl.innerHTML =
+        `⚠️ 浏览器实际绑定为 <b>${escapeHtml(act)}</b>，与配置 <b>${escapeHtml(cfg)}</b> 不同` +
+        `（chrome://extensions/shortcuts 中可能被手动改绑）。` +
+        `<a href="#" id="btnPickShortcutRestore" style="margin-left:6px">点此恢复为配置</a>`;
+      hintEl.style.display = 'block';
+      const restoreBtn = document.getElementById('btnPickShortcutRestore');
+      if (restoreBtn) {
+        restoreBtn.addEventListener('click', async (ev) => {
+          ev.preventDefault();
+          await commitShortcut(configured || Storage.detectDefaultShortcut());
+        });
+      }
+    } catch (e) {
+      console.warn('[TaskPlugin] 快捷键绑定差异检查失败:', e.message);
+    }
+  }
+
+  function escapeHtml(s) {
+    return String(s ?? '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
   }
 
   function bindEvents() {
@@ -609,7 +647,7 @@ const Popup = (() => {
       });
     }
 
-    // 元素拾取快捷键自定义（默认 Ctrl+Shift+X，可改任意组合）
+    // 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可改任意组合）
     const btnPickShortcutEdit = $('#btnPickShortcutEdit');
     if (btnPickShortcutEdit) btnPickShortcutEdit.addEventListener('click', startShortcutCapture);
     const btnPickShortcutReset = $('#btnPickShortcutReset');

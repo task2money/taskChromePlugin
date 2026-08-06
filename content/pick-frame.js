@@ -11,10 +11,15 @@
   let pickMode = false;
   let highlightedEls = [];
   let pickSelection = [];
-  // 页内兜底快捷键组合串（与 content.js 同规则：默认 Ctrl+Shift+X，Popup 可自定义）。
-  // 子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底在子 frame 聚焦时
-  // 不触发（OPT-20260806-016）— 此处检测并转发 SW。
-  let pickShortcutCombo = 'Ctrl+Shift+X';
+  // 页内兜底快捷键组合串（与 content.js 同规则：默认平台分派 mac ⌘+Shift+X / 其他 Ctrl+Shift+X，
+  // Popup 可自定义）。子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底在子 frame
+  // 聚焦时不触发（OPT-20260806-016）— 此处检测并转发 SW。
+  let pickShortcutCombo = (() => {
+    try {
+      const plat = String(navigator?.platform || navigator?.userAgent || '').toLowerCase();
+      return plat.includes('mac') ? 'Command+Shift+X' : 'Ctrl+Shift+X';
+    } catch { return 'Ctrl+Shift+X'; }
+  })();
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;

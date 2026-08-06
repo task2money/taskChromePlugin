@@ -46,6 +46,25 @@ beforeEach(() => {
   for (const k of Object.keys(memArea._data)) delete memArea._data[k];
 });
 
+/** 模拟某操作系统的 navigator（userAgentData / platform / userAgent 三种形态） */
+async function withNavigator(nav, fn) {
+  const hadNav = Object.prototype.hasOwnProperty.call(globalThis, 'navigator');
+  const prev = globalThis.navigator;
+  try {
+    Object.defineProperty(globalThis, 'navigator', { value: nav, configurable: true });
+    return await fn();
+  } finally {
+    if (hadNav) {
+      Object.defineProperty(globalThis, 'navigator', { value: prev, configurable: true });
+    } else {
+      delete globalThis.navigator;
+    }
+  }
+}
+
+const NAV_MAC = { platform: 'MacIntel', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' };
+const NAV_WIN = { platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' };
+
 /** 构造 keydown 事件对象（仅含匹配所需字段） */
 function keydown(partial) {
   return {
@@ -54,10 +73,31 @@ function keydown(partial) {
   };
 }
 
-describe('元素拾取快捷键（默认 Ctrl+Shift+X）', () => {
+describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 Ctrl+Shift+X）', () => {
+  describe('detectDefaultShortcut / isMacPlatform', () => {
+    it('macOS → Command+Shift+X，Windows/无 navigator → Ctrl+Shift+X', async () => {
+      await withNavigator(NAV_MAC, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Command+Shift+X');
+        assert.equal(Storage.isMacPlatform(), true);
+      });
+      await withNavigator(NAV_WIN, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.isMacPlatform(), false);
+      });
+      await withNavigator(undefined, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+      });
+    });
+  });
+
   describe('getElementPickerShortcut', () => {
-    it('无配置时返回默认 Ctrl+Shift+X（不依赖操作系统）', async () => {
-      assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
+    it('无配置时回退平台默认：mac ⌘+Shift+X / 其他 Ctrl+Shift+X', async () => {
+      await withNavigator(NAV_MAC, async () => {
+        assert.equal(await Storage.getElementPickerShortcut(), 'Command+Shift+X');
+      });
+      await withNavigator(NAV_WIN, async () => {
+        assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
+      });
     });
 
     it('旧版 cmd 模式迁移为 Command+Shift+X', async () => {
@@ -75,10 +115,15 @@ describe('元素拾取快捷键（默认 Ctrl+Shift+X）', () => {
       assert.equal(await Storage.getElementPickerShortcut(), 'Alt+Shift+E');
     });
 
-    it('非法存储值回退默认', async () => {
+    it('非法存储值回退平台默认', async () => {
       for (const bad of [42, null, '', 'Shift+X', 'Ctrl+Enter']) {
         await chrome.storage.local.set({ elementPickerShortcut: bad });
-        assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X', `非法值 ${JSON.stringify(bad)} 应回退默认`);
+        await withNavigator(NAV_WIN, async () => {
+          assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X', `非法值 ${JSON.stringify(bad)} 在 Windows 应回退 Ctrl 默认`);
+        });
+        await withNavigator(NAV_MAC, async () => {
+          assert.equal(await Storage.getElementPickerShortcut(), 'Command+Shift+X', `非法值 ${JSON.stringify(bad)} 在 mac 应回退 ⌘ 默认`);
+        });
       }
     });
   });
