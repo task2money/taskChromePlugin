@@ -11,6 +11,10 @@
   let pickMode = false;
   let highlightedEls = [];
   let pickSelection = [];
+  // 页内兜底快捷键模式（与 content.js 一致：'cmd' 仅 ⌘+Shift+X，'ctrl' 仅 Ctrl+Shift+X，
+  // 默认 'ctrl'）。子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底
+  // 在子 frame 聚焦时不触发（OPT-20260806-016）— 此处检测并转发 SW。
+  let pickShortcutMode = 'ctrl';
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;
@@ -177,9 +181,41 @@
     }
   }
 
+  // 子 frame 内页内兜底快捷键（OPT-20260806-016）：
+  // 严格匹配用户选择的修饰键组合，转发 SW 走浏览器命令路径（toggleElementPickShortcut）
+  // → 顶层 content.js 切换（共享去抖时间戳，浏览器命令与按键穿透不会双触发）。
+  function onShortcutKeyDown(e) {
+    if (e.repeat) return;
+    if (!e.shiftKey) return;
+    const k = e.key;
+    if (k !== 'x' && k !== 'X') return;
+    const modifierOk = pickShortcutMode === 'cmd'
+      ? e.metaKey && !e.ctrlKey
+      : e.ctrlKey && !e.metaKey;
+    if (!modifierOk) return;
+    e.preventDefault();
+    chrome.runtime.sendMessage({ action: 'toggleElementPickShortcut' }).catch((err) => {
+      console.warn('[taskChromePlugin] pick-frame shortcut relay failed:', err?.message || err);
+    });
+  }
+
+  // 加载快捷键模式 + storage 实时同步（与 content.js bindPickShortcutStorageListener 对齐）
+  try {
+    chrome.storage?.local?.get({ elementPickerShortcut: '' }).then((res) => {
+      const mode = res && res.elementPickerShortcut;
+      if (mode === 'cmd' || mode === 'ctrl') pickShortcutMode = mode;
+    });
+    chrome.storage?.onChanged?.addListener((changes, area) => {
+      if (area !== 'local') return;
+      const mode = changes && changes.elementPickerShortcut && changes.elementPickerShortcut.newValue;
+      if (mode === 'cmd' || mode === 'ctrl') pickShortcutMode = mode;
+    });
+  } catch (_) { /* 保持默认 'ctrl' */ }
+
   document.addEventListener('mouseover', onMouseOver, true);
   document.addEventListener('click', onClick, true);
   document.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('keydown', onShortcutKeyDown, true);
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     if (msg.action === 'startElementPick') {

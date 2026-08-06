@@ -154,13 +154,15 @@
   document.body.appendChild(root);
 
   // ---- 使用说明（SSOT: lib/user-guide.js）----
-  (function mountFloatUserGuide() {
+  (async function mountFloatUserGuide() {
     const host = document.getElementById('taskplugin-user-guide');
     if (!host) return;
     if (typeof UserGuide === 'undefined') {
       console.warn('[taskChromePlugin] UserGuide 未加载，浮窗使用说明跳过');
       return;
     }
+    // 快捷键说明动态插值用户当前选择的组合（OPT-20260806-017）
+    await UserGuide.loadShortcutModeFromStorage().catch(() => {});
     UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'float', open: false }));
   })();
 

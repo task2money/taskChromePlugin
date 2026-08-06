@@ -102,7 +102,7 @@ const Panel = (() => {
     }
   }
 
-  function mountUserGuide() {
+  async function mountUserGuide() {
     const host = $('#panel-user-guide');
     if (!host) return;
     if (typeof UserGuide === 'undefined') {
@@ -110,6 +110,8 @@ const Panel = (() => {
       host.textContent = '使用说明模块未加载';
       return;
     }
+    // 快捷键说明动态插值用户当前选择的组合（OPT-20260806-017）
+    await UserGuide.loadShortcutModeFromStorage().catch(() => {});
     UserGuide.mount(host, UserGuide.renderFullGuideHtml({ surface: 'panel' }));
   }
 

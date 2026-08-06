@@ -55,6 +55,31 @@ describe('UserGuide sections', () => {
   it('escapeHtml escapes angle brackets', () => {
     assert.equal(UserGuide.escapeHtml('<script>'), '&lt;script&gt;');
   });
+
+  it('快捷键说明按用户选择的模式动态插值（OPT-20260806-017）', () => {
+    // 默认（未选择）→ 通用文案
+    UserGuide.setShortcutMode('');
+    const generic = UserGuide.renderCollapsibleHtml({ surface: 'popup' });
+    assert.match(generic, /⌘\/Ctrl\+Shift\+X（默认按系统/);
+
+    // 'cmd' → ⌘+Shift+X
+    UserGuide.setShortcutMode('cmd');
+    const cmdHtml = UserGuide.renderCollapsibleHtml({ surface: 'popup' });
+    assert.match(cmdHtml, /⌘\+Shift\+X/);
+    assert.doesNotMatch(cmdHtml, /⌘\/Ctrl\+Shift\+X（默认按系统/);
+
+    // 'ctrl' → Ctrl+Shift+X
+    UserGuide.setShortcutMode('ctrl');
+    const ctrlHtml = UserGuide.renderFullGuideHtml({ surface: 'panel' });
+    assert.match(ctrlHtml, /Ctrl\+Shift\+X/);
+    assert.doesNotMatch(ctrlHtml, /⌘\/Ctrl\+Shift\+X（默认按系统/);
+
+    // 非法值忽略，保持通用文案
+    UserGuide.setShortcutMode('weird');
+    const fallback = UserGuide.renderCollapsibleHtml({ surface: 'float' });
+    assert.match(fallback, /⌘\/Ctrl\+Shift\+X（默认按系统/);
+    UserGuide.setShortcutMode('');
+  });
 });
 
 describe('USER_GUIDE.md sync', () => {

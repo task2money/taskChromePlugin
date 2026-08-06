@@ -25,6 +25,7 @@ function read(rel) {
 const manifest = JSON.parse(read('manifest.json'));
 const sw = read('background/service-worker.js');
 const content = read('content/content.js');
+const pickFrame = read('content/pick-frame.js');
 const popupHtml = read('popup/popup.html');
 const popupJs = read('popup/popup.js');
 const userGuideMd = read('docs/USER_GUIDE.md');
@@ -147,6 +148,56 @@ describe('键盘快捷键三层链路', () => {
     assert.ok(
       userGuideJs.includes('chrome://extensions/shortcuts'),
       'user-guide.js 缺少排查说明',
+    );
+  });
+
+  it('pick-frame.js 子 frame 内页内兜底按键监听并转发 SW（跨域 iframe 覆盖）', () => {
+    // 子 frame 按键不冒泡到顶层 → pick-frame.js 需自备兜底（OPT-20260806-016）
+    assert.ok(
+      pickFrame.includes('toggleElementPickShortcut'),
+      'pick-frame.js 缺少转发 SW 的 action',
+    );
+    assert.ok(
+      pickFrame.includes('chrome.runtime.sendMessage({ action: \'toggleElementPickShortcut\' })'),
+      'pick-frame.js 未转发快捷键到 SW',
+    );
+    // 严格匹配用户选择的修饰键（与 content.js 同规则）
+    assert.match(pickFrame, /e\.metaKey && !e\.ctrlKey/, 'pick-frame cmd 模式缺少严格匹配');
+    assert.match(pickFrame, /e\.ctrlKey && !e\.metaKey/, 'pick-frame ctrl 模式缺少严格匹配');
+    assert.match(pickFrame, /e\.repeat/, 'pick-frame 兜底缺少重复按键忽略');
+    // 模式从 storage 加载 + onChanged 实时同步
+    assert.ok(
+      pickFrame.includes('elementPickerShortcut'),
+      'pick-frame.js 未读取 elementPickerShortcut 配置',
+    );
+    assert.ok(
+      pickFrame.includes('storage?.onChanged?.addListener'),
+      'pick-frame.js 缺少 storage 变更监听',
+    );
+    assert.ok(
+      pickFrame.includes("document.addEventListener('keydown', onShortcutKeyDown, true)"),
+      'pick-frame 兜底 keydown 未以捕获阶段注册',
+    );
+  });
+
+  it('service-worker 处理子 frame 兜底转发消息（toggleElementPickShortcut）并复用顶层切换', () => {
+    assert.ok(
+      sw.includes("case 'toggleElementPickShortcut'"),
+      'SW 缺少 toggleElementPickShortcut 消息分支',
+    );
+    assert.ok(
+      sw.includes('toggleElementPickInTab'),
+      'SW 缺少可复用的 toggleElementPickInTab 函数',
+    );
+    // 浏览器命令路径与子 frame 转发路径复用同一切换逻辑
+    const fnBlock = sw.slice(sw.indexOf('async function toggleElementPickInTab'));
+    assert.ok(
+      fnBlock.includes('frameId: 0'),
+      'toggleElementPickInTab 未优先发送到顶层 frame',
+    );
+    assert.ok(
+      fnBlock.includes('frame0 失败，回退整 tab 广播'),
+      'toggleElementPickInTab 缺少整 tab 广播回退',
     );
   });
 });

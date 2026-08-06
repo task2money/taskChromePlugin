@@ -45,6 +45,7 @@ const LIB_FILES = [
 function installChromeStubs() {
   return `
     window.__onMessageHandlers = [];
+    window.__storageOnChangedListeners = [];
     window.chrome = {
       runtime: {
         sendMessage: async (msg, cb) => {
@@ -80,14 +81,29 @@ function installChromeStubs() {
             for (const k of list) out[k] = this._store[k];
             return out;
           },
-          async set(obj) { Object.assign(this._store, obj); },
+          // set 触发 storage.onChanged（OPT-20260806-015）：模拟真实 chrome.storage
+          // 语义，页内「直接写 storage → 模式实时切换」路径可端到端验证
+          async set(obj) {
+            const changes = {};
+            for (const [k, v] of Object.entries(obj)) {
+              changes[k] = { newValue: v, oldValue: this._store[k] };
+              this._store[k] = v;
+            }
+            if (Object.keys(changes).length > 0) {
+              for (const fn of window.__storageOnChangedListeners) {
+                try { fn(changes, 'local'); } catch (_) {}
+              }
+            }
+          },
           async remove() {},
         },
         session: {
           async get() { return {}; },
           async set() {},
         },
-        onChanged: { addListener() {} },
+        onChanged: {
+          addListener(fn) { window.__storageOnChangedListeners.push(fn); },
+        },
       },
       dom: { openOrClosedShadowRoot() { return null; } },
     };
@@ -142,7 +158,7 @@ function dispatchCtrlShortcutKey() {
 
 /**
  * 模拟 Popup 切换快捷键模式：写入 storage stub + 派发 setElementPickerShortcut 消息。
- * 与真实链路一致（popup 保存 storage 后广播到各 tab；storage.onChanged 为 no-op stub）。
+ * 与真实链路一致（popup 保存 storage 后广播到各 tab）。
  */
 function setShortcutMode(mode) {
   return `(function () {
@@ -276,5 +292,32 @@ test.describe('快捷键页内兜底', () => {
     await page.evaluate(dispatchCtrlShortcutKey());
     await waitPickState(page, true);
     expect((await pickState(page)).on).toBe(true);
+  });
+
+  test('直接写 storage（onChanged 实时路径，不依赖消息广播）→ 页内模式实时切换', async ({ page }) => {
+    await loadPluginIntoPage(page);
+    // 初始：无自定义模式（默认按系统），'cmd' 组合也不触发
+    await page.evaluate(dispatchCmdShortcutKey());
+    await page.waitForTimeout(100);
+    expect((await pickState(page)).on).toBe(false);
+
+    // 仅直接写 storage.local（chrome.storage.set 触发 onChanged），不派发任何消息：
+    // 页内 bindPickShortcutStorageListener 应实时生效（OPT-20260806-015，
+    // 此前该路径仅靠静态断言覆盖，stub onChanged 为 no-op）
+    await page.evaluate(`chrome.storage.local.set({ elementPickerShortcut: 'cmd' })`);
+    await page.evaluate(dispatchCmdShortcutKey());
+    await waitPickState(page, true);
+    expect((await pickState(page)).on).toBe(true);
+
+    // 再次直接写 storage 切换为 'ctrl'：⌘+Shift+X 立即失效（被忽略，状态不变）
+    await page.waitForTimeout(350); // 离开去抖窗口
+    await page.evaluate(`chrome.storage.local.set({ elementPickerShortcut: 'ctrl' })`);
+    await page.evaluate(dispatchCmdShortcutKey());
+    await page.waitForTimeout(100);
+    expect((await pickState(page)).on).toBe(true);
+
+    // Ctrl+Shift+X 生效 → 退出选择模式
+    await page.evaluate(dispatchCtrlShortcutKey());
+    await waitPickState(page, false);
   });
 });

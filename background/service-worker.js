@@ -800,6 +800,17 @@ async function handleMessage(message, sender) {
         return { success: true };
       }
 
+    // OPT-20260806-016: 子 frame 内页内兜底按键转发（跨域 iframe 按键不冒泡到
+    // 顶层，content.js 的 keydown 兜底在子 frame 聚焦时不触发）。
+    // 复用浏览器命令路径（frame0 优先、整 tab 广播回退），与去抖保护天然一致。
+    case 'toggleElementPickShortcut':
+      {
+        const tabId = sender?.tab?.id;
+        if (!tabId) return { success: false, error: '缺少 tabId' };
+        await toggleElementPickInTab(tabId);
+        return { success: true };
+      }
+
     case 'elementPickedInFrame':
       {
         const tabId = sender?.tab?.id;
@@ -1071,28 +1082,35 @@ async function cropCaptureToElement(dataUrl, rect, dpr, maxWidth) {
 
 // ---- 键盘快捷键命令 ----
 
+// toggleElementPickInTab 向 tab 顶层 frame 发送切换消息，失败时回退整 tab 广播。
+// 供两条路径复用：chrome.commands.onCommand（浏览器级命令）与子 frame 内
+// 页内兜底转发（pick-frame.js 检测到按键后经 runtime message 到达，OPT-20260806-016）。
+async function toggleElementPickInTab(tabId) {
+  let resp;
+  try {
+    resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' }, { frameId: 0 });
+  } catch (frame0Err) {
+    // 顶层 frame 尚未注入 content script（受限页/刷新竞态）时，
+    // 回退为整 tab 广播，保证快捷键在内容脚本注入后立即可用
+    console.warn(
+      '[taskChromePlugin] toggleElementPick frame0 失败，回退整 tab 广播:',
+      frame0Err?.message || frame0Err,
+    );
+    resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' });
+  }
+  console.log(
+    '[taskChromePlugin] toggleElementPick via shortcut:',
+    resp?.success ? 'ok' : 'content script 未响应',
+  );
+}
+
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'toggle-element-picker') return;
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
     const tabId = tabs[0]?.id;
     if (!tabId) return;
-    let resp;
-    try {
-      resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' }, { frameId: 0 });
-    } catch (frame0Err) {
-      // 顶层 frame 尚未注入 content script（受限页/刷新竞态）时，
-      // 回退为整 tab 广播，保证快捷键在内容脚本注入后立即可用
-      console.warn(
-        '[taskChromePlugin] toggleElementPick frame0 失败，回退整 tab 广播:',
-        frame0Err?.message || frame0Err,
-      );
-      resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' });
-    }
-    console.log(
-      '[taskChromePlugin] toggleElementPick via shortcut:',
-      resp?.success ? 'ok' : 'content script 未响应',
-    );
+    await toggleElementPickInTab(tabId);
   } catch (e) {
     console.warn('[taskChromePlugin] toggleElementPick shortcut failed:', e.message || e);
   }

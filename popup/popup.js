@@ -138,7 +138,7 @@ const Popup = (() => {
     loadPickShortcutConfig();
   }
 
-  function mountPopupUserGuide() {
+  async function mountPopupUserGuide() {
     const host = $('#popup-user-guide');
     const section = $('#popupGuideSection');
     if (!host) return;
@@ -146,6 +146,8 @@ const Popup = (() => {
       console.warn('[taskChromePlugin] UserGuide 未加载，弹窗使用说明跳过');
       return;
     }
+    // 快捷键说明动态插值用户当前选择的组合（OPT-20260806-017）
+    await UserGuide.loadShortcutModeFromStorage().catch(() => {});
     UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false }));
     if (section) section.style.display = 'block';
   }
