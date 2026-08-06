@@ -6,6 +6,10 @@
 # 4) 涉及登录链路时跑 Playwright E2E
 
 set -u
+# Session Hub 提交锁校验（v1.1.0，可选 — 二进制缺失时放行）
+SES_LIB="$(cd "$(dirname "$0")" && pwd)/lib/session_lock_check.sh"
+if [ -f "$SES_LIB" ]; then source "$SES_LIB"; session_hub_lock_check; fi
+
 
 cleanup() {
     echo "如果有测例失败，记得修复"
