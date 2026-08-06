@@ -4,3 +4,6 @@ node_modules/
 *.zip
 
 test-results/
+
+# 构建产物（watchdog/本地 build 生成）
+bin/
