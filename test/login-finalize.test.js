@@ -94,4 +94,25 @@ describe('persistLoginCredentials', () => {
       /保存登录态超时/,
     );
   });
+
+  it('single-account semantics: login persist never writes account slots (OPT-20260806-036)', async () => {
+    // Popup 定位单账号入口：登录收尾只写会话凭据（apiConfig + credentials），
+    // 不产生 savedAccounts 槽位。槽位由 taskFE 网页端经 SW setActiveAccount
+    // 桥接维护。此契约测试防止登录路径重新引入槽位写入。
+    const writtenKeys = [];
+    await persistLoginCredentials({
+      saveApiConfig: async () => { writtenKeys.push('apiConfig'); },
+      saveCredentials: async () => { writtenKeys.push('credentials'); },
+      baseUrl: 'https://aidevpush.com',
+      token: 'tok',
+      expiresIn: 0,
+      username: 'u',
+      userId: '1',
+      memberId: '2',
+      withTimeout,
+      timeoutMs: 500,
+    });
+    assert.deepEqual(writtenKeys, ['apiConfig', 'credentials']);
+    assert.ok(!writtenKeys.includes('savedAccounts'), '登录收尾不得写入账号槽位');
+  });
 });

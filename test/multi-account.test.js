@@ -146,6 +146,67 @@ describe('MultiAccount', () => {
     });
   });
 
+  describe('pruneSavedAccounts（过期槽位清理兜底，OPT-20260806-036 单账号语义）', () => {
+    it('no-op when ids empty', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1' });
+      const result = await MultiAccount.pruneSavedAccounts([]);
+      assert.strictEqual(result.list.length, 1);
+      assert.deepStrictEqual(result.removed, []);
+      const list = await MultiAccount.listSavedAccounts();
+      assert.strictEqual(list.length, 1);
+    });
+
+    it('removes matching accounts and keeps others', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1', username: 'Alice' });
+      await MultiAccount.upsertSavedAccount({ userId: '2', token: 'tok2', username: 'Bob' });
+      await MultiAccount.upsertSavedAccount({ userId: '3', token: 'tok3', username: 'Carol' });
+      const result = await MultiAccount.pruneSavedAccounts(['1', '3']);
+      assert.strictEqual(result.list.length, 1);
+      assert.strictEqual(result.list[0].userId, '2');
+      assert.deepStrictEqual(result.removed.map((s) => s.userId), ['1', '3']);
+    });
+
+    it('ignores unknown/nonexistent ids', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1' });
+      const result = await MultiAccount.pruneSavedAccounts(['999', '  ', '']);
+      assert.strictEqual(result.list.length, 1);
+      assert.deepStrictEqual(result.removed, []);
+    });
+
+    it('switches active account to first remaining when active is pruned', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1' });
+      await MultiAccount.upsertSavedAccount({ userId: '2', token: 'tok2' });
+      await MultiAccount.setActiveUserId('1');
+      await MultiAccount.pruneSavedAccounts(['1']);
+      const activeId = await MultiAccount.getActiveUserId();
+      assert.strictEqual(activeId, '2');
+    });
+
+    it('clears active marker when all accounts pruned', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1' });
+      await MultiAccount.setActiveUserId('1');
+      await MultiAccount.pruneSavedAccounts(['1']);
+      const list = await MultiAccount.listSavedAccounts();
+      assert.deepStrictEqual(list, []);
+      assert.strictEqual(await MultiAccount.getActiveUserId(), null);
+    });
+
+    it('dedupes ids in input', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1' });
+      const result = await MultiAccount.pruneSavedAccounts(['1', '1', '1']);
+      assert.strictEqual(result.removed.length, 1);
+      assert.deepStrictEqual(result.list, []);
+    });
+
+    it('does not touch active marker when pruning inactive accounts', async () => {
+      await MultiAccount.upsertSavedAccount({ userId: '1', token: 'tok1' });
+      await MultiAccount.upsertSavedAccount({ userId: '2', token: 'tok2' });
+      await MultiAccount.setActiveUserId('1');
+      await MultiAccount.pruneSavedAccounts(['2']);
+      assert.strictEqual(await MultiAccount.getActiveUserId(), '1');
+    });
+  });
+
   describe('getActiveAccount / getActiveToken', () => {
     it('returns null when no accounts', async () => {
       const account = await MultiAccount.getActiveAccount();

@@ -454,6 +454,10 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    // OPT-20260806-036 单账号语义：Popup 登录只维护单一活跃凭据
+    // （apiConfig + credentials），不创建 savedAccounts 槽位；槽位由
+    // taskFE 网页端经 setActiveAccount 桥接维护。契约由
+    // test/login-finalize.test.js 固化。
     case 'loginWithAccessToken':
       try {
         if (!message.username || !String(message.username).trim()) {
@@ -1305,6 +1309,16 @@ async function checkAllAccountsForExpiry() {
     console.log(`[taskChromePlugin] 检测到 ${expiredAccounts.length} 个账号 token 已过期:`,
       expiredAccounts.map(a => a.username || a.userId).join(', '));
     broadcastAccountExpired(expiredAccounts);
+    // OPT-20260806-036 单账号语义兜底：Popup 定位单账号入口后，槽位由 taskFE
+    // 网页端维护；此处清理已失效槽位，避免死账号在插件侧无限累积且不可见。
+    // 删除活跃账号时 MultiAccount.pruneSavedAccounts 会自动回退剩余账号。
+    try {
+      await MultiAccount.pruneSavedAccounts(expiredAccounts.map(a => a.userId));
+      // 广播登录态变更，触发网页端 Navbar 刷新已保存账号列表
+      broadcastAuthStateChanged().catch(() => {});
+    } catch (e) {
+      console.warn('[taskChromePlugin] 过期账号槽位清理失败:', e?.message || e);
+    }
   }
 }
 
