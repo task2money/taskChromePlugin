@@ -924,6 +924,14 @@ async function handleMessage(message, sender) {
         return { success: true, data: result };
       }
 
+    // OPT-20260806-056: 网页端主动清理过期/指定槽位（与 accountExpired 消费配套）
+    case 'pruneSavedAccounts':
+      {
+        const userIds = Array.isArray(message.userIds) ? message.userIds : [];
+        const result = await MultiAccount.pruneSavedAccounts(userIds);
+        return { success: true, data: result };
+      }
+
     case 'getActiveToken':
       {
         const token = await MultiAccount.getActiveToken();
