@@ -57,48 +57,50 @@
       </div>
     </section>
 
-    <!-- 快捷键说明 -->
+    <!-- 快捷键说明（默认收起，点击「展开」后显示） -->
     <section id="shortcutsSection" class="section shortcuts-section" style="display:none">
-      <h3>⌨️ 快捷键</h3>
-      <div class="shortcuts-list">
-        <div class="shortcut-item">
-          <kbd id="pickShortcutKey">Ctrl+Shift+X</kbd>
-          <span class="shortcut-desc">切换指针选择模式</span>
+      <h3 class="shortcuts-title">⌨️ 快捷键 <button id="btnToggleShortcuts" class="btn btn-sm btn-link">展开</button></h3>
+      <div id="shortcutsBody" style="display:none">
+        <div class="shortcuts-list">
+          <div class="shortcut-item">
+            <kbd id="pickShortcutKey">Ctrl+Shift+X</kbd>
+            <span class="shortcut-desc">切换指针选择模式</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>F12</kbd>
+            <span class="shortcut-desc">打开 DevTools → TaskPlugin 面板</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Esc</kbd>
+            <span class="shortcut-desc">取消指针选择 / 清空多选</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>⌘/Ctrl + 点击</kbd>
+            <span class="shortcut-desc">多选不关联元素（指针模式下）</span>
+          </div>
+          <div class="shortcut-item">
+            <kbd>Enter</kbd>
+            <span class="shortcut-desc">确认多选（指针模式下）</span>
+          </div>
         </div>
-        <div class="shortcut-item">
-          <kbd>F12</kbd>
-          <span class="shortcut-desc">打开 DevTools → TaskPlugin 面板</span>
-        </div>
-        <div class="shortcut-item">
-          <kbd>Esc</kbd>
-          <span class="shortcut-desc">取消指针选择 / 清空多选</span>
-        </div>
-        <div class="shortcut-item">
-          <kbd>⌘/Ctrl + 点击</kbd>
-          <span class="shortcut-desc">多选不关联元素（指针模式下）</span>
-        </div>
-        <div class="shortcut-item">
-          <kbd>Enter</kbd>
-          <span class="shortcut-desc">确认多选（指针模式下）</span>
-        </div>
-      </div>
 
-      <!-- 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X；浏览器级经 chrome.commands.update 改绑，页内兜底跟随） -->
-      <div class="shortcut-choice">
-        <p class="shortcut-choice-title">🎯 唤起元素拾取：</p>
-        <div class="shortcut-custom-row">
-          <kbd id="pickShortcutKey">Ctrl+Shift+X</kbd>
-          <button id="btnPickShortcutEdit" class="btn btn-sm">✏️ 修改</button>
-          <button id="btnPickShortcutReset" class="btn btn-sm" title="恢复默认快捷键">↩️ 恢复默认</button>
+        <!-- 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X；浏览器级经 chrome.commands.update 改绑，页内兜底跟随） -->
+        <div class="shortcut-choice">
+          <p class="shortcut-choice-title">🎯 唤起元素拾取：</p>
+          <div class="shortcut-custom-row">
+            <kbd id="pickShortcutCustomKey">Ctrl+Shift+X</kbd>
+            <button id="btnPickShortcutEdit" class="btn btn-sm">✏️ 修改</button>
+            <button id="btnPickShortcutReset" class="btn btn-sm" title="恢复默认快捷键">↩️ 恢复默认</button>
+          </div>
+          <p id="pickShortcutCaptureHint" class="shortcut-choice-note" style="display:none">请按下新的快捷键组合（须包含 Ctrl/Alt/Command，可选 Shift）… 按 <kbd>Esc</kbd> 取消</p>
+          <p id="pickShortcutResult" class="shortcut-choice-note"></p>
+          <p id="pickShortcutDiffHint" class="shortcut-choice-note err" style="display:none"></p>
+          <p class="shortcut-choice-note">💡 默认 Mac 为 ⌘+Shift+X、其他系统为 Ctrl+Shift+X（Chrome 限制 ⌘ 仅 macOS 可用）。修改后浏览器级键位与页内兜底监听同步生效；若键位被其他扩展占用会提示更换。</p>
         </div>
-        <p id="pickShortcutCaptureHint" class="shortcut-choice-note" style="display:none">请按下新的快捷键组合（须包含 Ctrl/Alt/Command，可选 Shift）… 按 <kbd>Esc</kbd> 取消</p>
-        <p id="pickShortcutResult" class="shortcut-choice-note"></p>
-        <p id="pickShortcutDiffHint" class="shortcut-choice-note err" style="display:none"></p>
-        <p class="shortcut-choice-note">💡 默认 Mac 为 ⌘+Shift+X、其他系统为 Ctrl+Shift+X（Chrome 限制 ⌘ 仅 macOS 可用）。修改后浏览器级键位与页内兜底监听同步生效；若键位被其他扩展占用会提示更换。</p>
-      </div>
 
-      <p class="shortcuts-hint">💡 在任意页面按 <kbd id="pickShortcutHintKey">Ctrl+Shift+X</kbd> 即可进入指针选择模式，选取元素加入任务描述。</p>
-      <p class="shortcuts-hint" style="margin-top:2px">⚠️ 快捷键无效？<a href="#" id="taskplugin-shortcut-settings">点此检查 chrome://extensions/shortcuts 中的键位绑定</a>（默认 Mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可能被其他扩展占用）。</p>
+        <p class="shortcuts-hint">💡 在任意页面按 <kbd id="pickShortcutHintKey">Ctrl+Shift+X</kbd> 即可进入指针选择模式，选取元素加入任务描述。</p>
+        <p class="shortcuts-hint" style="margin-top:2px">⚠️ 快捷键无效？<a href="#" id="taskplugin-shortcut-settings">点此检查 chrome://extensions/shortcuts 中的键位绑定</a>（默认 Mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可能被其他扩展占用）。</p>
+      </div>
     </section>
 
     <!-- 使用说明（SSOT: lib/user-guide.js） -->

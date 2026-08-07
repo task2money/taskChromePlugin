@@ -451,10 +451,10 @@ const Popup = (() => {
     return k;
   }
 
-  /** 渲染当前快捷键（列表/hint 键位锚点跟随） */
+  /** 渲染当前快捷键（列表/hint 键位锚点跟随；自定义行独立 id，改键后同步刷新） */
   function renderPickShortcutDisplay(shortcut) {
     const label = shortcut || Storage.detectDefaultShortcut();
-    for (const id of ['pickShortcutKey', 'pickShortcutHintKey']) {
+    for (const id of ['pickShortcutKey', 'pickShortcutCustomKey', 'pickShortcutHintKey']) {
       const el = document.getElementById(id);
       if (el) el.textContent = label;
     }
@@ -644,6 +644,17 @@ const Popup = (() => {
         try {
           await sendMessageWithTimeout({ action: 'setTrackingConfig', enabled }, 5000);
         } catch (_) { /* ignore */ }
+      });
+    }
+
+    // 快捷键说明：默认收起，点击「展开」后显示（面板更窄，说明按需展开）
+    const btnToggleShortcuts = $('#btnToggleShortcuts');
+    if (btnToggleShortcuts) {
+      btnToggleShortcuts.addEventListener('click', () => {
+        const body = $('#shortcutsBody');
+        if (!body) return;
+        if (body.style.display === 'none') { body.style.display = 'block'; btnToggleShortcuts.textContent = '收起'; }
+        else { body.style.display = 'none'; btnToggleShortcuts.textContent = '展开'; }
       });
     }
 
