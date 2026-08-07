@@ -19,7 +19,8 @@
     "activeTab",
     "tabs",
     "webNavigation",
-    "cookies"
+    "cookies",
+    "alarms"
   ],
   "host_permissions": [
     "<all_urls>"

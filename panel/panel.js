@@ -79,19 +79,32 @@ const Panel = (() => {
   }
 
   /**
-   * 接通 head 内早期缓冲 + PanelRequestBootstrap 缓冲。
+   * 接通 DevTools postMessage 消息管道（initRequests / newRequest / requestUpdated）。
    * 必须在任何 await 之前调用，避免 onShown 的 initRequests 丢失。
+   *
+   * 注意：window message listener 必须在这里注册（唯一注册点），不能放在
+   * panel.html head 内联脚本里 —— MV3 扩展页面默认 CSP (script-src 'self')
+   * 会阻止内联脚本，head 内联 relay 被静默丢弃会导致 devtools 请求列表为空。
+   * 此处注册时机先于 devtools onShown 的 postMessage（panel 页面脚本同步执行
+   * 完成于 panel 可见回调），sink 未就绪时的早到消息落入 __tcpRequestMsgEarly 缓冲。
    */
   function bindRequestMessagePipeline() {
+    window.addEventListener('message', (event) => {
+      const d = event && event.data;
+      if (!d || !d.action) return;
+      if (d.action !== 'initRequests' && d.action !== 'newRequest' && d.action !== 'requestUpdated') return;
+      if (typeof window.__tcpRequestMsgSink === 'function') {
+        window.__tcpRequestMsgSink(d);
+        return;
+      }
+      window.__tcpRequestMsgEarly = window.__tcpRequestMsgEarly || [];
+      window.__tcpRequestMsgEarly.push(d);
+    });
     if (requestMsgBuffer) {
       requestMsgBuffer.setConsumer(handleRequestMessage);
       window.__tcpRequestMsgSink = (data) => requestMsgBuffer.push(data);
     } else {
       window.__tcpRequestMsgSink = handleRequestMessage;
-      window.addEventListener('message', (event) => {
-        if (!event.data) return;
-        handleRequestMessage(event.data);
-      });
     }
     const early = Array.isArray(window.__tcpRequestMsgEarly)
       ? window.__tcpRequestMsgEarly.splice(0, window.__tcpRequestMsgEarly.length)

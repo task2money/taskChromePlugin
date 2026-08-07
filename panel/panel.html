@@ -4,20 +4,11 @@
   <meta charset="utf-8">
   <meta name="trae-service" content="taskChromePlugin" />
   <link rel="stylesheet" href="panel.css">
-  <!-- 尽早缓冲 DevTools onShown 推送的 initRequests，避免 panel.js await 前消息丢失导致列表卡在「正在加载」 -->
-  <script>
-    window.__tcpRequestMsgEarly = window.__tcpRequestMsgEarly || [];
-    window.addEventListener('message', function (event) {
-      var d = event && event.data;
-      if (!d || !d.action) return;
-      if (d.action !== 'initRequests' && d.action !== 'newRequest' && d.action !== 'requestUpdated') return;
-      if (typeof window.__tcpRequestMsgSink === 'function') {
-        window.__tcpRequestMsgSink(d);
-        return;
-      }
-      window.__tcpRequestMsgEarly.push(d);
-    });
-  </script>
+  <!--
+    DevTools postMessage 消息入口（initRequests / newRequest / requestUpdated）已在
+    panel.js bindRequestMessagePipeline() 中统一注册。切勿改回内联 <script> ——
+    MV3 扩展页面 CSP (script-src 'self') 会阻止内联脚本，导致 devtools 请求列表为空。
+  -->
 </head>
 <body>
   <div id="app">
