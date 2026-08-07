@@ -283,4 +283,20 @@ describe('键盘快捷键三层链路', () => {
       'popup.js 未对绑定串做 HTML 转义（XSS 防护）',
     );
   });
+
+  // ── OPT-20260807-050: 绑定差异警告位于默认收起的折叠区内，检测到差异须自动展开 ──
+  it('Popup 绑定差异时自动展开快捷键折叠区（警告不被折叠区隐藏）', () => {
+    const differsIdx = popupJs.indexOf('!r.data.differs');
+    assert.ok(differsIdx !== -1, 'popup.js 缺少 differs 判定');
+    const afterDiffers = popupJs.slice(differsIdx, differsIdx + 1000);
+    assert.ok(
+      afterDiffers.includes("sec.style.display = 'block'") &&
+        afterDiffers.includes("body.style.display = 'block'"),
+      '绑定差异后未自动展开 shortcutsSection/shortcutsBody',
+    );
+    assert.ok(
+      afterDiffers.includes("toggleBtn.textContent = '收起'"),
+      '绑定差异后未同步 btnToggleShortcuts 为「收起」态',
+    );
+  });
 });

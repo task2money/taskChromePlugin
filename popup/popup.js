@@ -571,6 +571,15 @@ const Popup = (() => {
     try {
       const r = await sendMessageWithTimeout({ action: 'getElementPickerShortcutStatus' }, 5000);
       if (!r?.success || !r.data || !r.data.differs) return;
+      // OPT-20260807-050: 绑定差异警告位于默认收起的快捷键区折叠区内（#shortcutsSection/
+      // #shortcutsBody display:none），不展开即错过。检测到差异时自动展开快捷键区并同步
+      // 「收起」态，警告展示完由用户手动收起。
+      const sec = $('#shortcutsSection');
+      const body = $('#shortcutsBody');
+      const toggleBtn = $('#btnToggleShortcuts');
+      if (sec) sec.style.display = 'block';
+      if (body) body.style.display = 'block';
+      if (toggleBtn) toggleBtn.textContent = '收起';
       const cfg = r.data.configuredBinding || configured || '';
       const act = r.data.actual || '';
       hintEl.innerHTML =
