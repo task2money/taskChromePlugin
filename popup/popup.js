@@ -599,6 +599,13 @@ const Popup = (() => {
     if (eventsBound) return;
     eventsBound = true;
 
+    // 授权页登录完成后 SW 广播登录态变更 → 弹窗自动刷新（无需手动重开）
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message && message.action === 'authStateChanged') {
+        withTimeout(loadState(), STATE_CHECK_TIMEOUT, '刷新登录态').catch(() => showLoginUI());
+      }
+    });
+
     // 登录按钮 — OAuth2+PKCE（OPT-20260808-024）
     const btnLogin = $('#btnLogin');
     if (btnLogin) btnLogin.addEventListener('click', handleOAuthLogin);

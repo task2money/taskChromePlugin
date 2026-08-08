@@ -18,6 +18,7 @@ importScripts(
   '../lib/async-timeout.js',
   '../lib/login-finalize.js',
   '../lib/multi-account.js',
+  '../lib/oauth-pkce.js',
 );
 
 // ---- 捕获配置内存缓存（OPT-20260808-023 F1）----
@@ -429,6 +430,89 @@ async function handleMessage(message, sender) {
 
     // ---- 登录（OAuth2+PKCE，OPT-20260808-024）----
     // 旧密码/访问令牌/Cookie 桥接登录已移除；登录入口为 oauthStart → oauthCallback。
+    // PKCE 会话（verifier/state）仅存扩展 storage 5 分钟，回调页凭 state 取回校验。
+
+    case 'oauthStart':
+      {
+        const baseUrl = String(message.baseUrl || '').trim();
+        if (!baseUrl) return { success: false, error: '缺少服务器地址' };
+        try {
+          const verifier = OAuthPKCE.generateCodeVerifier();
+          const codeChallenge = await OAuthPKCE.generateCodeChallenge(verifier);
+          const state = OAuthPKCE.generateState();
+          const session = {
+            verifier,
+            state,
+            baseUrl,
+            createdAt: Date.now(),
+          };
+          await chrome.storage.local.set({ oauthPkceSession: session });
+          const authorizeUrl = OAuthPKCE.buildAuthorizeUrl({
+            baseUrl,
+            extensionId: chrome.runtime.id,
+            state,
+            codeChallenge,
+          });
+          await chrome.tabs.create({ url: authorizeUrl });
+          return { success: true };
+        } catch (e) {
+          console.warn('[taskChromePlugin] oauthStart 失败:', e?.message || e);
+          return { success: false, error: e?.message || '无法打开授权页' };
+        }
+      }
+
+    case 'oauthCallback':
+      {
+        const { code, state } = message;
+        try {
+          const stored = await chrome.storage.local.get('oauthPkceSession');
+          const session = stored && stored.oauthPkceSession;
+          // state 校验（防 CSRF）与 TTL（5 分钟）——与 lib/oauth-callback.js 同规则
+          if (!session || session.state !== state) {
+            return { success: false, error: 'state 校验失败，请重新登录' };
+          }
+          if (session.createdAt && Date.now() - session.createdAt > 5 * 60 * 1000) {
+            return { success: false, error: '登录会话已过期，请重新登录' };
+          }
+
+          const redirectUri = `chrome-extension://${chrome.runtime.id}${OAuthPKCE.REDIRECT_PATH}`;
+          const tokenRes = await OAuthPKCE.exchangeCodeForToken({
+            baseUrl: session.baseUrl,
+            code,
+            redirectUri,
+            codeVerifier: session.verifier,
+          });
+          const accessToken = tokenRes.access_token;
+          if (!accessToken) return { success: false, error: 'OAuth token 交换未返回 access_token' };
+
+          const userInfo = await OAuthPKCE.fetchUserInfo(session.baseUrl, accessToken);
+          const username = userInfo.preferred_username || userInfo.name || userInfo.email || userInfo.sub || '';
+          const userId = userInfo.sub || '';
+
+          // 单账号语义（OPT-20260806-036）：只写 apiConfig + credentials，不占 savedAccounts 槽位
+          const result = await completeLoginAndRespond(
+            session.baseUrl,
+            accessToken,
+            tokenRes.expires_in || 3600,
+            username,
+            userId,
+            '',
+            { user: userInfo },
+          );
+
+          await chrome.storage.local.remove('oauthPkceSession');
+
+          // 关闭回调页（登录成功后自动收尾；失败页保留展示错误）
+          const tabId = message.tabId || (sender && sender.tab && sender.tab.id);
+          if (typeof tabId === 'number') {
+            setTimeout(() => chrome.tabs.remove(tabId).catch(() => {}), 1500);
+          }
+          return result;
+        } catch (e) {
+          console.warn('[taskChromePlugin] oauthCallback 失败:', e?.message || e);
+          return { success: false, error: e?.message || 'OAuth 登录处理失败', traceId: e?.traceId || '' };
+        }
+      }
 
     case 'logout':
       try {

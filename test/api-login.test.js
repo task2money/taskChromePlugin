@@ -29,6 +29,22 @@ describe('API login error helpers', () => {
   });
 });
 
+describe('buildAuthorizationHeader OAuth2 Bearer branch (OPT-20260808-024)', () => {
+  it('RS256 JWT (three dot segments) → Bearer', () => {
+    const jwt = 'eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5MDAwMDAwMDAxIn0.sig-sig';
+    assert.equal(API.buildAuthorizationHeader(jwt), `Bearer ${jwt}`);
+  });
+
+  it('at_* access token → Bearer', () => {
+    assert.equal(API.buildAuthorizationHeader('at_abc123'), 'Bearer at_abc123');
+  });
+
+  it('legacy session token → Token', () => {
+    assert.equal(API.buildAuthorizationHeader('t_legacy-token'), 'Token t_legacy-token');
+    assert.equal(API.buildAuthorizationHeader(''), '');
+  });
+});
+
 describe('API.init token clearing', () => {
   it('empty string tokenOverride clears in-memory session token', () => {
     API.init('http://127.0.0.1:18081', 'old-session-token');

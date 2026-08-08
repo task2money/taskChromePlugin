@@ -77,7 +77,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "icons/*.png"
+        "icons/*.png",
+        "oauth-callback.html"
       ],
       "matches": [
         "<all_urls>"
