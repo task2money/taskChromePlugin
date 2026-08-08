@@ -120,10 +120,16 @@ if [ "$should_run_all" = true ]; then
 fi
 
 if [ "$should_run_login_e2e" = true ]; then
-    echo "Staged login-related files; running Popup token-login Playwright E2E..."
+    echo "Staged login-related files; running login Playwright E2E..."
     export CI=1
     export PRE_COMMIT=1
-    bash e2e/popup-token-login.playwright.test.js.sh || exit 1
+    # OPT-20260808-024：旧 popup-token-login e2e 已删除，OAuth2+PKCE e2e 阶段 2 落地；
+    # 当前回退到真实扩展消息通道 e2e（登录链路烟雾）。
+    E2E_SCRIPT="e2e/oauth-pkce-login.playwright.test.js.sh"
+    if [ ! -f "$E2E_SCRIPT" ]; then
+        E2E_SCRIPT="e2e/real-extension-messaging.playwright.test.js.sh"
+    fi
+    bash "$E2E_SCRIPT" || exit 1
 fi
 
 echo "taskChromePlugin pre-commit checks passed."

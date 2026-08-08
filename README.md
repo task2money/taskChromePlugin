@@ -91,11 +91,11 @@ taskChromePlugin/
     ├── element-picker.test.js     # 元素描述拼接 / 校验 / Shadow pierce
     ├── user-guide.test.js         # 使用说明章节与 USER_GUIDE.md 同步
     ├── storage-base-url.test.js   # 服务器地址持久化 / 登出保留
-    ├── api-login.test.js          # 登录无脏 Authorization / storage 不阻塞
+    ├── api-login.test.js          # API 错误信息提取 / storage 不阻塞（旧登录已移除）
     └── login-finalize.test.js     # 登录收尾：广播不阻塞 success
 ├── e2e/
     ├── playwright.config.js
-    └── popup-token-login.playwright.test.js  # Popup 令牌登录 Playwright E2E
+    └── oauth-pkce-login.playwright.test.js  # OAuth2+PKCE 登录 Playwright E2E（阶段 2）
 ├── scripts/hooks/pre-commit       # 暂存源码时跑 npm test；登录链路改动另跑 E2E
 └── package.json                   # npm test / test:e2e:popup-login
 ```

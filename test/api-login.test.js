@@ -45,47 +45,8 @@ describe('API.init token clearing', () => {
   });
 });
 
-describe('loginWithAccessToken must not send Authorization', () => {
-  let originalFetch;
-
-  beforeEach(() => {
-    originalFetch = globalThis.fetch;
-    API.clearSession();
-    API.init('http://example.test', 'stale-should-not-be-sent', null, '');
-  });
-
-  afterEach(() => {
-    globalThis.fetch = originalFetch;
-    API.clearSession();
-  });
-
-  it('POSTs body without Authorization header even if memory has stale token', async () => {
-    let seenHeaders = null;
-    let seenBody = null;
-    globalThis.fetch = async (url, opts) => {
-      seenHeaders = opts.headers || {};
-      seenBody = opts.body;
-      assert.match(String(url), /login-with-access-token/);
-      return {
-        ok: true,
-        async json() {
-          return { token: 'new-session', user: { id: '1' } };
-        },
-        async text() { return ''; },
-      };
-    };
-
-    const data = await API.loginWithAccessToken('user@test.com', 'at_0123456789ab');
-    assert.equal(data.token, 'new-session');
-    assert.equal(seenHeaders.Authorization, undefined);
-    assert.equal(seenHeaders['Content-Type'], 'application/json');
-    assert.deepEqual(JSON.parse(seenBody), {
-      username: 'user@test.com',
-      access_token: 'at_0123456789ab',
-    });
-    assert.equal(API.getToken(), 'new-session');
-  });
-});
+// OPT-20260808-024：旧登录（密码/访问令牌）已移除，改 OAuth2+PKCE。
+// loginWithAccessToken 测试删除；token 交换逻辑移至 lib/oauth-pkce.js（见其单测）。
 
 /**
  * 回归：登录点击路径若 await 无超时的 storage，chrome.storage 挂起时按钮永远停在可点但无反馈。

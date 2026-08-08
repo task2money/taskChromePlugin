@@ -64,13 +64,8 @@ const Popup = (() => {
 
   async function restoreRememberedFormFields() {
     const cfg = await Storage.getApiConfig();
-    const cred = await Storage.getCredentials();
     const baseUrlInput = $('#baseUrl');
     if (baseUrlInput) baseUrlInput.value = cfg.baseUrl;
-    const usernameInput = $('#username');
-    if (usernameInput && cred.username && !cred.username.startsWith('(')) {
-      usernameInput.value = cred.username;
-    }
   }
 
   async function persistBaseUrlFromInput() {
@@ -200,7 +195,7 @@ const Popup = (() => {
         loginHint.textContent = errorMessage;
         loginHint.style.color = '#f38ba8';
       } else {
-        loginHint.textContent = '输入 task2app 账号与访问令牌（在账号中心 → 访问令牌 中生成）。';
+        loginHint.textContent = '通过网页端授权登录（OAuth2+PKCE）。';
         loginHint.style.color = '';
       }
     }
@@ -309,11 +304,6 @@ const Popup = (() => {
 
     const baseUrlInput = $('#baseUrl');
     if (baseUrlInput) baseUrlInput.value = baseUrl;
-
-    const usernameInput = $('#username');
-    if (usernameInput && cred.username && !cred.username.startsWith('(')) {
-      usernameInput.value = cred.username;
-    }
 
     if (cfg.token) {
       if (isExpired) {
@@ -609,9 +599,9 @@ const Popup = (() => {
     if (eventsBound) return;
     eventsBound = true;
 
-    // 登录按钮 — 账号 + 访问令牌
+    // 登录按钮 — OAuth2+PKCE（OPT-20260808-024）
     const btnLogin = $('#btnLogin');
-    if (btnLogin) btnLogin.addEventListener('click', handleTokenLogin);
+    if (btnLogin) btnLogin.addEventListener('click', handleOAuthLogin);
 
     // 退出登录
     const btnLogout = $('#btnLogout');
@@ -711,11 +701,7 @@ const Popup = (() => {
     if (reqStatusFilter) reqStatusFilter.addEventListener('change', renderRequestList);
   }
 
-  // ---- 账号 + 令牌登录 ----
-
-  function isAccessTokenFormat(token) {
-    return typeof token === 'string' && token.startsWith('at_') && token.length >= 12;
-  }
+  // ---- OAuth2+PKCE 登录（OPT-20260808-024）----
 
   function notifyContentScriptsAuthChanged() {
     chrome.tabs.query({}).then((tabs) => {
@@ -726,19 +712,14 @@ const Popup = (() => {
     }).catch(() => {});
   }
 
-  async function handleTokenLogin() {
+  /**
+   * 发起 OAuth 登录：校验服务器地址 → 保存 → 通知 SW 打开授权页。
+   * 授权完成后 oauth-callback 页通知 SW 完成 token 交换与持久化。
+   */
+  async function handleOAuthLogin() {
     const baseUrlInput = $('#baseUrl');
-    const usernameInput = $('#username');
-    const accessTokenInput = $('#accessToken');
     const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
-    const username = usernameInput ? usernameInput.value.trim() : '';
-    const accessToken = accessTokenInput ? accessTokenInput.value.trim() : '';
     if (!baseUrl) return showResult('loginResult', '请填写服务器地址', 'error');
-    if (!username) return showResult('loginResult', '请填写账号', 'error');
-    if (!accessToken) return showResult('loginResult', '请填写访问令牌', 'error');
-    if (!isAccessTokenFormat(accessToken)) {
-      return showResult('loginResult', '访问令牌格式无效，应以 at_ 开头', 'error');
-    }
 
     const btn = $('#btnLogin');
     const loginResult = $('#loginResult');
@@ -747,7 +728,7 @@ const Popup = (() => {
     if (loginResult) { loginResult.className = 'result'; loginResult.textContent = ''; }
 
     btn.disabled = true;
-    btn.textContent = '⏳ 登录中...';
+    btn.textContent = '⏳ 等待授权...';
 
     // 保存地址不得阻塞登录：chrome.storage 挂起时历史上会导致点击无响应
     try {
@@ -758,33 +739,11 @@ const Popup = (() => {
 
     try {
       const res = await sendMessageWithTimeout({
-        action: 'loginWithAccessToken',
+        action: 'oauthStart',
         baseUrl,
-        username,
-        accessToken,
       }, 30000);
-
       if (res?.success) {
-        // 先切已登录 UI，再刷新态：避免 storage/广播竞态让用户误以为「卡在登录页」
-        const displayName = username
-          || res.data?.user?.username
-          || res.data?.user?.email
-          || '';
-        showLoggedInUI(displayName);
-        startAuthBadgeTimer();
-        notifyContentScriptsAuthChanged();
-        try {
-          await withTimeout(loadState(), STATE_CHECK_TIMEOUT, '刷新登录态');
-          // loadState 若因 storage 延迟回到登录表单，保持乐观已登录
-          if ($('#loginSection')?.style.display !== 'none' && (res.data?.token || res.data?.access_token)) {
-            showLoggedInUI(displayName);
-            startAuthBadgeTimer();
-          }
-        } catch (e) {
-          console.warn('[TaskPlugin] 登录后刷新态失败，保持已登录展示:', e.message || e);
-          showLoggedInUI(displayName);
-          startAuthBadgeTimer();
-        }
+        showResult('loginResult', '✅ 已打开授权页，完成授权后请返回本弹窗', 'ok');
       } else {
         showResult('loginResult', `❌ ${res?.error || '登录失败'}`, 'error', res?.traceId);
       }
@@ -793,7 +752,7 @@ const Popup = (() => {
     } finally {
       btn.disabled = false;
       if ($('#loginSection')?.style.display !== 'none') {
-        btn.textContent = '🔓 登录';
+        btn.textContent = '🔓 OAuth 登录';
       }
     }
   }

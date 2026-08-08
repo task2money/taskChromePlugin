@@ -23,23 +23,15 @@
       <button id="btnRetryInit" class="btn btn-sm" style="display:none;margin-top:8px;">🔄 重试</button>
     </div>
 
-    <!-- 登录区域 — 账号 + 访问令牌 -->
+    <!-- 登录区域 — OAuth2+PKCE（OPT-20260808-024）-->
     <section id="loginSection" class="section" style="display:none">
       <h3>🔐 登录</h3>
-      <p id="loginHint" class="hint" style="margin-bottom:12px">输入 task2app 账号与访问令牌（在账号中心 → 访问令牌 中生成）。</p>
+      <p id="loginHint" class="hint" style="margin-bottom:12px">通过网页端授权登录（OAuth2+PKCE）。</p>
       <div class="form-row">
         <label>服务器地址</label>
         <input type="text" id="baseUrl" class="form-input" placeholder="https://aidevpush.com" autocomplete="url">
       </div>
-      <div class="form-row">
-        <label>账号</label>
-        <input type="text" id="username" class="form-input" placeholder="用户名或邮箱" autocomplete="username">
-      </div>
-      <div class="form-row">
-        <label>访问令牌</label>
-        <input type="password" id="accessToken" class="form-input" placeholder="at_..." autocomplete="off">
-      </div>
-      <button id="btnLogin" class="btn btn-primary btn-full">🔓 登录</button>
+      <button id="btnLogin" class="btn btn-primary btn-full">🔓 OAuth 登录</button>
       <div id="loginResult" class="result"></div>
     </section>
 

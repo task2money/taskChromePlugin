@@ -3,7 +3,7 @@
   "name": "Task Chrome Plugin",
   "version": "1.8.0",
   "description": "从 Chrome DevTools Network 捕获请求并创建任务；内置使用说明；指针选元素支持 ⌘/Ctrl 多选不关联元素 / UA 标注 / 嵌套 iframe / 截图 CDN·TTL；唤起快捷键默认 Mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可在弹窗自定义任意组合",
-  "key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCbTUEigGtbSstG\n6KtjVz0JBdSwn86j9IXxZ4s/DsIsDstOwHf67fq+2hl4mpoSO/1ggS22dvq/zNr5\nXD+QRtoJlSG3aBL9i4HDDQlWy7CVICuijMcgisbcaUth1zJwyrdVbTjyPzSpMXvP\nO6eaBTLxa69iB/UnoDqI+3iEfOq9QxTmyUx/3G52ZtBQnctv4DJXw8v+OLztLjD6\nXbZHZThV//hIee6rw5R2hJmh2Kd5z/V93mzBHn5gMxOME4TuS2UTUaoTquyQj1Sn\nX6+a/QYqaRoLz3QiAl6YJlJJVtc44kZZNqa/QrXMIHiTY8O/O0nAVOWMi12D5axv\nka8rAi0vAgMBAAECggEAL05SB+tsSEu5LelTw5fgTK5NAlw7eq/SWR18SgH53afI\nAD4ajgINvjL7TURyqBlD7jCLNyh46xHApfKWniEm64JU2eRG3JqxNTP0Y076hAJf\nqE0PnvcG6j7cqnn9sGPfgpMZpJjiNqOPHioCvKTWxrlRnB/mamKhUfaf2GOgsXOT\nHqsiaKRzpV5iUQthI6yazlaINJ8+gxq6qWm+xpO6uj9fBwUcmsbkYdtt8KKcjwnq\nM5gWdxQzJD4zsUlyStoY+Mf/Y3SsRK8eWuh8rsKjOGYhjK7q8l7nkTFyw06RbxoJ\nmLfrwHmq36Xim++U2OyakRHfl/na61M/A2WhY8QHGQKBgQDKTgZ2cAFrCwRVhLlV\n6ylO3XaKsSrNaL4Em57ukE1cu4slXkGuRrhI5kOb9bz1nvICdWopiZCVhhleR6QR\npTUGvw77Es/vKloiYHJpU/RGOW+s1FrPTHzObr00AG2ENuDK7VYDgU7UbbpYGJSe\n9hs4oacoS8CruFmeeGBVXaW9gwKBgQDEhYWxEX+t2VxNfBgi5PxCPuxxGxmq5+vp\nlRL6cRT+hcvKdYWlxIXwcPquWAqmR5SYNXl7JuaOoaIW1jayq1m/H8lEM5keL1fL\nVzcKtUaPdE92LssrmEpUxhp/IflvJba8ixwErzTXQnWJpj2cKwQKbhchAsH2gJcd\n+WPkTmAN5QKBgQCoi/MUb+KulQIqYaarr3296ALgMBTyB8bwPdte9LiPfuzB2FKu\naNsWWUmQwV6J4L/OTpaBPsxH1u6Bvvwxe0u/cCSCB71XjBiGNYZ8vGZyr12cR1vV\nA+ujbV2S2pxjn/kO+EdGKlBL6ZNr3CbOfUpWl0+V4e8G4lNAFRhlZt00EwKBgB1s\nMDv2drs8k8k2DxcKWYpBiXzVpd4kovlxzEmarJ3+wigpuDy9U6BQCfgYTl/ez6yK\nNQnvJQ2tvWrV35KYfPNUevmvD/mo9OgIwsDjqxDHRS5YiyqXvmk6z7TBDWtKpjVM\nToGVCcBAvwBA13COMCivmt7iXs/dKMLgF8iSw2bRAoGAJYz4Y5ky4K5oPnchdPEZ\na+KLh8tnK/cEZVocNhCeN2rBdWZr6198PLL2cdiiJdffo79qhftzPwRKLYBpbqN6\nd+GCy0u/KoJwYobrgOY7Qx2imUG7v/h0hpKSB/5OOvr0ZtVJmD0mYD/BXBcjiSCD\nns7R7exUw9+/7+Fa89sDGIw=\n-----END PRIVATE KEY-----",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm01BIoBrW0rLRuirY1c9CQXUsJ/Oo/SF8WeLPw7CLA7LTsB3+u36vtoZeJqaEjv9YIEttnb6v8za+Vw/kEbaCZUht2gS/YuBww0JVsuwlSAroozHIIrG3GlLYdcycMq3VW048j80qTF7zzunmgUy8WuvYgf1J6A6iPt4hHzqvUMU5slMf9xudmbQUJ3Lb+AyV8PL/ji87S4w+l22R2U4Vf/4SHnuq8OUdoSZodinec/1fd5swR5+YDMTjBOE7ktlE1GqE6rskI9Up1+vmv0GKmkaC890IgJemCZSSVbXOOJGWTamv0K1zCB4k2PDvztJwFTljItdg+Wsb5GvKwItLwIDAQAB",
   "commands": {
     "toggle-element-picker": {
       "suggested_key": {
@@ -40,23 +40,48 @@
   "devtools_page": "devtools/devtools.html",
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["lib/storage.js", "lib/dom-trace.js", "lib/create-task-payload.js", "lib/element-picker.js", "lib/user-guide.js", "lib/float-workspace-select.js", "lib/float-panel-after-create.js", "lib/aidev-meta.js", "lib/page-bridge.js", "lib/auth-refresh-debounce.js", "content/content.js"],
-      "css": ["content/content.css"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "lib/storage.js",
+        "lib/dom-trace.js",
+        "lib/create-task-payload.js",
+        "lib/element-picker.js",
+        "lib/user-guide.js",
+        "lib/float-workspace-select.js",
+        "lib/float-panel-after-create.js",
+        "lib/aidev-meta.js",
+        "lib/page-bridge.js",
+        "lib/auth-refresh-debounce.js",
+        "content/content.js"
+      ],
+      "css": [
+        "content/content.css"
+      ],
       "run_at": "document_end",
       "all_frames": false
     },
     {
-      "matches": ["<all_urls>"],
-      "js": ["lib/element-picker.js", "content/pick-frame.js"],
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "lib/element-picker.js",
+        "content/pick-frame.js"
+      ],
       "run_at": "document_end",
       "all_frames": true
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["icons/*.png"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "icons/*.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "icons": {

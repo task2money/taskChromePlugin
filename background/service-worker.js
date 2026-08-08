@@ -312,46 +312,8 @@ async function completeLoginAndRespond(baseUrl, token, expiresIn, username, user
   return { success: true, data: result };
 }
 
-/**
- * 从浏览器 Cookie 中读取 Web 登录 token，自动桥接到插件。
- * 主站登录后 taskAuth 会 Set-Cookie: token=<api_token>，
- * 插件可通过 chrome.cookies API 读取并恢复登录态，无需手动输入 token。
- */
-async function tryAutoDetectTokenFromCookie(baseUrl) {
-  try {
-    const cookie = await chrome.cookies.get({
-      url: (baseUrl || 'https://aidevpush.com') + '/',
-      name: 'token',
-    });
-    if (!cookie || !cookie.value) return null;
-
-    // 快速验证 token 有效性（3s 超时，不阻塞弹窗打开）
-    const resp = await fetch(`${baseUrl}/api/accounts/users/me/`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Token ${cookie.value}`,
-        'Accept': 'application/json',
-      },
-      signal: AbortSignal.timeout(3000),
-    });
-    if (!resp.ok) return null;
-
-    const user = await resp.json().catch(() => ({}));
-    const username = user?.username || user?.email || '';
-    const userId = user?.id ? String(user.id) : '';
-
-    // 持久化到 storage，后续请求直接使用
-    await Storage.saveApiConfig(baseUrl, cookie.value, 0);
-    if (username || userId) {
-      await Storage.saveCredentials(username, userId, '');
-    }
-    console.log('[taskChromePlugin] Auto-detected web login via token cookie:', username || userId || '(anonymous)');
-    return cookie.value;
-  } catch (e) {
-    console.warn('[taskChromePlugin] Cookie token auto-detect error:', e.message || e);
-    return null;
-  }
-}
+// OPT-20260808-024：旧登录（密码/访问令牌/Cookie 桥接）已移除。
+// 登录态只经 OAuth2+PKCE 授权码流程获得（case 'oauthStart' / 'oauthCallback'）。
 
 // ---- 捕获条目合批缓冲（OPT-20260808-019）----
 // 每个请求只入内存队列，1s 节流批量写入 session storage。
@@ -407,21 +369,6 @@ async function handleMessage(message, sender) {
         let cfg = await Storage.getApiConfig();
         let cred = await Storage.getCredentials();
         let expired = cfg.token ? await Storage.isTokenExpired() : false;
-
-        // 如果 storage 中没有 token，尝试从 Cookie 读取（自动检测 Web 登录态）
-        if (!cfg.token) {
-          try {
-            const cookieToken = await tryAutoDetectTokenFromCookie(cfg.baseUrl);
-            if (cookieToken) {
-              // 重新读取 storage（tryAutoDetectTokenFromCookie 已写入）
-              cfg = await Storage.getApiConfig();
-              cred = await Storage.getCredentials();
-              expired = false;
-            }
-          } catch (e) {
-            console.warn('[taskChromePlugin] Cookie token detection failed:', e.message || e);
-          }
-        }
 
         const remainingSeconds = await Storage.getTokenRemainingSeconds();
         return {
@@ -480,74 +427,8 @@ async function handleMessage(message, sender) {
       await Storage.saveApiConfig(message.baseUrl, message.token);
       return { success: true };
 
-    // ---- 向后兼容：保留旧登录方式作为 fallback ----
-
-    case 'login':
-      try {
-        // 清空内存脏 Token，避免登录请求带 Authorization
-        API.init(message.baseUrl, '', message.endpointMapping, '');
-        if (message.endpointMapping) {
-          API.setEndpointMapping(message.endpointMapping);
-          if (message.endpointMapping.owner) API.setOwner(message.endpointMapping.owner);
-        }
-        const result = await API.login(message.username, message.password);
-        const token = result.token || result.access_token;
-        if (!token) {
-          return { success: false, error: '登录成功但未返回 session token，请重试' };
-        }
-        const expiresIn = Number(result.expires_in || result.expiresIn || 0);
-        const cc = result.user?.current_company;
-        return await completeLoginAndRespond(
-          message.baseUrl,
-          token,
-          expiresIn,
-          message.username,
-          result.user?.id || '',
-          cc?.member_id || '',
-          result,
-        );
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
-
-    // OPT-20260806-036 单账号语义：Popup 登录只维护单一活跃凭据
-    // （apiConfig + credentials），不创建 savedAccounts 槽位；槽位由
-    // taskFE 网页端经 setActiveAccount 桥接维护。契约由
-    // test/login-finalize.test.js 固化。
-    case 'loginWithAccessToken':
-      try {
-        if (!message.username || !String(message.username).trim()) {
-          return { success: false, error: '请填写账号' };
-        }
-        if (!API.isAccessTokenFormat(message.accessToken)) {
-          return { success: false, error: '访问令牌格式无效，应以 at_ 开头' };
-        }
-        // 清空内存脏 Token，登录走 requestUnauthenticated
-        API.init(message.baseUrl, '', message.endpointMapping, '');
-        if (message.endpointMapping) {
-          API.setEndpointMapping(message.endpointMapping);
-          if (message.endpointMapping.owner) API.setOwner(message.endpointMapping.owner);
-        }
-        const result = await API.loginWithAccessToken(message.username, message.accessToken);
-        const token = result.token || result.access_token;
-        if (!token) {
-          return { success: false, error: '登录成功但未返回 session token，请重试' };
-        }
-        const expiresIn = Number(result.expires_in || result.expiresIn || 0);
-        const cc = result.user?.current_company;
-        const displayName = message.username || result.user?.username || result.user?.email || '';
-        return await completeLoginAndRespond(
-          message.baseUrl,
-          token,
-          expiresIn,
-          displayName,
-          result.user?.id || '',
-          cc?.member_id || '',
-          result,
-        );
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
+    // ---- 登录（OAuth2+PKCE，OPT-20260808-024）----
+    // 旧密码/访问令牌/Cookie 桥接登录已移除；登录入口为 oauthStart → oauthCallback。
 
     case 'logout':
       try {
