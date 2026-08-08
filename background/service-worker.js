@@ -12,6 +12,8 @@ importScripts(
   '../lib/client-public-ip.js',
   '../lib/api.js',
   '../lib/capture-status.js',
+  '../lib/captured-entries.js',
+  '../lib/captured-buffer.js',
   '../lib/element-picker.js',
   '../lib/async-timeout.js',
   '../lib/login-finalize.js',
@@ -60,6 +62,8 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
 
   const trackingCfg = await Storage.getTrackingConfig();
   if (!trackingCfg.enabled) {
+    // 清空存储同时丢弃合批缓冲中未写入的条目，避免下一轮 flush 回写
+    capturedBuffer.discard();
     await Storage.clearCapturedErrors();
     if (activeTabId === tabId) {
       tab5xxCounts.set(tabId, 0);
@@ -78,8 +82,19 @@ async function updateBadgeForActiveTab() {
   }
 }
 
+/** 5xx 徽标更新去抖（500ms 合批）— 轮询密集型页面每请求一次 chrome.action 是多余开销 */
+let badgeUpdateTimer = null;
+function scheduleBadgeUpdate() {
+  if (badgeUpdateTimer) return;
+  badgeUpdateTimer = setTimeout(() => {
+    badgeUpdateTimer = null;
+    updateBadgeForActiveTab();
+  }, 500);
+}
+
 /**
  * 处理完成的请求 — 按 tab 隔离计数，按 capture 配置存储详情
+ * （OPT-20260808-019：条目入合批缓冲，1s 节流批量写入，见 capturedBuffer）
  */
 async function handleRequestCompleted(details) {
   try {
@@ -91,7 +106,7 @@ async function handleRequestCompleted(details) {
       const prev = tab5xxCounts.get(tabId) || 0;
       tab5xxCounts.set(tabId, prev + 1);
       if (tabId === activeTabId) {
-        updateBadgeForActiveTab();
+        scheduleBadgeUpdate();
       }
     }
 
@@ -101,7 +116,7 @@ async function handleRequestCompleted(details) {
     const isError = CaptureStatus.matchStatusCode(details.statusCode, captureCfg.statusCodes, { canceled: false });
     if (!isError) return;
 
-    const entry = buildCapturedEntry({
+    const entry = CapturedEntries.buildCapturedEntry({
       url: details.url,
       method: details.method,
       statusCode: details.statusCode,
@@ -115,7 +130,7 @@ async function handleRequestCompleted(details) {
       error: '',
     });
 
-    await Storage.addCapturedError(entry);
+    capturedBuffer.push(entry);
   } catch (_) {
     // 静默处理 storage 读取失败
   }
@@ -141,7 +156,7 @@ async function handleRequestError(details) {
     const isMatch = CaptureStatus.matchStatusCode(statusCode, captureCfg.statusCodes, { canceled });
     if (!isMatch) return;
 
-    const entry = buildCapturedEntry({
+    const entry = CapturedEntries.buildCapturedEntry({
       url: details.url,
       method: details.method,
       statusCode,
@@ -155,17 +170,10 @@ async function handleRequestError(details) {
       error: details.error || '',
     });
 
-    await Storage.addCapturedError(entry);
+    capturedBuffer.push(entry);
   } catch (_) {
     // 静默处理 storage 读取失败
   }
-}
-
-function buildCapturedEntry(fields) {
-  return {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    ...fields,
-  };
 }
 
 function extractHeaders(headers) {
@@ -308,6 +316,18 @@ async function tryAutoDetectTokenFromCookie(baseUrl) {
     return null;
   }
 }
+
+// ---- 捕获条目合批缓冲（OPT-20260808-019）----
+// 每个请求只入内存队列，1s 节流批量写入 session storage。
+// 修复前：每个请求都做一次「读 500 条数组 → push → 全量写回」，
+// work-panel 等轮询密集页面每分钟数十次请求 → 每次 1MB+ JSON parse/stringify
+// 写风暴 + storage.onChanged 广播风暴。修复后每请求零 storage 读写，
+// 至多每秒一次批量写（Storage.addCapturedErrors 内部仍有 500 条上限）。
+const capturedBuffer = CapturedBuffer.createCapturedBuffer({
+  flush: (batch) => Storage.addCapturedErrors(batch),
+  flushIntervalMs: 1000,
+  maxEntries: 500,
+});
 
 // ---- 内存中的请求缓存 (DevTools 转发) ----
 
@@ -674,6 +694,8 @@ async function handleMessage(message, sender) {
       return { success: true, data: await Storage.getCapturedErrors() };
 
     case 'clearCapturedErrors':
+      // 丢弃缓冲中的 pending 条目，避免下一轮 flush 把「已清空」的数据回写
+      capturedBuffer.discard();
       await Storage.clearCapturedErrors();
       return { success: true };
 

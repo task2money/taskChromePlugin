@@ -1170,6 +1170,26 @@
     }
   }
 
+  /**
+   * auth 刷新去抖（500ms 尾缘合批，OPT-20260808-019）：
+   * storage.onChanged 对 token/baseUrl/userId/memberId 任一变更都会触发，
+   * 多键写入与多标签页广播会在毫秒级连发多次 → 每次都是一轮
+   * checkLoginStatus(full) + loadWorkspaces()（网络请求 + DOM 重建）。
+   * 轮询密集型页面（work-panel）下这是主要的 CPU/网络风暴来源之一。
+   * 去抖后一次变更风暴只刷新一次；登录等少量场景可直接 await 原函数。
+   */
+  let authRefreshTimer = null;
+  const AUTH_REFRESH_DEBOUNCE_MS = 500;
+  function scheduleAuthRefresh() {
+    if (authRefreshTimer) clearTimeout(authRefreshTimer);
+    authRefreshTimer = setTimeout(() => {
+      authRefreshTimer = null;
+      refreshAuthAndWorkspaces().catch((e) => {
+        console.warn('[taskChromePlugin] 去抖后 auth 刷新失败:', e.message);
+      });
+    }, AUTH_REFRESH_DEBOUNCE_MS);
+  }
+
   /** 仅刷新登录角标（不重载工作空间），供定时器使用 */
   async function refreshAuthBadgeOnly() {
     await checkLoginStatus({ mode: 'badgeOnly' });
@@ -1206,9 +1226,7 @@
         if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
           return;
         }
-        refreshAuthAndWorkspaces().catch((e) => {
-          console.warn('[taskChromePlugin] storage.onChanged 刷新失败:', e.message);
-        });
+        scheduleAuthRefresh();
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindAuthStorageListener 失败:', e.message);
@@ -1936,9 +1954,7 @@
       }
     }
     if (msg.action === 'authStateChanged') {
-      refreshAuthAndWorkspaces().catch((e) => {
-        console.warn('[taskChromePlugin] authStateChanged 刷新失败:', e.message);
-      });
+      scheduleAuthRefresh();
       // 同时通知页面账号状态已变更（多账号桥接）
       try {
         window.postMessage({
