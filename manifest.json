@@ -41,7 +41,7 @@
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["lib/storage.js", "lib/dom-trace.js", "lib/create-task-payload.js", "lib/element-picker.js", "lib/user-guide.js", "lib/float-workspace-select.js", "lib/float-panel-after-create.js", "lib/aidev-meta.js", "lib/page-bridge.js", "content/content.js"],
+      "js": ["lib/storage.js", "lib/dom-trace.js", "lib/create-task-payload.js", "lib/element-picker.js", "lib/user-guide.js", "lib/float-workspace-select.js", "lib/float-panel-after-create.js", "lib/aidev-meta.js", "lib/page-bridge.js", "lib/auth-refresh-debounce.js", "content/content.js"],
       "css": ["content/content.css"],
       "run_at": "document_end",
       "all_frames": false

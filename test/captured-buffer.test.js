@@ -218,4 +218,84 @@ describe('createCapturedBuffer 合批节流', () => {
     await new Promise((r) => setTimeout(r, 0));
     assert.equal(flushCalls, 0);
   });
+
+  it('F2：连续失败达 maxRetries 时丢弃最旧批次并停止重试（无退避热循环）', async () => {
+    const scheduler = manualScheduler();
+    let flushCalls = 0;
+    const buf = createCapturedBuffer({
+      flush: async () => { flushCalls++; throw new Error('storage quota exceeded'); },
+      flushIntervalMs: 1000,
+      maxEntries: 5,
+      maxRetries: 3,
+      scheduler,
+    });
+
+    // scheduled 中可能残留已取消的窗口计时器（cancel 仅置标记），断言只看活跃计时器
+    const activeMs = () => scheduler.scheduled.filter((j) => !j.cancelled).map((j) => j.ms);
+
+    for (let i = 0; i < 5; i++) buf.push({ id: i });
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushCalls, 1, '满 5 条立即首次 flush');
+
+    // 指数退避序列：1s → 2s（绝不立即无退避重试）
+    assert.deepEqual(activeMs(), [1000], '首次失败后按 1s 退避调度');
+    scheduler.fireAll();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushCalls, 2);
+    assert.deepEqual(activeMs(), [2000], '第二次失败后按 2s 退避调度');
+
+    // 第 3 次失败 → 丢弃最旧批次，pending 清空，不再调度
+    scheduler.fireAll();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushCalls, 3, '达到 maxRetries 后不再重试');
+    assert.equal(buf.pendingCount, 0, '失败批次被丢弃');
+
+    scheduler.fireAll();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushCalls, 3, '丢弃后不得再有 flush 尝试');
+  });
+
+  it('F2：失败后成功 → 失败计数重置，不累积退避', async () => {
+    const scheduler = manualScheduler();
+    const flushed = [];
+    let failNext = true;
+    const buf = createCapturedBuffer({
+      flush: async (batch) => {
+        if (failNext) {
+          failNext = false;
+          throw new Error('transient');
+        }
+        flushed.push(batch);
+      },
+      flushIntervalMs: 1000,
+      maxEntries: 3,
+      scheduler,
+    });
+
+    // scheduled 中可能残留已取消的窗口计时器（cancel 仅置标记），断言只看活跃计时器
+    const activeMs = () => scheduler.scheduled.filter((j) => !j.cancelled).map((j) => j.ms);
+
+    // 第一次失败 → 退避 1s
+    buf.push({ id: 1 }); buf.push({ id: 2 }); buf.push({ id: 3 });
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushed.length, 0);
+    assert.deepEqual(activeMs(), [1000], '失败后进入退避');
+
+    // 退避后重试成功 → 计数重置
+    scheduler.fireAll();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushed.length, 1);
+    assert.deepEqual(flushed[0].map((e) => e.id), [1, 2, 3]);
+
+    // 再次失败一次后成功：退避仍从 1s 起步（不累积为 2s/4s）
+    failNext = true;
+    buf.push({ id: 4 }); buf.push({ id: 5 }); buf.push({ id: 6 });
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushed.length, 1, '计数已重置：失败后批次重新入队，未丢弃');
+    assert.deepEqual(activeMs(), [1000], '重置后退避从 1s 重新起步（不累积）');
+    scheduler.fireAll();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(flushed.length, 2, '重试后第二批最终成功');
+    assert.deepEqual(flushed[1].map((e) => e.id), [4, 5, 6]);
+  });
 });

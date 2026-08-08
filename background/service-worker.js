@@ -20,6 +20,33 @@ importScripts(
   '../lib/multi-account.js',
 );
 
+// ---- 捕获配置内存缓存（OPT-20260808-023 F1）----
+// 热路径（webRequest onCompleted/onErrorOccurred）原本对 <all_urls> 的每个请求
+// 都执行一次 chrome.storage.local.get IPC——storage 服务是浏览器进程内跨页面共享的
+// 资源，轮询密集页 × 多标签页下队列饱和会阻塞所有依赖 storage 的调用方。
+// 首读后缓存；双失效点：1) setCaptureEnabled 主动失效；2) storage.onChanged 兜底
+// 失效（覆盖 Popup 等外部写入路径）。
+let captureCfgCache = null;
+
+async function getCaptureConfigCached() {
+  if (captureCfgCache) return captureCfgCache;
+  captureCfgCache = await Storage.getCaptureConfig();
+  return captureCfgCache;
+}
+
+function invalidateCaptureConfigCache() {
+  captureCfgCache = null;
+}
+
+if (chrome.storage?.onChanged) {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local') return;
+    if (changes.captureEnabled || changes.captureStatusCodes) {
+      invalidateCaptureConfigCache();
+    }
+  });
+}
+
 // ---- 顶层注册 webRequest 监听器 (MV3 最佳实践) ----
 
 chrome.webRequest.onCompleted.addListener(
@@ -49,6 +76,15 @@ chrome.tabs.onRemoved.addListener((tabId) => {
   tab5xxCounts.delete(tabId);
   tabUrlCache.delete(tabId);
 });
+
+// OPT-20260808-023 F4: Memory Saver（Chrome 96+）discard 的标签页不触发 onRemoved，
+// 但页面已冻结，Map 条目须在 discard 时同步清理（避免残留 + 卡死页不参与广播目标）
+if (typeof chrome.tabs?.onDiscarded?.addListener === 'function') {
+  chrome.tabs.onDiscarded.addListener((tabId) => {
+    tab5xxCounts.delete(tabId);
+    tabUrlCache.delete(tabId);
+  });
+}
 
 // 跟踪 tab URL 变化 — 检测页面刷新/导航
 const tabUrlCache = new Map();
@@ -110,7 +146,7 @@ async function handleRequestCompleted(details) {
       }
     }
 
-    const captureCfg = await Storage.getCaptureConfig();
+    const captureCfg = await getCaptureConfigCached();
     if (!captureCfg.enabled) return;
 
     const isError = CaptureStatus.matchStatusCode(details.statusCode, captureCfg.statusCodes, { canceled: false });
@@ -146,7 +182,7 @@ async function handleRequestError(details) {
     const tabId = details.tabId;
     if (tabId < 0) return;
 
-    const captureCfg = await Storage.getCaptureConfig();
+    const captureCfg = await getCaptureConfigCached();
     if (!captureCfg.enabled) return;
 
     const canceled = true;
@@ -688,6 +724,8 @@ async function handleMessage(message, sender) {
       } else {
         await Storage.saveCaptureConfig(false, message.statusCodes || ['2xx', '3xx', '4xx', '5xx', 'canceled']);
       }
+      // 缓存主动失效（storage.onChanged 兜底已覆盖外部写入路径）
+      invalidateCaptureConfigCache();
       return { success: true };
 
     case 'getCapturedErrors':
@@ -727,19 +765,27 @@ async function handleMessage(message, sender) {
 
     case 'syncDescription':
       {
-        // 将描述广播到所有其他标签页（排除发送者）
+        // 将描述广播到所有其他标签页（排除发送者）。
+        // OPT-20260808-023 F3：套 withTimeout — 任一标签页卡死/冻结时
+        // sendMessage 的 Promise 永不 settle，无超时会让 SW 悬挂泄漏并阻止休眠。
         const senderTabId = sender?.tab?.id;
         if (senderTabId == null) return { success: true };
         try {
           const tabs = await chrome.tabs.query({});
-          for (const tab of tabs) {
-            if (tab.id == null || tab.id === senderTabId) continue;
-            chrome.tabs.sendMessage(tab.id, {
-              action: 'syncDescriptionUpdate',
-              description: message.description,
-              sourceUrl: message.sourceUrl,
-            }).catch(() => {});
-          }
+          await Promise.allSettled(
+            tabs.map((tab) => {
+              if (tab.id == null || tab.id === senderTabId) return Promise.resolve();
+              const send = chrome.tabs.sendMessage(tab.id, {
+                action: 'syncDescriptionUpdate',
+                description: message.description,
+                sourceUrl: message.sourceUrl,
+              }).catch(() => {});
+              if (typeof withTimeout === 'function') {
+                return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'syncDescription broadcast').catch(() => {});
+              }
+              return send;
+            }),
+          );
         } catch (_) { /* ignore */ }
         return { success: true };
       }
@@ -1023,7 +1069,9 @@ async function handleMessage(message, sender) {
 }
 
 /**
- * 向除顶层外的所有 frame 广播选元素指令
+ * 向除顶层外的所有 frame 广播选元素指令。
+ * OPT-20260808-023 F3：逐 frame 串行 await 会因任一子 frame 卡死拖住整个 SW 消息
+ * 处理；改为并行 + withTimeout（≤800ms settle），卡死 frame 不再阻塞其余广播。
  */
 async function broadcastPickToChildFrames(tabId, action, source) {
   let frames = [];
@@ -1033,17 +1081,19 @@ async function broadcastPickToChildFrames(tabId, action, source) {
     console.warn('[taskChromePlugin] getAllFrames failed:', e.message || e);
     return;
   }
-  for (const f of frames || []) {
-    if (!f || f.frameId === 0) continue;
-    try {
-      await chrome.tabs.sendMessage(tabId, {
+  const targets = (frames || []).filter((f) => f && f.frameId !== 0);
+  await Promise.allSettled(
+    targets.map((f) => {
+      const send = chrome.tabs.sendMessage(tabId, {
         action,
         source: source || 'float',
-      }, { frameId: f.frameId });
-    } catch (_) {
-      /* 部分 frame 可能未注入 pick-frame */
-    }
-  }
+      }, { frameId: f.frameId }).catch(() => {});
+      if (typeof withTimeout === 'function') {
+        return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'pick broadcast').catch(() => {});
+      }
+      return send;
+    }),
+  );
 }
 
 /**
@@ -1147,14 +1197,23 @@ async function toggleElementPickInTab(tabId) {
 // ---- 元素拾取快捷键动态改绑（chrome.commands.update，Chrome 110+）----
 // 平台探测复用 Storage.isMacPlatform（chrome.commands.update 的修饰键规则按平台区分）
 
-/** 向所有标签页广播快捷键变更（内容脚本页内兜底监听跟随，storage.onChanged 双通道兜底） */
+/**
+ * 向所有标签页广播快捷键变更（内容脚本页内兜底监听跟随，storage.onChanged 双通道兜底）。
+ * OPT-20260808-023 F3：套 withTimeout，避免卡死标签页令 sendMessage Promise 悬挂。
+ */
 async function broadcastElementPickerShortcut(shortcut) {
   try {
     const tabs = await chrome.tabs.query({});
-    for (const tab of tabs) {
-      if (!tab.id) continue;
-      chrome.tabs.sendMessage(tab.id, { action: 'setElementPickerShortcut', shortcut }).catch(() => {});
-    }
+    await Promise.allSettled(
+      tabs.map((tab) => {
+        if (!tab.id) return Promise.resolve();
+        const send = chrome.tabs.sendMessage(tab.id, { action: 'setElementPickerShortcut', shortcut }).catch(() => {});
+        if (typeof withTimeout === 'function') {
+          return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'shortcut broadcast').catch(() => {});
+        }
+        return send;
+      }),
+    );
   } catch (e) {
     console.warn('[taskChromePlugin] broadcastElementPickerShortcut 失败:', e.message || e);
   }
@@ -1248,7 +1307,8 @@ chrome.commands.onCommand.addListener(async (command) => {
       const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
       if (tabs.length > 0) activeTabId = tabs[0].id;
     } catch (_) { /* ignore */ }
-    const captureCfg = await Storage.getCaptureConfig();
+    // 启动即暖缓存（getCaptureConfigCached），webRequest 热路径零 storage IPC
+    const captureCfg = await getCaptureConfigCached();
     console.log(
       `[taskChromePlugin] Initialized | baseUrl=${cfg.baseUrl} | ` +
       `hasToken=${!!cfg.token} | captureEnabled=${captureCfg.enabled} | ` +

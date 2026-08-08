@@ -1184,6 +1184,11 @@
     if (authRefreshTimer) clearTimeout(authRefreshTimer);
     authRefreshTimer = setTimeout(() => {
       authRefreshTimer = null;
+      // OPT-20260808-023 F5: 不可见标签页跳过全量刷新（跨页放大降噪）——
+      // auth 广播会触发 N 个标签页同时 checkLoginStatus(full)+loadWorkspaces()
+      // （网络+DOM 突发）；隐藏页交给 60s 角标定时器低频兜底，恢复可见后
+      // 下一次变更事件会重新调度。决策抽到 lib/auth-refresh-debounce.js（可单测）。
+      if (shouldSkipDebouncedAuthRefresh(document)) return;
       refreshAuthAndWorkspaces().catch((e) => {
         console.warn('[taskChromePlugin] 去抖后 auth 刷新失败:', e.message);
       });

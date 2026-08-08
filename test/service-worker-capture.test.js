@@ -42,6 +42,8 @@ function buildSWScript() {
 function makeChromeMock() {
   const webRequestHandlers = { onCompleted: null, onErrorOccurred: null };
   const sessionSets = []; // 每次 session.set 调用的参数快照
+  const localGets = []; // 每次 local.get 的键集合（OPT-023 F1 缓存契约断言用）
+  const onChangedHandlers = []; // storage.onChanged listeners（缓存兜底失效断言用）
   const localStore = {};
   const sessionStore = {};
 
@@ -86,6 +88,7 @@ function makeChromeMock() {
     storage: {
       local: {
         get: async (keys) => {
+          localGets.push([].concat(keys));
           const out = {};
           for (const k of [].concat(keys)) out[k] = localStore[k];
           return out;
@@ -94,10 +97,12 @@ function makeChromeMock() {
         remove: async () => {},
       },
       session: sessionArea,
-      onChanged: { addListener: () => {} },
+      onChanged: { addListener: (fn) => onChangedHandlers.push(fn) },
     },
     __webRequestHandlers: webRequestHandlers,
     __sessionSets: sessionSets,
+    __localGets: localGets,
+    __onChangedHandlers: onChangedHandlers,
   };
 }
 
@@ -281,3 +286,90 @@ async function loadSWWithMessageCapture() {
   await new Promise((r) => setTimeout(r, 20));
   return { chrome: base, sandbox, consoleLogs, topLevelError };
 }
+
+/** 统计 mock 中读取 capture 配置键的 local.get 次数（OPT-20260808-023 F1 缓存契约） */
+function captureConfigGets(chrome) {
+  return chrome.__localGets.filter((keys) => keys.includes('captureEnabled')).length;
+}
+
+test('F1 缓存：N 个请求只读 1 次 capture 配置（热路径零 storage IPC）', async () => {
+  const { chrome, topLevelError } = await loadSW();
+  assert.equal(topLevelError, null, `SW 顶层不得抛错: ${topLevelError}`);
+  // 启动 init 经 getCaptureConfigCached 暖缓存 → 基线 1 次
+  assert.equal(captureConfigGets(chrome), 1, 'init 应暖缓存（1 次配置读取）');
+  const baseline = captureConfigGets(chrome);
+
+  // 修复前每个请求 1 次 local.get；修复后 15 个事件共享启动时的那 1 次
+  for (let i = 0; i < 10; i++) {
+    await chrome.__webRequestHandlers.onCompleted(makeRequest({ statusCode: 200 }));
+  }
+  for (let i = 0; i < 5; i++) {
+    await chrome.__webRequestHandlers.onErrorOccurred({
+      tabId: 7,
+      url: 'https://api.aidevpush.com/canceled/',
+      error: 'net::ERR_ABORTED',
+      method: 'GET',
+      type: 'xmlhttprequest',
+      timeStamp: Date.now(),
+    });
+  }
+
+  assert.equal(captureConfigGets(chrome), baseline, `15 个事件不得触发任何配置读取，实际 ${captureConfigGets(chrome) - baseline} 次`);
+
+  // 默认配置全状态码 → 10×2xx（瘦身）+ 5×ERR_ABORTED 全部入捕获，1s 后 1 次合批写入
+  await new Promise((r) => setTimeout(r, 1100));
+  const writes = capturedWrites(chrome);
+  assert.equal(writes.length, 1);
+  assert.equal(writes[0].length, 15, '10×2xx + 5×canceled 全部入捕获');
+});
+
+test('F1 缓存：setCaptureEnabled 主动失效后重读配置，禁用后不再捕获', async () => {
+  const { chrome } = await loadSWWithMessageCapture();
+
+  // 首次请求加载缓存（1 次读取）
+  await chrome.__webRequestHandlers.onCompleted(makeRequest({ statusCode: 500 }));
+  assert.equal(captureConfigGets(chrome), 1);
+
+  // setCaptureEnabled(false) → 缓存失效。
+  // 注意：onMessage listener 返回 true 而非 handler promise，需冲刷微任务
+  // 等待 saveCaptureConfig → invalidateCaptureConfigCache 链完成，再发请求，
+  // 否则请求会抢跑命中失效前的旧缓存。
+  await chrome.__messageHandlers[0](
+    { action: 'setCaptureEnabled', enabled: false, statusCodes: ['5xx'] },
+    { tab: { id: 7 } },
+    () => {},
+  );
+  await new Promise((r) => setTimeout(r, 0));
+
+  // 下一请求应重读配置（enabled=false → 不入捕获、不写 session）
+  await chrome.__webRequestHandlers.onCompleted(makeRequest({ statusCode: 500 }));
+  assert.equal(captureConfigGets(chrome), 2, '配置写入后应重读一次');
+
+  await new Promise((r) => setTimeout(r, 1100));
+  const writes = capturedWrites(chrome);
+  // 仅启用期间的首条 5xx 入捕获（禁用后的 5xx 不入捕获、不写 session）
+  assert.equal(writes.length, 1, '仅启用期间的批次触发 1 次写入');
+  assert.equal(writes[0].length, 1, '禁用后的 5xx 不得入捕获');
+});
+
+test('F1 缓存：storage.onChanged 兜底失效（Popup 等外部写入路径）', async () => {
+  const { chrome } = await loadSW();
+  assert.ok(chrome.__onChangedHandlers.length >= 1, 'SW 应注册 storage.onChanged listener');
+
+  // 首次请求加载缓存
+  await chrome.__webRequestHandlers.onCompleted(makeRequest({ statusCode: 200 }));
+  assert.equal(captureConfigGets(chrome), 1);
+
+  // 模拟 Popup 经 storage 直写配置 → onChanged 触发兜底失效
+  const onChanged = chrome.__onChangedHandlers[chrome.__onChangedHandlers.length - 1];
+  onChanged({ captureEnabled: { newValue: false } }, 'local');
+
+  // 下一请求应重读配置
+  await chrome.__webRequestHandlers.onCompleted(makeRequest({ statusCode: 200 }));
+  assert.equal(captureConfigGets(chrome), 2, 'onChanged 失效后应重读一次');
+
+  // 无关键变更不得触发失效
+  onChanged({ token: { newValue: 'x' } }, 'local');
+  await chrome.__webRequestHandlers.onCompleted(makeRequest({ statusCode: 200 }));
+  assert.equal(captureConfigGets(chrome), 2, '无关键变更不得失效缓存');
+});
