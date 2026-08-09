@@ -28,6 +28,7 @@ const {
   snapshotElement,
   prefixCssPathWithFrames,
   applyFramePrefixesToSnapshot,
+  DEFAULT_ADJUST_PROMPT,
 } = require('../lib/element-picker.js');
 
 /** 构造同父兄弟 mock（供兄弟区间单测） */
@@ -203,6 +204,12 @@ describe('deepElementFromPoint / hitTestInRoot', () => {
       },
     };
     assert.equal(hitTestInRoot(root, 15, 15), small);
+  });
+});
+
+describe('DEFAULT_ADJUST_PROMPT', () => {
+  it('默认调整期望提示语为「请分析原因制定解决方案并修复」', () => {
+    assert.equal(DEFAULT_ADJUST_PROMPT, '请分析原因制定解决方案并修复');
   });
 });
 

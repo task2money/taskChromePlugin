@@ -667,7 +667,7 @@
       adjustError.className = 'taskplugin-result';
       adjustError.textContent = '';
     }
-    adjustInput.value = '请解决问题';
+    adjustInput.value = ElementPicker.DEFAULT_ADJUST_PROMPT;
     if (adjustShot) adjustShot.checked = false;
     adjustModal.hidden = false;
     if (!isOpen) {
