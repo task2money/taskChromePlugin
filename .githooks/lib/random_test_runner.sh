@@ -42,6 +42,26 @@ rt_enter_repo() {
     fi
 }
 
+# ── core.bare 自愈守卫（OPT-20260806-059） ───────────────────────────────────
+# 背景: 2026-08-06 runAll 子仓 pre-commit 期间 .git/modules/runAll/config 出现
+#       `bare = true`，导致后续 git 命令全部报 "must run in a worktree"（现场
+#       unset 恢复）。静态排查 hook 链（pre-commit/commit-msg/session lock/
+#       随机抽测）均无 git config 写入点，属外部工具（IDE 会话面板等）以 gitdir
+#       为上下文写入 git config 的副作用。
+# 处理: 钩子进入/退出时自检 core.bare，若被置位则告警并自动 unset，把「硬故障」
+#       降级为「自愈 + 日志暴露」，便于后续复现时定位写入方。
+rt_guard_core_bare() {
+    local repo="${1:-}"
+    rt_enter_repo "$repo" || return 0
+    local bare
+    bare="$(git config --get core.bare 2>/dev/null || true)"
+    if [ "$bare" = "true" ]; then
+        echo "WARN: core.bare=true detected (external git-config writer?) — unsetting to restore worktree (OPT-20260806-059)" >&2
+        git config --unset core.bare 2>/dev/null || true
+    fi
+    return 0
+}
+
 # 判定仓库测试类型（组合式：go_js_py / go_js / go_py / js_py / go / js / py / none）
 rt_repo_type() {
     local repo="${1:-}"
@@ -73,6 +93,9 @@ rt_repo_type() {
 # ---------------------------------------------------------------------------
 
 # 输出所有含 *_test.go 的包目录（./dir 形式，去重）
+# 排除 third_party/（vendored 第三方库的测试属上游集成测试，需真实外部依赖，
+# 如 kafka-go 的 conn_test.go 会连 localhost:9092 自动创建 kafka-go-* topics，
+# 污染 Kafka metadata —— 见 docs/superpowers/specs/2026-08-10-kafka-go-topic-pollution-fix-design.md）
 rt_go_collect_dirs() {
     local repo="${1:-}"
     rt_enter_repo "$repo" || return 1
@@ -80,6 +103,7 @@ rt_go_collect_dirs() {
         -not -path './.git/*' \
         -not -path './node_modules/*' \
         -not -path './vendor/*' \
+        -not -path './third_party/*' \
         | while IFS= read -r f; do
             local d
             d="$(dirname "$f")"; d="${d#./}"
@@ -110,8 +134,12 @@ rt_go_dir_has_tests() {
 
 # 运行单个包目录的 Go 测试；容忍 "matched no packages"（build tags）；
 # 多模块仓（子目录独立 go.mod）自动 fallback：cd 进目录后 go test ./...
+# KAFKA_SKIP_NETTEST=1: 双保险——即使 third_party 排除规则失效或他处直接
+# 运行 kafka-go 库测试，也跳过需要真实 broker 的 nettest 集成用例，
+# 阻止自动创建 kafka-go-* 无意义命名 topics（kafka-go 库测试自带门控）。
 rt_go_run_dir() {
     local dir="$1" output
+    export KAFKA_SKIP_NETTEST=1
     if [ "$dir" = "." ]; then
         echo "Running: go test -count=1 ."
         output="$(go test -count=1 . 2>&1)" || {
