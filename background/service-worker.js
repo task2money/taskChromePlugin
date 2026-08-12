@@ -423,6 +423,12 @@ async function handleMessage(message, sender) {
         return { success: true, data: list.slice(0, message.limit || 50) };
       }
 
+    case 'clearRecentRequests':
+      // 面板「🗑️ 清空列表」：仅清空 DevTools 转发的内存缓存。
+      // seenHarKeys 由 DevTools 页保留，避免 HAR 补录把已清条目重新加回。
+      devToolsRequests = [];
+      return { success: true };
+
     case 'updateApiConfig':
       API.init(message.baseUrl, message.token);
       await Storage.saveApiConfig(message.baseUrl, message.token);

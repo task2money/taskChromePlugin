@@ -211,6 +211,13 @@ setInterval(() => {
   }
 }, 30000);
 
+// 面板「🗑️ 清空列表」：清空本页缓冲并通知 panel；保留 seenHarKeys 防 HAR 补录复活
+chrome.runtime.onMessage.addListener((message) => {
+  if (message?.action !== 'clearRecentRequests') return;
+  recentRequests.length = 0;
+  pushPanelInitRequests();
+});
+
 // 创建面板
 chrome.devtools.panels.create(
   'TaskPlugin',

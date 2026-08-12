@@ -719,6 +719,7 @@ const Panel = (() => {
 
   function bindSingleTab() {
     $('#btnRefreshRequest').addEventListener('click', refreshRequestList);
+    $('#btnClearRequestList')?.addEventListener('click', clearRequestList);
     // 搜索 & 过滤 — 实时过滤本地列表
     $('#requestSearch').addEventListener('input', applyRequestFilters);
     $('#requestMethodFilter').addEventListener('change', applyRequestFilters);
@@ -806,6 +807,23 @@ const Panel = (() => {
       // SW 不可达时保留本地数据，仍重新渲染
     }
     applyRequestFilters();
+  }
+
+  /**
+   * 清空请求列表：本地 + SW 内存缓存。
+   * DevTools 页同步监听 clearRecentRequests，清空其缓冲并推送空 initRequests。
+   * 不清除标题/描述等表单字段（用户可能已手改）。
+   */
+  async function clearRequestList() {
+    selectedRequest = null;
+    recentRequests = [];
+    try {
+      await sendMessage({ action: 'clearRecentRequests' });
+    } catch (_) {
+      // SW 不可达时仍清空本地 UI
+    }
+    applyRequestFilters();
+    showR('singleResult', 'success', '✅ 已清空请求列表');
   }
 
   function setRequestLoading(loading) {

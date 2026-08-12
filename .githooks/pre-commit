@@ -53,8 +53,21 @@ while IFS= read -r f; do
             ;;
     esac
     case "$f" in
-        popup/*|background/*|lib/api.js|lib/storage.js|lib/async-timeout.js|lib/login-finalize.js|e2e/*)
+        # 仅登录/OAuth 相关路径触发生产登录 E2E；勿用 e2e/* 或整份 background
+        # —— 否则「清空列表」等无关改动会被不稳定的公网登录 e2e 阻断。
+        popup/*|\
+        lib/api.js|lib/storage.js|lib/async-timeout.js|lib/login-finalize.js|\
+        lib/oauth-pkce.js|lib/oauth-callback.js|lib/oauth-callback-boot.js|\
+        oauth-callback.html|\
+        e2e/oauth*|e2e/*login*|e2e/real-extension-messaging*)
             should_run_login_e2e=true
+            ;;
+        background/service-worker.js)
+            # SW 含 oauthStart/oauthCallback；仅当暂存 diff 触及 OAuth 关键字时才跑登录 E2E
+            if git diff --cached -U0 -- background/service-worker.js 2>/dev/null \
+                | grep -Eiq 'oauth|login-finalize|Bearer|pkce|authorization_code'; then
+                should_run_login_e2e=true
+            fi
             ;;
     esac
 done <<< "$STAGED_FILES"
