@@ -62,9 +62,18 @@ taskChromePlugin/
 │   ├── devtools.html              # DevTools 入口页
 │   └── devtools.js                # 创建 DevTools 面板
 ├── panel/
-│   ├── panel.html                 # DevTools 面板 UI
-│   ├── panel.js                   # 面板逻辑
-│   └── panel.css                  # 面板样式
+│   ├── panel.html                 # DevTools 面板 UI（按序加载 panel/lib → tabs → panel.js）
+│   ├── panel.js                   # 面板主入口（orchestrator：init + Tab 切换）
+│   ├── panel.css                  # 面板样式
+│   ├── lib/
+│   │   ├── panel-core.js          # 共享状态 + DOM 工具 + 认证 + 消息管道
+│   │   ├── workspace.js           # 工作空间/项目/成员加载
+│   │   └── branches.js            # 分支模板/datalist 工具
+│   └── tabs/
+│       ├── single-request.js      # Tab 1 单请求创建
+│       ├── batch.js               # Tab 2 批量错误捕获
+│       ├── errors.js              # Tab 3 错误列表
+│       └── history.js             # Tab 4 历史记录 & 重试
 ├── popup/
 │   ├── popup.html                 # 登录弹窗 UI
 │   ├── popup.js                   # 登录逻辑
