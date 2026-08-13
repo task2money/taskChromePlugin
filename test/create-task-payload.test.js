@@ -193,7 +193,7 @@ describe('validateCreateTaskForm', () => {
       owner: 'o1',
       projectIds: ['p1'],
     });
-    assert.match(reason, /环境变量参数/);
+    assert.match(reason, /智能体资源配置/);
   });
 
   it('blocks personal without config id', () => {
@@ -204,7 +204,7 @@ describe('validateCreateTaskForm', () => {
       projectIds: ['p1'],
       feature_params_source: 'personal',
     });
-    assert.match(reason, /环境变量参数/);
+    assert.match(reason, /智能体资源配置/);
   });
 
   it('passes when company source selected', () => {

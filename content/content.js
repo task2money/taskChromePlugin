@@ -80,7 +80,7 @@
           </select>
         </div>
         <div class="taskplugin-form-group">
-          <label>环境变量参数 <span style="color:#f38ba8;font-size:10px;">*必填</span></label>
+          <label>智能体资源配置 <span style="color:#f38ba8;font-size:10px;">*必填</span></label>
           <select class="taskplugin-select" id="taskplugin-feature-params">
             <option value="">-- 请选择 --</option>
             <option value="company">公司默认</option>

@@ -147,7 +147,7 @@
       feature_params_source: featureParamsSource,
       personal_feature_params_config_id: personalConfigId,
     });
-    if (featureGate && /环境变量参数/.test(featureGate)) {
+    if (featureGate && /智能体资源配置|环境变量参数/.test(featureGate)) {
       return P.showR('batchResult', 'error', featureGate);
     }
 
