@@ -133,12 +133,13 @@ bash scripts/hooks/install.sh
 |------|------|------|
 | POST | `/api/accounts/users/login-with-access-token/` | 登录，body: `{username, access_token}`，返回 `{token, user:{id, companies}}` |
 | GET | `/api/user/{userId}/accounts/users/me/` | 获取当前用户及所属公司列表 |
-| GET | `/api/tenant/{companyId}/workspaces/` | 获取指定租户的工作空间列表，返回 `[]` 或 `{items: []}` 或 `{data: []}` |
-| GET | `/api/tenant/{companyId}/projects/?workspace_id={id}` | 获取项目列表 |
-| POST | `/api/tenant/{companyId}/workspace/{workspaceId}/todos/` | 创建单个任务（字段对齐 work-panel） |
-| GET | `/api/tenant/{companyId}/workspaces/{workspaceId}/progress-system/` | 进度列 |
-| GET | `/api/tenant/{companyId}/manage-deliverable-system/?workspace_id=` | 交付物类别 |
-| GET | `/api/tenant/{companyId}/installed-images/` | 已安装镜像 |
+| GET | `/api/projects/workspaces/tenant_id/{companyId}` | 获取指定租户的工作空间列表，返回 `[]` 或 `{items: []}` 或 `{data: []}` |
+| GET | `/api/projects/tenant_id/{companyId}?workspace_id={id}` | 获取项目列表 |
+| POST | `/api/tasks/todos/tenant_id/{companyId}/workspace_id/{workspaceId}/` | 创建单个任务（字段对齐 work-panel） |
+| GET | `/api/projects/workspaces/tenant_id/{companyId}/{workspaceId}/progress-system/` | 进度列 |
+| GET | `/api/projects/manage-deliverable-system/tenant_id/{companyId}?workspace_id=` | 交付物类别 |
+| GET | `/api/cloud/installed-images/tenant_id/{companyId}` | 已安装镜像 |
+| GET | `/api/tenant/{companyId}/accounts/members/company_members/` | 租户成员列表（负责人/协作人） |
 | GET | `/api/personal/feature-params-configs/` | 个人环境变量配置 |
 | POST | `/api/accounts/users/profile/plugin-screenshots/` | 上传元素截图（multipart `file`），返回 `{url, expires_at, ttl_days}`；服务端可配 `PLUGIN_SCREENSHOT_PUBLIC_BASE_URL`（CDN）与 `PLUGIN_SCREENSHOT_TTL_DAYS`，清理命令 `cleanup_plugin_screenshots` |
 
