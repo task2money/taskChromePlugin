@@ -131,3 +131,45 @@ describe('getWorkspaces / getMembers request URLs', () => {
     );
   });
 });
+
+describe('OPT-20260820-039: deprecated /api/tenant/{companyId}/... mapping dropped', () => {
+  it('T6 legacy workspaces/projects mapping does not override new defaults', () => {
+    API.init('https://example.test', 'tok', {
+      workspaces: '/api/tenant/{companyId}/workspaces',
+      projects: '/api/tenant/{companyId}/projects',
+      installedImages: '/api/tenant/{companyId}/installed-images',
+    }, 'u1');
+    const ep = API.getEndpointMapping();
+    assert.equal(ep.workspaces, '/api/projects/workspaces/tenant_id/{companyId}');
+    assert.equal(ep.projects, '/api/projects/tenant_id/{companyId}?workspace_id={workspaceId}');
+    assert.equal(ep.installedImages, '/api/cloud/installed-images/tenant_id/{companyId}');
+  });
+
+  it('T7 legacy mapping with concrete tenant id is dropped', () => {
+    API.init('https://example.test', 'tok', {
+      projects: '/api/tenant/877397588196749312/projects?workspace_id=1',
+      workspaces: '/api/tenant/877397588196749312/workspace/',
+      members: '/api/tenant/{companyId}/accounts/members/company_members/',
+    }, 'u1');
+    const ep = API.getEndpointMapping();
+    assert.equal(ep.projects, '/api/projects/tenant_id/{companyId}?workspace_id={workspaceId}');
+    assert.equal(ep.workspaces, '/api/projects/workspaces/tenant_id/{companyId}');
+    // members 走 company_members 是合法端点，不应被误删
+    assert.equal(ep.members, '/api/tenant/{companyId}/accounts/members/company_members/');
+  });
+
+  it('T8 setEndpointMapping also sanitizes legacy keys', () => {
+    API.init('https://example.test', 'tok', null, 'u1');
+    API.setEndpointMapping({ aidevResolve: '/api/tenant/{companyId}/aidev/resolve' });
+    const ep = API.getEndpointMapping();
+    assert.equal(ep.aidevResolve, '/api/projects/aidev/tenant_id/{companyId}/resolve?service_id={serviceId}');
+  });
+
+  it('T9 non-legacy custom mapping survives', () => {
+    API.init('https://example.test', 'tok', {
+      clientIp: '/custom/client-ip/',
+    }, 'u1');
+    const ep = API.getEndpointMapping();
+    assert.equal(ep.clientIp, '/custom/client-ip/');
+  });
+});
