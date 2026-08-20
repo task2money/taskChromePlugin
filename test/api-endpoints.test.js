@@ -130,6 +130,34 @@ describe('getWorkspaces / getMembers request URLs', () => {
       /https:\/\/example\.test\/api\/tenant\/co1\/accounts\/members\/company_members\/$/,
     );
   });
+
+  // OPT-20260820-040: 带 workspaceId 时负责人/协作人走 workspace-collaborators
+  it('T5b getMembers with workspaceId hits workspace-collaborators (non-admin visible)', async () => {
+    globalThis.fetch = async (url) => {
+      calls.push(String(url));
+      return jsonOk([
+        { id: 'cm1', member_name: 'Bob', user: 'u2', username: 'Bob' },
+        { id: 'cm2', member_name: 'Carol', user: 'u3', username: 'Carol' },
+      ]);
+    };
+    const members = await API.getMembers('co1', 'ws1');
+    assert.equal(members.length, 2);
+    assert.equal(members[0].user, 'u2');
+    assert.match(
+      calls[0],
+      /https:\/\/example\.test\/api\/projects\/workspace-access\/workspace-collaborators\/tenant_id\/co1\/\?workspace_id=ws1$/,
+    );
+  });
+
+  it('T5c getMembers without workspaceId still falls back to company_members', async () => {
+    globalThis.fetch = async (url) => {
+      calls.push(String(url));
+      return jsonOk({ members: [{ id: 'm1', member_name: 'Alice', user_id: 'u1' }] });
+    };
+    const members = await API.getMembers('co1', undefined);
+    assert.equal(members.length, 1);
+    assert.match(calls[0], /\/api\/tenant\/co1\/accounts\/members\/company_members\/$/);
+  });
 });
 
 describe('OPT-20260820-039: deprecated /api/tenant/{companyId}/... mapping dropped', () => {

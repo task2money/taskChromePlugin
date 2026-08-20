@@ -554,7 +554,8 @@ async function handleMessage(message, sender) {
     case 'getMembers':
       try {
         await initApiFromMessage(message);
-        const data = await API.getMembers(message.companyId);
+        // OPT-20260820-040: workspaceId 存在时走 workspace-collaborators（普通成员可见）
+        const data = await API.getMembers(message.companyId, message.workspaceId);
         return { success: true, data };
       } catch (e) {
         return { success: false, error: e.message, traceId: e.traceId || '' };

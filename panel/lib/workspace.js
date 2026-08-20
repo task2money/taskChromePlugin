@@ -6,22 +6,24 @@
   const P = window.PanelApp;
   const state = P.state;
 
-  P.loadMembers = async function (companyId) {
+  P.loadMembers = async function (companyId, wsId) {
     const sel = P.$('#singleOwner');
     sel.innerHTML = '<option value="">加载中...</option>';
     if (!(await P.ensureApiReady())) {
       sel.innerHTML = '<option value="">请先登录</option>';
       return;
     }
-    if (state.membersCache[companyId]) {
-      P.renderMemberOptions(companyId);
+    // OPT-20260820-040: 缓存按工作空间隔离（不同工作空间协作人不同）
+    const cacheKey = `${companyId}:${wsId || ''}`;
+    if (state.membersCache[cacheKey]) {
+      P.renderMemberOptions(cacheKey);
       return;
     }
     try {
-      const data = await P.swApi('getMembers', { companyId });
+      const data = await P.swApi('getMembers', { companyId, workspaceId: wsId });
       const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
-      state.membersCache[companyId] = members;
-      P.renderMemberOptions(companyId);
+      state.membersCache[cacheKey] = members;
+      P.renderMemberOptions(cacheKey);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
         sel.innerHTML = '<option value="">请重新登录</option>';
@@ -31,8 +33,8 @@
     }
   };
 
-  P.renderMemberOptions = function (companyId) {
-    const members = state.membersCache[companyId] || [];
+  P.renderMemberOptions = function (cacheKey) {
+    const members = state.membersCache[cacheKey] || [];
     const sel = P.$('#singleOwner');
     sel.innerHTML = '<option value="">-- 请选择负责人 --</option>';
     let defaultMemberId = '';
@@ -43,9 +45,10 @@
     for (const m of members) {
       const mid = String(m.id);
       const name = m.member_name || m.name || mid;
-      const uid = String(m.user_id || m.userId || '');
+      // workspace-collaborators 载荷用 user 字段（与 company_members 的 user_id 不同）
+      const uid = String(m.user || m.user_id || m.userId || '');
       sel.innerHTML += `<option value="${mid}" data-user-id="${uid}">${P.escHtml(name)}</option>`;
-      // 回退：user_id 匹配
+      // 回退：user 匹配
       if (!defaultMemberId && state.currentUserId && uid === state.currentUserId) {
         defaultMemberId = mid;
       }
@@ -55,7 +58,7 @@
     } else if (members.length === 1) {
       sel.value = String(members[0].id);
     }
-    P.renderAssigneeCheckboxes(companyId);
+    P.renderAssigneeCheckboxes(cacheKey);
   };
 
   P.loadProgressColumns = async function (companyId, wsId, selectId) {
@@ -158,7 +161,7 @@
     const companyId = ws?.company_id || ws?.companyId;
     await P.loadProjects(wsId, 'singleProjects', companyId);
     if (companyId) {
-      await P.loadMembers(String(companyId));
+      await P.loadMembers(String(companyId), wsId);
       await P.loadProgressColumns(String(companyId), wsId, 'singleProgressColumn');
       await P.loadDeliverableTypes(String(companyId), wsId);
       await P.loadInstalledImages(String(companyId));
@@ -192,10 +195,10 @@
     return P.loadPersonalFeatureParamsInto('singlePersonalConfig');
   };
 
-  P.renderAssigneeCheckboxes = function (companyId) {
+  P.renderAssigneeCheckboxes = function (cacheKey) {
     const box = P.$('#singleAssignees');
     if (!box) return;
-    const members = state.membersCache[companyId] || [];
+    const members = state.membersCache[cacheKey] || [];
     if (!members.length) {
       box.innerHTML = '<p class="placeholder">暂无成员</p>';
       return;
