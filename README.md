@@ -165,3 +165,7 @@ bash scripts/hooks/install.sh
 - chrome.devtools.network (HAR API)
 - chrome.webRequest (网络拦截)
 - chrome.storage.local (持久化)
+
+## License
+
+本仓库以 GNU Affero General Public License v3.0 授权，见 [LICENSE](./LICENSE)。不附带 AGPL 义务的专有许可见 [COMMERCIAL.md](./COMMERCIAL.md)。
