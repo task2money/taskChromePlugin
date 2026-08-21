@@ -205,13 +205,6 @@
   let openSnapshot = null;
   let isLoggedIn = false;
   let pageToastTimer = null;
-  /** 跨页面同步任务描述开关 */
-  let syncDescriptionEnabled = true;
-  /** 防抖计时器 — 避免逐键广播 */
-  let syncDebounceTimer = null;
-  const SYNC_DEBOUNCE_MS = 300;
-  /** 收到同步更新时禁止再次广播，防止反馈循环 */
-  let suppressSyncBroadcast = false;
   let pickMode = false;
   /**
    * 快捷键兜底（页内 keydown）：chrome.commands 注册失败/被占用时，
@@ -282,7 +275,6 @@
       setupDrag();
       setupElementPicker();
       setupDescReset();
-      setupDescSyncListener();
       bindAuthStorageListener();
       bindPickShortcutStorageListener();
 
@@ -296,13 +288,6 @@
         root.style.setProperty('display', 'none', 'important');
       }
       floatEnabledToggle.checked = floatCfg.enabled;
-
-      // 加载跨页面同步任务描述配置
-      try {
-        const syncCfg = await loadSyncDescriptionConfigFromStorage();
-        syncDescriptionEnabled = syncCfg.enabled;
-        console.log('[taskChromePlugin] syncDescription enabled:', syncDescriptionEnabled);
-      } catch (_) { /* ignore */ }
 
       // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）
       try {
@@ -338,16 +323,6 @@
       if (r && r.success) return r.data;
     } catch (e) {
       console.warn('[taskChromePlugin] loadFloatBallConfig 失败:', e.message);
-    }
-    return { enabled: true };
-  }
-
-  async function loadSyncDescriptionConfigFromStorage() {
-    try {
-      const r = await sendMessageWithTimeout({ action: 'getSyncDescriptionConfig' }, 5000);
-      if (r && r.success) return r.data;
-    } catch (e) {
-      console.warn('[taskChromePlugin] loadSyncDescriptionConfig 失败:', e.message);
     }
     return { enabled: true };
   }
@@ -891,26 +866,6 @@
       descInput.focus();
     });
     syncDescResetButton();
-  }
-
-  /**
-   * 监听描述输入，在跨页面同步开启时广播到其他标签页。
-   * 使用防抖避免逐键发送，并防止收到同步更新后再次广播（反馈循环）。
-   */
-  function setupDescSyncListener() {
-    if (!descInput) return;
-    descInput.addEventListener('input', () => {
-      if (!syncDescriptionEnabled || suppressSyncBroadcast) return;
-      if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
-      syncDebounceTimer = setTimeout(() => {
-        const desc = descInput.value;
-        chrome.runtime.sendMessage({
-          action: 'syncDescription',
-          description: desc,
-          sourceUrl: window.location.href,
-        }).catch(() => {});
-      }, SYNC_DEBOUNCE_MS);
-    });
   }
 
   // ---- Drag Logic ----
@@ -1933,29 +1888,12 @@
       root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
       floatEnabledToggle.checked = msg.enabled;
     }
-    if (msg.action === 'setSyncDescriptionEnabled') {
-      console.log('[taskChromePlugin] setSyncDescriptionEnabled from popup:', msg.enabled);
-      syncDescriptionEnabled = msg.enabled !== false;
-    }
     if (msg.action === 'setElementPickerShortcut') {
       const combo = resolveShortcutCombo(msg.shortcut);
       if (combo) {
         pickShortcutCombo = combo;
         renderShortcutHints();
         console.log('[taskChromePlugin] setElementPickerShortcut from popup:', combo);
-      }
-    }
-    if (msg.action === 'syncDescriptionUpdate') {
-      // 收到来自其他标签页的描述同步更新
-      if (!syncDescriptionEnabled) return;
-      try {
-        suppressSyncBroadcast = true;
-        descInput.value = msg.description || '';
-        syncDescResetButton();
-        console.log('[taskChromePlugin] syncDescriptionUpdate from', msg.sourceUrl);
-      } finally {
-        // 延迟重置标志位，确保本轮 input 事件不会广播
-        setTimeout(() => { suppressSyncBroadcast = false; }, SYNC_DEBOUNCE_MS + 50);
       }
     }
     if (msg.action === 'authStateChanged') {

@@ -9,7 +9,7 @@
  * 阻止 SW 休眠（每次广播卡死一处）。
  *
  * 修复契约（withTimeout 800ms 兜底）：
- * 1. syncDescription / elementPickerShortcut / pickToChildFrames 三类广播
+ * 1. elementPickerShortcut / pickToChildFrames 广播
  *    对挂起标签页 ≤800ms settle
  * 2. 健康标签页立即 settle，其超时计时器被清除（快路径不受 800ms 拖累）
  * 3. broadcastPickToChildFrames 并行发送：任一 frame 挂起不阻塞其余广播
@@ -186,35 +186,6 @@ function invokeMessage(chrome, message, sender) {
 
 /** 冲刷微任务（vm 沙箱与宿主共享微任务队列，setImmediate 即可排空） */
 const flush = () => new Promise((r) => setImmediate(r));
-
-test('F3 syncDescription：挂起标签页 ≤800ms settle，健康标签页快路径立即结算', async () => {
-  let hungCalls = 0;
-  const chrome = makeChromeMock({
-    tabs: [{ id: 1 }, { id: 2 }, { id: 3 }],
-    sendMessage: (tabId) => {
-      if (tabId === 3) { hungCalls++; return new Promise(() => {}); } // 永不 settle
-      return Promise.resolve({});
-    },
-  });
-  const { timers } = loadSW(chrome);
-
-  const calls = invokeMessage(chrome, { action: 'syncDescription', description: 'd', sourceUrl: 'u' }, { tab: { id: 1 } });
-  await flush();
-
-  // 广播发出：排除发送者 tab 1，目标 tab 2/3
-  assert.deepEqual(chrome.__sent.map((s) => s.tabId).sort(), [2, 3]);
-  assert.equal(hungCalls, 1, '挂起标签页应收到广播');
-  assert.equal(calls.count, 0, '挂起标签页未兜底前不得返回（修复前此处永久悬挂）');
-
-  // 快路径：健康标签页（tab 2）的 withTimeout 计时器已清除，仅挂起页的 800ms 存活
-  assert.equal(timers.count(800), 1, '仅挂起标签页保留超时计时器');
-
-  timers.advance(800);
-  await flush();
-  assert.equal(calls.count, 1, '挂起标签页 ≤800ms 兜底 settle');
-  assert.equal(calls.resp.success, true);
-  assert.equal(timers.count(800), 0, '兜底后无残留计时器（SW 可正常休眠）');
-});
 
 test('F3 elementPickerShortcut：挂起标签页不阻塞消息响应，≤800ms 兜底收尾', async () => {
   let hungCalls = 0;

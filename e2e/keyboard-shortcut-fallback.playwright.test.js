@@ -74,7 +74,7 @@ function installChromeStubs() {
       },
       storage: {
         local: {
-          _store: { floatBallEnabled: true, syncDescriptionEnabled: true, trackingEnabled: false },
+          _store: { floatBallEnabled: true, trackingEnabled: false },
           async get(keys) {
             const list = Array.isArray(keys) ? keys : [keys];
             const out = {};

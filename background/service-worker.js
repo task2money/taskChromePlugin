@@ -722,45 +722,11 @@ async function handleMessage(message, sender) {
       await Storage.saveTrackingConfig(message.enabled);
       return { success: true };
 
-    case 'getSyncDescriptionConfig':
-      return { success: true, data: await Storage.getSyncDescriptionConfig() };
-
-    case 'setSyncDescriptionConfig':
-      await Storage.saveSyncDescriptionConfig(message.enabled);
-      return { success: true };
-
     case 'setElementPickerShortcut':
       return await applyElementPickerShortcut(message.shortcut);
 
     case 'getElementPickerShortcutStatus':
       return await getElementPickerShortcutStatus();
-
-    case 'syncDescription':
-      {
-        // 将描述广播到所有其他标签页（排除发送者）。
-        // OPT-20260808-023 F3：套 withTimeout — 任一标签页卡死/冻结时
-        // sendMessage 的 Promise 永不 settle，无超时会让 SW 悬挂泄漏并阻止休眠。
-        const senderTabId = sender?.tab?.id;
-        if (senderTabId == null) return { success: true };
-        try {
-          const tabs = await chrome.tabs.query({});
-          await Promise.allSettled(
-            tabs.map((tab) => {
-              if (tab.id == null || tab.id === senderTabId) return Promise.resolve();
-              const send = chrome.tabs.sendMessage(tab.id, {
-                action: 'syncDescriptionUpdate',
-                description: message.description,
-                sourceUrl: message.sourceUrl,
-              }).catch(() => {});
-              if (typeof withTimeout === 'function') {
-                return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'syncDescription broadcast').catch(() => {});
-              }
-              return send;
-            }),
-          );
-        } catch (_) { /* ignore */ }
-        return { success: true };
-      }
 
     case 'getTaskHistory':
       return { success: true, data: await Storage.getTaskHistory() };

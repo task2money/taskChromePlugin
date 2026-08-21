@@ -386,7 +386,6 @@ const Popup = (() => {
       const results = await Promise.allSettled([
         loadFloatBallConfig(),
         loadTrackingConfig(),
-        loadSyncDescriptionConfig(),
         loadCapturedRequests(),
       ]);
       for (const r of results) {
@@ -414,18 +413,6 @@ const Popup = (() => {
       }
     } catch (e) {
       console.warn('[TaskPlugin] loadTrackingConfig 失败:', e.message);
-    }
-  }
-
-  async function loadSyncDescriptionConfig() {
-    try {
-      const r = await sendMessageWithTimeout({ action: 'getSyncDescriptionConfig' }, 5000);
-      if (r?.success) {
-        const toggle = $('#syncDescriptionToggle');
-        if (toggle) toggle.checked = r.data?.enabled !== false;
-      }
-    } catch (e) {
-      console.warn('[TaskPlugin] loadSyncDescriptionConfig 失败:', e.message);
     }
   }
 
@@ -669,24 +656,6 @@ const Popup = (() => {
     if (btnPickShortcutEdit) btnPickShortcutEdit.addEventListener('click', startShortcutCapture);
     const btnPickShortcutReset = $('#btnPickShortcutReset');
     if (btnPickShortcutReset) btnPickShortcutReset.addEventListener('click', resetShortcut);
-
-    // 跨页面同步任务描述开关
-    const syncDescToggle = $('#syncDescriptionToggle');
-    if (syncDescToggle) {
-      syncDescToggle.addEventListener('change', async () => {
-        const enabled = syncDescToggle.checked;
-        try {
-          await sendMessageWithTimeout({ action: 'setSyncDescriptionConfig', enabled }, 5000);
-        } catch (_) { /* ignore */ }
-        try {
-          const tabs = await chrome.tabs.query({});
-          for (const tab of tabs) {
-            if (!tab.id) continue;
-            chrome.tabs.sendMessage(tab.id, { action: 'setSyncDescriptionEnabled', enabled }).catch(() => {});
-          }
-        } catch (_) { /* ignore */ }
-      });
-    }
 
     // 请求列表
     const btnToggleReqs = $('#btnToggleRequests');
