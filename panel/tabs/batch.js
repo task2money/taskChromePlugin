@@ -141,7 +141,7 @@
     const autoRun = Boolean(P.$('#batchAutoRun')?.checked);
     const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
     const repoIdentities = GitId
-      ? GitId.readRepoIdentitiesFromRoot(P.$('#batchRepoBases'))
+      ? GitId.readRepoIdentitiesFromRoot(P.$('#batchGitIdentities'))
       : [];
 
     if (!wsId) return P.showR('batchResult', 'error', '请选择工作空间');

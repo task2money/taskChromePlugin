@@ -282,7 +282,7 @@
     const assignees = P.getSelectedAssigneeIds();
     const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
     const repoIdentities = GitId
-      ? GitId.readRepoIdentitiesFromRoot(P.$('#singleRepoBases'))
+      ? GitId.readRepoIdentitiesFromRoot(P.$('#singleGitIdentities'))
       : [];
 
     if (!wsId) return P.showR('singleResult', 'error', '请选择工作空间');

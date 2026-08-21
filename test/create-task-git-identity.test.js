@@ -50,26 +50,30 @@ describe('CreateTaskGitIdentity gate', () => {
 
 describe('CreateTaskGitIdentity HTML / DOM', () => {
   it('emits identity select only when gitIdentity.enabled', () => {
-    const off = buildRepoBaseEditorsHtml({
+    const args = {
       projectIds: ['p1'],
       projectsList: [{ id: 'p1', git_repos: ['https://git.example/a.git'] }],
-      gitIdentity: { enabled: false, identities: [{ id: 'gid-1', git_user_name: 'Ann', git_user_email: 'a@x.com' }] },
-    });
+      identities: [{ id: 'gid-1', git_user_name: 'Ann', git_user_email: 'a@x.com', is_default: true }],
+      settingsHref: '/tenant/t1/profile/git-identities/',
+    };
+    const off = GitId.buildEditorsHtml({ ...args, enabled: false });
     assert.equal(off.includes('data-git-identity'), false);
 
-    const on = buildRepoBaseEditorsHtml({
-      projectIds: ['p1'],
-      projectsList: [{ id: 'p1', git_repos: ['https://git.example/a.git'] }],
-      gitIdentity: {
-        enabled: true,
-        identities: [{ id: 'gid-1', git_user_name: 'Ann', git_user_email: 'a@x.com', is_default: true }],
-        settingsHref: '/tenant/t1/profile/git-identities/',
-      },
-    });
+    const on = GitId.buildEditorsHtml({ ...args, enabled: true });
+    assert.match(on, /data-testid="create-task-git-identity-section"/);
     assert.match(on, /data-git-identity="1"/);
     assert.match(on, /Git 提交身份/);
     assert.match(on, /gid-1/);
     assert.match(on, /href="\/tenant\/t1\/profile\/git-identities\/"/);
+  });
+
+  it('keeps identity editors out of repo-base HTML', () => {
+    const html = buildRepoBaseEditorsHtml({
+      projectIds: ['p1'],
+      projectsList: [{ id: 'p1', git_repos: ['https://git.example/a.git'] }],
+    });
+    assert.equal(html.includes('data-git-identity'), false);
+    assert.equal(html.includes('Git 提交身份'), false);
   });
 
   it('reads selected identities from a querySelectorAll root', () => {

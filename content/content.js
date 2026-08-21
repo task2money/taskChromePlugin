@@ -107,6 +107,7 @@
             </span>
           </label>
         </div>
+        <div class="taskplugin-form-group" id="taskplugin-git-identities"></div>
         <div class="taskplugin-form-group">
           <label>逐仓基准分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 对齐工作面板</span></label>
           <div id="taskplugin-repo-bases" class="taskplugin-checkbox-list">
@@ -177,6 +178,7 @@
   const mergeTarget = document.getElementById('taskplugin-merge-target');
   const workBranch = document.getElementById('taskplugin-work-branch');
   const repoBasesDiv = document.getElementById('taskplugin-repo-bases');
+  const gitIdentitiesDiv = document.getElementById('taskplugin-git-identities');
   const assigneesDiv = document.getElementById('taskplugin-assignees');
   const titleInput = document.getElementById('taskplugin-title');
   const descInput = document.getElementById('taskplugin-desc');
@@ -1344,24 +1346,27 @@
     }
   }
 
-  function currentGitIdentityEditorOpts(previousByUrl) {
-    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+  function refreshFloatGitIdentities() {
+    if (!gitIdentitiesDiv || typeof CreateTaskGitIdentity === 'undefined') return;
+    const prevIdent = CreateTaskGitIdentity.readSelectionsMap(gitIdentitiesDiv);
+    const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+    const GitId = CreateTaskGitIdentity;
     const wsId = wsSelect?.value || '';
     const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
     const companyId = ws?.company_id || ws?.companyId || '';
-    return {
-      enabled: Boolean(autoRunInput?.checked),
+    gitIdentitiesDiv.innerHTML = GitId.buildEditorsHtml({
+      projectIds: pids,
+      projectsList: projectsData,
       identities: gitIdentitiesCache,
-      previousByUrl: previousByUrl || {},
-      settingsHref: (GitId && companyId) ? GitId.settingsHref(companyId) : '',
-    };
+      previousByUrl: prevIdent,
+      settingsHref: companyId ? GitId.settingsHref(companyId) : '',
+      enabled: Boolean(autoRunInput?.checked),
+    });
   }
 
   function refreshFloatRepoBases() {
     if (!repoBasesDiv || typeof CreateTaskPayload === 'undefined') return;
     const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv);
-    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
-    const prevIdent = GitId ? GitId.readSelectionsMap(repoBasesDiv) : {};
     const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
     repoBasesDiv.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
       projectIds: pids,
@@ -1369,8 +1374,8 @@
       previousValues: prev,
       inputClass: 'taskplugin-input',
       emptyHint: '勾选项目后按仓库填写',
-      gitIdentity: currentGitIdentityEditorOpts(prevIdent),
     });
+    refreshFloatGitIdentities();
   }
 
   function renderAssignees() {
@@ -1552,8 +1557,8 @@
         workBranch: wb,
         mergeTarget: mt,
         repoBaseBranches,
-        repo_identities: (typeof CreateTaskGitIdentity !== 'undefined' && repoBasesDiv)
-          ? CreateTaskGitIdentity.readRepoIdentitiesFromRoot(repoBasesDiv)
+        repo_identities: (typeof CreateTaskGitIdentity !== 'undefined' && gitIdentitiesDiv)
+          ? CreateTaskGitIdentity.readRepoIdentitiesFromRoot(gitIdentitiesDiv)
           : [],
       };
 
@@ -1877,8 +1882,8 @@
         previousValues: normalized.repoBaseBranches || {},
         inputClass: 'taskplugin-input',
         emptyHint: '勾选项目后按仓库填写',
-        gitIdentity: currentGitIdentityEditorOpts({}),
       });
+      refreshFloatGitIdentities();
     }
 
     await fetchBranchesForFloatingPanel(wsId, normalized.projectIds || []);

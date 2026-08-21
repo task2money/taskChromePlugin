@@ -217,30 +217,45 @@
     return Array.from(document.querySelectorAll('#singleAssignees .assignee-check:checked')).map((cb) => cb.value);
   };
 
+  P.refreshGitIdentityEditors = function (identityContainerId, projectsContainerId, wsId, autoRunId) {
+    const box = P.$(`#${identityContainerId}`);
+    if (!box) return;
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    if (!GitId) {
+      box.innerHTML = '';
+      return;
+    }
+    const prevIdent = GitId.readSelectionsMap(box);
+    const ids = P.getSelectedProjectIds(projectsContainerId);
+    const list = state.projectsCache[wsId] || [];
+    const ws = state.workspaces.find((w) => String(w.id || w._id) === String(wsId));
+    const companyId = ws?.company_id || ws?.companyId || '';
+    box.innerHTML = GitId.buildEditorsHtml({
+      projectIds: ids,
+      projectsList: list,
+      identities: state.gitIdentities || [],
+      previousByUrl: prevIdent,
+      settingsHref: companyId ? GitId.settingsHref(companyId) : '',
+      enabled: Boolean(P.$(`#${autoRunId}`)?.checked),
+    });
+  };
+
   P.refreshRepoBaseEditors = function (repoContainerId, projectsContainerId, wsId) {
     const box = P.$(`#${repoContainerId}`);
     if (!box) return;
     const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(box);
-    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
-    const prevIdent = GitId ? GitId.readSelectionsMap(box) : {};
     const ids = P.getSelectedProjectIds(projectsContainerId);
     const list = state.projectsCache[wsId] || [];
-    const autoRunId = repoContainerId === 'batchRepoBases' ? 'batchAutoRun' : 'singleAutoRun';
-    const ws = state.workspaces.find((w) => String(w.id || w._id) === String(wsId));
-    const companyId = ws?.company_id || ws?.companyId || '';
     box.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
       projectIds: ids,
       projectsList: list,
       previousValues: prev,
       inputClass: 'form-input',
       emptyHint: '勾选项目后按仓库填写基准分支',
-      gitIdentity: {
-        enabled: Boolean(P.$(`#${autoRunId}`)?.checked),
-        identities: state.gitIdentities || [],
-        previousByUrl: prevIdent,
-        settingsHref: (GitId && companyId) ? GitId.settingsHref(companyId) : '',
-      },
     });
+    const identityId = repoContainerId === 'batchRepoBases' ? 'batchGitIdentities' : 'singleGitIdentities';
+    const autoRunId = repoContainerId === 'batchRepoBases' ? 'batchAutoRun' : 'singleAutoRun';
+    P.refreshGitIdentityEditors(identityId, projectsContainerId, wsId, autoRunId);
   };
 
   P.loadGitIdentities = async function (companyId) {
