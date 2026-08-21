@@ -165,6 +165,7 @@
       await P.loadProgressColumns(String(companyId), wsId, 'singleProgressColumn');
       await P.loadDeliverableTypes(String(companyId), wsId);
       await P.loadInstalledImages(String(companyId));
+      await P.loadGitIdentities(String(companyId));
     }
     await P.loadPersonalFeatureParamsConfigs();
     P.initSingleDueDateDefault();
@@ -220,15 +221,39 @@
     const box = P.$(`#${repoContainerId}`);
     if (!box) return;
     const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(box);
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    const prevIdent = GitId ? GitId.readSelectionsMap(box) : {};
     const ids = P.getSelectedProjectIds(projectsContainerId);
     const list = state.projectsCache[wsId] || [];
+    const autoRunId = repoContainerId === 'batchRepoBases' ? 'batchAutoRun' : 'singleAutoRun';
+    const ws = state.workspaces.find((w) => String(w.id || w._id) === String(wsId));
+    const companyId = ws?.company_id || ws?.companyId || '';
     box.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
       projectIds: ids,
       projectsList: list,
       previousValues: prev,
       inputClass: 'form-input',
       emptyHint: '勾选项目后按仓库填写基准分支',
+      gitIdentity: {
+        enabled: Boolean(P.$(`#${autoRunId}`)?.checked),
+        identities: state.gitIdentities || [],
+        previousByUrl: prevIdent,
+        settingsHref: (GitId && companyId) ? GitId.settingsHref(companyId) : '',
+      },
     });
+  };
+
+  P.loadGitIdentities = async function (companyId) {
+    state.gitIdentities = [];
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    if (!companyId || !(await P.ensureApiReady())) return;
+    try {
+      const data = await P.swApi('listGitIdentities', { companyId: String(companyId) });
+      state.gitIdentities = GitId ? GitId.unwrapIdentities(data) : [];
+    } catch (e) {
+      console.warn('[taskChromePlugin] loadGitIdentities 失败:', e.message);
+      state.gitIdentities = [];
+    }
   };
 
   P.initDueDateDefault = function (inputId) {

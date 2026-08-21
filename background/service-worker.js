@@ -8,6 +8,7 @@
 
 importScripts(
   '../lib/storage.js',
+  '../lib/create-task-git-identity.js',
   '../lib/create-task-payload.js',
   '../lib/client-public-ip.js',
   '../lib/api.js',
@@ -578,6 +579,18 @@ async function handleMessage(message, sender) {
       try {
         await initApiFromMessage(message);
         const data = await API.getPersonalFeatureParamsConfigs();
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
+    case 'listGitIdentities':
+      try {
+        await initApiFromMessage(message);
+        const uid = API.getUserId();
+        if (!uid) throw new Error('缺少 userId');
+        const path = CreateTaskGitIdentity.gitIdentitiesRequestPath(uid, message.companyId);
+        const data = await API.request('GET', path);
         return { success: true, data };
       } catch (e) {
         return { success: false, error: e.message, traceId: e.traceId || '' };

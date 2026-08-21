@@ -190,6 +190,7 @@
   const dueDateInput = document.getElementById('taskplugin-due-date');
   const autoRunInput = document.getElementById('taskplugin-auto-run');
   let membersData = [];
+  let gitIdentitiesCache = [];
 
   const floatEnabledToggle = document.getElementById('taskplugin-float-enabled');
   const adjustModal = document.getElementById('taskplugin-adjust-modal');
@@ -1343,9 +1344,24 @@
     }
   }
 
+  function currentGitIdentityEditorOpts(previousByUrl) {
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    const wsId = wsSelect?.value || '';
+    const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
+    const companyId = ws?.company_id || ws?.companyId || '';
+    return {
+      enabled: Boolean(autoRunInput?.checked),
+      identities: gitIdentitiesCache,
+      previousByUrl: previousByUrl || {},
+      settingsHref: (GitId && companyId) ? GitId.settingsHref(companyId) : '',
+    };
+  }
+
   function refreshFloatRepoBases() {
     if (!repoBasesDiv || typeof CreateTaskPayload === 'undefined') return;
     const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv);
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    const prevIdent = GitId ? GitId.readSelectionsMap(repoBasesDiv) : {};
     const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
     repoBasesDiv.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
       projectIds: pids,
@@ -1353,6 +1369,7 @@
       previousValues: prev,
       inputClass: 'taskplugin-input',
       emptyHint: '勾选项目后按仓库填写',
+      gitIdentity: currentGitIdentityEditorOpts(prevIdent),
     });
   }
 
@@ -1412,18 +1429,23 @@
     await fetchBranchesForFloatingPanel(wsId, pids);
   });
 
+  autoRunInput?.addEventListener('change', () => {
+    refreshFloatRepoBases();
+  });
+
   async function loadWorkspaceCreateMeta(wsId) {
     const ws = workspacesData.find(w => String(w.id || w._id) === String(wsId));
     const companyId = ws?.company_id || ws?.companyId;
     if (!companyId) return;
     try {
       const cid = String(companyId);
-      const [colsResp, delivResp, imagesResp, personalResp, membersResp] = await Promise.all([
+      const [colsResp, delivResp, imagesResp, personalResp, membersResp, identResp] = await Promise.all([
         swApi('fetchProgressColumns', { companyId: cid, workspaceId: wsId }).catch((e) => ({ __err: e })),
         swApi('getDeliverableTypes', { companyId: cid, workspaceId: wsId }).catch((e) => ({ __err: e })),
         swApi('getInstalledImages', { companyId: cid }).catch((e) => ({ __err: e })),
         swApi('getPersonalFeatureParamsConfigs').catch((e) => ({ __err: e })),
         swApi('getMembers', { companyId: cid }).catch((e) => ({ __err: e })),
+        swApi('listGitIdentities', { companyId: cid }).catch((e) => ({ __err: e })),
       ]);
 
       if (progressSelect && !colsResp.__err) {
@@ -1457,6 +1479,11 @@
         membersData = Array.isArray(membersResp) ? membersResp : (membersResp?.results || membersResp?.data || []);
         renderAssignees();
       }
+      const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+      gitIdentitiesCache = (!identResp.__err && GitId)
+        ? GitId.unwrapIdentities(identResp)
+        : [];
+      refreshFloatRepoBases();
       if (dueDateInput && !dueDateInput.value && typeof CreateTaskPayload !== 'undefined') {
         dueDateInput.value = CreateTaskPayload.getDefaultTaskDeadline();
       }
@@ -1525,6 +1552,9 @@
         workBranch: wb,
         mergeTarget: mt,
         repoBaseBranches,
+        repo_identities: (typeof CreateTaskGitIdentity !== 'undefined' && repoBasesDiv)
+          ? CreateTaskGitIdentity.readRepoIdentitiesFromRoot(repoBasesDiv)
+          : [],
       };
 
       const blocked = CreateTaskPayload.validateCreateTaskForm(form);
@@ -1847,6 +1877,7 @@
         previousValues: normalized.repoBaseBranches || {},
         inputClass: 'taskplugin-input',
         emptyHint: '勾选项目后按仓库填写',
+        gitIdentity: currentGitIdentityEditorOpts({}),
       });
     }
 

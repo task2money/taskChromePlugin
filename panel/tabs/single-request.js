@@ -24,6 +24,10 @@
     P.$('#btnCreateSingle').addEventListener('click', P.createSingleTask);
     P.$('#btnPickElement')?.addEventListener('click', P.startPageElementPick);
     P.$('#singleFeatureParamsSource')?.addEventListener('change', P.onFeatureParamsSourceChange);
+    P.$('#singleAutoRun')?.addEventListener('change', () => {
+      const wsId = P.$('#singleWorkspace').value;
+      P.refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
+    });
     P.initSingleDueDateDefault();
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg?.action === 'elementPickResult' && msg.block) {
@@ -276,6 +280,10 @@
     const dueDate = (P.$('#singleDueDate').value || '').trim();
     const autoRun = Boolean(P.$('#singleAutoRun')?.checked);
     const assignees = P.getSelectedAssigneeIds();
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    const repoIdentities = GitId
+      ? GitId.readRepoIdentitiesFromRoot(P.$('#singleRepoBases'))
+      : [];
 
     if (!wsId) return P.showR('singleResult', 'error', '请选择工作空间');
     if (!checkedIds.length) return P.showR('singleResult', 'error', '请勾选至少一个项目');
@@ -303,6 +311,7 @@
       repoBaseBranches,
       projectIds: checkedIds,
       projectsList: cached,
+      repo_identities: repoIdentities,
     };
     const blocked = CreateTaskPayload.validateCreateTaskForm(form);
     if (blocked) return P.showR('singleResult', 'error', blocked);

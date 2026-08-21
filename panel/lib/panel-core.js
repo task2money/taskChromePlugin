@@ -21,6 +21,7 @@ window.PanelApp = (function () {
     requestListBootstrapped: false,
     pendingAidevMatches: null,
     authBadgeTimer: null,
+    gitIdentities: [],
   };
 
   const AUTH_BADGE_REFRESH_MS = 60 * 1000;

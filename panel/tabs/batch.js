@@ -18,6 +18,10 @@
     });
     P.$('#btnRefreshErrors').addEventListener('click', P.refreshCapturedCount);
     P.$('#batchFeatureParamsSource')?.addEventListener('change', P.onBatchFeatureParamsSourceChange);
+    P.$('#batchAutoRun')?.addEventListener('change', () => {
+      const wsId = P.$('#batchWorkspace').value;
+      P.refreshRepoBaseEditors('batchRepoBases', 'batchProjects', wsId);
+    });
     // 项目勾选变化时，动态获取分支列表 + 逐仓基准分支
     P.$('#batchProjects').addEventListener('change', (e) => {
       if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
@@ -101,6 +105,7 @@
       await P.loadProgressColumns(String(companyId), id, 'batchProgressColumn');
       await P.loadDeliverableTypesInto('batchDeliverable', String(companyId), id);
       await P.loadInstalledImagesInto('batchContainerImage', String(companyId));
+      await P.loadGitIdentities(String(companyId));
     }
     await P.loadPersonalFeatureParamsInto('batchPersonalConfig');
     P.initDueDateDefault('batchDueDate');
@@ -134,6 +139,10 @@
     const personalConfigId = (P.$('#batchPersonalConfig')?.value || '').trim();
     const dueDate = (P.$('#batchDueDate')?.value || '').trim();
     const autoRun = Boolean(P.$('#batchAutoRun')?.checked);
+    const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
+    const repoIdentities = GitId
+      ? GitId.readRepoIdentitiesFromRoot(P.$('#batchRepoBases'))
+      : [];
 
     if (!wsId) return P.showR('batchResult', 'error', '请选择工作空间');
     if (!checkedIds.length) return P.showR('batchResult', 'error', '请勾选至少一个项目');
@@ -144,10 +153,13 @@
       workspaceId: wsId,
       owner: 'pending',
       projectIds: checkedIds,
+      projectsList: state.projectsCache[wsId] || [],
       feature_params_source: featureParamsSource,
       personal_feature_params_config_id: personalConfigId,
+      auto_run: autoRun,
+      repo_identities: repoIdentities,
     });
-    if (featureGate && /智能体资源配置|环境变量参数/.test(featureGate)) {
+    if (featureGate && /智能体资源配置|环境变量参数|Git 提交身份/.test(featureGate)) {
       return P.showR('batchResult', 'error', featureGate);
     }
 
@@ -192,6 +204,7 @@
           container_image_id: containerImageId,
           due_date: dueDate,
           auto_run: autoRun,
+          repo_identities: repoIdentities,
           feature_params_source: featureParamsSource,
           personal_feature_params_config_id: personalConfigId,
           workBranch,

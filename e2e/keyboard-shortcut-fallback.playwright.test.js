@@ -31,6 +31,7 @@ const ROOT = path.resolve(__dirname, '..');
 const LIB_FILES = [
   'lib/storage.js',
   'lib/dom-trace.js',
+  'lib/create-task-git-identity.js',
   'lib/create-task-payload.js',
   'lib/element-picker.js',
   'lib/user-guide.js',
