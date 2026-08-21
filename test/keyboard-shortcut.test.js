@@ -78,20 +78,12 @@ describe('键盘快捷键三层链路', () => {
     );
   });
 
-  it('content.js 支持 Popup 自定义快捷键并实时生效（消息 + storage.onChanged）', () => {
-    // Popup/SW 保存后通过消息即时广播
-    assert.match(
+  it('content.js 支持 Popup 自定义快捷键并实时生效（storage.onChanged）', () => {
+    assert.doesNotMatch(
       content,
       /msg\.action === 'setElementPickerShortcut'/,
-      '缺少 setElementPickerShortcut 消息处理',
+      'content 不应再接收跨 tab 快捷键消息',
     );
-    assert.match(
-      content,
-      /resolveShortcutCombo\(msg\.shortcut\)/,
-      '消息处理未解析组合串（含旧版迁移）',
-    );
-    assert.match(content, /pickShortcutCombo = combo/, '消息处理未写入组合串变量');
-    // 新开的标签页 / 广播失败场景由 storage.onChanged 兜底
     assert.ok(
       content.includes('bindPickShortcutStorageListener'),
       '缺少快捷键 storage 变更监听',
@@ -100,7 +92,6 @@ describe('键盘快捷键三层链路', () => {
       content.includes("changes.elementPickerShortcut?.newValue"),
       'storage 监听未读取 elementPickerShortcut 变更',
     );
-    // 初始化时从存储加载（默认 Ctrl+Shift+X）
     assert.ok(
       content.includes('pickShortcutCombo = await Storage.getElementPickerShortcut()'),
       '初始化未加载快捷键配置',
@@ -156,11 +147,11 @@ describe('键盘快捷键三层链路', () => {
     assert.match(popupJs, /e\.key === 'Escape'/, '捕获模式缺少 Esc 取消');
   });
 
-  it('SW 通过 chrome.commands.update 动态改绑快捷键并广播内容脚本', () => {
+  it('SW 通过 chrome.commands.update 动态改绑快捷键并持久化', () => {
     assert.ok(sw.includes('applyElementPickerShortcut'), 'SW 缺少快捷键应用函数');
     assert.match(sw, /chrome\.commands\.update\(\{ name: 'toggle-element-picker'/, 'SW 未调用 commands.update 改绑');
     assert.ok(sw.includes("case 'setElementPickerShortcut'"), 'SW 缺少 setElementPickerShortcut 消息处理');
-    assert.ok(sw.includes('broadcastElementPickerShortcut'), 'SW 缺少快捷键广播函数');
+    assert.doesNotMatch(sw, /function broadcastElementPickerShortcut/, 'SW 不得跨 tab 广播快捷键');
     assert.match(sw, /Storage\.normalizeShortcut\(shortcut\)/, 'SW 未校验快捷键组合');
     assert.ok(sw.includes('Storage.shortcutToPlatformBinding'), 'SW 未做平台绑定转换（macOS MacCtrl）');
   });

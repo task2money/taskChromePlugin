@@ -586,12 +586,16 @@ const Popup = (() => {
     if (eventsBound) return;
     eventsBound = true;
 
-    // 授权页登录完成后 SW 广播登录态变更 → 弹窗自动刷新（无需手动重开）
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message && message.action === 'authStateChanged') {
+    // 登录/登出写 chrome.storage.local 后刷新弹窗（不向其它标签页 sendMessage）
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
+          return;
+        }
         withTimeout(loadState(), STATE_CHECK_TIMEOUT, '刷新登录态').catch(() => showLoginUI());
-      }
-    });
+      });
+    } catch (_) { /* ignore */ }
 
     // 登录按钮 — OAuth2+PKCE（OPT-20260808-024）
     const btnLogin = $('#btnLogin');
@@ -679,15 +683,6 @@ const Popup = (() => {
 
   // ---- OAuth2+PKCE 登录（OPT-20260808-024）----
 
-  function notifyContentScriptsAuthChanged() {
-    chrome.tabs.query({}).then((tabs) => {
-      for (const tab of tabs) {
-        if (!tab.id) continue;
-        chrome.tabs.sendMessage(tab.id, { action: 'authStateChanged' }).catch(() => {});
-      }
-    }).catch(() => {});
-  }
-
   /**
    * 发起 OAuth 登录：校验服务器地址 → 保存 → 通知 SW 打开授权页。
    * 授权完成后 oauth-callback 页通知 SW 完成 token 交换与持久化。
@@ -745,7 +740,6 @@ const Popup = (() => {
         await withTimeout(Storage.clearAuth(), STORAGE_READ_TIMEOUT, '清除登录态');
       } catch (_) { /* ignore */ }
     }
-    notifyContentScriptsAuthChanged();
     try {
       await withTimeout(loadState(), STATE_CHECK_TIMEOUT, '刷新登录态');
     } catch (_) {

@@ -181,27 +181,28 @@ function dispatchComboShortcutKey(combo) {
   })()`;
 }
 
-/** 切换自定义组合串（新契约：任意组合如 'Alt+Shift+E'），写入 storage + 派发消息 */
+/** 切换自定义组合串：只写 storage 并触发 onChanged（不再派发跨 tab 消息） */
 function setShortcutCombo(combo) {
   return `(function () {
+    const old = window.chrome.storage.local._store.elementPickerShortcut;
     window.chrome.storage.local._store.elementPickerShortcut = ${JSON.stringify(combo)};
-    const msg = { action: 'setElementPickerShortcut', shortcut: ${JSON.stringify(combo)} };
-    for (const fn of window.__onMessageHandlers) {
-      try { fn(msg, { tab: { id: 1 } }, () => {}); } catch (_) {}
+    const changes = { elementPickerShortcut: { newValue: ${JSON.stringify(combo)}, oldValue: old } };
+    for (const fn of window.__storageOnChangedListeners) {
+      try { fn(changes, 'local'); } catch (_) {}
     }
   })()`;
 }
 
 /**
- * 模拟 Popup/SW 切换快捷键：写入 storage stub + 派发 setElementPickerShortcut 消息
- * （新契约 shortcut 字段；旧版 'cmd'/'ctrl' 值由内容脚本迁移为组合串，行为意图不变）。
+ * 模拟 Popup/SW 切换快捷键：写入 storage stub + 触发 storage.onChanged。
  */
 function setShortcutMode(mode) {
   return `(function () {
+    const old = window.chrome.storage.local._store.elementPickerShortcut;
     window.chrome.storage.local._store.elementPickerShortcut = ${JSON.stringify(mode)};
-    const msg = { action: 'setElementPickerShortcut', shortcut: ${JSON.stringify(mode)} };
-    for (const fn of window.__onMessageHandlers) {
-      try { fn(msg, { tab: { id: 1 } }, () => {}); } catch (_) {}
+    const changes = { elementPickerShortcut: { newValue: ${JSON.stringify(mode)}, oldValue: old } };
+    for (const fn of window.__storageOnChangedListeners) {
+      try { fn(changes, 'local'); } catch (_) {}
     }
   })()`;
 }

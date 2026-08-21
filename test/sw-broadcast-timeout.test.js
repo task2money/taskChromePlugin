@@ -9,11 +9,8 @@
  * 阻止 SW 休眠（每次广播卡死一处）。
  *
  * 修复契约（withTimeout 800ms 兜底）：
- * 1. elementPickerShortcut / pickToChildFrames 广播
- *    对挂起标签页 ≤800ms settle
- * 2. 健康标签页立即 settle，其超时计时器被清除（快路径不受 800ms 拖累）
- * 3. broadcastPickToChildFrames 并行发送：任一 frame 挂起不阻塞其余广播
- *    （修复前串行 await，第 1 个挂起 frame 会拖死后续全部）
+ * 1. 快捷键不再跨 tab 扇出（storage.onChanged）
+ * 2. broadcastPickToChildFrames 并行发送：任一 frame 挂起不阻塞其余广播
  *
  * 计时用注入的手工 setTimeout：测试显式 advance(800) 驱动超时，零真实等待。
  */
@@ -187,31 +184,19 @@ function invokeMessage(chrome, message, sender) {
 /** 冲刷微任务（vm 沙箱与宿主共享微任务队列，setImmediate 即可排空） */
 const flush = () => new Promise((r) => setImmediate(r));
 
-test('F3 elementPickerShortcut：挂起标签页不阻塞消息响应，≤800ms 兜底收尾', async () => {
-  let hungCalls = 0;
+test('F3 setElementPickerShortcut：不再向全部标签页 sendMessage', async () => {
   const chrome = makeChromeMock({
     tabs: [{ id: 1 }, { id: 2 }],
-    sendMessage: (tabId) => {
-      if (tabId === 2) { hungCalls++; return new Promise(() => {}); }
-      return Promise.resolve({});
-    },
+    sendMessage: () => Promise.resolve({}),
   });
-  const { timers } = loadSW(chrome);
+  loadSW(chrome);
 
   const calls = invokeMessage(chrome, { action: 'setElementPickerShortcut', shortcut: 'Alt+Shift+E' }, { tab: { id: 1 } });
   await flush();
 
-  // 广播是 fire-and-forget：响应不被挂起标签页阻塞（恢复快捷键设置不再卡死 Popup）
-  assert.equal(calls.count, 1, '消息响应不得等待广播完成');
+  assert.equal(calls.count, 1, '消息响应不得等待广播');
   assert.equal(calls.resp.success, true);
-  assert.deepEqual(chrome.__sent.map((s) => s.tabId).sort(), [1, 2], '广播应发给全部标签页');
-  assert.equal(hungCalls, 1);
-
-  // 挂起标签页被 withTimeout 包裹 → 800ms 兜底计时器存活，推进后无残留
-  assert.equal(timers.count(800), 1, '挂起标签页应有 800ms 兜底计时器');
-  timers.advance(800);
-  await flush();
-  assert.equal(timers.count(800), 0, '兜底后无残留计时器（无永久悬挂 promise）');
+  assert.equal(chrome.__sent.length, 0, '快捷键不得跨 tab 扇出');
 });
 
 test('F3 broadcastPickToChildFrames：并行广播，挂起 frame ≤800ms settle 且不阻塞其余', async () => {

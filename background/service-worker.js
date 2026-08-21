@@ -258,29 +258,10 @@ async function initApiFromMessage(message = {}) {
   return { baseUrl, token, mapping, cred, cfg };
 }
 
-/** 单标签广播超时：discarded/frozen 页上 sendMessage 可能永不 resolve */
+/** 单标签/子 frame 消息超时：discarded/frozen 页上 sendMessage 可能永不 resolve */
 const AUTH_BROADCAST_TAB_TIMEOUT_MS = 800;
 
-/** 向所有标签页广播登录态变更（content script / panel 监听） */
-async function broadcastAuthStateChanged() {
-  try {
-    const tabs = await chrome.tabs.query({});
-    await Promise.allSettled(
-      tabs.map((tab) => {
-        if (!tab.id) return Promise.resolve();
-        const send = chrome.tabs.sendMessage(tab.id, { action: 'authStateChanged' }).catch(() => {});
-        if (typeof withTimeout === 'function') {
-          return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'auth broadcast').catch(() => {});
-        }
-        return send;
-      }),
-    );
-  } catch (e) {
-    console.warn('[taskChromePlugin] broadcastAuthStateChanged 失败:', e.message || e);
-  }
-}
-
-/** 登录成功：持久化（带超时）+ 异步广播，绝不因广播阻塞 Popup */
+/** 登录成功：持久化（带超时），靠 chrome.storage.onChanged 通知各页，绝不扇出全部标签页 */
 async function completeLoginAndRespond(baseUrl, token, expiresIn, username, userId, memberId, result) {
   // 先写入内存会话，保证即便 storage 短暂失败也能继续
   API.init(baseUrl, token, null, userId || '');
@@ -297,18 +278,16 @@ async function completeLoginAndRespond(baseUrl, token, expiresIn, username, user
     memberId,
     withTimeout,
     timeoutMs: 3000,
-    broadcast: broadcastAuthStateChanged,
   };
 
   try {
     await finalizeLoginSuccess(persistOpts);
   } catch (e) {
     console.warn('[taskChromePlugin] 保存登录态失败/超时，后台重试:', e?.message || e);
-    // 后台再试一次（无超时包装由 storage 自身决定），广播仍不阻塞响应
+    // 后台再试一次（无超时包装由 storage 自身决定）
     void persistLoginCredentials({ ...persistOpts, timeoutMs: 0 }).catch((err) => {
       console.warn('[taskChromePlugin] 登录态后台重试仍失败:', err?.message || err);
     });
-    scheduleAuthBroadcast(broadcastAuthStateChanged);
   }
   return { success: true, data: result };
 }
@@ -524,8 +503,6 @@ async function handleMessage(message, sender) {
       try {
         await Storage.clearAuth();
         API.clearSession();
-        // 登出同样不得被标签页广播拖死
-        scheduleAuthBroadcast(broadcastAuthStateChanged);
         return { success: true };
       } catch (e) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
@@ -969,8 +946,6 @@ async function handleMessage(message, sender) {
           );
           await Storage.saveApiConfig('', account.token, 0);
           await Storage.saveCredentials(account.username, account.userId, '');
-          // 广播账号切换事件到所有 tab，触发前端状态刷新
-          broadcastAuthStateChanged().catch(() => {});
           return { success: true, data: account };
         } catch (e) {
           return { success: false, error: e.message };
@@ -986,7 +961,6 @@ async function handleMessage(message, sender) {
           API.init(undefined, account.token, undefined, account.userId);
           await Storage.saveApiConfig('', account.token, 0);
           await Storage.saveCredentials(account.username, account.userId, '');
-          broadcastAuthStateChanged().catch(() => {});
           return { success: true, data: upsertResult };
         } catch (e) {
           return { success: false, error: e.message };
@@ -1136,33 +1110,11 @@ async function toggleElementPickInTab(tabId) {
 // 平台探测复用 Storage.isMacPlatform（chrome.commands.update 的修饰键规则按平台区分）
 
 /**
- * 向所有标签页广播快捷键变更（内容脚本页内兜底监听跟随，storage.onChanged 双通道兜底）。
- * OPT-20260808-023 F3：套 withTimeout，避免卡死标签页令 sendMessage Promise 悬挂。
- */
-async function broadcastElementPickerShortcut(shortcut) {
-  try {
-    const tabs = await chrome.tabs.query({});
-    await Promise.allSettled(
-      tabs.map((tab) => {
-        if (!tab.id) return Promise.resolve();
-        const send = chrome.tabs.sendMessage(tab.id, { action: 'setElementPickerShortcut', shortcut }).catch(() => {});
-        if (typeof withTimeout === 'function') {
-          return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'shortcut broadcast').catch(() => {});
-        }
-        return send;
-      }),
-    );
-  } catch (e) {
-    console.warn('[taskChromePlugin] broadcastElementPickerShortcut 失败:', e.message || e);
-  }
-}
-
-/**
  * 应用元素拾取快捷键（Popup「修改/恢复默认」统一入口）：
  * 1) 规范校验；2) chrome.commands.update 改绑浏览器级键位（冲突等错误原样返回给 Popup）；
  *    旧浏览器（< Chrome 110）降级为仅持久化 + 页内兜底生效；
- * 3) 持久化规范串；4) 广播内容脚本。commands.update 的绑定由 Chrome 持久化，
- *    故无需在 SW 启动时重复改绑（避免覆盖用户在 chrome://extensions/shortcuts 的手动设置）。
+ * 3) 持久化规范串。各页经 chrome.storage.onChanged 更新兜底监听，不向全部标签页 sendMessage。
+ *    commands.update 的绑定由 Chrome 持久化，故无需在 SW 启动时重复改绑。
  */
 async function applyElementPickerShortcut(shortcut) {
   const normalized = Storage.normalizeShortcut(shortcut);
@@ -1183,7 +1135,6 @@ async function applyElementPickerShortcut(shortcut) {
     console.warn('[taskChromePlugin] chrome.commands.update 不可用（需 Chrome 110+），仅持久化 + 页内兜底生效');
   }
   await Storage.saveElementPickerShortcut(normalized);
-  broadcastElementPickerShortcut(normalized).catch(() => {});
   return { success: true, data: { shortcut: normalized } };
 }
 
@@ -1347,41 +1298,11 @@ async function checkAllAccountsForExpiry() {
   if (expiredAccounts.length > 0) {
     console.log(`[taskChromePlugin] 检测到 ${expiredAccounts.length} 个账号 token 已过期:`,
       expiredAccounts.map(a => a.username || a.userId).join(', '));
-    broadcastAccountExpired(expiredAccounts);
-    // OPT-20260806-036 单账号语义兜底：Popup 定位单账号入口后，槽位由 taskFE
-    // 网页端维护；此处清理已失效槽位，避免死账号在插件侧无限累积且不可见。
-    // 删除活跃账号时 MultiAccount.pruneSavedAccounts 会自动回退剩余账号。
+    // 只写 storage：各页经 onChanged 刷新。不再 tabs.query({}) 扇出。
     try {
       await MultiAccount.pruneSavedAccounts(expiredAccounts.map(a => a.userId));
-      // 广播登录态变更，触发网页端 Navbar 刷新已保存账号列表
-      broadcastAuthStateChanged().catch(() => {});
     } catch (e) {
       console.warn('[taskChromePlugin] 过期账号槽位清理失败:', e?.message || e);
     }
-  }
-}
-
-/**
- * 向所有标签页广播 accountExpired 事件。
- * content script / page-bridge 会将事件转发给页面。
- */
-async function broadcastAccountExpired(expiredAccounts) {
-  try {
-    const tabs = await chrome.tabs.query({});
-    await Promise.allSettled(
-      tabs.map((tab) => {
-        if (!tab.id) return Promise.resolve();
-        const send = chrome.tabs.sendMessage(tab.id, {
-          action: 'accountExpired',
-          data: { accounts: expiredAccounts },
-        }).catch(() => {});
-        if (typeof withTimeout === 'function') {
-          return withTimeout(send, AUTH_BROADCAST_TAB_TIMEOUT_MS, 'accountExpired broadcast').catch(() => {});
-        }
-        return send;
-      }),
-    );
-  } catch (e) {
-    console.warn('[taskChromePlugin] broadcastAccountExpired 失败:', e.message || e);
   }
 }

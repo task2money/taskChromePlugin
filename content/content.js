@@ -1177,7 +1177,20 @@
     return true;
   }
 
-  /** storage 变更时同步登录态（Popup 登录后即使 tabs.sendMessage 失败也能恢复） */
+  function notifyPageAccountStateChanged() {
+    try {
+      window.postMessage({
+        source: 'taskfe-account-bridge',
+        action: 'accountStateChanged',
+        requestId: null,
+        success: true,
+        data: { event: 'authStateChanged' },
+        error: null,
+      }, '*');
+    } catch { /* ignore */ }
+  }
+
+  /** storage 变更时同步登录态（不再向其它标签页 sendMessage） */
   function bindAuthStorageListener() {
     try {
       if (!chrome.storage?.onChanged) return;
@@ -1187,6 +1200,7 @@
           return;
         }
         scheduleAuthRefresh();
+        notifyPageAccountStateChanged();
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindAuthStorageListener 失败:', e.message);
@@ -1201,9 +1215,7 @@
   }
 
   /**
-   * storage 变更时同步快捷键组合：
-   * Popup 保存 elementPickerShortcut 后，即使 tabs.sendMessage 未送达
-   * （如弹出前已加载的标签页），新配置也实时生效，无需刷新页面。
+   * storage 变更时同步快捷键组合（各页独立监听，不跨 tab sendMessage）。
    */
   function bindPickShortcutStorageListener() {
     try {
@@ -1887,28 +1899,6 @@
       console.log('[taskChromePlugin] setFloatBallEnabled from popup:', msg.enabled);
       root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
       floatEnabledToggle.checked = msg.enabled;
-    }
-    if (msg.action === 'setElementPickerShortcut') {
-      const combo = resolveShortcutCombo(msg.shortcut);
-      if (combo) {
-        pickShortcutCombo = combo;
-        renderShortcutHints();
-        console.log('[taskChromePlugin] setElementPickerShortcut from popup:', combo);
-      }
-    }
-    if (msg.action === 'authStateChanged') {
-      scheduleAuthRefresh();
-      // 同时通知页面账号状态已变更（多账号桥接）
-      try {
-        window.postMessage({
-          source: 'taskfe-account-bridge',
-          action: 'accountStateChanged',
-          requestId: null,
-          success: true,
-          data: { event: 'authStateChanged' },
-          error: null,
-        }, '*');
-      } catch { /* ignore */ }
     }
     if (msg.action === 'toggleElementPick') {
       console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');

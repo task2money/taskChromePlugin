@@ -261,8 +261,7 @@ window.PanelApp = (function () {
   };
 
   api.bindAuthListener = function () {
-    chrome.runtime.onMessage.addListener((msg) => {
-      if (msg.action !== 'authStateChanged') return;
+    const refreshFromStorage = () => {
       api.refreshAuthState().then((loggedIn) => {
         if (loggedIn) {
           api.loadWorkspaces('singleWorkspace');
@@ -270,11 +269,21 @@ window.PanelApp = (function () {
             api.loadWorkspaces('batchWorkspace');
           }
         }
-        // 未登录时 clearWorkspaceAuthCaches 已由 handleAuthSessionTransition 处理
       }).catch((e) => {
-        console.warn('[taskChromePlugin] panel authStateChanged 刷新失败:', e.message);
+        console.warn('[taskChromePlugin] panel storage 登录态刷新失败:', e.message);
       });
-    });
+    };
+    try {
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
+          return;
+        }
+        refreshFromStorage();
+      });
+    } catch (e) {
+      console.warn('[taskChromePlugin] panel bindAuthListener 失败:', e.message);
+    }
   };
 
   api.updateStatusBadge = function (expired = false, expiryHint = null) {
