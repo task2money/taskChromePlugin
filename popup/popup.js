@@ -624,12 +624,8 @@ const Popup = (() => {
         try {
           await withTimeout(Storage.saveFloatBallConfig(enabled), STORAGE_READ_TIMEOUT, '保存悬浮球配置');
         } catch (_) { /* ignore */ }
-        try {
-          const tabs = await chrome.tabs.query({});
-          for (const tab of tabs) {
-            chrome.tabs.sendMessage(tab.id, { action: 'setFloatBallEnabled', enabled }).catch(() => {});
-          }
-        } catch (_) { /* ignore */ }
+        // OPT-20260821-008: 只写 storage；content 监听 floatBallEnabled onChanged 自更新，
+        // 不再向全部标签页 sendMessage（与登录/快捷键同类的跨 tab 扇出已下线）。
       });
     }
 

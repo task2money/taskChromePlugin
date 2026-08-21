@@ -31,6 +31,21 @@ describe('跨 tab 扇出已下线', () => {
     assert.doesNotMatch(popup, /action: 'authStateChanged'/);
   });
 
+  it('T7 Popup 悬浮球开关不再向全部标签页 sendMessage (OPT-20260821-008)', () => {
+    const popup = read('popup/popup.js');
+    const start = popup.indexOf('悬浮球开关');
+    const end = popup.indexOf('跟踪开关');
+    const seg = popup.slice(start, end === -1 ? popup.length : end);
+    assert.doesNotMatch(seg, /chrome\.tabs\.query\(\{\}\)/);
+    assert.doesNotMatch(seg, /setFloatBallEnabled/);
+  });
+
+  it('T8 content 监听 floatBallEnabled storage 变更自更新 (OPT-20260821-008)', () => {
+    const content = read('content/content.js');
+    assert.match(content, /function bindFloatBallStorageListener/);
+    assert.match(content, /changes\.floatBallEnabled/);
+  });
+
   it('T5 选元素仍按当前 tab 广播子 frame', () => {
     const sw = read('background/service-worker.js');
     assert.match(sw, /function broadcastPickToChildFrames/);

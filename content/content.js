@@ -280,6 +280,7 @@
       setupDescReset();
       bindAuthStorageListener();
       bindPickShortcutStorageListener();
+      bindFloatBallStorageListener();
 
       // 1. 同步初始化 datalist（不依赖网络/存储）
       seedBranchDatalists();
@@ -1207,6 +1208,22 @@
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindAuthStorageListener 失败:', e.message);
+    }
+  }
+
+  /** storage 变更时同步悬浮球显隐（Popup 只写 storage，不跨 tab 扇出 — OPT-20260821-008） */
+  function bindFloatBallStorageListener() {
+    try {
+      if (!chrome.storage?.onChanged) return;
+      chrome.storage.onChanged.addListener((changes, area) => {
+        if (area !== 'local') return;
+        if (changes.floatBallEnabled === undefined) return;
+        const enabled = changes.floatBallEnabled.newValue !== false;
+        root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
+        if (floatEnabledToggle) floatEnabledToggle.checked = enabled;
+      });
+    } catch (e) {
+      console.warn('[taskChromePlugin] bindFloatBallStorageListener 失败:', e.message);
     }
   }
 

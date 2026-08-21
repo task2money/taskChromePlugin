@@ -25,6 +25,17 @@ const popupHtml = read('popup/popup.html');
 const popupJs = read('popup/popup.js');
 const popupCss = read('popup/popup.css');
 
+// OPT-20260821-008: 悬浮球开关只写 storage，不向全部标签页 sendMessage。
+describe('Popup 悬浮球开关不再跨 tab 扇出', () => {
+  it('开关段无 chrome.tabs.query({}) 与 setFloatBallEnabled 广播', () => {
+    const start = popupJs.indexOf('悬浮球开关');
+    const end = popupJs.indexOf('跟踪开关');
+    const seg = popupJs.slice(start, end === -1 ? popupJs.length : end);
+    assert.doesNotMatch(seg, /chrome\.tabs\.query\(\{\}\)/, '悬浮球开关不得查询全部标签页');
+    assert.doesNotMatch(seg, /setFloatBallEnabled/, '悬浮球开关不得向标签页广播 setFloatBallEnabled');
+  });
+});
+
 describe('Popup 面板布局', () => {
   it('面板收窄：body 宽度为 300px（不需要那么宽）', () => {
     assert.match(popupCss, /width:\s*300px/, 'popup.css body 宽度应收窄为 300px');
