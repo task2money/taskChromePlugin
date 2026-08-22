@@ -46,6 +46,12 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(html, /Shift\+点击/);
   });
 
+  it('float-create 说明包含面板顶部 × 关闭悬浮球', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /面板顶部[「"]×[」"]/);
+    assert.match(html, /关闭悬浮球/);
+  });
+
   it('renderFullGuideHtml for panel includes batch section', () => {
     const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
     assert.match(html, /data-guide-id="devtools-batch"/);

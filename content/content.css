@@ -104,36 +104,29 @@
   border-bottom: 1px solid #313244 !important;
   flex-shrink: 0 !important;
 }
-/* 面板内关闭悬浮球的 mini toggle */
-.taskplugin-mini-toggle {
-  position: relative !important;
-  display: inline-block !important;
+#taskplugin-float-close {
   width: 28px !important;
-  height: 16px !important;
-  flex-shrink: 0 !important;
+  height: 28px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 6px !important;
+  background: transparent !important;
+  color: #cdd6f4 !important;
+  font-size: 20px !important;
+  font-weight: 500 !important;
+  line-height: 1 !important;
   cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  pointer-events: auto !important;
 }
-.taskplugin-mini-toggle input { opacity: 0 !important; width: 0 !important; height: 0 !important; }
-.taskplugin-mini-slider {
-  position: absolute !important;
-  inset: 0 !important;
-  background: #45475a !important;
-  border-radius: 16px !important;
-  transition: background .2s !important;
+#taskplugin-float-close:hover {
+  background: rgba(243, 139, 168, 0.2) !important;
+  color: #f38ba8 !important;
 }
-.taskplugin-mini-slider::before {
-  content: '' !important;
-  position: absolute !important;
-  width: 12px !important;
-  height: 12px !important;
-  left: 2px !important;
-  top: 2px !important;
-  background: #cdd6f4 !important;
-  border-radius: 50% !important;
-  transition: transform .2s !important;
-}
-.taskplugin-mini-toggle input:checked + .taskplugin-mini-slider { background: #f38ba8 !important; }
-.taskplugin-mini-toggle input:checked + .taskplugin-mini-slider::before { transform: translateX(12px) !important; }
 .taskplugin-panel-header h3 {
   font-size: 14px !important;
   font-weight: 600 !important;
@@ -233,7 +226,7 @@
   margin-bottom: 3px !important;
 }
 
-/* 自动运行等开关行 — 勿复用 header 的 mini-toggle（固定 28×16 会挤扁文案） */
+/* 自动运行等开关行 */
 .taskplugin-form-group label.taskplugin-toggle-label {
   display: flex !important;
   align-items: flex-start !important;

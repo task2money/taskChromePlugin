@@ -17,11 +17,8 @@
       <div class="taskplugin-panel-header">
         <h3>🔧 快速创建任务</h3>
         <div style="display:flex;align-items:center;gap:6px">
-          <label class="taskplugin-mini-toggle" title="关闭悬浮球">
-            <input type="checkbox" id="taskplugin-float-enabled" checked>
-            <span class="taskplugin-mini-slider"></span>
-          </label>
           <span id="taskplugin-login-badge" class="taskplugin-badge taskplugin-badge-err">未登录</span>
+          <button id="taskplugin-float-close" type="button" class="taskplugin-float-close" aria-label="关闭悬浮球" title="关闭悬浮球">×</button>
         </div>
       </div>
       <div class="taskplugin-panel-body">
@@ -194,7 +191,6 @@
   let membersData = [];
   let gitIdentitiesCache = [];
 
-  const floatEnabledToggle = document.getElementById('taskplugin-float-enabled');
   const adjustModal = document.getElementById('taskplugin-adjust-modal');
   const adjustElSummary = document.getElementById('taskplugin-adjust-el-summary');
   const adjustInput = document.getElementById('taskplugin-adjust-input');
@@ -276,6 +272,7 @@
       // 0. 立即绑定 UI 交互（拖拽），不依赖任何异步操作
       //    防止 Service Worker 延迟 / 启动失败导致按钮无响应
       setupDrag();
+      bindFloatPanelCloseButton();
       setupElementPicker();
       setupDescReset();
       bindAuthStorageListener();
@@ -291,7 +288,6 @@
       if (!floatCfg.enabled) {
         root.style.setProperty('display', 'none', 'important');
       }
-      floatEnabledToggle.checked = floatCfg.enabled;
 
       // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）
       try {
@@ -308,12 +304,6 @@
       await refreshAuthAndWorkspaces();
 
       startAuthBadgeTimer();
-
-      floatEnabledToggle.addEventListener('change', async () => {
-        const enabled = floatEnabledToggle.checked;
-        root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
-        await saveFloatBallConfigToStorage(enabled);
-      });
     } catch (err) {
       console.error('[taskChromePlugin] init() 初始化失败，核心交互已就绪:', err.message || err);
       // setupDrag 已在 try 块首行执行，
@@ -1220,7 +1210,7 @@
         if (changes.floatBallEnabled === undefined) return;
         const enabled = changes.floatBallEnabled.newValue !== false;
         root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
-        if (floatEnabledToggle) floatEnabledToggle.checked = enabled;
+        if (!enabled) hideFloatPanel();
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindFloatBallStorageListener 失败:', e.message);
@@ -1908,6 +1898,19 @@
     if (mergeTarget) mergeTarget.value = normalized.mergeTarget || '';
   }
 
+  function bindFloatPanelCloseButton() {
+    const closeBtn = document.getElementById('taskplugin-float-close');
+    if (!closeBtn) return;
+    closeBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Anti-Replay-OK: ui-only — 仅隐藏页内悬浮球，无写接口
+      hideFloatPanel();
+      root.style.setProperty('display', 'none', 'important');
+      await saveFloatBallConfigToStorage(false);
+    });
+  }
+
   function hideFloatPanel() {
     isOpen = false;
     panel.classList.remove('taskplugin-open');
@@ -1951,7 +1954,7 @@
     if (msg.action === 'setFloatBallEnabled') {
       console.log('[taskChromePlugin] setFloatBallEnabled from popup:', msg.enabled);
       root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
-      floatEnabledToggle.checked = msg.enabled;
+      if (!msg.enabled) hideFloatPanel();
     }
     if (msg.action === 'toggleElementPick') {
       console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');
