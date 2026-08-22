@@ -51,15 +51,17 @@ const Popup = (() => {
     const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
+    const floatSec = $('#floatBallSection');
     const reqSec = $('#requestsSection');
     const userGuideSec = $('#popupGuideSection');
     const spinnerVisible = spinner && spinner.style.display !== 'none';
     const loginHidden = !loginSec || loginSec.style.display === 'none';
     const guideHidden = !devGuide || devGuide.style.display === 'none';
     const shortcutsHidden = !shortcutsSec || shortcutsSec.style.display === 'none';
+    const floatHidden = !floatSec || floatSec.style.display === 'none';
     const reqHidden = !reqSec || reqSec.style.display === 'none';
     const userGuideHidden = !userGuideSec || userGuideSec.style.display === 'none';
-    return spinnerVisible && loginHidden && guideHidden && shortcutsHidden && reqHidden && userGuideHidden;
+    return spinnerVisible && loginHidden && guideHidden && shortcutsHidden && floatHidden && reqHidden && userGuideHidden;
   }
 
   async function restoreRememberedFormFields() {
@@ -152,6 +154,11 @@ const Popup = (() => {
     if (section) section.style.display = visible ? 'block' : 'none';
   }
 
+  function setFloatBallSectionVisible(visible) {
+    const section = $('#floatBallSection');
+    if (section) section.style.display = visible ? 'block' : 'none';
+  }
+
   async function retryInit() {
     const spinner = $('#loadingSpinner');
     const retryBtn = $('#btnRetryInit');
@@ -165,6 +172,7 @@ const Popup = (() => {
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
+    setFloatBallSectionVisible(false);
     setPopupGuideVisible(false);
 
     await init();
@@ -186,6 +194,8 @@ const Popup = (() => {
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
+    setFloatBallSectionVisible(true);
+    loadFloatBallConfig();
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -220,6 +230,7 @@ const Popup = (() => {
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
+    setFloatBallSectionVisible(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -251,6 +262,7 @@ const Popup = (() => {
     if (devGuide) devGuide.style.display = 'block';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
+    setFloatBallSectionVisible(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
   }
@@ -590,6 +602,10 @@ const Popup = (() => {
     try {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
+        if (changes.floatBallEnabled !== undefined) {
+          const toggle = $('#floatBallToggle');
+          if (toggle) toggle.checked = changes.floatBallEnabled.newValue !== false;
+        }
         if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
           return;
         }
@@ -616,7 +632,7 @@ const Popup = (() => {
     const btnRetry = $('#btnRetryInit');
     if (btnRetry) btnRetry.addEventListener('click', retryInit);
 
-    // 悬浮球开关
+    // 悬浮球开关 — Anti-Replay-OK: ui-only（仅写本地 storage，无 HTTP 写接口）
     const floatToggle = $('#floatBallToggle');
     if (floatToggle) {
       floatToggle.addEventListener('change', async () => {

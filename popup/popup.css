@@ -55,6 +55,14 @@ body {
 .tracking-toggle input:checked + .toggle-slider { background: #89b4fa; }
 .tracking-toggle input:checked + .toggle-slider::before { transform: translateX(14px); }
 
+.float-ball-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.float-ball-label { font-size: 12px; color: #cdd6f4; }
+.float-ball-hint {
+  margin-top: 6px; font-size: 10px; color: #6c7086; line-height: 1.4;
+}
+
 /* === Badge === */
 .badge {
   padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 500;

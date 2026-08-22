@@ -25,6 +25,41 @@ const popupHtml = read('popup/popup.html');
 const popupJs = read('popup/popup.js');
 const popupCss = read('popup/popup.css');
 
+describe('Popup 悬浮球显示隐藏开关常显', () => {
+  it('有独立 #floatBallSection，开关不在请求预览区内', () => {
+    assert.match(popupHtml, /id="floatBallSection"/);
+    assert.match(popupHtml, /id="floatBallToggle"/);
+    assert.match(popupHtml, /显示悬浮球/);
+    const reqStart = popupHtml.indexOf('id="requestsSection"');
+    assert.ok(reqStart >= 0, '缺少 requestsSection');
+    const reqEnd = popupHtml.indexOf('</section>', reqStart);
+    const reqBlock = popupHtml.slice(reqStart, reqEnd);
+    assert.doesNotMatch(reqBlock, /floatBallToggle/, '开关不得放在请求预览区内');
+  });
+
+  it('登录态与未登录态都会显示悬浮球开关区', () => {
+    assert.match(popupJs, /function setFloatBallSectionVisible/);
+    const loginFn = popupJs.slice(
+      popupJs.indexOf('function showLoginUI'),
+      popupJs.indexOf('function showTokenExpiredUI')
+    );
+    const loggedInFn = popupJs.slice(
+      popupJs.indexOf('function showLoggedInUI'),
+      popupJs.indexOf('async function loadStateFromStorage')
+    );
+    assert.match(loginFn, /setFloatBallSectionVisible\(\s*true\s*\)/, '未登录须显示开关');
+    assert.match(loggedInFn, /setFloatBallSectionVisible\(\s*true\s*\)/, '已登录须显示开关');
+  });
+
+  it('未登录也会从 storage 同步开关状态', () => {
+    const loginFn = popupJs.slice(
+      popupJs.indexOf('function showLoginUI'),
+      popupJs.indexOf('function showTokenExpiredUI')
+    );
+    assert.match(loginFn, /loadFloatBallConfig\(\)/, '未登录须同步 floatBallEnabled');
+  });
+});
+
 // OPT-20260821-008: 悬浮球开关只写 storage，不向全部标签页 sendMessage。
 describe('Popup 悬浮球开关不再跨 tab 扇出', () => {
   it('开关段无 chrome.tabs.query({}) 与 setFloatBallEnabled 广播', () => {

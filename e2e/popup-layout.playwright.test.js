@@ -105,4 +105,14 @@ test.describe('Popup 面板布局', () => {
     await expect(body).toBeHidden();
     await expect(toggle).toHaveText('展开');
   });
+
+  test('未登录态可见「显示悬浮球」开关，且不在请求预览区内', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#floatBallSection')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#floatBallToggle')).toBeAttached();
+    await expect(page.locator('#floatBallSection .toggle-slider')).toBeVisible();
+    await expect(page.locator('#floatBallSection')).toContainText('显示悬浮球');
+    await expect(page.locator('#requestsSection')).toBeHidden();
+  });
 });

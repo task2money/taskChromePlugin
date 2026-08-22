@@ -16,6 +16,18 @@
       <span id="popupStatus" class="badge badge-disconnected">加载中...</span>
     </header>
 
+    <!-- 悬浮球开关：登录与未登录均可见，便于浮窗 × 关闭后重新打开 -->
+    <section id="floatBallSection" class="section" style="display:none">
+      <div class="float-ball-row">
+        <label class="tracking-toggle" for="floatBallToggle">
+          <input type="checkbox" id="floatBallToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+        <span class="float-ball-label">显示悬浮球</span>
+      </div>
+      <p class="float-ball-hint">关闭后隐藏页内右下角悬浮球；浮窗顶部「×」同样关闭。打开本开关即可重新显示。</p>
+    </section>
+
     <!-- 加载中 -->
     <div id="loadingSpinner" class="loading-section">
       <div class="spinner"></div>
@@ -103,13 +115,6 @@
     <!-- 请求列表（仅查看/过滤） -->
     <section id="requestsSection" class="section" style="display:none">
       <h3>📌 请求预览 <span id="requestCountBadge" class="hint-inline"></span> <button id="btnToggleRequests" class="btn btn-sm btn-link">展开</button></h3>
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
-        <label class="tracking-toggle">
-          <input type="checkbox" id="floatBallToggle" checked>
-          <span class="toggle-slider"></span>
-        </label>
-        <span style="font-size:10px;color:#6c7086">显示悬浮球</span>
-      </div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <label class="tracking-toggle">
           <input type="checkbox" id="trackingToggle">
