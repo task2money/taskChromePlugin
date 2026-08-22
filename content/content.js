@@ -18,7 +18,7 @@
         <h3>🔧 快速创建任务</h3>
         <div style="display:flex;align-items:center;gap:6px">
           <span id="taskplugin-login-badge" class="taskplugin-badge taskplugin-badge-err">未登录</span>
-          <button id="taskplugin-float-close" type="button" class="taskplugin-float-close" aria-label="关闭悬浮球" title="关闭悬浮球">×</button>
+          <button id="taskplugin-float-close" type="button" class="taskplugin-float-close" aria-label="关闭浮窗" title="关闭浮窗">×</button>
         </div>
       </div>
       <div class="taskplugin-panel-body">
@@ -1901,13 +1901,11 @@
   function bindFloatPanelCloseButton() {
     const closeBtn = document.getElementById('taskplugin-float-close');
     if (!closeBtn) return;
-    closeBtn.addEventListener('click', async (e) => {
+    closeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      // Anti-Replay-OK: ui-only — 仅隐藏页内悬浮球，无写接口
+      // Anti-Replay-OK: ui-only — 仅收起浮窗，不隐藏悬浮球、无写接口
       hideFloatPanel();
-      root.style.setProperty('display', 'none', 'important');
-      await saveFloatBallConfigToStorage(false);
     });
   }
 

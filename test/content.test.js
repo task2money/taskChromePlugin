@@ -45,7 +45,7 @@ describe('content.js 悬浮球 storage 变更监听', () => {
   });
 });
 
-describe('content.js 浮窗面板顶部关闭悬浮球', () => {
+describe('content.js 浮窗面板顶部 × 仅关闭面板', () => {
   it('面板 header 含 type=button 的 × 关闭按钮', () => {
     assert.match(contentJs, /id="taskplugin-float-close"/);
     assert.match(
@@ -54,16 +54,17 @@ describe('content.js 浮窗面板顶部关闭悬浮球', () => {
       '关闭按钮须在悬浮面板顶部 header 内'
     );
     assert.match(contentJs, /<button[^>]*id="taskplugin-float-close"[^>]*type="button"/);
-    assert.match(contentJs, /aria-label="关闭悬浮球"/);
+    assert.match(contentJs, /aria-label="关闭浮窗"/);
   });
 
-  it('点击关闭按钮隐藏悬浮球并持久化 floatBallEnabled=false', () => {
+  it('点击 × 只收起面板，不隐藏悬浮球、不写 floatBallEnabled', () => {
     const closeIdx = contentJs.indexOf("getElementById('taskplugin-float-close')");
     assert.ok(closeIdx >= 0, '应绑定 #taskplugin-float-close');
     const bindSlice = contentJs.slice(closeIdx, closeIdx + 900);
     assert.match(bindSlice, /addEventListener\(\s*['"]click['"]/);
-    assert.match(bindSlice, /saveFloatBallConfigToStorage\(\s*false\s*\)/);
-    assert.match(bindSlice, /['"]none['"]/);
+    assert.match(bindSlice, /hideFloatPanel\(\)/);
+    assert.doesNotMatch(bindSlice, /saveFloatBallConfigToStorage/);
+    assert.doesNotMatch(bindSlice, /setProperty\(\s*['"]display['"]/);
   });
 
   it('关闭按钮有独立样式且标注纯 UI 防重放', () => {
