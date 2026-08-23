@@ -292,17 +292,18 @@ async function initApiFromMessage(message = {}) {
 const AUTH_BROADCAST_TAB_TIMEOUT_MS = 800;
 
 /** 登录成功：持久化（带超时），靠 chrome.storage.onChanged 通知各页，绝不扇出全部标签页 */
-async function completeLoginAndRespond(baseUrl, token, expiresIn, username, userId, memberId, result) {
+async function completeLoginAndRespond(baseUrl, token, expiresIn, refreshToken, username, userId, memberId, result) {
   // 先写入内存会话，保证即便 storage 短暂失败也能继续
   API.init(baseUrl, token, null, userId || '');
   if (memberId) API.setOwner(memberId);
 
   const persistOpts = {
-    saveApiConfig: (url, tok, exp) => Storage.saveApiConfig(url, tok, exp),
+    saveApiConfig: (url, tok, exp, rt) => Storage.saveApiConfig(url, tok, exp, rt),
     saveCredentials: (name, uid, mid) => Storage.saveCredentials(name, uid, mid),
     baseUrl,
     token,
     expiresIn,
+    refreshToken,
     username,
     userId,
     memberId,
@@ -337,6 +338,63 @@ const capturedBuffer = CapturedBuffer.createCapturedBuffer({
   maxEntries: 500,
 });
 
+// ---- OAuth access token 静默续期（OPT-20260824-052）----
+// access token 1h 过期；持 refresh_token（offline_access 签发，30 天轮换制）时，
+// 过期即调 /api/oidc/token grant_type=refresh_token 静默换新，用户无需重新登录。
+// 单飞锁：多页面并发触发（popup/panel/badge 定时轮询）共享同一次刷新。
+
+let refreshInFlight = null; // { baseUrl, promise }
+
+/**
+ * 用持久化的 refresh token 静默续期并写回 storage。
+ * @returns {Promise<{token: string, expiresIn: number} | null>} 无可刷新凭据返回 null；失败抛错
+ */
+async function silentRefreshToken() {
+  const cfg = await Storage.getApiConfig();
+  if (!cfg.token || !cfg.refreshToken) return null; // 无会话或旧版登录（无 refresh token）→ 不刷新
+  const baseUrl = cfg.baseUrl;
+
+  if (refreshInFlight && refreshInFlight.baseUrl === baseUrl) {
+    return refreshInFlight.promise;
+  }
+  const promise = (async () => {
+    const tokenRes = await OAuthPKCE.refreshAccessToken({
+      baseUrl,
+      refreshToken: cfg.refreshToken,
+    });
+    const newToken = tokenRes.access_token;
+    if (!newToken) {
+      throw new Error('OAuth 刷新未返回 access_token');
+    }
+    // 轮换制：服务端已撤销旧 refresh token，必须持久化新值
+    await Storage.saveApiConfig(
+      baseUrl,
+      newToken,
+      tokenRes.expires_in || 3600,
+      tokenRes.refresh_token || cfg.refreshToken,
+    );
+    // 同步内存会话，页面后续 API 调用立即生效
+    API.init(baseUrl, newToken, null);
+    return { token: newToken, expiresIn: tokenRes.expires_in || 3600 };
+  })()
+    .catch((err) => {
+      // 服务端明确拒绝（invalid_grant=已轮换/撤销/过期，invalid_client=凭据失效）
+      // → refresh token 不可恢复，清空避免每次交互都发起必失败的刷新请求；
+      // 网络错误保留 refreshToken（瞬时故障，下次重试）
+      if (err && /invalid_grant|invalid_client/.test(err.message || '')) {
+        Storage.saveApiConfig(baseUrl, '', 0).catch(() => {});
+      }
+      throw err;
+    })
+    .finally(() => {
+      if (refreshInFlight && refreshInFlight.promise === promise) {
+        refreshInFlight = null;
+      }
+    });
+  refreshInFlight = { baseUrl, promise };
+  return promise;
+}
+
 // ---- 内存中的请求缓存 (DevTools 转发) ----
 
 let devToolsRequests = [];
@@ -365,13 +423,46 @@ async function handleMessage(message, sender) {
       return { success: true };
 
     case 'checkTokenStatus':
-      return {
-        success: true,
-        data: {
-          expired: await Storage.isTokenExpired(),
-          remainingSeconds: await Storage.getTokenRemainingSeconds(),
-        },
-      };
+      {
+        // OPT-20260824-052：过期但持 refresh token → 先静默续期再返回最新剩余时间
+        const cfg0 = await Storage.getApiConfig();
+        if (cfg0.token && cfg0.refreshToken && await Storage.isTokenExpired()) {
+          try {
+            await silentRefreshToken();
+          } catch (e) {
+            console.warn('[taskChromePlugin] checkTokenStatus 静默刷新失败:', e?.message || e);
+          }
+        }
+        return {
+          success: true,
+          data: {
+            expired: await Storage.isTokenExpired(),
+            remainingSeconds: await Storage.getTokenRemainingSeconds(),
+          },
+        };
+      }
+
+    case 'oauthRefresh':
+      // 显式触发静默续期（无 refresh token / 未登录 → 不刷新，返回现状）
+      {
+        try {
+          const refreshed = await silentRefreshToken();
+          if (!refreshed) {
+            const cfgN = await Storage.getApiConfig();
+            return { success: true, data: { refreshed: false, loggedIn: !!cfgN.token } };
+          }
+          return {
+            success: true,
+            data: {
+              refreshed: true,
+              token: refreshed.token,
+              remainingSeconds: await Storage.getTokenRemainingSeconds(),
+            },
+          };
+        } catch (e) {
+          return { success: false, error: e?.message || 'OAuth 刷新失败' };
+        }
+      }
 
     case 'getAuthStatus':
       {
@@ -380,11 +471,27 @@ async function handleMessage(message, sender) {
         let cred = await Storage.getCredentials();
         let expired = cfg.token ? await Storage.isTokenExpired() : false;
 
+        // OPT-20260824-052：持 refresh token 且已过期 → 静默续期后返回最新状态；
+        // 刷新失败（refresh token 失效/网络/服务端拒绝）→ 保留现有状态，UI 走「重新登录」兜底
+        if (expired && cfg.refreshToken) {
+          try {
+            await silentRefreshToken();
+            cfg = await Storage.getApiConfig();
+            expired = cfg.token ? await Storage.isTokenExpired() : true;
+          } catch (e) {
+            console.warn('[taskChromePlugin] access token 静默刷新失败:', e?.message || e);
+          }
+        }
+
         const remainingSeconds = await Storage.getTokenRemainingSeconds();
+        // 注意：refreshToken 仅存 SW 侧，绝不随消息泄漏给页面（页面只用 Bearer access token）
         return {
           success: true,
           data: {
-            ...cfg,
+            baseUrl: cfg.baseUrl,
+            token: cfg.token,
+            tokenExpiresAt: cfg.tokenExpiresAt,
+            tokenIssuedAt: cfg.tokenIssuedAt,
             username: cred.username || '',
             userId: cred.userId || '',
             memberId: cred.memberId || '',
@@ -505,10 +612,12 @@ async function handleMessage(message, sender) {
           const userId = userInfo.sub || '';
 
           // 单账号语义（OPT-20260806-036）：只写 apiConfig + credentials，不占 savedAccounts 槽位
+          // refreshToken（OPT-20260824-052）：offline_access 签发，access token 过期后静默续期
           const result = await completeLoginAndRespond(
             session.baseUrl,
             accessToken,
             tokenRes.expires_in || 3600,
+            tokenRes.refresh_token || '',
             username,
             userId,
             '',
@@ -986,7 +1095,7 @@ async function handleMessage(message, sender) {
             undefined,        // 保持 endpointMapping
             account.userId,
           );
-          await Storage.saveApiConfig('', account.token, 0);
+          await Storage.saveApiConfig('', account.token, 0, '');
           await Storage.saveCredentials(account.username, account.userId, '');
           return { success: true, data: account };
         } catch (e) {
@@ -1001,7 +1110,9 @@ async function handleMessage(message, sender) {
           const account = await MultiAccount.setActiveUserId(upsertResult.upserted.userId);
           // 同步到现有 API/Storage 层
           API.init(undefined, account.token, undefined, account.userId);
-          await Storage.saveApiConfig('', account.token, 0);
+          // 切到 savedAccounts 旧账号：必须清空 OAuth refreshToken，
+          // 否则过期后静默刷新会把 token 换回 OAuth 账号（OPT-20260824-052）
+          await Storage.saveApiConfig('', account.token, 0, '');
           await Storage.saveCredentials(account.username, account.userId, '');
           return { success: true, data: upsertResult };
         } catch (e) {

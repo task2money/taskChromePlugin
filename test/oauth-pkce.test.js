@@ -55,7 +55,8 @@ describe('buildAuthorizeUrl', () => {
     assert.equal(u.searchParams.get('client_id'), 'chrome-extension');
     assert.equal(u.searchParams.get('redirect_uri'), 'chrome-extension://cmkahnnaofomeaodefegkgljniiphbhj/oauth-callback.html');
     assert.equal(u.searchParams.get('response_type'), 'code');
-    assert.equal(u.searchParams.get('scope'), 'openid');
+    // OPT-20260824-052：请求 offline_access → 服务端签发 refresh token
+    assert.equal(u.searchParams.get('scope'), 'openid offline_access');
     assert.equal(u.searchParams.get('state'), 'st-123');
     assert.equal(u.searchParams.get('code_challenge'), 'challenge-43-chars-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
     assert.equal(u.searchParams.get('code_challenge_method'), 'S256');
@@ -133,6 +134,78 @@ describe('exchangeCodeForToken', () => {
         baseUrl: 'https://aidevpush.com', code: 'bad', redirectUri: 'r', codeVerifier: 'v'.repeat(43),
       }),
       /invalid_grant/,
+    );
+  });
+});
+
+describe('refreshAccessToken', () => {
+  let originalFetch;
+
+  beforeEach(() => {
+    originalFetch = globalThis.fetch;
+  });
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it('POSTs refresh_token grant and returns rotated tokens', async () => {
+    let seenUrl = null;
+    let seenOpts = null;
+    globalThis.fetch = async (url, opts) => {
+      seenUrl = url;
+      seenOpts = opts;
+      return {
+        ok: true,
+        async json() {
+          return {
+            access_token: 'eyJ.new',
+            token_type: 'Bearer',
+            expires_in: 3600,
+            refresh_token: 'rotated-refresh-abc',
+            id_token: 'eyJ.id',
+          };
+        },
+        async text() { return JSON.stringify({ access_token: 'eyJ.new', refresh_token: 'rotated-refresh-abc' }); },
+      };
+    };
+
+    const result = await OAuthPKCE.refreshAccessToken({
+      baseUrl: 'https://aidevpush.com/',
+      refreshToken: 'old-refresh-xyz',
+    });
+
+    assert.equal(seenUrl, 'https://aidevpush.com/api/oidc/token');
+    assert.equal(seenOpts.method, 'POST');
+    assert.deepEqual(JSON.parse(seenOpts.body), {
+      client_id: 'chrome-extension',
+      client_secret: OAuthPKCE.CLIENT_SECRET,
+      grant_type: 'refresh_token',
+      refresh_token: 'old-refresh-xyz',
+    });
+    assert.equal(result.access_token, 'eyJ.new');
+    assert.equal(result.refresh_token, 'rotated-refresh-abc');
+  });
+
+  it('throws readable error when refresh grant is rejected (rotated/replayed token)', async () => {
+    globalThis.fetch = async () => ({
+      ok: false,
+      status: 400,
+      async json() {
+        return { error: 'invalid_grant', error_description: 'invalid or expired refresh token' };
+      },
+      async text() { return JSON.stringify({ error: 'invalid_grant', error_description: 'invalid or expired refresh token' }); },
+    });
+    await assert.rejects(
+      () => OAuthPKCE.refreshAccessToken({ baseUrl: 'https://aidevpush.com', refreshToken: 'stale' }),
+      /invalid_grant/,
+    );
+  });
+
+  it('throws network error when fetch rejects', async () => {
+    globalThis.fetch = async () => { throw new Error('ECONNREFUSED'); };
+    await assert.rejects(
+      () => OAuthPKCE.refreshAccessToken({ baseUrl: 'https://aidevpush.com', refreshToken: 'x' }),
+      /刷新网络失败/,
     );
   });
 });
