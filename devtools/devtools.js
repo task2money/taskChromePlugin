@@ -122,12 +122,35 @@ async function enrichBackfillBodies(targets, options = {}) {
   return { enriched, attempted: slice.length };
 }
 
+async function fillRequestBodyFromSw(req) {
+  if (req.requestBody) return req;
+  try {
+    const tabId = chrome.devtools && chrome.devtools.inspectedWindow
+      ? chrome.devtools.inspectedWindow.tabId
+      : undefined;
+    const res = await chrome.runtime.sendMessage({
+      action: 'lookupRequestBody',
+      method: req.method,
+      url: req.url,
+      tabId,
+      timestamp: req.timestamp,
+    });
+    if (res && res.success && res.body) {
+      req.requestBody = res.body;
+    }
+  } catch (e) {
+    console.warn('[taskChromePlugin] lookupRequestBody 失败:', e && e.message ? e.message : e);
+  }
+  return req;
+}
+
 async function ingestHarEntry(entry, options = {}) {
   const req = HarRequest.buildRequestFromHarEntry(entry);
   // 先 enrich body，再推送 —— 消除竞态条件，确保 panel 收到完整请求
   if (options.enrichBody !== false) {
     await enrichRequestBody(req, entry);
   }
+  await fillRequestBodyFromSw(req);
   if (!pushRequest(req, { notifyPanel: options.notifyPanel !== false })) {
     return null;
   }
@@ -165,6 +188,7 @@ async function backfillFromHar(options = {}) {
 
       let added = 0;
       for (const req of candidates) {
+        await fillRequestBodyFromSw(req);
         if (pushRequest(req, { notifyPanel: options.notifyPanel !== false })) {
           added += 1;
         }

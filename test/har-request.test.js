@@ -115,6 +115,36 @@ describe('buildRequestFromHarEntry', () => {
     assert.deepEqual(req.responseHeaders, { 'Content-Type': 'application/json' });
   });
 
+  it('parses postData when it is a raw string', () => {
+    const req = buildRequestFromHarEntry(
+      {
+        request: {
+          method: 'POST',
+          url: 'http://example.com/x',
+          postData: '{"raw":true}',
+        },
+        response: { status: 200, statusText: 'OK', headers: [] },
+      },
+      { makeId }
+    );
+    assert.equal(req.requestBody, '{"raw":true}');
+  });
+
+  it('serializes postData.params when text is missing', () => {
+    const req = buildRequestFromHarEntry(
+      {
+        request: {
+          method: 'POST',
+          url: 'http://example.com/form',
+          postData: { params: [{ name: 'q', value: '1' }, { name: 'p', value: '2' }] },
+        },
+        response: { status: 200, statusText: 'OK', headers: [] },
+      },
+      { makeId }
+    );
+    assert.equal(req.requestBody, 'q=1&p=2');
+  });
+
   it('does not throw when response.headers is undefined', () => {
     assert.doesNotThrow(() => {
       buildRequestFromHarEntry(

@@ -59,6 +59,11 @@ describe('UserGuide sections', () => {
     assert.match(html, /5xx/);
   });
 
+  it('devtools-single mentions request body is written into the task description', () => {
+    const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
+    assert.match(html, /请求体/);
+  });
+
   it('escapeHtml escapes angle brackets', () => {
     assert.equal(UserGuide.escapeHtml('<script>'), '&lt;script&gt;');
   });

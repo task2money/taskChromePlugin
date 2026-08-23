@@ -20,6 +20,7 @@ importScripts(
   '../lib/login-finalize.js',
   '../lib/multi-account.js',
   '../lib/oauth-pkce.js',
+  '../lib/request-body-cache.js',
 );
 
 // ---- 捕获配置内存缓存（OPT-20260808-023 F1）----
@@ -62,6 +63,33 @@ chrome.webRequest.onErrorOccurred.addListener(
   handleRequestError,
   { urls: ['<all_urls>'] }
 );
+
+// POST/PUT 请求体：HAR 常省略 postData；用 onBeforeRequest + requestBody 短时缓存补齐。
+// 禁止把完整 body 打进日志。MV3 必须顶层注册，否则 SW 休眠会漏捕。
+const requestBodyCache = (typeof createRequestBodyCache === 'function')
+  ? createRequestBodyCache({ ttlMs: 5 * 60 * 1000, maxEntries: 200 })
+  : { put() {}, lookup() { return ''; } };
+
+if (typeof chrome.webRequest?.onBeforeRequest?.addListener === 'function') {
+  chrome.webRequest.onBeforeRequest.addListener(
+    function captureRequestBody(details) {
+      if (!details || details.tabId < 0) return;
+      const body = (typeof decodeWebRequestBody === 'function')
+        ? decodeWebRequestBody(details.requestBody)
+        : '';
+      if (!body) return;
+      requestBodyCache.put({
+        method: details.method,
+        url: details.url,
+        tabId: details.tabId,
+        timeStamp: details.timeStamp,
+        body,
+      });
+    },
+    { urls: ['<all_urls>'] },
+    ['requestBody']
+  );
+}
 
 // 5xx per-tab badge counters — Map<tabId, count>
 const tab5xxCounts = new Map();
@@ -986,6 +1014,17 @@ async function handleMessage(message, sender) {
         await Storage.clearAuth();
         API.init(undefined, '', undefined, '');
         return { success: true };
+      }
+
+    case 'lookupRequestBody':
+      {
+        const body = requestBodyCache.lookup({
+          method: message.method,
+          url: message.url,
+          tabId: message.tabId,
+          timestamp: message.timestamp,
+        });
+        return { success: true, body };
       }
 
     default:

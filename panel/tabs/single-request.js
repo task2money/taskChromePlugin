@@ -226,24 +226,10 @@
     let p = ''; try { p = new URL(req.url).pathname; } catch (_) { p = req.url; }
     P.$('#singleTaskTitle').value = `[${req.method}] ${p} → ${P.formatRequestStatusLabel(req)}`;
 
-    // 自动填充描述（每次切换都更新 — 含完整的请求/响应头体）
-    let d = `**请求**: ${req.method} ${req.url}\n**状态码**: ${P.formatRequestStatusLabel(req)} ${req.statusText || ''}\n**耗时**: ${req.time || '?'}ms`;
-    if (P.isRequestCanceled(req) && req.error) {
-      d += `\n**错误**: ${req.error}`;
-    }
-    // 响应体
-    if (req.responseBody) d += `\n\n**响应体**:\n\`\`\`\n${String(req.responseBody)}\n\`\`\``;
-    // 响应头
-    if (req.responseHeaders && Object.keys(req.responseHeaders).length) {
-      d += `\n\n**响应头**:\n\`\`\`\n${Object.entries(req.responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
-    }
-    // 请求体
-    if (req.requestBody) d += `\n\n**请求体**:\n\`\`\`\n${String(req.requestBody)}\n\`\`\``;
-    // 请求头
-    if (req.requestHeaders && Object.keys(req.requestHeaders).length) {
-      d += `\n\n**请求头**:\n\`\`\`\n${Object.entries(req.requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
-    }
-    P.$('#singleTaskDesc').value = d;
+    P.$('#singleTaskDesc').value = formatRequestAsTaskDescription(req, {
+      statusLabel: P.formatRequestStatusLabel(req),
+      canceled: P.isRequestCanceled(req),
+    });
     if (!P.$('#singleWorkspace').value) {
       P.loadWorkspaces('singleWorkspace');
     }

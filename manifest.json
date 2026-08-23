@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Task Chrome Plugin",
-  "version": "1.8.8",
+  "version": "1.8.9",
   "description": "从 Chrome DevTools Network 捕获请求并创建任务；内置使用说明；指针选元素支持 ⌘/Ctrl 多选不关联元素 / UA 标注 / 嵌套 iframe / 截图 CDN·TTL；唤起快捷键默认 Mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可在弹窗自定义任意组合",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm01BIoBrW0rLRuirY1c9CQXUsJ/Oo/SF8WeLPw7CLA7LTsB3+u36vtoZeJqaEjv9YIEttnb6v8za+Vw/kEbaCZUht2gS/YuBww0JVsuwlSAroozHIIrG3GlLYdcycMq3VW048j80qTF7zzunmgUy8WuvYgf1J6A6iPt4hHzqvUMU5slMf9xudmbQUJ3Lb+AyV8PL/ji87S4w+l22R2U4Vf/4SHnuq8OUdoSZodinec/1fd5swR5+YDMTjBOE7ktlE1GqE6rskI9Up1+vmv0GKmkaC890IgJemCZSSVbXOOJGWTamv0K1zCB4k2PDvztJwFTljItdg+Wsb5GvKwItLwIDAQAB",
   "commands": {
