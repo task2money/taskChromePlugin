@@ -63,6 +63,20 @@ describe('isCanceledHarEntry', () => {
 describe('buildRequestFromHarEntry', () => {
   const makeId = () => 'test-id-fixed';
 
+  it('extracts Chrome webRequest requestId from _requestId', () => {
+    const req = buildRequestFromHarEntry(
+      {
+        startedDateTime: '2026-07-05T10:02:00.000Z',
+        request: { method: 'POST', url: 'http://example.com/api', headers: [] },
+        time: 5,
+        _requestId: 'req-10042',
+      },
+      { makeId }
+    );
+
+    assert.equal(req.requestId, 'req-10042');
+  });
+
   it('handles canceled entry with no response object', () => {
     const req = buildRequestFromHarEntry(
       {

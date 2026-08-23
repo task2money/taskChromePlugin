@@ -83,6 +83,7 @@ if (typeof chrome.webRequest?.onBeforeRequest?.addListener === 'function') {
         url: details.url,
         tabId: details.tabId,
         timeStamp: details.timeStamp,
+        requestId: details.requestId,
         body,
       });
     },
@@ -1023,6 +1024,7 @@ async function handleMessage(message, sender) {
           url: message.url,
           tabId: message.tabId,
           timestamp: message.timestamp,
+          requestId: message.requestId,
         });
         return { success: true, body };
       }

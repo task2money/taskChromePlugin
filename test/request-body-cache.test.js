@@ -78,6 +78,73 @@ describe('request body cache matching', () => {
       '',
     );
   });
+
+  it('prefers exact requestId over time window for parallel same-URL POSTs', () => {
+    const cache = createRequestBodyCache({ ttlMs: 60_000, maxEntries: 20 });
+    const t0 = 1_700_000_000_000;
+    // 同标签页 100ms 内两条同 URL POST，body 不同 —— 时间窗会配错，requestId 必须精确
+    cache.put({
+      method: 'POST',
+      url: 'https://api.example.com/orders',
+      tabId: 3,
+      timeStamp: t0,
+      requestId: 'req-10001',
+      body: '{"sku":"a"}',
+    });
+    cache.put({
+      method: 'POST',
+      url: 'https://api.example.com/orders',
+      tabId: 3,
+      timeStamp: t0 + 80,
+      requestId: 'req-10002',
+      body: '{"sku":"b"}',
+    });
+
+    assert.equal(
+      cache.lookup({
+        method: 'POST',
+        url: 'https://api.example.com/orders',
+        tabId: 3,
+        timestamp: t0 + 90,
+        requestId: 'req-10002',
+      }),
+      '{"sku":"b"}',
+    );
+    assert.equal(
+      cache.lookup({
+        method: 'POST',
+        url: 'https://api.example.com/orders',
+        tabId: 3,
+        timestamp: t0 + 10,
+        requestId: 'req-10001',
+      }),
+      '{"sku":"a"}',
+    );
+  });
+
+  it('falls back to time window when requestId is unknown', () => {
+    const cache = createRequestBodyCache({ ttlMs: 60_000, maxEntries: 20 });
+    const t0 = 1_700_000_000_000;
+    cache.put({
+      method: 'POST',
+      url: 'https://api.example.com/orders',
+      tabId: 3,
+      timeStamp: t0,
+      requestId: 'req-10001',
+      body: '{"sku":"a"}',
+    });
+    // 查询方带了一个缓存里没有的 requestId —— 不应命中错误 body，回退时间窗命中最近的
+    assert.equal(
+      cache.lookup({
+        method: 'POST',
+        url: 'https://api.example.com/orders',
+        tabId: 3,
+        timestamp: t0 + 5,
+        requestId: 'req-99999',
+      }),
+      '{"sku":"a"}',
+    );
+  });
 });
 
 describe('normalizeUrlForBodyMatch', () => {

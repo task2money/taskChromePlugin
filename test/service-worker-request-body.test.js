@@ -112,6 +112,7 @@ test('onBeforeRequest captures JSON body; lookupRequestBody returns it', async (
     method: 'POST',
     url: 'https://api.example.com/orders',
     timeStamp,
+    requestId: 'req-10042',
     requestBody: { raw: [{ bytes }] },
     type: 'xmlhttprequest',
   });
@@ -122,7 +123,46 @@ test('onBeforeRequest captures JSON body; lookupRequestBody returns it', async (
     url: 'https://api.example.com/orders',
     tabId: 3,
     timestamp: timeStamp + 120,
+    requestId: 'req-10042',
   });
   assert.equal(res.success, true);
   assert.equal(res.body, body);
+});
+
+test('lookupRequestBody with requestId matches the right body among parallel same-URL POSTs', async () => {
+  const { chrome } = await loadSW();
+  const enc = new TextEncoder();
+  const timeStamp = Date.now();
+  const makeBody = (sku) => JSON.stringify({ sku });
+  const handler = chrome.__webRequestHandlers.onBeforeRequest;
+  // 同标签页 100ms 内两条同 URL POST，body 不同
+  handler({
+    tabId: 3,
+    method: 'POST',
+    url: 'https://api.example.com/orders',
+    timeStamp,
+    requestId: 'req-para-1',
+    requestBody: { raw: [{ bytes: enc.encode(makeBody('a')) }] },
+    type: 'xmlhttprequest',
+  });
+  handler({
+    tabId: 3,
+    method: 'POST',
+    url: 'https://api.example.com/orders',
+    timeStamp: timeStamp + 60,
+    requestId: 'req-para-2',
+    requestBody: { raw: [{ bytes: enc.encode(makeBody('b')) }] },
+    type: 'xmlhttprequest',
+  });
+
+  const res2 = await sendMessage(chrome, {
+    action: 'lookupRequestBody',
+    method: 'POST',
+    url: 'https://api.example.com/orders',
+    tabId: 3,
+    timestamp: timeStamp + 80,
+    requestId: 'req-para-2',
+  });
+  assert.equal(res2.success, true);
+  assert.equal(res2.body, makeBody('b'));
 });

@@ -134,6 +134,7 @@ async function fillRequestBodyFromSw(req) {
       url: req.url,
       tabId,
       timestamp: req.timestamp,
+      requestId: req.requestId || undefined,
     });
     if (res && res.success && res.body) {
       req.requestBody = res.body;

@@ -20,6 +20,11 @@ describe('devtools request body lookup', () => {
     assert.match(src, /await fillRequestBodyFromSw\(req\)/);
   });
 
+  it('passes req.requestId to SW for exact body matching', () => {
+    // 并发同 URL 的 POST 需把 HAR _requestId 透传给 SW，lookup 才按 requestId 精确命中
+    assert.match(src, /requestId:\s*req\.requestId \|\| undefined/);
+  });
+
   it('does not log the captured request body', () => {
     assert.doesNotMatch(src, /console\.(log|debug|info)\([^)]*requestBody/);
     assert.doesNotMatch(src, /console\.(log|debug|info)\([^)]*res\.body/);
