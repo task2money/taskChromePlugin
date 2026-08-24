@@ -45,7 +45,7 @@ describe('buildAuthorizeUrl', () => {
   it('builds authorize URL with all PKCE params and fixed client', () => {
     const url = OAuthPKCE.buildAuthorizeUrl({
       baseUrl: 'https://aidevpush.com',
-      extensionId: 'cmkahnnaofomeaodefegkgljniiphbhj',
+      extensionId: 'knfffehmbkgkgablkedpniahimobgkgn',
       state: 'st-123',
       codeChallenge: 'challenge-43-chars-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     });
@@ -53,7 +53,7 @@ describe('buildAuthorizeUrl', () => {
     assert.equal(u.origin, 'https://aidevpush.com');
     assert.equal(u.pathname, '/api/oidc/authorize');
     assert.equal(u.searchParams.get('client_id'), 'chrome-extension');
-    assert.equal(u.searchParams.get('redirect_uri'), 'chrome-extension://cmkahnnaofomeaodefegkgljniiphbhj/oauth-callback.html');
+    assert.equal(u.searchParams.get('redirect_uri'), 'chrome-extension://knfffehmbkgkgablkedpniahimobgkgn/oauth-callback.html');
     assert.equal(u.searchParams.get('response_type'), 'code');
     // OPT-20260824-052：请求 offline_access → 服务端签发 refresh token
     assert.equal(u.searchParams.get('scope'), 'openid offline_access');
@@ -101,7 +101,7 @@ describe('exchangeCodeForToken', () => {
     const result = await OAuthPKCE.exchangeCodeForToken({
       baseUrl: 'https://aidevpush.com',
       code: 'auth-code-1',
-      redirectUri: 'chrome-extension://cmkahnnaofomeaodefegkgljniiphbhj/oauth-callback.html',
+      redirectUri: 'chrome-extension://knfffehmbkgkgablkedpniahimobgkgn/oauth-callback.html',
       codeVerifier: 'verifier-43-chars-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     });
 
@@ -113,7 +113,7 @@ describe('exchangeCodeForToken', () => {
       client_secret: OAuthPKCE.CLIENT_SECRET,
       grant_type: 'authorization_code',
       code: 'auth-code-1',
-      redirect_uri: 'chrome-extension://cmkahnnaofomeaodefegkgljniiphbhj/oauth-callback.html',
+      redirect_uri: 'chrome-extension://knfffehmbkgkgablkedpniahimobgkgn/oauth-callback.html',
       code_verifier: 'verifier-43-chars-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
     });
     assert.equal(result.access_token, 'eyJ.rs256');

@@ -34,7 +34,7 @@ Chrome（含 HeadlessChrome/149）**拒绝接受 Set-Cookie 响应头**作用于
 2. 启动 Vite dev（localhost:4000），proxy 已将 `/api/auth/`、`/api/accounts/` 分流到 8005，
    其余 `/api` 走网关 18081（forward-auth 用同一 sso cookie 校验）。
 
-3. 浏览器 MCP 已安装本扩展（sw-2: `cmkahnnaofomeaodefegkgljniiphbhj`）。
+3. 浏览器 MCP 已安装本扩展（sw-2: `knfffehmbkgkgablkedpniahimobgkgn`）。
    扩展 MV3 scope 决定：SW 可直连 `http://127.0.0.1:8005`，不能 fetch `http://localhost:4000`。
 
 ## 3. 注入流程（一次性）
