@@ -932,7 +932,7 @@
     isOpen = !isOpen;
     panel.classList.toggle('taskplugin-open', isOpen);
     btn.classList.toggle('taskplugin-active', isOpen);
-    btn.textContent = isOpen ? '+' : '+';
+    btn.textContent = isOpen ? '×' : '+';
 
     if (isOpen) {
       await refreshAuthAndWorkspaces();
@@ -1180,7 +1180,7 @@
         success: true,
         data: { event: 'authStateChanged' },
         error: null,
-      }, '*');
+      }, window.location.origin);
     } catch { /* ignore */ }
   }
 
@@ -1762,7 +1762,7 @@
     const today = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const titleSlug = (titleInput.value.trim() || 'task')
       .replace(/[^\w\u4e00-\u9fa5]+/g, '-')
-      .replace(/^-|-$/g, '')
+      .replace(/(^-+)|(-+$)/g, '')
       .slice(0, 40) || 'task';
     if (presetType === 'release') {
       return `release/${today}_aidev\${taskId}`;
@@ -1946,7 +1946,7 @@
     if (msg.action === 'openDevToolsHint') {
       if (!btn) return;
       btn.style.animation = 'none';
-      btn.offsetHeight;
+      void btn.getBoundingClientRect();
       btn.style.animation = 'taskplugin-pulse 0.3s ease 3';
     }
     if (msg.action === 'setFloatBallEnabled') {
