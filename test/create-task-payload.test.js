@@ -230,6 +230,7 @@ describe('buildCreateTaskPayload', () => {
       progress_column_id: 'col-1',
       deliverable_obj_id: 'del-1',
       container_image_id: 'img-1',
+      container_image_skill_id: 'sk_abc123',
       due_date: '2026-07-23T15:01',
       auto_run: true,
       force_auto_run: false,
@@ -255,6 +256,7 @@ describe('buildCreateTaskPayload', () => {
     assert.equal(payload.progress_column_id, 'col-1');
     assert.equal(payload.deliverable_obj_id, 'del-1');
     assert.equal(payload.container_image_id, 'img-1');
+    assert.equal(payload.container_image_skill_id, 'sk_abc123');
     assert.equal(payload.due_date, '2026-07-23T15:01');
     assert.equal(payload.auto_run, true);
     assert.equal(payload.client_public_ip, undefined);
@@ -269,6 +271,19 @@ describe('buildCreateTaskPayload', () => {
     ]);
     assert.equal(payload.source, undefined);
     assert.equal(payload.workspaceId, undefined);
+  });
+
+  it('omits container_image_skill_id without container_image_id (backend skill_id_requires_image symmetry)', () => {
+    const payload = buildCreateTaskPayload({
+      title: 't',
+      workspaceId: 'ws1',
+      owner: 'o1',
+      projects: ['p1'],
+      feature_params_source: 'workspace',
+      container_image_skill_id: 'sk_abc123',
+    });
+    assert.equal(payload.container_image_id, undefined);
+    assert.equal(payload.container_image_skill_id, undefined);
   });
 
   it('preserves existing branch_strategy when workBranch omitted', () => {
