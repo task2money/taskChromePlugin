@@ -45,7 +45,7 @@ function pushRequest(req, { notifyPanel = true } = {}) {
 
   if (notifyPanel && panelWindowRef) {
     try {
-      panelWindowRef.postMessage({ action: 'newRequest', request: req }, '*');
+      panelWindowRef.postMessage({ action: 'newRequest', request: req }, panelWindowRef.location.origin);
     } catch (_) { /* ignore */ }
   }
 
@@ -60,7 +60,7 @@ function pushRequest(req, { notifyPanel = true } = {}) {
 function notifyRequestUpdated(req) {
   if (!panelWindowRef) return;
   try {
-    panelWindowRef.postMessage({ action: 'requestUpdated', request: req }, '*');
+    panelWindowRef.postMessage({ action: 'requestUpdated', request: req }, panelWindowRef.location.origin);
   } catch (_) { /* ignore */ }
 
   chrome.runtime.sendMessage({
@@ -75,7 +75,7 @@ function pushPanelInitRequests() {
     panelWindowRef.postMessage({
       action: 'initRequests',
       requests: [...recentRequests],
-    }, '*');
+    }, panelWindowRef.location.origin);
   } catch (_) { /* ignore */ }
 }
 

@@ -147,7 +147,7 @@ test.describe('真实扩展：SW 消息通道与 panel 消息管道', () => {
             id: 'realtest-1', harKey: 'rt1', method: 'GET', url: 'https://api.example.com/real',
             statusCode: 200, statusText: 'OK', time: 10, timestamp: Date.now(),
           }],
-        }, '*');
+        }, window.location.origin);
       });
       await expect(page.locator('.request-item')).toHaveCount(1, { timeout: 10_000 });
       await expect(page.locator('.request-item')).toContainText('api.example.com/real');

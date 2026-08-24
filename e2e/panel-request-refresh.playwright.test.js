@@ -159,7 +159,7 @@ test.describe('DevTools 面板请求列表刷新链路', () => {
     // 场景 2：模拟 panel 内存不同步（devtools 推送被清空 → 面板只收到空 init）
     await page.evaluate(() => {
       const iframe = document.getElementById('tcp-panel-frame');
-      iframe.contentWindow.postMessage({ action: 'initRequests', requests: [] }, '*');
+      iframe.contentWindow.postMessage({ action: 'initRequests', requests: [] }, iframe.contentWindow.location.origin);
     });
     await expect(frame.locator('.request-item')).toHaveCount(0, { timeout: 10000 });
 

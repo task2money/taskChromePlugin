@@ -24,6 +24,11 @@ describe('decodeWebRequestBody', () => {
     assert.equal(text, 'user=ada&tags=a&tags=b');
   });
 
+  it('decodes raw file parts as a file placeholder', () => {
+    const text = decodeWebRequestBody({ raw: [{ file: '/tmp/upload.bin' }] });
+    assert.equal(text, '[file:/tmp/upload.bin]');
+  });
+
   it('returns empty string when body is missing', () => {
     assert.equal(decodeWebRequestBody(undefined), '');
     assert.equal(decodeWebRequestBody({ error: 'unknown' }), '');
