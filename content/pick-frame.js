@@ -237,7 +237,7 @@
       const combo = v === 'cmd' ? 'Command+Shift+X' : v === 'ctrl' ? 'Ctrl+Shift+X' : v;
       if (combo.includes('+')) pickShortcutCombo = combo;
     });
-  } catch (_) { /* 保持默认 'Ctrl+Shift+X' */ }
+  } catch (_) { /* 保持平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X） */ }
 
   document.addEventListener('mouseover', onMouseOver, true);
   document.addEventListener('click', onClick, true);

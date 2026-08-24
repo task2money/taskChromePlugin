@@ -42,6 +42,24 @@ describe('键盘快捷键三层链路', () => {
     assert.ok(cmd.description);
   });
 
+  it('content.js 页内兜底初始组合取平台默认（Storage.detectDefaultShortcut）', () => {
+    assert.match(
+      content,
+      /let pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
+      'content 兜底初始组合应为平台默认，而非硬编码 Ctrl+Shift+X',
+    );
+    assert.match(
+      content,
+      /pickShortcutCombo \|\| Storage\.detectDefaultShortcut\(\)/,
+      'hint 文案兜底应平台分派',
+    );
+  });
+
+  it('popup 静态键位锚点为平台中立，默认组合文案按平台注明（mac ⌘ / 其他 Ctrl）', () => {
+    assert.ok(popupHtml.includes('⌘/Ctrl+Shift+X'), '静态 kbd 应为平台中立 ⌘/Ctrl+Shift+X（JS 按平台渲染）');
+    assert.match(popupHtml, /默认 Mac 为 ⌘\+Shift\+X、其他系统为 Ctrl\+Shift\+X/, 'popup 说明应注明平台默认差异');
+  });
+
   it('service-worker 注册 onCommand 并转发 toggleElementPick 到活动 tab', () => {
     assert.match(sw, /chrome\.commands\.onCommand\.addListener/);
     assert.ok(sw.includes(COMMAND_NAME), 'SW 中缺少命令名 ' + COMMAND_NAME);

@@ -48,7 +48,7 @@
               <button type="button" class="taskplugin-btn taskplugin-btn-reset" id="taskplugin-desc-reset" title="清空任务描述" disabled>重置</button>
             </span>
           </div>
-          <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（按 Ctrl+Shift+X 指针选择页面元素）"></textarea>
+          <textarea class="taskplugin-textarea" id="taskplugin-desc" placeholder="任务描述...（按快捷键指针选择页面元素）"></textarea>
         </div>
         <div class="taskplugin-form-group">
           <label>优先级</label>
@@ -294,7 +294,7 @@
         pickShortcutCombo = await Storage.getElementPickerShortcut();
         renderShortcutHints();
         console.log('[taskChromePlugin] pick shortcut combo:', pickShortcutCombo);
-      } catch (_) { /* 保持默认 'Ctrl+Shift+X' */ }
+      } catch (_) { /* 保持平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X） */ }
 
       await restoreFloatBallPosition();
 
@@ -805,7 +805,7 @@
 
   /** 快捷键提示文案跟随当前组合（默认平台分派） */
   function renderShortcutHints() {
-    const combo = pickShortcutCombo || 'Ctrl+Shift+X';
+    const combo = pickShortcutCombo || Storage.detectDefaultShortcut();
     const ta = document.getElementById('taskplugin-desc');
     if (ta) ta.placeholder = `任务描述...（按 ${combo} 指针选择页面元素）`;
     const fab = document.getElementById('taskplugin-float-btn');

@@ -45,6 +45,31 @@ describe('content.js 悬浮球 storage 变更监听', () => {
   });
 });
 
+describe('content.js 元素拾取快捷键提示语（平台默认分派）', () => {
+  it('静态 placeholder 为平台中立文案，不再硬编码 Ctrl+Shift+X', () => {
+    assert.ok(
+      /id="taskplugin-desc"[^>]*placeholder="[^"]*按快捷键/.test(contentJs),
+      'placeholder 应平台中立（按快捷键…），由 renderShortcutHints 按平台渲染实际组合',
+    );
+    const phIdx = contentJs.indexOf('id="taskplugin-desc"');
+    assert.ok(phIdx >= 0);
+    assert.doesNotMatch(contentJs.slice(phIdx, phIdx + 400), /Ctrl\+Shift\+X/, '静态 placeholder 不应残留硬编码 Ctrl+Shift+X');
+  });
+
+  it('renderShortcutHints 兜底回退平台默认（detectDefaultShortcut），mac 不误显示 Ctrl', () => {
+    assert.match(
+      contentJs,
+      /pickShortcutCombo \|\| Storage\.detectDefaultShortcut\(\)/,
+      'hint 文案兜底应平台分派，而非硬编码 Ctrl+Shift+X',
+    );
+    assert.match(
+      contentJs,
+      /let pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
+      '页内兜底初始组合应取平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X）',
+    );
+  });
+});
+
 describe('content.js 浮窗面板顶部 × 仅关闭面板', () => {
   it('面板 header 含 type=button 的 × 关闭按钮', () => {
     assert.match(contentJs, /id="taskplugin-float-close"/);

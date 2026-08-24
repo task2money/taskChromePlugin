@@ -64,6 +64,11 @@ async function withNavigator(nav, fn) {
 
 const NAV_MAC = { platform: 'MacIntel', userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)' };
 const NAV_WIN = { platform: 'Win32', userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' };
+const NAV_LINUX = { platform: 'Linux x86_64', userAgent: 'Mozilla/5.0 (X11; Linux x86_64)' };
+/** 新版 UA-CH（userAgentData.platform）形态：macOS / Windows / Linux */
+const NAV_UAD_MAC = { userAgentData: { platform: 'macOS' }, userAgent: 'Mozilla/5.0 (Macintosh)' };
+const NAV_UAD_WIN = { userAgentData: { platform: 'Windows' }, userAgent: 'Mozilla/5.0 (Windows NT 10.0)' };
+const NAV_UAD_LINUX = { userAgentData: { platform: 'Linux' }, userAgent: 'Mozilla/5.0 (X11; Linux)' };
 
 /** 构造 keydown 事件对象（仅含匹配所需字段） */
 function keydown(partial) {
@@ -75,7 +80,7 @@ function keydown(partial) {
 
 describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 Ctrl+Shift+X）', () => {
   describe('detectDefaultShortcut / isMacPlatform', () => {
-    it('macOS → Command+Shift+X，Windows/无 navigator → Ctrl+Shift+X', async () => {
+    it('macOS → Command+Shift+X，Windows/Linux/无 navigator → Ctrl+Shift+X', async () => {
       await withNavigator(NAV_MAC, async () => {
         assert.equal(Storage.detectDefaultShortcut(), 'Command+Shift+X');
         assert.equal(Storage.isMacPlatform(), true);
@@ -84,18 +89,40 @@ describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 
         assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
         assert.equal(Storage.isMacPlatform(), false);
       });
+      await withNavigator(NAV_LINUX, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.isMacPlatform(), false);
+      });
       await withNavigator(undefined, async () => {
         assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+      });
+    });
+
+    it('userAgentData.platform（UA-CH）形态：macOS → ⌘ / Windows、Linux → Ctrl', async () => {
+      await withNavigator(NAV_UAD_MAC, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Command+Shift+X');
+        assert.equal(Storage.isMacPlatform(), true);
+      });
+      await withNavigator(NAV_UAD_WIN, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.isMacPlatform(), false);
+      });
+      await withNavigator(NAV_UAD_LINUX, async () => {
+        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.isMacPlatform(), false);
       });
     });
   });
 
   describe('getElementPickerShortcut', () => {
-    it('无配置时回退平台默认：mac ⌘+Shift+X / 其他 Ctrl+Shift+X', async () => {
+    it('无配置时回退平台默认：mac ⌘+Shift+X / Windows、Linux Ctrl+Shift+X', async () => {
       await withNavigator(NAV_MAC, async () => {
         assert.equal(await Storage.getElementPickerShortcut(), 'Command+Shift+X');
       });
       await withNavigator(NAV_WIN, async () => {
+        assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
+      });
+      await withNavigator(NAV_LINUX, async () => {
         assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
       });
     });
