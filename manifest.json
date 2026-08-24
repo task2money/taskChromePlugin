@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "云端 Coding",
   "version": "1.8.9",
-  "description": "从 Chrome DevTools Network 捕获请求并创建任务；内置使用说明；指针选元素支持 ⌘/Ctrl 多选不关联元素 / UA 标注 / 嵌套 iframe / 截图 CDN·TTL；唤起快捷键默认 Mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可在弹窗自定义任意组合",
+  "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
       "suggested_key": {
