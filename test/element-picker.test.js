@@ -208,8 +208,8 @@ describe('deepElementFromPoint / hitTestInRoot', () => {
 });
 
 describe('DEFAULT_ADJUST_PROMPT', () => {
-  it('默认调整期望提示语为「请分析原因制定解决方案并修复」', () => {
-    assert.equal(DEFAULT_ADJUST_PROMPT, '请分析原因制定解决方案并修复');
+  it('默认调整期望提示语为「请分析制定方案并实施」', () => {
+    assert.equal(DEFAULT_ADJUST_PROMPT, '请分析制定方案并实施');
   });
 });
 
