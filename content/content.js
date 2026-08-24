@@ -812,7 +812,7 @@
     if (fab) {
       fab.title = pickMode
         ? `取消指针选择（Esc / ${combo}）；⌘/Ctrl+点击多选，Enter 确认`
-        : `TaskPlugin — 快速创建任务 (${combo} 指针选择)`;
+        : `云端 Coding — 快速创建任务 (${combo} 指针选择)`;
     }
   }
 

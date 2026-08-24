@@ -1,6 +1,6 @@
 /**
  * Popup 脚本 — 账号+令牌登录、连接状态、请求快速预览
- * 任务创建请使用 DevTools Panel (F12 → TaskPlugin)
+ * 任务创建请使用 DevTools Panel (F12 → 云端 Coding)
  */
 
 const Popup = (() => {
@@ -881,7 +881,7 @@ const Popup = (() => {
     ${resHdrHtml}
     ${req.responseBody ? `<div class="detail-section"><h4>📥 响应体</h4><pre class="body-pre">${escHtml(String(req.responseBody))}</pre></div>` : ''}
     <div class="dt-hint" style="margin-top:8px;padding:6px 8px;background:#252536;border-radius:4px;text-align:center">
-      <span style="font-size:10px;color:#89b4fa;">💡 按 <kbd style="background:#45475a;color:#cdd6f4;padding:1px 5px;border-radius:3px;font-size:9px">F12</kbd> → <b>TaskPlugin</b> 面板创建任务</span>
+      <span style="font-size:10px;color:#89b4fa;">💡 按 <kbd style="background:#45475a;color:#cdd6f4;padding:1px 5px;border-radius:3px;font-size:9px">F12</kbd> → <b>云端 Coding</b> 面板创建任务</span>
     </div>`;
   }
 
