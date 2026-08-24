@@ -98,6 +98,7 @@ window.PanelApp = (function () {
    */
   api.bindRequestMessagePipeline = function () {
     window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin) return;
       const d = event && event.data;
       if (!d || !d.action) return;
       if (d.action !== 'initRequests' && d.action !== 'newRequest' && d.action !== 'requestUpdated') return;
