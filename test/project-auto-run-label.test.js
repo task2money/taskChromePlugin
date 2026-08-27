@@ -348,4 +348,27 @@ describe('image gate source contracts', () => {
     assert.match(read('panel/tabs/batch.js'), /container_image_id: containerImageId/);
     assert.doesNotMatch(read('panel/tabs/batch.js'), /智能体资源配置\|环境变量参数/);
   });
+
+  it('T-image-submit float validates image before createTask', () => {
+    const content = read('content/content.js');
+    const submitIdx = content.indexOf("submitBtn.addEventListener('click'");
+    assert.ok(submitIdx >= 0, 'float submit handler missing');
+    const validateIdx = content.indexOf('validateCreateTaskForm(form)', submitIdx);
+    const blockedIdx = content.indexOf('if (blocked)', submitIdx);
+    const createIdx = content.indexOf("action: 'createTask'", submitIdx);
+    assert.ok(validateIdx > submitIdx, 'validateCreateTaskForm not in submit handler');
+    assert.ok(blockedIdx > validateIdx && blockedIdx < createIdx, 'blocked return must precede createTask');
+    assert.ok(createIdx > validateIdx, 'createTask must run after validateCreateTaskForm');
+  });
+
+  it('T-image-restore syncs auto-run after restoring image value', () => {
+    const content = read('content/content.js');
+    const restoreIdx = content.indexOf('async function restoreOpenSnapshot');
+    assert.ok(restoreIdx >= 0, 'restoreOpenSnapshot missing');
+    const restore = content.slice(restoreIdx, content.indexOf('function bindFloatPanelCloseButton'));
+    const imgIdx = restore.indexOf('imageSelect.value = normalized.container_image_id');
+    const syncIdx = restore.indexOf('syncFloatAutoRun(normalized.auto_run)');
+    assert.ok(imgIdx >= 0, 'restore must assign container_image_id');
+    assert.ok(syncIdx > imgIdx, 'syncFloatAutoRun must run after image value is restored');
+  });
 });

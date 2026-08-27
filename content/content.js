@@ -1954,7 +1954,6 @@
     for (const el of projectsDiv.querySelectorAll('input.project-radio')) {
       el.checked = el.value === pick;
     }
-    syncFloatAutoRun(normalized.auto_run);
     await loadWorkspaceCreateMeta(wsId);
 
     if (progressSelect && normalized.progress_column_id) {
@@ -1964,6 +1963,7 @@
       deliverableSelect.value = normalized.deliverable_obj_id;
     }
     if (imageSelect) imageSelect.value = normalized.container_image_id || '';
+    syncFloatAutoRun(normalized.auto_run);
     if (personalConfigSelect) {
       personalConfigSelect.value = normalized.personal_feature_params_config_id || '';
     }
