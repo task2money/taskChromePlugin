@@ -275,9 +275,7 @@
       bindFloatPanelCloseButton();
       setupElementPicker();
       setupDescReset();
-      bindAuthStorageListener();
-      bindPickShortcutStorageListener();
-      bindFloatBallStorageListener();
+      bindStorageListeners();
 
       // 1. 同步初始化 datalist（不依赖网络/存储）
       seedBranchDatalists();
@@ -486,6 +484,7 @@
       btn.textContent = '+';
       renderShortcutHints();
       btn.classList.remove('taskplugin-picking-fab');
+      detachPickPointerListeners();
       chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
     } else {
       clearPickSelection();
@@ -495,6 +494,7 @@
       btn.textContent = '✕';
       renderShortcutHints();
       btn.classList.add('taskplugin-picking-fab');
+      attachPickPointerListeners();
       chrome.runtime.sendMessage({
         action: 'broadcastStartElementPick',
         source: pickSource,
@@ -816,10 +816,23 @@
     }
   }
 
-  function setupElementPicker() {
+  let pickPointerListenersAttached = false;
+  function attachPickPointerListeners() {
+    if (pickPointerListenersAttached) return;
     document.addEventListener('mouseover', onPickMouseOver, true);
     document.addEventListener('click', onPickClick, true);
     document.addEventListener('keydown', onPickKeyDown, true);
+    pickPointerListenersAttached = true;
+  }
+  function detachPickPointerListeners() {
+    if (!pickPointerListenersAttached) return;
+    document.removeEventListener('mouseover', onPickMouseOver, true);
+    document.removeEventListener('click', onPickClick, true);
+    document.removeEventListener('keydown', onPickKeyDown, true);
+    pickPointerListenersAttached = false;
+  }
+
+  function setupElementPicker() {
     document.addEventListener('keydown', onShortcutKeyDown, true);
     adjustCancel?.addEventListener('click', (e) => {
       e.preventDefault();
@@ -865,8 +878,6 @@
   // ---- Drag Logic ----
   function setupDrag() {
     btn.addEventListener('mousedown', onDragStart);
-    document.addEventListener('mousemove', onDragMove);
-    document.addEventListener('mouseup', onDragEnd);
     btn.addEventListener('dragstart', (e) => e.preventDefault());
   }
 
@@ -887,6 +898,8 @@
     btnStartY = rect.top;
     btn.style.transition = 'none';
     btn.style.cursor = 'grabbing';
+    document.addEventListener('mousemove', onDragMove);
+    document.addEventListener('mouseup', onDragEnd);
   }
 
   function onDragMove(e) {
@@ -906,6 +919,8 @@
   }
 
   function onDragEnd() {
+    document.removeEventListener('mousemove', onDragMove);
+    document.removeEventListener('mouseup', onDragEnd);
     if (!isDragging) return;
     isDragging = false;
     btn.style.transition = '';
@@ -1135,8 +1150,7 @@
       authRefreshTimer = null;
       // OPT-20260808-023 F5: 不可见标签页跳过全量刷新（跨页放大降噪）——
       // auth 广播会触发 N 个标签页同时 checkLoginStatus(full)+loadWorkspaces()
-      // （网络+DOM 突发）；隐藏页交给 60s 角标定时器低频兜底，恢复可见后
-      // 下一次变更事件会重新调度。决策抽到 lib/auth-refresh-debounce.js（可单测）。
+      // （网络+DOM 突发）；隐藏页不再跑 60s 角标定时器，恢复可见后立即补一拍。
       if (shouldSkipDebouncedAuthRefresh(document)) return;
       refreshAuthAndWorkspaces().catch((e) => {
         console.warn('[taskChromePlugin] 去抖后 auth 刷新失败:', e.message);
@@ -1149,15 +1163,21 @@
     await checkLoginStatus({ mode: 'badgeOnly' });
   }
 
+  let authBadgeCtl = null;
   function startAuthBadgeTimer() {
+    if (authBadgeCtl) {
+      authBadgeCtl.stop();
+      authBadgeCtl = null;
+    }
     if (window.__taskpluginAuthBadgeTimer) {
       clearInterval(window.__taskpluginAuthBadgeTimer);
+      window.__taskpluginAuthBadgeTimer = null;
     }
-    window.__taskpluginAuthBadgeTimer = setInterval(() => {
-      refreshAuthBadgeOnly().catch((e) => {
-        console.warn('[taskChromePlugin] 悬浮面板定时刷新登录态失败:', e.message);
-      });
-    }, 60 * 1000);
+    if (typeof startDocumentVisibilityInterval !== 'function') return;
+    authBadgeCtl = startDocumentVisibilityInterval(60 * 1000, () => refreshAuthBadgeOnly().catch((e) => {
+      console.warn('[taskChromePlugin] 悬浮面板定时刷新登录态失败:', e.message);
+    }));
+    window.__taskpluginAuthBadgeCtl = authBadgeCtl;
   }
 
   function handleApiAuthFailure(err) {
@@ -1184,36 +1204,35 @@
     } catch { /* ignore */ }
   }
 
-  /** storage 变更时同步登录态（不再向其它标签页 sendMessage） */
-  function bindAuthStorageListener() {
+  /** storage 变更：单一监听合并登录态 / 悬浮球 / 快捷键（禁止三个 onChanged 叠加唤醒） */
+  function bindStorageListeners() {
     try {
       if (!chrome.storage?.onChanged) return;
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
+        if (changes.floatBallEnabled !== undefined) {
+          const enabled = changes.floatBallEnabled.newValue !== false;
+          root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
+          if (!enabled) hideFloatPanel();
+        }
+        if (changes.elementPickerShortcut) {
+          const combo = resolveShortcutCombo(changes.elementPickerShortcut.newValue);
+          if (combo) {
+            pickShortcutCombo = combo;
+            renderShortcutHints();
+          }
+        }
         if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
           return;
         }
         scheduleAuthRefresh();
-        notifyPageAccountStateChanged();
+        if (typeof shouldNotifyPageAccountStateFromContent === 'function'
+          && shouldNotifyPageAccountStateFromContent(changes)) {
+          notifyPageAccountStateChanged();
+        }
       });
     } catch (e) {
-      console.warn('[taskChromePlugin] bindAuthStorageListener 失败:', e.message);
-    }
-  }
-
-  /** storage 变更时同步悬浮球显隐（Popup 只写 storage，不跨 tab 扇出 — OPT-20260821-008） */
-  function bindFloatBallStorageListener() {
-    try {
-      if (!chrome.storage?.onChanged) return;
-      chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== 'local') return;
-        if (changes.floatBallEnabled === undefined) return;
-        const enabled = changes.floatBallEnabled.newValue !== false;
-        root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
-        if (!enabled) hideFloatPanel();
-      });
-    } catch (e) {
-      console.warn('[taskChromePlugin] bindFloatBallStorageListener 失败:', e.message);
+      console.warn('[taskChromePlugin] bindStorageListeners 失败:', e.message);
     }
   }
 
@@ -1225,23 +1244,8 @@
   }
 
   /**
-   * storage 变更时同步快捷键组合（各页独立监听，不跨 tab sendMessage）。
+   * storage 变更时同步快捷键组合已并入 bindStorageListeners。
    */
-  function bindPickShortcutStorageListener() {
-    try {
-      if (!chrome.storage?.onChanged) return;
-      chrome.storage.onChanged.addListener((changes, area) => {
-        if (area !== 'local') return;
-        const combo = resolveShortcutCombo(changes.elementPickerShortcut?.newValue);
-        if (combo) {
-          pickShortcutCombo = combo;
-          renderShortcutHints();
-        }
-      });
-    } catch (e) {
-      console.warn('[taskChromePlugin] bindPickShortcutStorageListener 失败:', e.message);
-    }
-  }
 
   async function loadWorkspaces() {
     if (!isLoggedIn) {

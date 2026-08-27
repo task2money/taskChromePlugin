@@ -22,6 +22,7 @@ importScripts(
   '../lib/multi-account.js',
   '../lib/oauth-pkce.js',
   '../lib/request-body-cache.js',
+  '../lib/hot-path-guards.js',
 );
 
 // ---- 捕获配置内存缓存（OPT-20260808-023 F1）----
@@ -74,6 +75,11 @@ const requestBodyCache = (typeof createRequestBodyCache === 'function')
 if (typeof chrome.webRequest?.onBeforeRequest?.addListener === 'function') {
   chrome.webRequest.onBeforeRequest.addListener(
     function captureRequestBody(details) {
+      const captureOn = !captureCfgCache || !!captureCfgCache.enabled;
+      if (typeof shouldCacheWebRequestBody === 'function'
+        && !shouldCacheWebRequestBody(details, captureOn)) {
+        return;
+      }
       if (!details || details.tabId < 0) return;
       const body = (typeof decodeWebRequestBody === 'function')
         ? decodeWebRequestBody(details.requestBody)
@@ -88,7 +94,9 @@ if (typeof chrome.webRequest?.onBeforeRequest?.addListener === 'function') {
         body,
       });
     },
-    { urls: ['<all_urls>'] },
+    { urls: ['<all_urls>'], types: (typeof WEB_REQUEST_BODY_TYPES !== 'undefined')
+      ? WEB_REQUEST_BODY_TYPES
+      : ['xmlhttprequest', 'main_frame', 'sub_frame', 'other'] },
     ['requestBody']
   );
 }
@@ -178,6 +186,9 @@ async function handleRequestCompleted(details) {
       }
     }
 
+    // 缓存命中且关闭捕获：同步返回，避免每个 2xx 轮询都 await storage
+    if (captureCfgCache && !captureCfgCache.enabled) return;
+
     const captureCfg = await getCaptureConfigCached();
     if (!captureCfg.enabled) return;
 
@@ -213,6 +224,8 @@ async function handleRequestError(details) {
 
     const tabId = details.tabId;
     if (tabId < 0) return;
+
+    if (captureCfgCache && !captureCfgCache.enabled) return;
 
     const captureCfg = await getCaptureConfigCached();
     if (!captureCfg.enabled) return;

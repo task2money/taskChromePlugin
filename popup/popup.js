@@ -377,12 +377,21 @@ const Popup = (() => {
 
   function startAuthBadgeTimer() {
     stopAuthBadgeTimer();
+    if (typeof startDocumentVisibilityInterval === 'function') {
+      authBadgeTimer = startDocumentVisibilityInterval(AUTH_BADGE_REFRESH_MS, () => refreshAuthBadgeOnly());
+      return;
+    }
     authBadgeTimer = setInterval(() => {
       refreshAuthBadgeOnly();
     }, AUTH_BADGE_REFRESH_MS);
   }
 
   function stopAuthBadgeTimer() {
+    if (authBadgeTimer && typeof authBadgeTimer.stop === 'function') {
+      authBadgeTimer.stop();
+      authBadgeTimer = null;
+      return;
+    }
     if (authBadgeTimer) {
       clearInterval(authBadgeTimer);
       authBadgeTimer = null;

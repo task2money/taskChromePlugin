@@ -62,8 +62,10 @@
     if (!pickMode) {
       clearHighlight();
       pickSelection = [];
+      detachPickPointerListeners();
     } else {
       pickSelection = [];
+      attachPickPointerListeners();
     }
     console.log('[taskChromePlugin] pick-frame mode:', pickMode ? 'on' : 'off', location.href);
   }
@@ -239,9 +241,24 @@
     });
   } catch (_) { /* 保持平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X） */ }
 
-  document.addEventListener('mouseover', onMouseOver, true);
-  document.addEventListener('click', onClick, true);
-  document.addEventListener('keydown', onKeyDown, true);
+  document.addEventListener('keydown', onShortcutKeyDown, true);
+
+  let pickPointerListenersAttached = false;
+  function attachPickPointerListeners() {
+    if (pickPointerListenersAttached) return;
+    document.addEventListener('mouseover', onMouseOver, true);
+    document.addEventListener('click', onClick, true);
+    document.addEventListener('keydown', onKeyDown, true);
+    pickPointerListenersAttached = true;
+  }
+  function detachPickPointerListeners() {
+    if (!pickPointerListenersAttached) return;
+    document.removeEventListener('mouseover', onMouseOver, true);
+    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('keydown', onKeyDown, true);
+    pickPointerListenersAttached = false;
+  }
+
   document.addEventListener('keydown', onShortcutKeyDown, true);
 
   chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {

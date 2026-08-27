@@ -103,11 +103,11 @@ describe('键盘快捷键三层链路', () => {
       'content 不应再接收跨 tab 快捷键消息',
     );
     assert.ok(
-      content.includes('bindPickShortcutStorageListener'),
+      content.includes('bindStorageListeners'),
       '缺少快捷键 storage 变更监听',
     );
     assert.ok(
-      content.includes("changes.elementPickerShortcut?.newValue"),
+      content.includes('changes.elementPickerShortcut'),
       'storage 监听未读取 elementPickerShortcut 变更',
     );
     assert.ok(

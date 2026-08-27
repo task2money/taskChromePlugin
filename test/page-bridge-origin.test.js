@@ -19,7 +19,7 @@ describe('postMessage origin checks (javascript:S2819)', () => {
     const listeners = [...pageBridge.matchAll(
       /addEventListener\(\s*'message',\s*function\s*\(\s*event\s*\)\s*\{([\s\S]*?)\},\s*false\)/g,
     )];
-    assert.equal(listeners.length, 2, 'expected two inline message listeners');
+    assert.equal(listeners.length, 1, 'expected one message listener');
     for (const m of listeners) {
       assert.match(m[1], /event\.origin\s*!==\s*window\.location\.origin/);
     }

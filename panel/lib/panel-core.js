@@ -21,6 +21,7 @@ window.PanelApp = (function () {
     requestListBootstrapped: false,
     pendingAidevMatches: null,
     authBadgeTimer: null,
+    authBadgeCtl: null,
     gitIdentities: [],
   };
 
@@ -317,12 +318,18 @@ window.PanelApp = (function () {
   };
 
   api.startAuthBadgeTimer = function () {
-    if (state.authBadgeTimer) clearInterval(state.authBadgeTimer);
-    state.authBadgeTimer = setInterval(() => {
-      api.refreshAuthState().catch((e) => {
-        console.warn('[taskChromePlugin] panel 定时刷新登录态失败:', e.message);
-      });
-    }, AUTH_BADGE_REFRESH_MS);
+    if (state.authBadgeCtl) {
+      state.authBadgeCtl.stop();
+      state.authBadgeCtl = null;
+    }
+    if (state.authBadgeTimer) {
+      clearInterval(state.authBadgeTimer);
+      state.authBadgeTimer = null;
+    }
+    if (typeof startDocumentVisibilityInterval !== 'function') return;
+    state.authBadgeCtl = startDocumentVisibilityInterval(AUTH_BADGE_REFRESH_MS, () => api.refreshAuthState().catch((e) => {
+      console.warn('[taskChromePlugin] panel 定时刷新登录态失败:', e.message);
+    }));
   };
 
   api.checkConnection = async function () {
