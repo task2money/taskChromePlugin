@@ -13,10 +13,30 @@
     return { inputId: 'singleAutoRun', hintId: 'singleAutoRunHint' };
   };
 
+  P.imageFieldIds = function (containerId) {
+    if (containerId === 'batchProjects') {
+      return { selectId: 'batchContainerImage', markId: 'batchImageRequired' };
+    }
+    return { selectId: 'singleContainerImage', markId: 'singleImageRequired' };
+  };
+
   P.projectsForContainer = function (containerId) {
     const selectId = containerId === 'batchProjects' ? 'batchWorkspace' : 'singleWorkspace';
     const wsId = P.$(`#${selectId}`)?.value;
     return (wsId && state.projectsCache[wsId]) || [];
+  };
+
+  P.syncContainerImageAppearance = function (containerId, project) {
+    if (typeof ProjectAutoRunLabel === 'undefined'
+        || typeof ProjectAutoRunLabel.resolveImageFieldAppearance !== 'function'
+        || typeof ProjectAutoRunLabel.applyImageFieldAppearance !== 'function') {
+      return;
+    }
+    const ids = P.imageFieldIds(containerId);
+    const ap = ProjectAutoRunLabel.resolveImageFieldAppearance({
+      projectAllowsAutoRun: ProjectAutoRunLabel.projectAllowsAutoRun(project),
+    });
+    ProjectAutoRunLabel.applyImageFieldAppearance(P.$(`#${ids.markId}`), P.$(`#${ids.selectId}`), ap);
   };
 
   P.syncContainerAutoRun = function (containerId, checkedPreference) {
@@ -26,12 +46,17 @@
     }
     const selectedId = P.getSelectedProjectIds(containerId)[0];
     const project = ProjectAutoRunLabel.findProjectById(P.projectsForContainer(containerId), selectedId);
+    const imageIds = P.imageFieldIds(containerId);
+    const hasImage = typeof ProjectAutoRunLabel.hasInstalledImageId === 'function'
+      ? ProjectAutoRunLabel.hasInstalledImageId(P.$(`#${imageIds.selectId}`)?.value)
+      : Boolean(String(P.$(`#${imageIds.selectId}`)?.value || '').trim());
     const pref = checkedPreference !== undefined
       ? Boolean(checkedPreference)
       : ProjectAutoRunLabel.projectAllowsAutoRun(project);
     const st = ProjectAutoRunLabel.resolveAutoRunControlState({
       selectedProject: project,
       checkedPreference: pref,
+      hasInstalledImage: hasImage,
     });
     const ids = P.autoRunFieldIds(containerId);
     ProjectAutoRunLabel.applyAutoRunControlToElements(
@@ -39,6 +64,18 @@
       P.$(`#${ids.hintId}`),
       st,
     );
+    P.syncContainerImageAppearance(containerId, project);
+  };
+
+  P.onContainerImageChange = function (containerId) {
+    const ids = P.autoRunFieldIds(containerId);
+    const input = P.$(`#${ids.inputId}`);
+    const wasEnabled = Boolean(input && !input.disabled);
+    P.syncContainerAutoRun(containerId, wasEnabled ? Boolean(input?.checked) : undefined);
+    const wsSelectId = containerId === 'batchProjects' ? 'batchWorkspace' : 'singleWorkspace';
+    const repoId = containerId === 'batchProjects' ? 'batchRepoBases' : 'singleRepoBases';
+    const wsId = P.$(`#${wsSelectId}`)?.value;
+    if (wsId) P.refreshRepoBaseEditors(repoId, containerId, wsId);
   };
 
   P.renderProjectCheckboxes = function (containerId, projects) {

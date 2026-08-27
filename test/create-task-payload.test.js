@@ -216,6 +216,41 @@ describe('validateCreateTaskForm', () => {
       feature_params_source: 'company',
     }), '');
   });
+
+  it('blocks auto_run without installed image', () => {
+    const reason = validateCreateTaskForm({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o1',
+      projectIds: ['p1'],
+      feature_params_source: 'company',
+      auto_run: true,
+    });
+    assert.match(reason, /请先选择已安装镜像/);
+  });
+
+  it('allows auto_run off without installed image', () => {
+    assert.equal(validateCreateTaskForm({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o1',
+      projectIds: ['p1'],
+      feature_params_source: 'company',
+      auto_run: false,
+    }), '');
+  });
+
+  it('passes auto_run when installed image is selected', () => {
+    assert.equal(validateCreateTaskForm({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o1',
+      projectIds: ['p1'],
+      feature_params_source: 'company',
+      auto_run: true,
+      container_image_id: 'img-1',
+    }), '');
+  });
 });
 
 describe('buildCreateTaskPayload', () => {

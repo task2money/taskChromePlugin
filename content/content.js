@@ -71,7 +71,7 @@
           </select>
         </div>
         <div class="taskplugin-form-group">
-          <label>已安装镜像</label>
+          <label>已安装镜像 <span id="taskplugin-image-required" hidden style="color:#f38ba8;font-size:10px;">*自动运行必选</span></label>
           <select class="taskplugin-select" id="taskplugin-image">
             <option value="">无</option>
           </select>
@@ -183,6 +183,7 @@
   const progressSelect = document.getElementById('taskplugin-progress');
   const deliverableSelect = document.getElementById('taskplugin-deliverable');
   const imageSelect = document.getElementById('taskplugin-image');
+  const imageRequiredMark = document.getElementById('taskplugin-image-required');
   const featureParamsSelect = document.getElementById('taskplugin-feature-params');
   const personalWrap = document.getElementById('taskplugin-personal-wrap');
   const personalConfigSelect = document.getElementById('taskplugin-personal-config');
@@ -1366,20 +1367,37 @@
     return Array.from(projectsDiv.querySelectorAll('input.project-radio:checked')).map((el) => el.value);
   }
 
+  function syncFloatImageAppearance(project) {
+    if (typeof ProjectAutoRunLabel === 'undefined'
+        || typeof ProjectAutoRunLabel.resolveImageFieldAppearance !== 'function'
+        || typeof ProjectAutoRunLabel.applyImageFieldAppearance !== 'function') {
+      return;
+    }
+    const ap = ProjectAutoRunLabel.resolveImageFieldAppearance({
+      projectAllowsAutoRun: ProjectAutoRunLabel.projectAllowsAutoRun(project),
+    });
+    ProjectAutoRunLabel.applyImageFieldAppearance(imageRequiredMark, imageSelect, ap);
+  }
+
   function syncFloatAutoRun(checkedPreference) {
     if (typeof ProjectAutoRunLabel === 'undefined'
         || typeof ProjectAutoRunLabel.resolveAutoRunControlState !== 'function') {
       return;
     }
     const project = ProjectAutoRunLabel.findProjectById(projectsData, selectedFloatProjectIds()[0]);
+    const hasImage = typeof ProjectAutoRunLabel.hasInstalledImageId === 'function'
+      ? ProjectAutoRunLabel.hasInstalledImageId(imageSelect?.value)
+      : Boolean(String(imageSelect?.value || '').trim());
     const pref = checkedPreference !== undefined
       ? Boolean(checkedPreference)
       : ProjectAutoRunLabel.projectAllowsAutoRun(project);
     const st = ProjectAutoRunLabel.resolveAutoRunControlState({
       selectedProject: project,
       checkedPreference: pref,
+      hasInstalledImage: hasImage,
     });
     ProjectAutoRunLabel.applyAutoRunControlToElements(autoRunInput, autoRunHint, st);
+    syncFloatImageAppearance(project);
   }
 
   async function loadProjects(wsId) {
@@ -1511,6 +1529,12 @@
     refreshFloatRepoBases();
   });
 
+  imageSelect?.addEventListener('change', () => {
+    const wasEnabled = Boolean(autoRunInput && !autoRunInput.disabled);
+    syncFloatAutoRun(wasEnabled ? Boolean(autoRunInput?.checked) : undefined);
+    refreshFloatGitIdentities();
+  });
+
   async function loadWorkspaceCreateMeta(wsId) {
     const ws = workspacesData.find(w => String(w.id || w._id) === String(wsId));
     const companyId = ws?.company_id || ws?.companyId;
@@ -1547,6 +1571,7 @@
         }
         imageSelect.innerHTML = h;
         if (images.length === 1) imageSelect.value = String(images[0].id || images[0]._id);
+        syncFloatAutoRun();
       }
       if (personalConfigSelect && !personalResp.__err) {
         const configs = personalResp?.configs || (Array.isArray(personalResp) ? personalResp : []);

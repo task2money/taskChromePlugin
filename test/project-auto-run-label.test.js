@@ -14,8 +14,12 @@ const {
   renderProjectRadioHtml,
   findProjectById,
   pickSingleProjectId,
+  hasInstalledImageId,
   resolveAutoRunControlState,
+  resolveImageFieldAppearance,
   applyAutoRunControlToElements,
+  applyImageFieldAppearance,
+  validateAutoRunRequiresImage,
 } = require('../lib/project-auto-run-label.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -164,20 +168,22 @@ describe('resolveAutoRunControlState', () => {
     assert.match(st.hint, /未允许自动运行/);
   });
 
-  it('T12 enables and checks when allowed and preference true', () => {
+  it('T12 enables and checks when allowed, image selected, and preference true', () => {
     const st = resolveAutoRunControlState({
       selectedProject: allowed,
       checkedPreference: true,
+      hasInstalledImage: true,
     });
     assert.equal(st.enabled, true);
     assert.equal(st.checked, true);
     assert.match(st.hint, /运行模版/);
   });
 
-  it('T13 enables but leaves unchecked when allowed and preference false', () => {
+  it('T13 enables but leaves unchecked when allowed, image selected, and preference false', () => {
     const st = resolveAutoRunControlState({
       selectedProject: allowed,
       checkedPreference: false,
+      hasInstalledImage: true,
     });
     assert.equal(st.enabled, true);
     assert.equal(st.checked, false);
@@ -230,5 +236,116 @@ describe('single-select source contracts', () => {
     assert.match(workspace, /project-radio/);
     assert.match(panelHtml, /项目 \(单选\)/);
     assert.doesNotMatch(panelHtml, /项目 \(可多选\)/);
+  });
+});
+
+describe('hasInstalledImageId', () => {
+  it('true only for non-empty trimmed id', () => {
+    assert.equal(hasInstalledImageId('img-1'), true);
+    assert.equal(hasInstalledImageId('  '), false);
+    assert.equal(hasInstalledImageId(''), false);
+    assert.equal(hasInstalledImageId(null), false);
+  });
+});
+
+describe('resolveAutoRunControlState image gate', () => {
+  it('T-image-1 disables when project allows auto-run but no image', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: allowed,
+      checkedPreference: true,
+      hasInstalledImage: false,
+    });
+    assert.equal(st.enabled, false);
+    assert.equal(st.checked, false);
+    assert.match(st.hint, /请先选择已安装镜像/);
+  });
+
+  it('T-image-2 no project still wins over missing image', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: null,
+      checkedPreference: true,
+      hasInstalledImage: true,
+    });
+    assert.equal(st.enabled, false);
+    assert.match(st.hint, /请先选择项目/);
+  });
+
+  it('T-image-3 project not allowed still wins over selected image', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: { id: 'p2', name: 'Beta' },
+      checkedPreference: true,
+      hasInstalledImage: true,
+    });
+    assert.equal(st.enabled, false);
+    assert.match(st.hint, /未允许自动运行/);
+  });
+
+  it('omitted hasInstalledImage is treated as missing (fail-safe)', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: allowed,
+      checkedPreference: true,
+    });
+    assert.equal(st.enabled, false);
+    assert.match(st.hint, /请先选择已安装镜像/);
+  });
+});
+
+describe('resolveImageFieldAppearance', () => {
+  it('T-image-5 marks required when project allows auto-run', () => {
+    const ap = resolveImageFieldAppearance({ projectAllowsAutoRun: true });
+    assert.equal(ap.requiredMarkVisible, true);
+    assert.match(ap.requiredMarkText, /自动运行必选/);
+    assert.equal(ap.emptyOptionLabel, '请选择已安装镜像');
+  });
+
+  it('T-image-6 optional when project does not allow auto-run', () => {
+    const ap = resolveImageFieldAppearance({ projectAllowsAutoRun: false });
+    assert.equal(ap.requiredMarkVisible, false);
+    assert.equal(ap.emptyOptionLabel, '无');
+  });
+});
+
+describe('applyImageFieldAppearance', () => {
+  it('toggles mark, aria-required, and empty option text', () => {
+    const mark = { hidden: true, textContent: '' };
+    const empty = { textContent: '无' };
+    const attrs = {};
+    const select = {
+      setAttribute(k, v) { attrs[k] = String(v); },
+      querySelector() { return empty; },
+    };
+    applyImageFieldAppearance(mark, select, resolveImageFieldAppearance({ projectAllowsAutoRun: true }));
+    assert.equal(mark.hidden, false);
+    assert.match(mark.textContent, /自动运行必选/);
+    assert.equal(attrs['aria-required'], 'true');
+    assert.equal(empty.textContent, '请选择已安装镜像');
+  });
+});
+
+describe('validateAutoRunRequiresImage', () => {
+  it('blocks auto_run without image', () => {
+    assert.match(validateAutoRunRequiresImage(true, ''), /请先选择已安装镜像/);
+  });
+
+  it('passes auto_run with image', () => {
+    assert.equal(validateAutoRunRequiresImage(true, 'img-1'), '');
+  });
+
+  it('passes when auto_run off', () => {
+    assert.equal(validateAutoRunRequiresImage(false, ''), '');
+  });
+});
+
+describe('image gate source contracts', () => {
+  it('T9 float and panel pass hasInstalledImage into resolve', () => {
+    const content = read('content/content.js');
+    const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
+    assert.match(content, /hasInstalledImage/);
+    assert.match(workspace, /hasInstalledImage/);
+    assert.match(content, /taskplugin-image-required/);
+    assert.match(read('panel/panel.html'), /singleImageRequired/);
+    assert.match(read('panel/panel.html'), /batchImageRequired/);
+    assert.match(read('panel/tabs/batch.js'), /container_image_id: containerImageId/);
+    assert.doesNotMatch(read('panel/tabs/batch.js'), /智能体资源配置\|环境变量参数/);
   });
 });

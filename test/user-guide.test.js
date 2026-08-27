@@ -62,9 +62,11 @@ describe('UserGuide sections', () => {
     assert.match(html, /项目（单选）/);
     assert.doesNotMatch(html, /项目（可多选）/);
     assert.match(html, /所选项目是否允许自动运行/);
+    assert.match(html, /已安装镜像才能勾选/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /项目（单选）/);
     assert.doesNotMatch(md, /与项目（可多选）/);
+    assert.match(md, /已安装镜像才能勾选/);
   });
 
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {

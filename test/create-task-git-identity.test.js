@@ -102,6 +102,7 @@ describe('create-task-payload identity wiring', () => {
     projectIds: ['p1'],
     projectsList: [{ id: 'p1', git_repos: ['https://git.example/a.git'] }],
     feature_params_source: 'company',
+    container_image_id: 'img-1',
   };
 
   it('validateCreateTaskForm ignores missing identity when auto_run is off', () => {

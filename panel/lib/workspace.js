@@ -327,6 +327,8 @@
       }
       sel.innerHTML = h;
       if (images.length === 1) sel.value = String(images[0].id || images[0]._id);
+      const containerId = selectId === 'batchContainerImage' ? 'batchProjects' : 'singleProjects';
+      P.syncContainerAutoRun(containerId);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
         sel.innerHTML = '<option value="">请重新登录</option>';

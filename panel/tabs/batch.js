@@ -22,6 +22,9 @@
       const wsId = P.$('#batchWorkspace').value;
       P.refreshRepoBaseEditors('batchRepoBases', 'batchProjects', wsId);
     });
+    P.$('#batchContainerImage')?.addEventListener('change', () => {
+      P.onContainerImageChange('batchProjects');
+    });
     // 项目勾选变化时，动态获取分支列表 + 逐仓基准分支
     P.$('#batchProjects').addEventListener('change', (e) => {
       if (e.target.classList.contains('project-radio')) {
@@ -159,9 +162,10 @@
       feature_params_source: featureParamsSource,
       personal_feature_params_config_id: personalConfigId,
       auto_run: autoRun,
+      container_image_id: containerImageId,
       repo_identities: repoIdentities,
     });
-    if (featureGate && /智能体资源配置|环境变量参数|Git 提交身份/.test(featureGate)) {
+    if (featureGate) {
       return P.showR('batchResult', 'error', featureGate);
     }
 

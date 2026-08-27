@@ -28,6 +28,9 @@
       const wsId = P.$('#singleWorkspace').value;
       P.refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
     });
+    P.$('#singleContainerImage')?.addEventListener('change', () => {
+      P.onContainerImageChange('singleProjects');
+    });
     P.initSingleDueDateDefault();
     chrome.runtime.onMessage.addListener((msg) => {
       if (msg?.action === 'elementPickResult' && msg.block) {
