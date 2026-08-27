@@ -1191,19 +1191,6 @@
     return true;
   }
 
-  function notifyPageAccountStateChanged() {
-    try {
-      window.postMessage({
-        source: 'taskfe-account-bridge',
-        action: 'accountStateChanged',
-        requestId: null,
-        success: true,
-        data: { event: 'authStateChanged' },
-        error: null,
-      }, window.location.origin);
-    } catch { /* ignore */ }
-  }
-
   /** storage 变更：单一监听合并登录态 / 悬浮球 / 快捷键（禁止三个 onChanged 叠加唤醒） */
   function bindStorageListeners() {
     try {
@@ -1226,10 +1213,6 @@
           return;
         }
         scheduleAuthRefresh();
-        if (typeof shouldNotifyPageAccountStateFromContent === 'function'
-          && shouldNotifyPageAccountStateFromContent(changes)) {
-          notifyPageAccountStateChanged();
-        }
       });
     } catch (e) {
       console.warn('[taskChromePlugin] bindStorageListeners 失败:', e.message);

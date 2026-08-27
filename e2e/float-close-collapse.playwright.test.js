@@ -38,7 +38,6 @@ const LIB_FILES = [
   'lib/float-workspace-select.js',
   'lib/float-panel-after-create.js',
   'lib/aidev-meta.js',
-  'lib/page-bridge.js',
   'content/content.js',
 ];
 
