@@ -21,6 +21,7 @@
     P.$('#batchAutoRun')?.addEventListener('change', () => {
       const wsId = P.$('#batchWorkspace').value;
       P.refreshRepoBaseEditors('batchRepoBases', 'batchProjects', wsId);
+      P.syncContainerQueuedAutoRun('batchProjects');
     });
     P.$('#batchContainerImage')?.addEventListener('change', () => {
       P.onContainerImageChange('batchProjects');
@@ -96,9 +97,10 @@
       P.$('#batchProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
       if (P.$('#batchDeliverable')) P.$('#batchDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
       if (P.$('#batchRepoBases')) {
-        P.$('#batchRepoBases').innerHTML = '<p class="placeholder">选择项目后按仓库填写基准分支</p>';
+        P.$('#batchRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
       }
       P.syncContainerAutoRun('batchProjects', false);
+      await P.refreshWorkspaceScheduleEnabled('batchProjects', '', '');
       P.fetchAndPopulateBranches('batchWorkBranchList', '', [], 'work');
       P.fetchAndPopulateBranches('batchMergeTargetList', '', [], 'merge');
       return;
@@ -123,6 +125,7 @@
       P.fetchAndPopulateBranches('batchMergeTargetList', id, [], 'merge');
     }
     P.refreshRepoBaseEditors('batchRepoBases', 'batchProjects', id);
+    await P.refreshWorkspaceScheduleEnabled('batchProjects', id, companyId);
   };
 
   P.onBatchFeatureParamsSourceChange = function () {
@@ -210,6 +213,7 @@
           container_image_id: containerImageId,
           due_date: dueDate,
           auto_run: autoRun,
+          queued_auto_run: Boolean(P.$('#batchQueuedAutoRun')?.checked),
           repo_identities: repoIdentities,
           feature_params_source: featureParamsSource,
           personal_feature_params_config_id: personalConfigId,

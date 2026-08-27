@@ -65,6 +65,60 @@
       st,
     );
     P.syncContainerImageAppearance(containerId, project);
+    P.syncContainerQueuedAutoRun(containerId);
+  };
+
+  P.queuedAutoRunFieldIds = function (containerId) {
+    if (containerId === 'batchProjects') {
+      return {
+        wrapId: 'batchQueuedAutoRunWrap',
+        inputId: 'batchQueuedAutoRun',
+        errorId: 'batchQueuedAutoRunError',
+        wsSelectId: 'batchWorkspace',
+      };
+    }
+    return {
+      wrapId: 'singleQueuedAutoRunWrap',
+      inputId: 'singleQueuedAutoRun',
+      errorId: 'singleQueuedAutoRunError',
+      wsSelectId: 'singleWorkspace',
+    };
+  };
+
+  P.syncContainerQueuedAutoRun = function (containerId) {
+    if (typeof WorkspaceAutoSchedule === 'undefined') return;
+    const ids = P.queuedAutoRunFieldIds(containerId);
+    const autoIds = P.autoRunFieldIds(containerId);
+    const autoInput = P.$(`#${autoIds.inputId}`);
+    const wsId = String(P.$(`#${ids.wsSelectId}`)?.value || '').trim();
+    WorkspaceAutoSchedule.applyCreateTaskQueuedVisibility({
+      wrapEl: P.$(`#${ids.wrapId}`),
+      inputEl: P.$(`#${ids.inputId}`),
+      show: WorkspaceAutoSchedule.shouldShowCreateTaskQueuedAutoRun({
+        canEnableAutoRun: Boolean(autoInput && !autoInput.disabled),
+        autoRun: Boolean(autoInput?.checked),
+        workspaceScheduleEnabled: Boolean(state.scheduleEnabledByWorkspace[wsId]),
+      }),
+    });
+  };
+
+  P.refreshWorkspaceScheduleEnabled = async function (containerId, wsId, companyId) {
+    if (typeof WorkspaceAutoSchedule === 'undefined') return;
+    const ids = P.queuedAutoRunFieldIds(containerId);
+    const errorEl = P.$(`#${ids.errorId}`);
+    WorkspaceAutoSchedule.clearFetchError(errorEl);
+    const wid = String(wsId || '').trim();
+    const cid = String(companyId || '').trim();
+    if (wid) state.scheduleEnabledByWorkspace[wid] = false;
+    if (wid && cid) {
+      try {
+        const data = await P.swApi('getQueueSchedule', { companyId: cid, workspaceId: wid });
+        state.scheduleEnabledByWorkspace[wid] = WorkspaceAutoSchedule.isWorkspaceAutoScheduleEnabled(data);
+      } catch (e) {
+        WorkspaceAutoSchedule.showFetchError(errorEl, e);
+      }
+    }
+    P.syncContainerQueuedAutoRun(containerId);
   };
 
   P.onContainerImageChange = function (containerId) {

@@ -9,10 +9,15 @@ const contentJs = fs.readFileSync(
   path.join(__dirname, '..', 'content', 'content.js'),
   'utf8'
 );
+const floatMarkupJs = fs.readFileSync(
+  path.join(__dirname, '..', 'lib', 'float-panel-markup.js'),
+  'utf8'
+);
 const contentCss = fs.readFileSync(
   path.join(__dirname, '..', 'content', 'content.css'),
   'utf8'
 );
+const floatHtml = `${contentJs}\n${floatMarkupJs}`;
 
 // content.js 为 IIFE 内容脚本（顶层立即操作 DOM），无法直接 require；
 // 回归测试采用源码契约断言：修复后默认提示语必须来自 ElementPicker.DEFAULT_ADJUST_PROMPT，
@@ -48,12 +53,12 @@ describe('content.js 悬浮球 storage 变更监听', () => {
 describe('content.js 元素拾取快捷键提示语（平台默认分派）', () => {
   it('静态 placeholder 为平台中立文案，不再硬编码 Ctrl+Shift+X', () => {
     assert.ok(
-      /id="taskplugin-desc"[^>]*placeholder="[^"]*按快捷键/.test(contentJs),
+      /id="taskplugin-desc"[^>]*placeholder="[^"]*按快捷键/.test(floatHtml),
       'placeholder 应平台中立（按快捷键…），由 renderShortcutHints 按平台渲染实际组合',
     );
-    const phIdx = contentJs.indexOf('id="taskplugin-desc"');
+    const phIdx = floatHtml.indexOf('id="taskplugin-desc"');
     assert.ok(phIdx >= 0);
-    assert.doesNotMatch(contentJs.slice(phIdx, phIdx + 400), /Ctrl\+Shift\+X/, '静态 placeholder 不应残留硬编码 Ctrl+Shift+X');
+    assert.doesNotMatch(floatHtml.slice(phIdx, phIdx + 400), /Ctrl\+Shift\+X/, '静态 placeholder 不应残留硬编码 Ctrl+Shift+X');
   });
 
   it('renderShortcutHints 兜底回退平台默认（detectDefaultShortcut），mac 不误显示 Ctrl', () => {
@@ -72,14 +77,14 @@ describe('content.js 元素拾取快捷键提示语（平台默认分派）', ()
 
 describe('content.js 浮窗面板顶部 × 仅关闭面板', () => {
   it('面板 header 含 type=button 的 × 关闭按钮', () => {
-    assert.match(contentJs, /id="taskplugin-float-close"/);
+    assert.match(floatHtml, /id="taskplugin-float-close"/);
     assert.match(
-      contentJs,
+      floatHtml,
       /class="taskplugin-panel-header"[\s\S]*id="taskplugin-float-close"/,
       '关闭按钮须在悬浮面板顶部 header 内'
     );
-    assert.match(contentJs, /<button[^>]*id="taskplugin-float-close"[^>]*type="button"/);
-    assert.match(contentJs, /aria-label="关闭浮窗"/);
+    assert.match(floatHtml, /<button[^>]*id="taskplugin-float-close"[^>]*type="button"/);
+    assert.match(floatHtml, /aria-label="关闭浮窗"/);
   });
 
   it('点击 × 只收起面板，不隐藏悬浮球、不写 floatBallEnabled', () => {

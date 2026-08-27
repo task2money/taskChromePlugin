@@ -736,6 +736,19 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    case 'getQueueSchedule':
+      try {
+        await initApiFromMessage(message);
+        const companyId = String(message.companyId || '').trim();
+        const workspaceId = String(message.workspaceId || '').trim();
+        if (!companyId || !workspaceId) throw new Error('缺少 companyId 或 workspaceId');
+        const path = `/api/tenant/${encodeURIComponent(companyId)}/workspace/${encodeURIComponent(workspaceId)}/queue-schedule/`;
+        const data = await API.request('GET', path);
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
     case 'listGitIdentities':
       try {
         await initApiFromMessage(message);

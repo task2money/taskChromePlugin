@@ -156,9 +156,10 @@
       P.$('#singleDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
       P.$('#singleAssignees').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       if (P.$('#singleRepoBases')) {
-        P.$('#singleRepoBases').innerHTML = '<p class="placeholder">选择项目后按仓库填写基准分支</p>';
+        P.$('#singleRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
       }
       P.syncContainerAutoRun('singleProjects', false);
+      await P.refreshWorkspaceScheduleEnabled('singleProjects', '', '');
       P.fetchAndPopulateBranches('singleWorkBranchList', '', [], 'work');
       P.fetchAndPopulateBranches('singleMergeTargetList', '', [], 'merge');
       return;
@@ -184,6 +185,7 @@
       P.fetchAndPopulateBranches('singleMergeTargetList', wsId, [], 'merge');
     }
     P.refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
+    await P.refreshWorkspaceScheduleEnabled('singleProjects', wsId, companyId);
   };
 
   P.initSingleDueDateDefault = function () {
@@ -257,7 +259,7 @@
       projectsList: list,
       previousValues: prev,
       inputClass: 'form-input',
-      emptyHint: '选择项目后按仓库填写基准分支',
+      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
     });
     const identityId = repoContainerId === 'batchRepoBases' ? 'batchGitIdentities' : 'singleGitIdentities';
     const autoRunId = repoContainerId === 'batchRepoBases' ? 'batchAutoRun' : 'singleAutoRun';

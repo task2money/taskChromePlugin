@@ -14,6 +14,7 @@ const {
   normalizeAssignees,
   buildRepoBaseEditorsHtml,
   shouldEnableDescReset,
+  REPO_BASE_EMPTY_HINT,
 } = require('../lib/create-task-payload.js');
 
 describe('normalizePriority', () => {
@@ -155,6 +156,14 @@ describe('repoBaseBranchKey / normalizeAssignees / buildRepoBaseEditorsHtml', ()
     assert.match(html, /value="main"/);
     assert.match(html, /placeholder="develop"/);
   });
+
+  it('empty project list uses single-project empty hint, not select-then-fill copy', () => {
+    assert.equal(REPO_BASE_EMPTY_HINT, '一个任务一个项目，按仓库填写');
+    const html = buildRepoBaseEditorsHtml({ projectIds: [] });
+    assert.match(html, /一个任务一个项目，按仓库填写/);
+    assert.doesNotMatch(html, /选择项目后/);
+    assert.doesNotMatch(html, /勾选项目/);
+  });
 });
 
 describe('buildFeatureParamsFields', () => {
@@ -294,6 +303,7 @@ describe('buildCreateTaskPayload', () => {
     assert.equal(payload.container_image_skill_id, 'sk_abc123');
     assert.equal(payload.due_date, '2026-07-23T15:01');
     assert.equal(payload.auto_run, true);
+    assert.equal(payload.queued_auto_run, false);
     assert.equal(payload.client_public_ip, undefined);
     assert.equal(payload.feature_params_source, 'workspace');
     assert.deepEqual(payload.branch_strategy, {
@@ -352,6 +362,29 @@ describe('buildCreateTaskPayload', () => {
       projects: [{ project_id: 'p1', repo_index: 0, base_branch: 'main', target_branch: 'f' }],
     });
     assert.equal(payload.client_public_ip, '203.0.113.55');
+  });
+
+  it('sets queued_auto_run only when auto_run is true', () => {
+    const queued = buildCreateTaskPayload({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o',
+      feature_params_source: 'company',
+      auto_run: true,
+      queued_auto_run: true,
+      projects: [{ project_id: 'p1', repo_index: 0, base_branch: 'main', target_branch: 'f' }],
+    });
+    assert.equal(queued.queued_auto_run, true);
+    const off = buildCreateTaskPayload({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o',
+      feature_params_source: 'company',
+      auto_run: false,
+      queued_auto_run: true,
+      projects: [{ project_id: 'p1', repo_index: 0, base_branch: 'main', target_branch: 'f' }],
+    });
+    assert.equal(off.queued_auto_run, undefined);
   });
 });
 

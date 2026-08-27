@@ -26,7 +26,7 @@ const USER_FACING = [
   'lib/user-guide.js',
   'docs/USER_GUIDE.md',
   'README.md',
-  'content/content.js',
+  'lib/float-panel-markup.js',
   'oauth-callback.html',
   'popup/popup.js',
 ];
@@ -54,11 +54,16 @@ describe('PLUGIN_DISPLAY_NAME', () => {
   });
 
   it('用户可见文件均含新显示名', () => {
+    const IDENTIFIER_ONLY = new Set(['content/content.js']);
     for (const rel of USER_FACING) {
       const src = read(rel);
+      if (IDENTIFIER_ONLY.has(rel)) {
+        assert.match(src, /PLUGIN_DISPLAY_NAME/, `${rel} 应引用 SSOT 常量`);
+        continue;
+      }
       assert.ok(
         src.includes(PLUGIN_DISPLAY_NAME),
-        `${rel} 缺少 PLUGIN_DISPLAY_NAME`,
+        `${rel} 缺少显示名「${PLUGIN_DISPLAY_NAME}」`,
       );
     }
   });

@@ -224,11 +224,12 @@ describe('applyAutoRunControlToElements', () => {
 
 describe('single-select source contracts', () => {
   it('T16 float and panel use radios and drop select-all', () => {
+    const markup = read('lib/float-panel-markup.js');
     const content = read('content/content.js');
     const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
     const panelHtml = read('panel/panel.html');
     const lib = read('lib/project-auto-run-label.js');
-    assert.match(content, /项目 \(单选\)/);
+    assert.match(markup, /项目 \(单选\)/);
     assert.match(lib, /type="radio"/);
     assert.match(content, /input\.project-radio/);
     assert.doesNotMatch(workspace, /select-all/);

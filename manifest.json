@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.18",
+  "version": "1.8.20",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -53,6 +53,8 @@
         "lib/float-workspace-select.js",
         "lib/workspace-list.js",
         "lib/project-auto-run-label.js",
+        "lib/workspace-auto-schedule.js",
+        "lib/float-panel-markup.js",
         "lib/float-panel-after-create.js",
         "lib/aidev-meta.js",
         "lib/hot-path-guards.js",

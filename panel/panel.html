@@ -109,7 +109,7 @@
         <div class="form-row" style="margin-top:8px">
           <label>逐仓基准分支 <span class="hint-inline">— 对齐工作面板；空则用项目默认分支</span></label>
           <div id="singleRepoBases" class="repo-bases">
-            <p class="placeholder">选择项目后按仓库填写基准分支</p>
+            <p class="placeholder">一个任务一个项目，按仓库填写</p>
           </div>
         </div>
       </div>
@@ -160,6 +160,16 @@
               <span class="hint-inline" id="singleAutoRunHint">请先选择项目</span>
             </span>
           </label>
+        </div>
+        <div class="form-row" id="singleQueuedAutoRunWrap" hidden>
+          <label class="toggle-label">
+            <input type="checkbox" id="singleQueuedAutoRun">
+            <span>
+              加入自动调度队列
+              <span class="hint-inline" id="singleQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
+            </span>
+          </label>
+          <div id="singleQueuedAutoRunError" class="result error" hidden></div>
         </div>
         <div class="form-row" id="singleGitIdentities"></div>
         <div class="form-row">
@@ -280,11 +290,21 @@
             </span>
           </label>
         </div>
+        <div class="form-row" id="batchQueuedAutoRunWrap" hidden>
+          <label class="toggle-label">
+            <input type="checkbox" id="batchQueuedAutoRun">
+            <span>
+              加入自动调度队列
+              <span class="hint-inline" id="batchQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
+            </span>
+          </label>
+          <div id="batchQueuedAutoRunError" class="result error" hidden></div>
+        </div>
         <div class="form-row" id="batchGitIdentities"></div>
         <div class="form-row">
           <label>逐仓基准分支 <span class="hint-inline">— 批量任务共用</span></label>
           <div id="batchRepoBases" class="repo-bases">
-            <p class="placeholder">选择项目后按仓库填写基准分支</p>
+            <p class="placeholder">一个任务一个项目，按仓库填写</p>
           </div>
         </div>
         <div class="form-row">
@@ -361,6 +381,7 @@
   <script src="../lib/user-guide.js"></script>
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/project-auto-run-label.js"></script>
+  <script src="../lib/workspace-auto-schedule.js"></script>
   <script src="../lib/float-workspace-select.js"></script>
   <script src="../lib/request-task-desc.js"></script>
   <script src="../lib/hot-path-guards.js"></script>

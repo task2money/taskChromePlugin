@@ -515,3 +515,14 @@ html.taskplugin-picking .taskplugin-el-highlight {
 #taskplugin-adjust-modal .taskplugin-result {
   margin-top: 8px !important;
 }
+
+#taskplugin-queued-auto-run-wrap {
+  margin-left: 22px !important;
+}
+#taskplugin-queued-auto-run-wrap[hidden] {
+  display: none !important;
+}
+#taskplugin-queued-auto-run-error[hidden] {
+  display: none !important;
+}
+

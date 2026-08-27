@@ -37,6 +37,8 @@ const LIB_FILES = [
   'lib/user-guide.js',
   'lib/float-workspace-select.js',
   'lib/project-auto-run-label.js',
+  'lib/workspace-auto-schedule.js',
+  'lib/float-panel-markup.js',
   'lib/float-panel-after-create.js',
   'lib/aidev-meta.js',
   'content/content.js',

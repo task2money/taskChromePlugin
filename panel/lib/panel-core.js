@@ -20,6 +20,7 @@ window.PanelApp = (function () {
     /** 请求列表是否已完成至少一次引导刷新（用于离开 HTML 初始 loading） */
     requestListBootstrapped: false,
     pendingAidevMatches: null,
+    scheduleEnabledByWorkspace: {},
     authBadgeTimer: null,
     authBadgeCtl: null,
     gitIdentities: [],
@@ -392,7 +393,10 @@ window.PanelApp = (function () {
       ...extra,
     });
     if (!r?.success) {
-      throw new Error(r?.error || `${action} 失败`);
+      const err = new Error(r?.error || `${action} 失败`);
+      const tid = (typeof extractTraceId === 'function' ? extractTraceId(r) : '') || r?.traceId || '';
+      if (tid) err.traceId = tid;
+      throw err;
     }
     return r.data;
   };

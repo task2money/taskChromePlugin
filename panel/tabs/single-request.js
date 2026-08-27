@@ -27,6 +27,7 @@
     P.$('#singleAutoRun')?.addEventListener('change', () => {
       const wsId = P.$('#singleWorkspace').value;
       P.refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
+      P.syncContainerQueuedAutoRun('singleProjects');
     });
     P.$('#singleContainerImage')?.addEventListener('change', () => {
       P.onContainerImageChange('singleProjects');
@@ -294,6 +295,7 @@
       container_image_id: containerImageId,
       due_date: dueDate,
       auto_run: autoRun,
+      queued_auto_run: Boolean(P.$('#singleQueuedAutoRun')?.checked),
       feature_params_source: featureParamsSource,
       personal_feature_params_config_id: personalConfigId,
       workBranch,
