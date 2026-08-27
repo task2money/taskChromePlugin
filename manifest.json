@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "云端 Coding",
-  "version": "1.8.11",
+  "name": "云端Coding: 自动创新助手",
+  "version": "1.8.12",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -29,7 +29,7 @@
   },
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "云端 Coding",
+    "default_title": "云端Coding: 自动创新助手",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
@@ -48,6 +48,7 @@
         "lib/create-task-git-identity.js",
         "lib/create-task-payload.js",
         "lib/element-picker.js",
+        "lib/plugin-brand.js",
         "lib/user-guide.js",
         "lib/float-workspace-select.js",
         "lib/workspace-list.js",

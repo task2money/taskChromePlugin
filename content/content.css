@@ -1,4 +1,4 @@
-/* 云端 Coding 页内浮窗 — 与宿主页面隔离，使用高 specificity + !important */
+/* 云端Coding: 自动创新助手 页内浮窗 — 与宿主页面隔离，使用高 specificity + !important */
 
 #taskplugin-float-root {
   /* 精确重置 — 替代 all:initial 避免容器零尺寸问题 */

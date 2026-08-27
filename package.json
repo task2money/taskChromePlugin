@@ -1,7 +1,7 @@
 {
   "name": "task-chrome-plugin",
   "private": true,
-  "description": "云端 Coding — DevTools network capture extension",
+  "description": "云端Coding: 自动创新助手 — DevTools network capture extension",
   "scripts": {
     "test": "node --test test/*.test.js",
     "test:e2e": "bash e2e/real-extension-messaging.playwright.test.js.sh",

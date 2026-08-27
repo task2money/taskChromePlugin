@@ -16,7 +16,7 @@ body {
   background: #181825;
   border-bottom: 1px solid #313244;
 }
-.header h1 { font-size: 15px; font-weight: 600; }
+.header h1 { font-size: 15px; font-weight: 600; line-height: 1.3; white-space: normal; }
 
 /* === Badges === */
 .badge {

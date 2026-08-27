@@ -12,7 +12,7 @@
   root.id = 'taskplugin-float-root';
 
   root.innerHTML = `
-    <button id="taskplugin-float-btn" title="TaskPlugin — 快速创建任务">+</button>
+    <button id="taskplugin-float-btn" title="云端Coding: 自动创新助手 — 快速创建任务">+</button>
     <div id="taskplugin-float-panel">
       <div class="taskplugin-panel-header">
         <h3>🔧 快速创建任务</h3>
@@ -812,7 +812,7 @@
     if (fab) {
       fab.title = pickMode
         ? `取消指针选择（Esc / ${combo}）；⌘/Ctrl+点击多选，Enter 确认`
-        : `云端 Coding — 快速创建任务 (${combo} 指针选择)`;
+        : `${PLUGIN_DISPLAY_NAME} — 快速创建任务 (${combo} 指针选择)`;
     }
   }
 

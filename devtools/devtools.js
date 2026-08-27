@@ -1,6 +1,6 @@
 /**
  * DevTools 入口脚本
- * - 创建 云端 Coding 面板
+ * - 创建 云端Coding: 自动创新助手 面板
  * - 监听网络请求，通过 postMessage 直接发送给 Panel
  * - 同时转发到 background service worker（供 Popup 使用）
  * - DevTools 晚开时通过 getHAR() 补录历史请求
@@ -245,7 +245,7 @@ chrome.runtime.onMessage.addListener((message) => {
 
 // 创建面板
 chrome.devtools.panels.create(
-  '云端 Coding',
+  PLUGIN_DISPLAY_NAME,
   '../icons/icon16.png',
   '../panel/panel.html',
   (panel) => {
