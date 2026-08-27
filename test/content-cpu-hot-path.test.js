@@ -74,9 +74,12 @@ describe('page-bridge.js CPU 热路径契约', () => {
     assert.match(pageBridge, /__taskpluginPageBridge/);
   });
 
-  it('只有一个 window message 监听', () => {
+  it('只有一个 window message 监听（ping 与业务中继不得再拆成两个）', () => {
     const listeners = [...pageBridge.matchAll(/addEventListener\(\s*'message'/g)];
     assert.equal(listeners.length, 1, `page-bridge 应只注册 1 个 message 监听，实际 ${listeners.length}`);
+    assert.match(pageBridge, /action === 'ping'/);
+    assert.doesNotMatch(pageBridge, /function handlePing\s*\(\s*event\s*\)/);
+    assert.doesNotMatch(pageBridge, /function handlePageMessage\s*\(/);
   });
 
   it('先 shouldInspectPageBridgeMessage 再 relay', () => {

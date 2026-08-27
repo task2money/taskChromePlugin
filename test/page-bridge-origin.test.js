@@ -15,14 +15,13 @@ const panelCore = fs.readFileSync(
 );
 
 describe('postMessage origin checks (javascript:S2819)', () => {
-  it('page-bridge 在 addEventListener(message) 回调内校验 origin', () => {
+  it('page-bridge 仅一个 message 监听，且回调内校验 origin', () => {
     const listeners = [...pageBridge.matchAll(
       /addEventListener\(\s*'message',\s*function\s*\(\s*event\s*\)\s*\{([\s\S]*?)\},\s*false\)/g,
     )];
     assert.equal(listeners.length, 1, 'expected one message listener');
-    for (const m of listeners) {
-      assert.match(m[1], /event\.origin\s*!==\s*window\.location\.origin/);
-    }
+    assert.match(listeners[0][1], /event\.origin\s*!==\s*window\.location\.origin/);
+    assert.match(listeners[0][1], /action === 'ping'/);
   });
 
   it('panel-core bindRequestMessagePipeline 校验 event.origin', () => {
