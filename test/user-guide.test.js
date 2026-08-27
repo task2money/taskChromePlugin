@@ -67,8 +67,8 @@ describe('UserGuide sections', () => {
     assert.match(md, /项目（单选）/);
     assert.doesNotMatch(md, /与项目（可多选）/);
     assert.match(md, /已安装镜像才能勾选/);
-    assert.match(html, /一个任务一个项目，按仓库填写/);
-    assert.match(md, /一个任务一个项目，按仓库填写/);
+    assert.match(html, /一个任务一个项目，空则用项目默认分支/);
+    assert.match(md, /一个任务一个项目，空则用项目默认分支/);
   });
 
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
