@@ -20,6 +20,7 @@ const {
   applyAutoRunControlToElements,
   applyImageFieldAppearance,
   validateAutoRunRequiresImage,
+  projectHasConfiguredRunTemplate,
 } = require('../lib/project-auto-run-label.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -187,6 +188,45 @@ describe('resolveAutoRunControlState', () => {
     });
     assert.equal(st.enabled, true);
     assert.equal(st.checked, false);
+  });
+
+  it('T15 configured-template project stays enabled (OPT-20260827-034 gate no-op for full template)', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: { id: 'p3', name: 'Gamma', server_run_template: { default_auto_run: true, platform: 'aliyun', region: 'cn-hangzhou' } },
+      checkedPreference: true,
+      hasInstalledImage: true,
+    });
+    assert.equal(st.enabled, true);
+    assert.equal(st.checked, true);
+  });
+
+  it('T16 project without server_run_template is disabled by allows-auto-run gate first', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: { id: 'p4', name: 'Delta' },
+      checkedPreference: true,
+      hasInstalledImage: true,
+    });
+    assert.equal(st.enabled, false);
+    assert.match(st.hint, /未允许自动运行/);
+  });
+});
+
+describe('projectHasConfiguredRunTemplate', () => {
+  it('true when template has a meaningful field', () => {
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { platform: 'aliyun', region: 'cn-hangzhou' } }), true);
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { label: '2c8g', hardware_config: { cpu_cores: 2 } } }), true);
+  });
+
+  it('true when template has default_auto_run key (work-panel summarizeRunTemplate 语义)', () => {
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { default_auto_run: true } }), true);
+  });
+
+  it('false when template missing or empty', () => {
+    assert.equal(projectHasConfiguredRunTemplate({}), false);
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: undefined }), false);
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: {} }), false);
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { default_auto_run: undefined } }), false);
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { platform: '' } }), false);
   });
 });
 
