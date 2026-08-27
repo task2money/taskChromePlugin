@@ -7,7 +7,8 @@
  * checkLoginStatus(full) + loadWorkspaces()（网络请求 + DOM 重建）——多标签页
  * 叠加成跨页放大风暴，是 SW 卡死/内存增长的次要放大器之一。
  * 修复：去抖回调触发时若 document.hidden（后台/最小化标签页）则跳过全量刷新，
- * 交给 60s 角标低频定时器兜底；恢复可见后下一次变更事件重新调度。
+ * 打 pendingHiddenRefresh；可见性 tick / 角标定时器按 resolveAuthBadgeTickFollowUp
+ * 补跑 full 或 loadWorkspaces，避免「已登录 + 请先登录」分裂。
  *
  * 决策抽为 lib/auth-refresh-debounce.js 纯函数（content.js 经 manifest 注入调用），
  * 测试断言修复后语义：
@@ -19,7 +20,10 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
-const { shouldSkipDebouncedAuthRefresh } = require('../lib/auth-refresh-debounce.js');
+const {
+  shouldSkipDebouncedAuthRefresh,
+  resolveAuthBadgeTickFollowUp,
+} = require('../lib/auth-refresh-debounce.js');
 
 describe('shouldSkipDebouncedAuthRefresh（F5 隐藏页跳过决策）', () => {
   it('document.hidden=true（后台/最小化标签页）→ 跳过全量刷新', () => {
@@ -53,5 +57,51 @@ describe('shouldSkipDebouncedAuthRefresh（F5 隐藏页跳过决策）', () => {
     vm.runInContext(src, sandbox);
     assert.equal(sandbox.AuthRefreshDebounce.shouldSkipDebouncedAuthRefresh({ hidden: true }), true);
     assert.equal(sandbox.AuthRefreshDebounce.shouldSkipDebouncedAuthRefresh({ hidden: false }), false);
+  });
+});
+
+describe('resolveAuthBadgeTickFollowUp（角标 tick 与工作空间补加载）', () => {
+  it('隐藏页跳过的补跑 → full（避免角标已登录、下拉仍请先登录）', () => {
+    assert.equal(
+      resolveAuthBadgeTickFollowUp({
+        pendingHiddenRefresh: true,
+        loggedIn: false,
+        selectNeedsLoad: false,
+      }),
+      'full',
+    );
+  });
+
+  it('已登录且下拉仍是未登录占位 → loadWorkspaces', () => {
+    assert.equal(
+      resolveAuthBadgeTickFollowUp({
+        pendingHiddenRefresh: false,
+        loggedIn: true,
+        selectNeedsLoad: true,
+      }),
+      'loadWorkspaces',
+    );
+  });
+
+  it('已登录且工作空间已在下拉中 → none（不得冲掉已加载列表）', () => {
+    assert.equal(
+      resolveAuthBadgeTickFollowUp({
+        pendingHiddenRefresh: false,
+        loggedIn: true,
+        selectNeedsLoad: false,
+      }),
+      'none',
+    );
+  });
+
+  it('未登录 → none（占位由 checkLoginStatus 处理）', () => {
+    assert.equal(
+      resolveAuthBadgeTickFollowUp({
+        pendingHiddenRefresh: false,
+        loggedIn: false,
+        selectNeedsLoad: true,
+      }),
+      'none',
+    );
   });
 });

@@ -327,7 +327,19 @@ window.PanelApp = (function () {
       state.authBadgeTimer = null;
     }
     if (typeof startDocumentVisibilityInterval !== 'function') return;
-    state.authBadgeCtl = startDocumentVisibilityInterval(AUTH_BADGE_REFRESH_MS, () => api.refreshAuthState().catch((e) => {
+    state.authBadgeCtl = startDocumentVisibilityInterval(AUTH_BADGE_REFRESH_MS, () => api.refreshAuthState().then((loggedIn) => {
+      if (!loggedIn || typeof FloatWorkspaceSelect === 'undefined') return;
+      const needs = (id) => FloatWorkspaceSelect.selectNeedsWorkspaceLoad(api.$(`#${id}`), {
+        workspacesCount: 0,
+      });
+      if (needs('singleWorkspace')) {
+        console.info('[taskChromePlugin] panel 已登录但工作空间未加载，补拉');
+        api.loadWorkspaces('singleWorkspace');
+      }
+      if (api.$('#batchWorkspace') && needs('batchWorkspace')) {
+        api.loadWorkspaces('batchWorkspace');
+      }
+    }).catch((e) => {
       console.warn('[taskChromePlugin] panel 定时刷新登录态失败:', e.message);
     }));
   };

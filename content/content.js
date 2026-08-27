@@ -1057,12 +1057,23 @@
     badge.title = '';
   }
 
+  function workspaceSelectNeedsLoad() {
+    if (typeof FloatWorkspaceSelect === 'undefined'
+        || typeof FloatWorkspaceSelect.selectNeedsWorkspaceLoad !== 'function') {
+      return workspacesData.length === 0;
+    }
+    return FloatWorkspaceSelect.selectNeedsWorkspaceLoad(wsSelect, {
+      workspacesCount: workspacesData.length,
+    });
+  }
+
   function applyWorkspaceSelectFromAuth({ loggedIn, mode, invalidated = false }) {
+    const selectNeeds = workspaceSelectNeedsLoad();
     if (typeof FloatWorkspaceSelect === 'undefined') {
       console.warn('[taskChromePlugin] FloatWorkspaceSelect 未加载');
       if (!loggedIn) {
         wsSelect.innerHTML = `<option value="">-- ${invalidated ? '请刷新页面后重试' : '请先登录'} --</option>`;
-      } else if (mode !== 'badgeOnly') {
+      } else if (mode !== 'badgeOnly' || selectNeeds) {
         wsSelect.innerHTML = '<option value="">加载中...</option>';
       }
       return;
@@ -1071,6 +1082,7 @@
       loggedIn,
       mode,
       invalidated,
+      selectNeedsWorkspaceLoad: selectNeeds,
     });
     const text = FloatWorkspaceSelect.floatWorkspaceSelectPlaceholder(action);
     if (text == null) return;
@@ -1143,6 +1155,7 @@
    * 去抖后一次变更风暴只刷新一次；登录等少量场景可直接 await 原函数。
    */
   let authRefreshTimer = null;
+  let authRefreshPendingFromHidden = false;
   const AUTH_REFRESH_DEBOUNCE_MS = 500;
   function scheduleAuthRefresh() {
     if (authRefreshTimer) clearTimeout(authRefreshTimer);
@@ -1150,17 +1163,45 @@
       authRefreshTimer = null;
       // OPT-20260808-023 F5: 不可见标签页跳过全量刷新（跨页放大降噪）——
       // auth 广播会触发 N 个标签页同时 checkLoginStatus(full)+loadWorkspaces()
-      // （网络+DOM 突发）；隐藏页不再跑 60s 角标定时器，恢复可见后立即补一拍。
-      if (shouldSkipDebouncedAuthRefresh(document)) return;
+      // （网络+DOM 突发）；隐藏页不再跑 60s 角标定时器。
+      // 跳过时打 pending：可见性 tick 必须 full 补跑，否则角标已登录、下拉仍「请先登录」。
+      if (shouldSkipDebouncedAuthRefresh(document)) {
+        authRefreshPendingFromHidden = true;
+        return;
+      }
       refreshAuthAndWorkspaces().catch((e) => {
         console.warn('[taskChromePlugin] 去抖后 auth 刷新失败:', e.message);
       });
     }, AUTH_REFRESH_DEBOUNCE_MS);
   }
 
-  /** 仅刷新登录角标（不重载工作空间），供定时器使用 */
+  /**
+   * 角标/可见性 tick：默认只刷新角标；若 hidden-skip 待补跑或已登录但下拉仍是
+   * 未登录占位，则补拉工作空间，避免「已登录 + 请先登录」分裂。
+   */
   async function refreshAuthBadgeOnly() {
+    const pendingHidden = authRefreshPendingFromHidden;
+    authRefreshPendingFromHidden = false;
+    const selectNeedsLoad = workspaceSelectNeedsLoad();
+    const decide = (typeof resolveAuthBadgeTickFollowUp === 'function')
+      ? resolveAuthBadgeTickFollowUp
+      : null;
+    const pre = decide
+      ? decide({ pendingHiddenRefresh: pendingHidden, loggedIn: isLoggedIn, selectNeedsLoad })
+      : (pendingHidden ? 'full' : 'none');
+    if (pre === 'full') {
+      console.info('[taskChromePlugin] hidden-skip 补跑全量 auth/workspaces');
+      await refreshAuthAndWorkspaces();
+      return;
+    }
     await checkLoginStatus({ mode: 'badgeOnly' });
+    const followUp = decide
+      ? decide({ pendingHiddenRefresh: false, loggedIn: isLoggedIn, selectNeedsLoad })
+      : (isLoggedIn && selectNeedsLoad ? 'loadWorkspaces' : 'none');
+    if (followUp === 'loadWorkspaces') {
+      console.info('[taskChromePlugin] 角标已登录但工作空间未加载，补拉工作空间');
+      await loadWorkspaces();
+    }
   }
 
   let authBadgeCtl = null;

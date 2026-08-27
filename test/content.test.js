@@ -97,3 +97,25 @@ describe('content.js 浮窗面板顶部 × 仅关闭面板', () => {
     assert.match(contentJs, /Anti-Replay-OK:\s*ui-only/);
   });
 });
+
+describe('content.js 角标已登录与工作空间下拉不得分裂', () => {
+  it('隐藏页跳过全量刷新时标记 pending，角标 tick 按 followUp 补跑', () => {
+    assert.match(contentJs, /authRefreshPendingFromHidden/);
+    assert.match(contentJs, /authRefreshPendingFromHidden = true/);
+    assert.match(contentJs, /resolveAuthBadgeTickFollowUp/);
+    const fnStart = contentJs.indexOf('async function refreshAuthBadgeOnly');
+    assert.ok(fnStart >= 0, 'refreshAuthBadgeOnly 必须存在');
+    const fnSlice = contentJs.slice(fnStart, fnStart + 1600);
+    assert.match(fnSlice, /refreshAuthAndWorkspaces\(\)/);
+    assert.match(fnSlice, /loadWorkspaces\(\)/);
+    assert.match(fnSlice, /selectNeedsLoad/);
+  });
+
+  it('applyWorkspaceSelectFromAuth 把 selectNeedsWorkspaceLoad 交给决策函数', () => {
+    assert.match(
+      contentJs,
+      /selectNeedsWorkspaceLoad:\s*selectNeeds/,
+    );
+    assert.match(contentJs, /function workspaceSelectNeedsLoad/);
+  });
+});
