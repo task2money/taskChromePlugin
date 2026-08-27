@@ -1258,10 +1258,14 @@
         return;
       }
       wsSelect.innerHTML = '<option value="">-- 选择工作空间 --</option>';
-      for (const ws of workspacesData) {
+      if (typeof WorkspaceList === 'undefined' || typeof WorkspaceList.workspaceOptionLabels !== 'function') {
+        throw new Error('WorkspaceList helpers missing');
+      }
+      const labels = WorkspaceList.workspaceOptionLabels(workspacesData);
+      for (let i = 0; i < workspacesData.length; i++) {
+        const ws = workspacesData[i];
         const id = ws.id || ws._id;
-        const name = ws.name || ws.displayName || ws.title || id;
-        wsSelect.innerHTML += `<option value="${id}">${esc(name)}</option>`;
+        wsSelect.innerHTML += `<option value="${id}">${esc(labels[i])}</option>`;
       }
       await applyAidevMetaAfterWorkspacesLoaded();
     } catch (e) {

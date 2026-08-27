@@ -114,6 +114,59 @@ describe('getWorkspaces / getMembers request URLs', () => {
     assert.equal(calls[1].includes('/api/projects/workspaces/tenant_id/co1'), true);
   });
 
+  it('T6 getWorkspaces() dedupes duplicate company_id from /me', async () => {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.includes('/api/user/u1/accounts/users/me/')) {
+        return jsonOk({
+          id: 'u1',
+          companies: [
+            { id: 'co1', name: 'Acme' },
+            { id: 'co1', name: 'Acme' },
+          ],
+        });
+      }
+      if (u.includes('/api/projects/workspaces/tenant_id/co1')) {
+        return jsonOk([{ id: 'ws1', name: '用户的工作空间' }]);
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '{"error":"not found"}', headers: { get: () => '' } };
+    };
+    const rows = await API.getWorkspaces();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].id, 'ws1');
+    assert.equal(calls.filter((u) => u.includes('/api/projects/workspaces/tenant_id/co1')).length, 1);
+  });
+
+  it('T7 getWorkspaces() keeps two same-named workspaces from different tenants', async () => {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      calls.push(u);
+      if (u.includes('/api/user/u1/accounts/users/me/')) {
+        return jsonOk({
+          id: 'u1',
+          companies: [
+            { id: 'co1', name: '个人空间' },
+            { id: 'co2', name: 'Acme' },
+          ],
+        });
+      }
+      if (u.includes('/api/projects/workspaces/tenant_id/co1')) {
+        return jsonOk([{ id: 'ws1', name: '用户的工作空间' }]);
+      }
+      if (u.includes('/api/projects/workspaces/tenant_id/co2')) {
+        return jsonOk([{ id: 'ws2', name: '用户的工作空间' }]);
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '{"error":"not found"}', headers: { get: () => '' } };
+    };
+    const rows = await API.getWorkspaces();
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0].name, '用户的工作空间');
+    assert.equal(rows[1].name, '用户的工作空间');
+    const names = rows.map((r) => r.company_name).sort();
+    assert.deepEqual(names, ['Acme', '个人空间']);
+  });
+
   it('T5 getMembers hits company_members and unwraps { members }', async () => {
     globalThis.fetch = async (url) => {
       calls.push(String(url));

@@ -11,6 +11,7 @@ importScripts(
   '../lib/create-task-git-identity.js',
   '../lib/create-task-payload.js',
   '../lib/client-public-ip.js',
+  '../lib/workspace-list.js',
   '../lib/api.js',
   '../lib/capture-status.js',
   '../lib/captured-entries.js',

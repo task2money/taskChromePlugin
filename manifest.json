@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端 Coding",
-  "version": "1.8.9",
+  "version": "1.8.10",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -50,6 +50,7 @@
         "lib/element-picker.js",
         "lib/user-guide.js",
         "lib/float-workspace-select.js",
+        "lib/workspace-list.js",
         "lib/float-panel-after-create.js",
         "lib/aidev-meta.js",
         "lib/page-bridge.js",

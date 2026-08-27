@@ -46,6 +46,11 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(html, /Shift\+点击/);
   });
 
+  it('float-create 说明包含同名工作空间按公司名区分', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /名称 · 公司名/);
+  });
+
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);

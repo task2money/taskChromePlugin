@@ -135,9 +135,14 @@
   P.renderWorkspaceOptions = function (selectId) {
     const sel = P.$(`#${selectId}`);
     sel.innerHTML = '<option value="">-- 请选择工作空间 --</option>';
-    for (const ws of state.workspaces) {
+    if (typeof WorkspaceList === 'undefined' || typeof WorkspaceList.workspaceOptionLabels !== 'function') {
+      throw new Error('WorkspaceList helpers missing');
+    }
+    const labels = WorkspaceList.workspaceOptionLabels(state.workspaces);
+    for (let i = 0; i < state.workspaces.length; i++) {
+      const ws = state.workspaces[i];
       const id = ws.id || ws._id;
-      sel.innerHTML += `<option value="${id}">${P.escHtml(ws.name || ws.displayName || ws.title || id)}</option>`;
+      sel.innerHTML += `<option value="${id}">${P.escHtml(labels[i])}</option>`;
     }
   };
 
