@@ -4,6 +4,11 @@ node_modules/
 *.zip
 
 test-results/
-
 # 构建产物（watchdog/本地 build 生成）
 bin/
+# Secret env files (meta gitignore parity — OPT-20260827-017)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
