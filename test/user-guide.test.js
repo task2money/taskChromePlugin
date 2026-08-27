@@ -19,6 +19,13 @@ const REQUIRED_IDS = [
 ];
 
 describe('UserGuide sections', () => {
+  it('品牌名走 PLUGIN_DISPLAY_NAME SSOT（OPT-20260827-024）', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'lib/user-guide.js'), 'utf8');
+    assert.match(src, /PLUGIN_DISPLAY_NAME/);
+    // 保留一处回退字面量供契约测试扫描（plugin-brand.test USER_FACING）
+    assert.match(src, /云端Coding: 自动创新助手/);
+  });
+
   it('exposes required section ids', () => {
     const ids = UserGuide.listSectionIds();
     for (const id of REQUIRED_IDS) {
