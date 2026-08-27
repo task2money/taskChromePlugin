@@ -156,8 +156,9 @@
       P.$('#singleDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
       P.$('#singleAssignees').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       if (P.$('#singleRepoBases')) {
-        P.$('#singleRepoBases').innerHTML = '<p class="placeholder">勾选项目后按仓库填写基准分支</p>';
+        P.$('#singleRepoBases').innerHTML = '<p class="placeholder">选择项目后按仓库填写基准分支</p>';
       }
+      P.syncContainerAutoRun('singleProjects', false);
       P.fetchAndPopulateBranches('singleWorkBranchList', '', [], 'work');
       P.fetchAndPopulateBranches('singleMergeTargetList', '', [], 'merge');
       return;
@@ -256,7 +257,7 @@
       projectsList: list,
       previousValues: prev,
       inputClass: 'form-input',
-      emptyHint: '勾选项目后按仓库填写基准分支',
+      emptyHint: '选择项目后按仓库填写基准分支',
     });
     const identityId = repoContainerId === 'batchRepoBases' ? 'batchGitIdentities' : 'singleGitIdentities';
     const autoRunId = repoContainerId === 'batchRepoBases' ? 'batchAutoRun' : 'singleAutoRun';
@@ -359,10 +360,12 @@
     c.innerHTML = '<p class="placeholder">加载中...</p>';
     if (!(await P.ensureApiReady())) {
       c.innerHTML = '<p class="placeholder">请先登录</p>';
+      P.syncContainerAutoRun(containerId, false);
       return;
     }
     if (state.projectsCache[wsId]) {
       P.renderProjectCheckboxes(containerId, state.projectsCache[wsId]);
+      await P.restoreProjectSelection(containerId);
       P.checkPanelAidevMatchingProjects(containerId, wsId);
       return;
     }
@@ -371,44 +374,17 @@
       const projs = Array.isArray(data) ? data : (data?.items || data?.data || []);
       state.projectsCache[wsId] = projs;
       P.renderProjectCheckboxes(containerId, projs);
+      await P.restoreProjectSelection(containerId);
       P.checkPanelAidevMatchingProjects(containerId, wsId);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
         c.innerHTML = '<p class="placeholder">请重新登录</p>';
+        P.syncContainerAutoRun(containerId, false);
         return;
       }
       c.innerHTML = `<p class="placeholder">加载失败: ${e.message}</p>`;
+      P.syncContainerAutoRun(containerId, false);
     }
-  };
-
-  P.renderProjectCheckboxes = function (containerId, projects) {
-    const c = P.$(`#${containerId}`);
-    if (!projects.length) { c.innerHTML = '<p class="placeholder">该项目空间下暂无项目</p>'; return; }
-    if (typeof ProjectAutoRunLabel === 'undefined'
-        || typeof ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml !== 'function') {
-      throw new Error('ProjectAutoRunLabel helpers missing');
-    }
-    let h = `<div class="select-all-row"><label><input type="checkbox" class="select-all" data-container="${containerId}"> 全选/取消</label></div>`;
-    for (const p of projects) {
-      const id = p.id || p._id;
-      h += `<label><input type="checkbox" value="${id}" class="project-check"> ${ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml(p, P.escHtml)}</label>`;
-    }
-    c.innerHTML = h;
-    c.querySelector('.select-all').addEventListener('change', (e) => {
-      const ck = e.target.checked;
-      c.querySelectorAll('.project-check').forEach((cb) => { cb.checked = ck; });
-    });
-    P.restoreProjectSelection(containerId);
-  };
-
-  P.restoreProjectSelection = async function (cid) {
-    const ids = await Storage.getLastProjectIds();
-    if (!ids.length) return;
-    P.$(`#${cid}`).querySelectorAll('.project-check').forEach((cb) => { if (ids.includes(cb.value)) cb.checked = true; });
-  };
-
-  P.getSelectedProjectIds = function (cid) {
-    return Array.from(P.$(`#${cid}`).querySelectorAll('.project-check:checked')).map((cb) => cb.value);
   };
 
   P.setPanelAidevStatus = function (text, visible = true) {
@@ -421,17 +397,6 @@
     }
     el.textContent = text;
     el.hidden = false;
-  };
-
-  P.checkPanelAidevMatchingProjects = function (containerId, wsId) {
-    if (!state.pendingAidevMatches?.length || typeof AidevMeta === 'undefined') return;
-    const pids = AidevMeta.projectIdsForWorkspace(state.pendingAidevMatches, wsId);
-    if (!pids.length) return;
-    const c = P.$(`#${containerId}`);
-    if (!c) return;
-    for (const cb of c.querySelectorAll('.project-check')) {
-      if (pids.includes(String(cb.value))) cb.checked = true;
-    }
   };
 
   P.applyAidevMetaAfterWorkspacesLoaded = async function (selectId) {

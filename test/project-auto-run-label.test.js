@@ -11,6 +11,11 @@ const {
   projectAutoRunBadgeText,
   formatProjectListLabel,
   renderProjectCheckboxCaptionHtml,
+  renderProjectRadioHtml,
+  findProjectById,
+  pickSingleProjectId,
+  resolveAutoRunControlState,
+  applyAutoRunControlToElements,
 } = require('../lib/project-auto-run-label.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -95,11 +100,13 @@ describe('renderProjectCheckboxCaptionHtml', () => {
 });
 
 describe('injection and usage contracts', () => {
-  it('T7 float and panel render via ProjectAutoRunLabel', () => {
+  it('T7 float and panel render radios via ProjectAutoRunLabel', () => {
     const content = read('content/content.js');
-    const workspace = read('panel/lib/workspace.js');
-    assert.match(content, /ProjectAutoRunLabel\.renderProjectCheckboxCaptionHtml/);
-    assert.match(workspace, /ProjectAutoRunLabel\.renderProjectCheckboxCaptionHtml/);
+    const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
+    assert.match(content, /ProjectAutoRunLabel\.renderProjectRadioHtml/);
+    assert.match(workspace, /ProjectAutoRunLabel\.renderProjectRadioHtml/);
+    assert.match(content, /ProjectAutoRunLabel\.resolveAutoRunControlState/);
+    assert.match(workspace, /ProjectAutoRunLabel\.resolveAutoRunControlState/);
   });
 
   it('T8 manifest and panel.html load lib before consumers', () => {
@@ -113,12 +120,115 @@ describe('injection and usage contracts', () => {
     const panelHtml = read('panel/panel.html');
     const libPos = panelHtml.indexOf('lib/project-auto-run-label.js');
     const wsPos = panelHtml.indexOf('lib/workspace.js');
+    const projPos = panelHtml.indexOf('lib/workspace-projects.js');
     assert.ok(libPos >= 0, 'panel.html must load project-auto-run-label.js');
     assert.ok(wsPos > libPos, 'label lib must load before workspace.js');
+    assert.ok(projPos > wsPos, 'workspace-projects.js must load after workspace.js');
   });
 
   it('T9 user guide mentions auto-run badges', () => {
     assert.match(read('docs/USER_GUIDE.md'), /可自动运行/);
     assert.match(read('lib/user-guide.js'), /可自动运行/);
+  });
+});
+
+describe('pickSingleProjectId / findProjectById', () => {
+  it('T14 picks first preferred id that is still available', () => {
+    assert.equal(pickSingleProjectId(['gone', 'p2', 'p1'], ['p1', 'p2']), 'p2');
+    assert.equal(pickSingleProjectId(['p9'], ['p1']), '');
+    assert.equal(pickSingleProjectId(null, ['p1']), '');
+  });
+
+  it('finds project by id or _id', () => {
+    const list = [{ id: 'a', name: 'A' }, { _id: 'b', name: 'B' }];
+    assert.equal(findProjectById(list, 'b').name, 'B');
+    assert.equal(findProjectById(list, 'missing'), null);
+  });
+});
+
+describe('resolveAutoRunControlState', () => {
+  it('T10 disables when no project selected', () => {
+    const st = resolveAutoRunControlState({ selectedProject: null, checkedPreference: true });
+    assert.equal(st.enabled, false);
+    assert.equal(st.checked, false);
+    assert.match(st.hint, /请先选择项目/);
+  });
+
+  it('T11 disables and unchecks when project does not allow auto-run', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: { id: 'p2', name: 'Beta' },
+      checkedPreference: true,
+    });
+    assert.equal(st.enabled, false);
+    assert.equal(st.checked, false);
+    assert.match(st.hint, /未允许自动运行/);
+  });
+
+  it('T12 enables and checks when allowed and preference true', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: allowed,
+      checkedPreference: true,
+    });
+    assert.equal(st.enabled, true);
+    assert.equal(st.checked, true);
+    assert.match(st.hint, /运行模版/);
+  });
+
+  it('T13 enables but leaves unchecked when allowed and preference false', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: allowed,
+      checkedPreference: false,
+    });
+    assert.equal(st.enabled, true);
+    assert.equal(st.checked, false);
+  });
+});
+
+describe('renderProjectRadioHtml', () => {
+  it('emits a named radio with caption badge', () => {
+    const html = renderProjectRadioHtml(allowed, { name: 'taskplugin-project', esc });
+    assert.match(html, /type="radio"/);
+    assert.match(html, /class="project-radio"/);
+    assert.match(html, /name="taskplugin-project"/);
+    assert.match(html, /value="p1"/);
+    assert.match(html, /可自动运行/);
+  });
+});
+
+describe('applyAutoRunControlToElements', () => {
+  it('T15 writes disabled, checked, hint and aria-disabled', () => {
+    const attrs = {};
+    const input = {
+      disabled: false,
+      checked: true,
+      setAttribute(k, v) { attrs[k] = String(v); },
+    };
+    const hint = { textContent: '' };
+    applyAutoRunControlToElements(input, hint, {
+      enabled: false,
+      checked: false,
+      hint: '请先选择项目',
+    });
+    assert.equal(input.disabled, true);
+    assert.equal(input.checked, false);
+    assert.equal(attrs['aria-disabled'], 'true');
+    assert.equal(hint.textContent, '请先选择项目');
+  });
+});
+
+describe('single-select source contracts', () => {
+  it('T16 float and panel use radios and drop select-all', () => {
+    const content = read('content/content.js');
+    const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
+    const panelHtml = read('panel/panel.html');
+    const lib = read('lib/project-auto-run-label.js');
+    assert.match(content, /项目 \(单选\)/);
+    assert.match(lib, /type="radio"/);
+    assert.match(content, /input\.project-radio/);
+    assert.doesNotMatch(workspace, /select-all/);
+    assert.doesNotMatch(workspace, /全选\/取消/);
+    assert.match(workspace, /project-radio/);
+    assert.match(panelHtml, /项目 \(单选\)/);
+    assert.doesNotMatch(panelHtml, /项目 \(可多选\)/);
   });
 });

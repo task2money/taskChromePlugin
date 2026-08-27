@@ -32,7 +32,7 @@
           </select>
         </div>
         <div class="taskplugin-form-group">
-          <label>项目 (可多选)</label>
+          <label>项目 (单选)</label>
           <div class="taskplugin-checkbox-list" id="taskplugin-projects">
             <span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>
           </div>
@@ -97,10 +97,10 @@
         </div>
         <div class="taskplugin-form-group">
           <label class="taskplugin-toggle-label" for="taskplugin-auto-run">
-            <input type="checkbox" id="taskplugin-auto-run">
+            <input type="checkbox" id="taskplugin-auto-run" disabled aria-disabled="true">
             <span class="taskplugin-toggle-text">
               <span class="taskplugin-toggle-title">是否自动运行</span>
-              <span class="taskplugin-toggle-hint">创建后按项目运行模版启动云服务器</span>
+              <span class="taskplugin-toggle-hint" id="taskplugin-auto-run-hint">请先选择项目</span>
             </span>
           </label>
         </div>
@@ -108,7 +108,7 @@
         <div class="taskplugin-form-group">
           <label>逐仓基准分支 <span style="color:#6c7086;font-size:10px;font-weight:normal;">— 对齐工作面板</span></label>
           <div id="taskplugin-repo-bases" class="taskplugin-checkbox-list">
-            <span style="color:#6c7086;font-size:11px;">勾选项目后按仓库填写</span>
+            <span style="color:#6c7086;font-size:11px;">选择项目后按仓库填写</span>
           </div>
         </div>
         <div class="taskplugin-form-group">
@@ -188,6 +188,7 @@
   const personalConfigSelect = document.getElementById('taskplugin-personal-config');
   const dueDateInput = document.getElementById('taskplugin-due-date');
   const autoRunInput = document.getElementById('taskplugin-auto-run');
+  const autoRunHint = document.getElementById('taskplugin-auto-run-hint');
   let membersData = [];
   let gitIdentitiesCache = [];
 
@@ -1318,8 +1319,10 @@
     if (!pendingAidevMatches?.length || typeof AidevMeta === 'undefined') return;
     const pids = AidevMeta.projectIdsForWorkspace(pendingAidevMatches, wsId);
     if (!pids.length) return;
-    for (const cb of projectsDiv.querySelectorAll('input[type="checkbox"]')) {
-      if (pids.includes(String(cb.value))) cb.checked = true;
+    const available = Array.from(projectsDiv.querySelectorAll('input.project-radio')).map((el) => el.value);
+    const pick = ProjectAutoRunLabel.pickSingleProjectId(pids, available);
+    for (const el of projectsDiv.querySelectorAll('input.project-radio')) {
+      el.checked = el.value === pick;
     }
   }
 
@@ -1358,6 +1361,27 @@
     }
   }
 
+  function selectedFloatProjectIds() {
+    if (!projectsDiv) return [];
+    return Array.from(projectsDiv.querySelectorAll('input.project-radio:checked')).map((el) => el.value);
+  }
+
+  function syncFloatAutoRun(checkedPreference) {
+    if (typeof ProjectAutoRunLabel === 'undefined'
+        || typeof ProjectAutoRunLabel.resolveAutoRunControlState !== 'function') {
+      return;
+    }
+    const project = ProjectAutoRunLabel.findProjectById(projectsData, selectedFloatProjectIds()[0]);
+    const pref = checkedPreference !== undefined
+      ? Boolean(checkedPreference)
+      : ProjectAutoRunLabel.projectAllowsAutoRun(project);
+    const st = ProjectAutoRunLabel.resolveAutoRunControlState({
+      selectedProject: project,
+      checkedPreference: pref,
+    });
+    ProjectAutoRunLabel.applyAutoRunControlToElements(autoRunInput, autoRunHint, st);
+  }
+
   async function loadProjects(wsId) {
     projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
     try {
@@ -1368,21 +1392,25 @@
       projectsData = Array.isArray(data) ? data : (data?.items || data?.data || []);
       if (!projectsData.length) {
         projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">无项目</span>';
+        syncFloatAutoRun(false);
         return;
       }
       if (typeof ProjectAutoRunLabel === 'undefined'
-          || typeof ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml !== 'function') {
+          || typeof ProjectAutoRunLabel.renderProjectRadioHtml !== 'function'
+          || typeof ProjectAutoRunLabel.resolveAutoRunControlState !== 'function') {
         throw new Error('ProjectAutoRunLabel helpers missing');
       }
       let html = '';
       for (const p of projectsData) {
-        const id = p.id || p._id;
-        html += `<label><input type="checkbox" value="${id}"> ${ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml(p, esc)}</label>`;
+        html += ProjectAutoRunLabel.renderProjectRadioHtml(p, { name: 'taskplugin-project', esc });
       }
       projectsDiv.innerHTML = html;
       checkAidevMatchingProjects(wsId);
+      syncFloatAutoRun();
     } catch (e) {
       console.warn('[taskChromePlugin] loadProjects 失败:', e.message);
+      projectsData = [];
+      syncFloatAutoRun(false);
       if (handleApiAuthFailure(e)) return;
       projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">加载失败: ${e.message}</span>`;
     }
@@ -1391,7 +1419,7 @@
   function refreshFloatGitIdentities() {
     if (!gitIdentitiesDiv || typeof CreateTaskGitIdentity === 'undefined') return;
     const prevIdent = CreateTaskGitIdentity.readSelectionsMap(gitIdentitiesDiv);
-    const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+    const pids = selectedFloatProjectIds();
     const GitId = CreateTaskGitIdentity;
     const wsId = wsSelect?.value || '';
     const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
@@ -1409,13 +1437,13 @@
   function refreshFloatRepoBases() {
     if (!repoBasesDiv || typeof CreateTaskPayload === 'undefined') return;
     const prev = CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv);
-    const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+    const pids = selectedFloatProjectIds();
     repoBasesDiv.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
       projectIds: pids,
       projectsList: projectsData,
       previousValues: prev,
       inputClass: 'taskplugin-input',
-      emptyHint: '勾选项目后按仓库填写',
+      emptyHint: '选择项目后按仓库填写',
     });
     refreshFloatGitIdentities();
   }
@@ -1447,9 +1475,11 @@
       projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
       if (progressSelect) progressSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
       if (deliverableSelect) deliverableSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
-      if (repoBasesDiv) repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">勾选项目后按仓库填写</span>';
+      if (repoBasesDiv) repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择项目后按仓库填写</span>';
       if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
       membersData = [];
+      projectsData = [];
+      syncFloatAutoRun(false);
       await seedBranchDatalists([]);
       return;
     }
@@ -1469,9 +1499,10 @@
   mergeTarget.addEventListener('change', () => applyPresetIfNeeded(mergeTarget));
 
   projectsDiv.addEventListener('change', async (e) => {
-    if (e.target.type !== 'checkbox') return;
+    if (e.target.type !== 'radio' || !e.target.classList.contains('project-radio')) return;
     const wsId = wsSelect.value;
-    const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map(cb => cb.value);
+    const pids = selectedFloatProjectIds();
+    syncFloatAutoRun();
     refreshFloatRepoBases();
     await fetchBranchesForFloatingPanel(wsId, pids);
   });
@@ -1547,13 +1578,13 @@
     }
 
     const wsId = wsSelect.value;
-    const pids = Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value);
+    const pids = selectedFloatProjectIds();
     const title = titleInput.value.trim();
     const desc = descInput.value.trim();
     const priority = document.getElementById('taskplugin-priority').value;
 
     if (!wsId) return showResult('请选择工作空间', 'error');
-    if (!pids.length) return showResult('请勾选至少一个项目', 'error');
+    if (!pids.length) return showResult('请选择一个项目', 'error');
     if (!title) return showResult('请输入任务标题', 'error');
 
     submitBtn.disabled = true;
@@ -1826,7 +1857,7 @@
     const AfterCreate = typeof FloatPanelAfterCreate !== 'undefined' ? FloatPanelAfterCreate : null;
     const raw = {
       workspaceId: wsSelect.value || '',
-      projectIds: Array.from(projectsDiv.querySelectorAll('input[type="checkbox"]:checked')).map((cb) => cb.value),
+      projectIds: selectedFloatProjectIds(),
       title: titleInput.value,
       description: descInput.value,
       priority: document.getElementById('taskplugin-priority')?.value || '1',
@@ -1855,7 +1886,6 @@
     if (priorityEl) priorityEl.value = snap.priority || '1';
     if (workBranch) workBranch.value = snap.workBranch || '';
     if (mergeTarget) mergeTarget.value = snap.mergeTarget || '';
-    if (autoRunInput) autoRunInput.checked = Boolean(snap.auto_run);
     if (featureParamsSelect) {
       featureParamsSelect.value = snap.feature_params_source || '';
       if (personalWrap) {
@@ -1882,9 +1912,11 @@
       projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
       if (progressSelect) progressSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
       if (deliverableSelect) deliverableSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
-      if (repoBasesDiv) repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">勾选项目后按仓库填写</span>';
+      if (repoBasesDiv) repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择项目后按仓库填写</span>';
       if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
       membersData = [];
+      projectsData = [];
+      syncFloatAutoRun(false);
       if (dueDateInput) dueDateInput.value = normalized.due_date || '';
       await seedBranchDatalists([]);
       return;
@@ -1892,10 +1924,12 @@
 
     wsSelect.value = wsId;
     await loadProjects(wsId);
-    const projectSet = new Set(normalized.projectIds || []);
-    for (const cb of projectsDiv.querySelectorAll('input[type="checkbox"]')) {
-      cb.checked = projectSet.has(String(cb.value));
+    const available = Array.from(projectsDiv.querySelectorAll('input.project-radio')).map((el) => el.value);
+    const pick = ProjectAutoRunLabel.pickSingleProjectId(normalized.projectIds || [], available);
+    for (const el of projectsDiv.querySelectorAll('input.project-radio')) {
+      el.checked = el.value === pick;
     }
+    syncFloatAutoRun(normalized.auto_run);
     await loadWorkspaceCreateMeta(wsId);
 
     if (progressSelect && normalized.progress_column_id) {
@@ -1919,16 +1953,16 @@
 
     if (repoBasesDiv && typeof CreateTaskPayload !== 'undefined') {
       repoBasesDiv.innerHTML = CreateTaskPayload.buildRepoBaseEditorsHtml({
-        projectIds: normalized.projectIds || [],
+        projectIds: pick ? [pick] : [],
         projectsList: projectsData,
         previousValues: normalized.repoBaseBranches || {},
         inputClass: 'taskplugin-input',
-        emptyHint: '勾选项目后按仓库填写',
+        emptyHint: '选择项目后按仓库填写',
       });
       refreshFloatGitIdentities();
     }
 
-    await fetchBranchesForFloatingPanel(wsId, normalized.projectIds || []);
+    await fetchBranchesForFloatingPanel(wsId, pick ? [pick] : []);
     if (workBranch) workBranch.value = normalized.workBranch || '';
     if (mergeTarget) mergeTarget.value = normalized.mergeTarget || '';
   }

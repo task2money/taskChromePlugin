@@ -83,7 +83,7 @@
           </select>
         </div>
         <div id="singleProjects" class="checkbox-group" style="margin-top:6px">
-          <p class="placeholder">项目</p>
+          <p class="placeholder">项目 (单选)</p>
         </div>
         <p id="panel-aidev-status" class="hint-inline" hidden style="margin-top:6px"></p>
       </div>
@@ -109,7 +109,7 @@
         <div class="form-row" style="margin-top:8px">
           <label>逐仓基准分支 <span class="hint-inline">— 对齐工作面板；空则用项目默认分支</span></label>
           <div id="singleRepoBases" class="repo-bases">
-            <p class="placeholder">勾选项目后按仓库填写基准分支</p>
+            <p class="placeholder">选择项目后按仓库填写基准分支</p>
           </div>
         </div>
       </div>
@@ -154,8 +154,11 @@
         </div>
         <div class="form-row" style="margin-top:6px">
           <label class="toggle-label">
-            <input type="checkbox" id="singleAutoRun">
-            是否自动运行（创建后按项目运行模版启动云服务器）
+            <input type="checkbox" id="singleAutoRun" disabled aria-disabled="true">
+            <span>
+              是否自动运行
+              <span class="hint-inline" id="singleAutoRunHint">请先选择项目</span>
+            </span>
           </label>
         </div>
         <div class="form-row" id="singleGitIdentities"></div>
@@ -224,7 +227,7 @@
           </select>
         </div>
         <div class="form-row">
-          <label>项目 (可多选)</label>
+          <label>项目 (单选)</label>
           <div id="batchProjects" class="checkbox-group">
             <p class="placeholder">请先选择工作空间</p>
           </div>
@@ -270,15 +273,18 @@
         </div>
         <div class="form-row">
           <label class="toggle-label">
-            <input type="checkbox" id="batchAutoRun">
-            是否自动运行（批量任务共用）
+            <input type="checkbox" id="batchAutoRun" disabled aria-disabled="true">
+            <span>
+              是否自动运行
+              <span class="hint-inline" id="batchAutoRunHint">请先选择项目</span>
+            </span>
           </label>
         </div>
         <div class="form-row" id="batchGitIdentities"></div>
         <div class="form-row">
           <label>逐仓基准分支 <span class="hint-inline">— 批量任务共用</span></label>
           <div id="batchRepoBases" class="repo-bases">
-            <p class="placeholder">勾选项目后按仓库填写基准分支</p>
+            <p class="placeholder">选择项目后按仓库填写基准分支</p>
           </div>
         </div>
         <div class="form-row">
@@ -361,6 +367,7 @@
   <script src="../lib/visibility-interval.js"></script>
   <script src="lib/panel-core.js"></script>
   <script src="lib/workspace.js"></script>
+  <script src="lib/workspace-projects.js"></script>
   <script src="lib/branches.js"></script>
   <script src="tabs/single-request.js"></script>
   <script src="tabs/batch.js"></script>

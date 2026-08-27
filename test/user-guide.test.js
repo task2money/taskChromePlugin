@@ -57,6 +57,16 @@ describe('UserGuide sections', () => {
     assert.match(html, /不可自动运行/);
   });
 
+  it('T17 float-create 项目为单选且自动运行随项目能力', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /项目（单选）/);
+    assert.doesNotMatch(html, /项目（可多选）/);
+    assert.match(html, /所选项目是否允许自动运行/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /项目（单选）/);
+    assert.doesNotMatch(md, /与项目（可多选）/);
+  });
+
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);

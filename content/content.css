@@ -242,6 +242,10 @@
   line-height: 1.4 !important;
   box-sizing: border-box !important;
 }
+.taskplugin-toggle-label:has(input:disabled) {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
 .taskplugin-toggle-label input[type="checkbox"] {
   width: 16px !important;
   height: 16px !important;
@@ -250,6 +254,9 @@
   accent-color: #a6e3a1 !important;
   opacity: 1 !important;
   cursor: pointer !important;
+}
+.taskplugin-toggle-label input[type="checkbox"]:disabled {
+  cursor: not-allowed !important;
 }
 .taskplugin-toggle-text {
   display: flex !important;
@@ -295,7 +302,7 @@
   min-height: 60px !important;
 }
 
-/* 项目复选框 */
+/* 项目单选 */
 .taskplugin-checkbox-list {
   max-height: 120px !important;
   overflow-y: auto !important;
@@ -309,6 +316,13 @@
   font-size: 11px !important;
   cursor: pointer !important;
   color: #cdd6f4 !important;
+}
+.taskplugin-checkbox-list label input[type="radio"] {
+  width: 14px !important;
+  height: 14px !important;
+  flex-shrink: 0 !important;
+  accent-color: #89b4fa !important;
+  margin: 0 !important;
 }
 .taskplugin-project-auto-run {
   font-size: 10px !important;

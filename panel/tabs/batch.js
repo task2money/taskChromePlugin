@@ -24,9 +24,10 @@
     });
     // 项目勾选变化时，动态获取分支列表 + 逐仓基准分支
     P.$('#batchProjects').addEventListener('change', (e) => {
-      if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
+      if (e.target.classList.contains('project-radio')) {
         const wsId = P.$('#batchWorkspace').value;
         const checkedIds = P.getSelectedProjectIds('batchProjects');
+        P.syncContainerAutoRun('batchProjects');
         P.fetchBatchBranchLists(wsId, checkedIds);
         P.refreshRepoBaseEditors('batchRepoBases', 'batchProjects', wsId);
       }
@@ -92,8 +93,9 @@
       P.$('#batchProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
       if (P.$('#batchDeliverable')) P.$('#batchDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
       if (P.$('#batchRepoBases')) {
-        P.$('#batchRepoBases').innerHTML = '<p class="placeholder">勾选项目后按仓库填写基准分支</p>';
+        P.$('#batchRepoBases').innerHTML = '<p class="placeholder">选择项目后按仓库填写基准分支</p>';
       }
+      P.syncContainerAutoRun('batchProjects', false);
       P.fetchAndPopulateBranches('batchWorkBranchList', '', [], 'work');
       P.fetchAndPopulateBranches('batchMergeTargetList', '', [], 'merge');
       return;
@@ -145,7 +147,7 @@
       : [];
 
     if (!wsId) return P.showR('batchResult', 'error', '请选择工作空间');
-    if (!checkedIds.length) return P.showR('batchResult', 'error', '请勾选至少一个项目');
+    if (!checkedIds.length) return P.showR('batchResult', 'error', '请选择一个项目');
     if (!(await P.ensureApiReady())) return P.showR('batchResult', 'error', '请先登录或会话已过期');
 
     const featureGate = CreateTaskPayload.validateCreateTaskForm({

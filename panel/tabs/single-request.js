@@ -36,9 +36,10 @@
     });
     // 项目勾选变化时，动态获取分支列表
     P.$('#singleProjects').addEventListener('change', (e) => {
-      if (e.target.classList.contains('project-check') || e.target.classList.contains('select-all')) {
+      if (e.target.classList.contains('project-radio')) {
         const wsId = P.$('#singleWorkspace').value;
         const checkedIds = P.getSelectedProjectIds('singleProjects');
+        P.syncContainerAutoRun('singleProjects');
         P.fetchSingleBranchLists(wsId, checkedIds);
         P.refreshRepoBaseEditors('singleRepoBases', 'singleProjects', wsId);
       }
@@ -272,7 +273,7 @@
       : [];
 
     if (!wsId) return P.showR('singleResult', 'error', '请选择工作空间');
-    if (!checkedIds.length) return P.showR('singleResult', 'error', '请勾选至少一个项目');
+    if (!checkedIds.length) return P.showR('singleResult', 'error', '请选择一个项目');
     if (!title) return P.showR('singleResult', 'error', '请输入任务标题');
     if (!owner) return P.showR('singleResult', 'error', '请填写 Owner (CompanyMember.id)，可在端点映射中配置默认值');
     if (!state.selectedRequest) return P.showR('singleResult', 'error', '请从请求列表中选择一个请求');

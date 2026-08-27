@@ -7,7 +7,8 @@
  * Tab 5: 使用说明 → lib/user-guide.js
  *
  * 共享状态/工具/认证 → lib/panel-core.js（window.PanelApp）
- * 工作空间/项目/成员加载 → lib/workspace.js
+ * 工作空间/成员加载 → lib/workspace.js
+ * 项目单选与自动运行 → lib/workspace-projects.js
  * 分支模板/datalist → lib/branches.js
  *
  * 脚本加载顺序见 panel.html（panel-core → workspace → branches → tabs → panel.js）。

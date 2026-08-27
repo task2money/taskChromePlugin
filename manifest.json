@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.15",
+  "version": "1.8.16",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
