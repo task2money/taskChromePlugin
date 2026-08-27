@@ -197,6 +197,14 @@ label { display: block; font-size: 11px; color: #a6adc8; margin-bottom: 4px; }
 /* === Select All === */
 .select-all-row { padding: 2px 0 4px; border-bottom: 1px dashed #45475a; margin-bottom: 4px; }
 .select-all-row label { font-weight: 600; color: #89b4fa; }
+.taskplugin-project-auto-run {
+  font-size: 10px;
+  color: #6c7086;
+  margin-left: 4px;
+}
+.taskplugin-project-auto-run[data-auto-run="true"] {
+  color: #a6e3a1;
+}
 
 /* === Request List === */
 .request-list { max-height: 300px; overflow-y: auto; }

@@ -36,6 +36,7 @@ const LIB_FILES = [
   'lib/element-picker.js',
   'lib/user-guide.js',
   'lib/float-workspace-select.js',
+  'lib/project-auto-run-label.js',
   'lib/float-panel-after-create.js',
   'lib/aidev-meta.js',
   'content/content.js',

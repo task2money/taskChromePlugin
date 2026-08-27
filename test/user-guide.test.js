@@ -51,6 +51,12 @@ describe('UserGuide sections', () => {
     assert.match(html, /名称 · 公司名/);
   });
 
+  it('float-create 说明包含项目是否可自动运行标注', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /可自动运行/);
+    assert.match(html, /不可自动运行/);
+  });
+
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);

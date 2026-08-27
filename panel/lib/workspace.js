@@ -384,10 +384,14 @@
   P.renderProjectCheckboxes = function (containerId, projects) {
     const c = P.$(`#${containerId}`);
     if (!projects.length) { c.innerHTML = '<p class="placeholder">该项目空间下暂无项目</p>'; return; }
+    if (typeof ProjectAutoRunLabel === 'undefined'
+        || typeof ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml !== 'function') {
+      throw new Error('ProjectAutoRunLabel helpers missing');
+    }
     let h = `<div class="select-all-row"><label><input type="checkbox" class="select-all" data-container="${containerId}"> 全选/取消</label></div>`;
     for (const p of projects) {
       const id = p.id || p._id;
-      h += `<label><input type="checkbox" value="${id}" class="project-check"> ${P.escHtml(p.name || p.displayName || p.title || id)}</label>`;
+      h += `<label><input type="checkbox" value="${id}" class="project-check"> ${ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml(p, P.escHtml)}</label>`;
     }
     c.innerHTML = h;
     c.querySelector('.select-all').addEventListener('change', (e) => {

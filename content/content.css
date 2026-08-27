@@ -303,11 +303,20 @@
 .taskplugin-checkbox-list label {
   display: flex !important;
   align-items: center !important;
+  flex-wrap: wrap !important;
   gap: 5px !important;
   padding: 2px 0 !important;
   font-size: 11px !important;
   cursor: pointer !important;
   color: #cdd6f4 !important;
+}
+.taskplugin-project-auto-run {
+  font-size: 10px !important;
+  color: #6c7086 !important;
+  flex-shrink: 0 !important;
+}
+.taskplugin-project-auto-run[data-auto-run="true"] {
+  color: #a6e3a1 !important;
 }
 
 /* 按钮 */

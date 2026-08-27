@@ -1370,11 +1370,14 @@
         projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">无项目</span>';
         return;
       }
+      if (typeof ProjectAutoRunLabel === 'undefined'
+          || typeof ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml !== 'function') {
+        throw new Error('ProjectAutoRunLabel helpers missing');
+      }
       let html = '';
       for (const p of projectsData) {
         const id = p.id || p._id;
-        const name = p.name || p.displayName || p.title || id;
-        html += `<label><input type="checkbox" value="${id}"> ${esc(name)}</label>`;
+        html += `<label><input type="checkbox" value="${id}"> ${ProjectAutoRunLabel.renderProjectCheckboxCaptionHtml(p, esc)}</label>`;
       }
       projectsDiv.innerHTML = html;
       checkAidevMatchingProjects(wsId);
