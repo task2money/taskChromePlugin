@@ -238,6 +238,10 @@ label { display: block; font-size: 11px; color: #a6adc8; margin-bottom: 4px; }
 /* === Hint Inline === */
 .hint-inline { font-size: 10px; color: #585b70; font-weight: normal; }
 
+/* Dark panel: default browser link blue/purple is unreadable on #1e1e2e */
+a { color: #89b4fa; }
+a:hover { color: #74c7ec; }
+
 /* === Filter Label === */
 .filter-label {
   display: flex; align-items: center; gap: 4px;

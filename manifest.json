@@ -69,7 +69,8 @@
         "content/content.js"
       ],
       "css": [
-        "content/content.css"
+        "content/content.css",
+        "content/content-form.css"
       ],
       "run_at": "document_end",
       "all_frames": false

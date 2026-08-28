@@ -342,3 +342,7 @@ body {
 #pickShortcutResult.ok { color: #a6e3a1; }
 #pickShortcutResult.err { color: #f38ba8; }
 
+/* Dark popup: default browser link blue/purple is unreadable on #1e1e2e */
+a { color: #89b4fa; }
+a:hover { color: #74c7ec; }
+

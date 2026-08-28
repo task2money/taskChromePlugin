@@ -2,6 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 
 const GitId = require('../lib/create-task-git-identity.js');
 const { validateCreateTaskForm, buildCreateTaskPayload, buildRepoBaseEditorsHtml } = require('../lib/create-task-payload.js');
@@ -65,6 +67,31 @@ describe('CreateTaskGitIdentity HTML / DOM', () => {
     assert.match(on, /Git 提交身份/);
     assert.match(on, /gid-1/);
     assert.match(on, /href="\/tenant\/t1\/profile\/git-identities\/"/);
+    assert.match(on, /去账号中心管理 Git 提交身份/);
+  });
+
+  it('settings link uses panel accent color so it is readable on dark UI', () => {
+    const html = GitId.buildSelectHtml({
+      repoUrl: 'https://git.example/a.git',
+      identities: [{ id: 'gid-1', git_user_name: 'Ann', git_user_email: 'a@x.com' }],
+      settingsHref: '/tenant/t1/profile/git-identities/',
+    });
+    assert.match(html, /data-git-identity-settings="1"/);
+    assert.match(html, /color:#89b4fa/);
+    assert.doesNotMatch(html, /color:#0000EE/i);
+  });
+
+  it('dark UI stylesheets set readable link color (not UA blue)', () => {
+    const root = path.join(__dirname, '..');
+    const panelCss = fs.readFileSync(path.join(root, 'panel/panel.css'), 'utf8');
+    const popupCss = fs.readFileSync(path.join(root, 'popup/popup.css'), 'utf8');
+    const contentFormCss = fs.readFileSync(path.join(root, 'content/content-form.css'), 'utf8');
+    const manifest = fs.readFileSync(path.join(root, 'manifest.json'), 'utf8');
+    assert.match(panelCss, /a \{ color: #89b4fa; \}/);
+    assert.match(popupCss, /a \{ color: #89b4fa; \}/);
+    assert.match(contentFormCss, /#taskplugin-float-panel a \{/);
+    assert.match(contentFormCss, /color: #89b4fa !important;/);
+    assert.match(manifest, /content\/content-form\.css/);
   });
 
   it('keeps identity editors out of repo-base HTML', () => {
