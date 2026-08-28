@@ -15,7 +15,8 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
-const content = read('content/content.js');
+const { readContentBundle } = require('./helpers/contentBundle.js');
+const content = readContentBundle();
 const pickFrame = read('content/pick-frame.js');
 const sw = read('background/service-worker.js');
 const manifest = read('manifest.json');

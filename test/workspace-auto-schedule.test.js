@@ -119,7 +119,8 @@ describe('plugin surfaces wire queued auto-run', () => {
   });
 
   it('content.js loads schedule via getQueueSchedule and payload includes queued_auto_run', () => {
-    const content = read('content/content.js');
+    const { readContentBundle } = require('./helpers/contentBundle.js');
+    const content = readContentBundle();
     assert.match(content, /getQueueSchedule/);
     assert.match(content, /queued_auto_run:\s*Boolean\(queuedInput/);
     assert.match(content, /syncFloatQueuedAutoRun/);

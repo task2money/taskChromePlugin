@@ -24,7 +24,8 @@ function read(rel) {
 
 const manifest = JSON.parse(read('manifest.json'));
 const sw = read('background/service-worker.js');
-const content = read('content/content.js');
+const { readContentBundle } = require('./helpers/contentBundle.js');
+const content = readContentBundle();
 const pickFrame = read('content/pick-frame.js');
 const popupHtml = read('popup/popup.html');
 const popupJs = read('popup/popup.js');
@@ -45,7 +46,7 @@ describe('键盘快捷键三层链路', () => {
   it('content.js 页内兜底初始组合取平台默认（Storage.detectDefaultShortcut）', () => {
     assert.match(
       content,
-      /let pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
+      /var pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
       'content 兜底初始组合应为平台默认，而非硬编码 Ctrl+Shift+X',
     );
     assert.match(

@@ -41,6 +41,11 @@ const LIB_FILES = [
   'lib/float-panel-markup.js',
   'lib/float-panel-after-create.js',
   'lib/aidev-meta.js',
+  'content/float-boot.js',
+  'content/float-pick.js',
+  'content/float-drag-auth.js',
+  'content/float-form.js',
+  'content/float-snapshot.js',
   'content/content.js',
 ];
 

@@ -60,6 +60,11 @@
         "lib/hot-path-guards.js",
         "lib/visibility-interval.js",
         "lib/auth-refresh-debounce.js",
+        "content/float-boot.js",
+        "content/float-pick.js",
+        "content/float-drag-auth.js",
+        "content/float-form.js",
+        "content/float-snapshot.js",
         "content/content.js"
       ],
       "css": [

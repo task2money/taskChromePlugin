@@ -5,10 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const contentJs = fs.readFileSync(
-  path.join(__dirname, '..', 'content', 'content.js'),
-  'utf8'
-);
+const { readContentBundle, contentScriptJsFromManifest } = require('./helpers/contentBundle.js');
+const contentJs = readContentBundle();
 const floatMarkupJs = fs.readFileSync(
   path.join(__dirname, '..', 'lib', 'float-panel-markup.js'),
   'utf8'
@@ -69,7 +67,7 @@ describe('content.js 元素拾取快捷键提示语（平台默认分派）', ()
     );
     assert.match(
       contentJs,
-      /let pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
+      /var pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
       '页内兜底初始组合应取平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X）',
     );
   });
@@ -122,5 +120,23 @@ describe('content.js 角标已登录与工作空间下拉不得分裂', () => {
       /selectNeedsWorkspaceLoad:\s*selectNeeds/,
     );
     assert.match(contentJs, /function workspaceSelectNeedsLoad/);
+  });
+});
+
+describe('content 脚本行数门禁与注入顺序', () => {
+  it('顶层 content/*.js 均 ≤500 行，且 content.js 最后注入', () => {
+    const js = contentScriptJsFromManifest();
+    assert.deepEqual(js, [
+      'content/float-boot.js',
+      'content/float-pick.js',
+      'content/float-drag-auth.js',
+      'content/float-form.js',
+      'content/float-snapshot.js',
+      'content/content.js',
+    ]);
+    for (const rel of js) {
+      const n = fs.readFileSync(path.join(__dirname, '..', rel), 'utf8').split('\n').length - 1;
+      assert.ok(n <= 500, `${rel} 有 ${n} 行，超过 500`);
+    }
   });
 });

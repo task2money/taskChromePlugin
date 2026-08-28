@@ -24,7 +24,8 @@ describe('page-bridge 已删除', () => {
   });
 
   it('content.js 不再向页面 postMessage 账号桥协议', () => {
-    const src = fs.readFileSync(path.join(ROOT, 'content/content.js'), 'utf8');
+    const { readContentBundle } = require('./helpers/contentBundle.js');
+    const src = readContentBundle();
     assert.doesNotMatch(src, /taskfe-account-bridge/);
     assert.doesNotMatch(src, /notifyPageAccountStateChanged/);
     assert.doesNotMatch(src, /shouldNotifyPageAccountStateFromContent/);

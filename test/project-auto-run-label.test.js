@@ -24,6 +24,7 @@ const {
 } = require('../lib/project-auto-run-label.js');
 
 const ROOT = path.join(__dirname, '..');
+const { readContentBundle } = require('./helpers/contentBundle.js');
 
 function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -106,7 +107,7 @@ describe('renderProjectCheckboxCaptionHtml', () => {
 
 describe('injection and usage contracts', () => {
   it('T7 float and panel render radios via ProjectAutoRunLabel', () => {
-    const content = read('content/content.js');
+    const content = readContentBundle();
     const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
     assert.match(content, /ProjectAutoRunLabel\.renderProjectRadioHtml/);
     assert.match(workspace, /ProjectAutoRunLabel\.renderProjectRadioHtml/);
@@ -265,7 +266,7 @@ describe('applyAutoRunControlToElements', () => {
 describe('single-select source contracts', () => {
   it('T16 float and panel use radios and drop select-all', () => {
     const markup = read('lib/float-panel-markup.js');
-    const content = read('content/content.js');
+    const content = readContentBundle();
     const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
     const panelHtml = read('panel/panel.html');
     const lib = read('lib/project-auto-run-label.js');
@@ -379,7 +380,7 @@ describe('validateAutoRunRequiresImage', () => {
 
 describe('image gate source contracts', () => {
   it('T9 float and panel pass hasInstalledImage into resolve', () => {
-    const content = read('content/content.js');
+    const content = readContentBundle();
     const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
     assert.match(content, /hasInstalledImage/);
     assert.match(workspace, /hasInstalledImage/);
@@ -391,7 +392,7 @@ describe('image gate source contracts', () => {
   });
 
   it('T-image-submit float validates image before createTask', () => {
-    const content = read('content/content.js');
+    const content = readContentBundle();
     const submitIdx = content.indexOf("submitBtn.addEventListener('click'");
     assert.ok(submitIdx >= 0, 'float submit handler missing');
     const validateIdx = content.indexOf('validateCreateTaskForm(form)', submitIdx);
@@ -403,7 +404,7 @@ describe('image gate source contracts', () => {
   });
 
   it('T-image-restore syncs auto-run after restoring image value', () => {
-    const content = read('content/content.js');
+    const content = readContentBundle();
     const restoreIdx = content.indexOf('async function restoreOpenSnapshot');
     assert.ok(restoreIdx >= 0, 'restoreOpenSnapshot missing');
     const restore = content.slice(restoreIdx, content.indexOf('function bindFloatPanelCloseButton'));

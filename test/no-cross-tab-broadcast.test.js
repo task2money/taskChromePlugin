@@ -41,7 +41,8 @@ describe('跨 tab 扇出已下线', () => {
   });
 
   it('T8 content 监听 floatBallEnabled storage 变更自更新 (OPT-20260821-008)', () => {
-    const content = read('content/content.js');
+    const { readContentBundle } = require('./helpers/contentBundle.js');
+    const content = readContentBundle();
     assert.match(content, /function bindStorageListeners/);
     assert.match(content, /changes\.floatBallEnabled/);
   });

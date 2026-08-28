@@ -35,7 +35,8 @@ describe('逐仓基准分支文案 — 单项目 + 空则用默认分支', () =>
   });
 
   it('content.js 空态与 emptyHint 引用共享文案，不残留旧句', () => {
-    const content = read('content/content.js');
+    const { readContentBundle } = require('./helpers/contentBundle.js');
+    const content = readContentBundle();
     assert.match(content, /REPO_BASE_EMPTY_HINT/);
     assert.doesNotMatch(content, /选择项目后按仓库填写/);
     assert.doesNotMatch(content, /一个任务一个项目，按仓库填写/);

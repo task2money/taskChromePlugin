@@ -50,6 +50,11 @@ describe('跨页面任务描述同步已下线', () => {
 
   it('T3 生产源码不再发送或处理 syncDescription', () => {
     const files = [
+      'content/float-boot.js',
+      'content/float-pick.js',
+      'content/float-drag-auth.js',
+      'content/float-form.js',
+      'content/float-snapshot.js',
       'content/content.js',
       'popup/popup.js',
       'background/service-worker.js',
