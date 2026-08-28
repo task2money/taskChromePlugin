@@ -70,13 +70,6 @@ body {
 /* === Form === */
 .form-row { margin-bottom: 10px; }
 .form-row label { display: block; font-size: 11px; color: #a6adc8; margin-bottom: 4px; }
-.form-row label.label-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.form-row label.label-row .btn { flex-shrink: 0; }
 label { display: block; font-size: 11px; color: #a6adc8; margin-bottom: 4px; }
 
 /* 工作空间/项目/进度列 水平紧凑行 */

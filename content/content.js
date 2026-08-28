@@ -75,9 +75,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     return true;
   }
   if (msg.action === 'startElementPick') {
-    console.log('[taskChromePlugin] startElementPick from', msg.source || 'devtools');
+    console.log('[taskChromePlugin] startElementPick from', msg.source || 'float');
     if (adjustModal && !adjustModal.hidden) closeAdjustModal();
-    setPickMode(true, msg.source === 'float' ? 'float' : 'devtools');
+    setPickMode(true, 'float');
     sendResponse?.({ success: true });
     return true;
   }

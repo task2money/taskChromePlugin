@@ -22,7 +22,6 @@
       P.fetchSingleBranchLists(wsId, checkedIds);
     });
     P.$('#btnCreateSingle').addEventListener('click', P.createSingleTask);
-    P.$('#btnPickElement')?.addEventListener('click', P.startPageElementPick);
     P.$('#singleFeatureParamsSource')?.addEventListener('change', P.onFeatureParamsSourceChange);
     P.$('#singleAutoRun')?.addEventListener('change', () => {
       const wsId = P.$('#singleWorkspace').value;
@@ -33,11 +32,6 @@
       P.onContainerImageChange('singleProjects');
     });
     P.initSingleDueDateDefault();
-    chrome.runtime.onMessage.addListener((msg) => {
-      if (msg?.action === 'elementPickResult' && msg.block) {
-        P.appendElementPickBlock(msg.block);
-      }
-    });
     // 项目勾选变化时，动态获取分支列表
     P.$('#singleProjects').addEventListener('change', (e) => {
       if (e.target.classList.contains('project-radio')) {
@@ -54,49 +48,6 @@
     const source = P.$('#singleFeatureParamsSource')?.value || '';
     const wrap = P.$('#singlePersonalConfigWrap');
     if (wrap) wrap.hidden = source !== 'personal';
-  };
-
-  P.appendElementPickBlock = function (block) {
-    const ta = P.$('#singleTaskDesc');
-    if (!ta || !block) return;
-    const base = (ta.value || '').trimEnd();
-    ta.value = base ? `${base}\n\n${block}` : block;
-    P.showR('singleResult', 'success', '✅ 已将页面元素调整加入任务描述');
-    console.log('[taskChromePlugin] panel received elementPickResult, len=', block.length);
-  };
-
-  P.startPageElementPick = async function () {
-    const tabId = chrome.devtools?.inspectedWindow?.tabId;
-    if (!tabId) {
-      P.showR('singleResult', 'error', '无法获取当前检查页 tabId');
-      return;
-    }
-    const btn = P.$('#btnPickElement');
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '选择中…';
-    }
-    try {
-      const r = await P.sendMessage({
-        action: 'startElementPick',
-        tabId,
-        source: 'devtools',
-      });
-      if (!r?.success) {
-        const err = new Error(r?.error || '启动失败');
-        const tid = extractTraceId(r);
-        if (tid) err.traceId = tid;
-        throw err;
-      }
-      P.showR('singleResult', 'success', '请在页面中点击目标元素（Esc 取消）');
-    } catch (e) {
-      P.showR('singleResult', 'error', `无法启动指针选择: ${e.message}`, e.traceId);
-    } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = '🖱️ 指针选择';
-      }
-    }
   };
 
   P.refreshRequestList = async function () {

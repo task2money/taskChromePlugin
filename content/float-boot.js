@@ -95,7 +95,7 @@ var highlightedEls = [];
 var highlightDoc = null;
 var pendingElementSnapshot = null;
 var pendingFrameElement = null;
-var pickSource = 'float'; // float | devtools
+var pickSource = 'float';
 var pickCrossOriginHintShown = false;
 /** Cmd/Ctrl 累加多选（同 frame 内，点击顺序） */
 var pickSelection = [];

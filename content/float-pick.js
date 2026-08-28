@@ -3,7 +3,7 @@
  */
 // ================================================================
 //  指针选择页面元素 → 调整期望 → 追加到任务描述
-//  （支持 open Shadow DOM / 同源 iframe / 可选截图 / DevTools 回传）
+//  （支持 open Shadow DOM / 同源 iframe / 可选截图；仅页内浮窗）
 // ================================================================
 
 function isPluginDom(node) {
@@ -374,7 +374,6 @@ async function confirmAdjustModal() {
   const wantShot = !!(adjustShot && adjustShot.checked);
   let screenshotUrl = '';
   adjustConfirm.disabled = true;
-  const source = pickSource;
   try {
     if (wantShot) {
       adjustError.textContent = '正在截图并上传...';
@@ -411,25 +410,12 @@ async function confirmAdjustModal() {
       console.warn('[taskChromePlugin] clipboard copy failed:', clipErr.message || clipErr);
     }
 
-    if (source === 'devtools') {
-      const relay = await sendMessageWithTimeout({
-        action: 'elementPickResult',
-        block,
-        pageUrl: window.location.href,
-      }, 8000);
-      if (!relay?.success) throw new Error(relay?.error || '回传 DevTools 失败');
-      console.log('[taskChromePlugin] element pick result relayed to DevTools');
-      closeAdjustModal();
-      const clipSuffix = copied ? '，并已复制到剪贴板' : '';
-      showResult(`已将元素调整期望发送到 DevTools 面板${clipSuffix}`, 'success');
-    } else {
-      descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, payload);
-      syncDescResetButton();
-      console.log('[taskChromePlugin] element adjustment appended to float description');
-      closeAdjustModal();
-      const clipSuffix = copied ? '，并已复制到剪贴板' : '';
-      showResult(`已将元素调整期望加入任务描述${clipSuffix}`, 'success');
-    }
+    descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, payload);
+    syncDescResetButton();
+    console.log('[taskChromePlugin] element adjustment appended to float description');
+    closeAdjustModal();
+    const clipSuffix = copied ? '，并已复制到剪贴板' : '';
+    showResult(`已将元素调整期望加入任务描述${clipSuffix}`, 'success');
   } catch (ex) {
     console.warn('[taskChromePlugin] confirmAdjustModal failed:', ex.message || ex);
     adjustError.textContent = ex.message || String(ex);

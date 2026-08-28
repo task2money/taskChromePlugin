@@ -42,6 +42,10 @@ describe('UserGuide sections', () => {
     const popupIds = UserGuide.getSectionsForSurface('popup').map((s) => s.id);
     assert.ok(popupIds.includes('popup-extras'));
     assert.ok(popupIds.includes('login'));
+
+    const panelIds = UserGuide.getSectionsForSurface('panel').map((s) => s.id);
+    assert.ok(panelIds.includes('devtools-single'));
+    assert.ok(!panelIds.includes('element-pick'), '指针选择说明不得出现在 DevTools 面板');
   });
 
   it('renderCollapsibleHtml includes surface and section markers', () => {
@@ -94,6 +98,15 @@ describe('UserGuide sections', () => {
   it('devtools-single mentions request body is written into the task description', () => {
     const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
     assert.match(html, /请求体/);
+  });
+
+  it('DevTools 使用说明不引导在面板里指针选择', () => {
+    const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
+    assert.doesNotMatch(html, /data-guide-id="element-pick"/);
+    assert.doesNotMatch(html, /描述可用「指针选择」/);
+    assert.doesNotMatch(html, /🖱️ 指针选择/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.doesNotMatch(md, /描述可用「指针选择」/);
   });
 
   it('escapeHtml escapes angle brackets', () => {

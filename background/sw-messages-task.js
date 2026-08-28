@@ -171,9 +171,9 @@ async function handleMessageRest(message, sender) {
         try {
           const resp = await chrome.tabs.sendMessage(tabId, {
             action: 'startElementPick',
-            source: message.source || 'devtools',
+            source: message.source || 'float',
           }, { frameId: 0 });
-          await broadcastPickToChildFrames(tabId, 'startElementPick', message.source || 'devtools');
+          await broadcastPickToChildFrames(tabId, 'startElementPick', message.source || 'float');
           console.log('[taskChromePlugin] startElementPick forwarded to tab', tabId);
           return resp?.success ? { success: true } : { success: false, error: resp?.error || 'content script 未响应' };
         } catch (e) {
@@ -241,12 +241,6 @@ async function handleMessageRest(message, sender) {
         } catch (e) {
           return { success: false, error: e.message || '转发到顶层失败' };
         }
-      }
-
-    case 'elementPickResult':
-      {
-        console.log('[taskChromePlugin] elementPickResult ack, blockLen=', String(message.block || '').length);
-        return { success: true };
       }
 
     case 'captureElementScreenshot':
