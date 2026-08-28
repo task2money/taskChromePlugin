@@ -89,6 +89,18 @@
     P.showR('batchResult', 'success', '✅ 已清空');
   };
 
+  /**
+   * 批量创建成功收尾：先清空表单选项（项目/分支等），再提示（OPT-20260828-017）。
+   * 与单请求路径 runAfterSuccess 顺序一致。
+   */
+  P.resetBatchCreateForm = function () {
+    PanelCreateSuccess.resetBatchCreateFields(document, {
+      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
+      defaultDueDate: CreateTaskPayload.getDefaultTaskDeadline(),
+    });
+    P.syncContainerAutoRun('batchProjects');
+  };
+
   P.onBatchWsChange = async function () {
     const id = P.$('#batchWorkspace').value;
     await Storage.saveLastWorkspace(id);
@@ -234,9 +246,14 @@
         if (tid) err.traceId = tid;
         throw err;
       }
-      P.showR('batchResult', 'success', `✅ 批量创建完成! 共 ${tasks.length} 个任务`);
+      const message = `✅ 批量创建完成! 共 ${tasks.length} 个任务`;
       await P.sendMessage({ action: 'clearCapturedErrors' });
       await P.refreshCapturedCount();
+      PanelCreateSuccess.runAfterSuccess({
+        reset: () => P.resetBatchCreateForm(),
+        showSuccess: (msg) => P.showR('batchResult', 'success', msg),
+        message,
+      });
     } catch (e) {
       P.showR('batchResult', 'error', `❌ 失败: ${e.message}`, e.traceId);
     } finally { btn.disabled = false; btn.textContent = '📦 批量创建任务'; }

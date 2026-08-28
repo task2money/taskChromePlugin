@@ -144,6 +144,116 @@ describe('PanelCreateSuccess.resetSingleCreateFields', () => {
   });
 });
 
+describe('PanelCreateSuccess.resetBatchCreateFields', () => {
+  function batchField(value) {
+    return { value, checked: false, hidden: false, innerHTML: 'kept', disabled: false };
+  }
+
+  function fakeBatchRoot(overrides = {}) {
+    const fields = {
+      batchWorkBranch: batchField('feat/x'),
+      batchMergeTarget: batchField('main'),
+      batchDeliverable: batchField('d1'),
+      batchContainerImage: batchField('img1'),
+      batchFeatureParamsSource: batchField('company'),
+      batchPersonalConfig: batchField('p1'),
+      batchPersonalConfigWrap: { hidden: false },
+      batchDueDate: batchField('2026-01-01T00:00'),
+      batchAutoRun: { checked: true },
+      batchQueuedAutoRun: { checked: true },
+      batchQueuedAutoRunWrap: { hidden: false },
+      batchQueuedAutoRunError: { hidden: false, textContent: 'err', className: 'result error' },
+      batchRepoBases: { innerHTML: '<input>' },
+      batchGitIdentities: { innerHTML: '<select>' },
+      batchWorkspace: batchField('ws-keep'),
+      batchProgressColumn: batchField('col-keep'),
+      batchResult: { textContent: '旧结果', className: 'result' },
+      ...overrides,
+    };
+    const radios = overrides._radios || [{ checked: true, className: 'project-radio' }];
+    return {
+      fields,
+      radios,
+      getElementById(id) {
+        return fields[id] || null;
+      },
+      querySelectorAll(sel) {
+        if (sel.includes('project-radio')) return radios;
+        return [];
+      },
+    };
+  }
+
+  it('clears batch options but keeps workspace/progress and result slot', () => {
+    const root = fakeBatchRoot();
+    PanelCreateSuccess.resetBatchCreateFields(root, {
+      emptyHint: '空则用项目默认分支',
+      defaultDueDate: '2026-09-03T18:00',
+    });
+    assert.equal(root.fields.batchWorkBranch.value, '');
+    assert.equal(root.fields.batchMergeTarget.value, '');
+    assert.equal(root.fields.batchDeliverable.value, '');
+    assert.equal(root.fields.batchContainerImage.value, '');
+    assert.equal(root.fields.batchFeatureParamsSource.value, '');
+    assert.equal(root.fields.batchPersonalConfig.value, '');
+    assert.equal(root.fields.batchPersonalConfigWrap.hidden, true);
+    assert.equal(root.fields.batchDueDate.value, '2026-09-03T18:00');
+    assert.equal(root.fields.batchAutoRun.checked, false);
+    assert.equal(root.fields.batchQueuedAutoRun.checked, false);
+    assert.equal(root.fields.batchQueuedAutoRunWrap.hidden, true);
+    assert.equal(root.fields.batchQueuedAutoRunError.hidden, true);
+    assert.equal(root.fields.batchQueuedAutoRunError.textContent, '');
+    assert.match(root.fields.batchRepoBases.innerHTML, /空则用项目默认分支/);
+    assert.equal(root.fields.batchGitIdentities.innerHTML, '');
+    assert.equal(root.radios[0].checked, false);
+    assert.equal(root.fields.batchWorkspace.value, 'ws-keep');
+    assert.equal(root.fields.batchProgressColumn.value, 'col-keep');
+    assert.equal(root.fields.batchResult.textContent, '旧结果');
+  });
+
+  it('throws when required opts are missing', () => {
+    assert.throws(() => PanelCreateSuccess.resetBatchCreateFields({}, {}), /emptyHint/);
+  });
+});
+
+describe('DevTools createBatchTasks wires reset-then-success', () => {
+  it('batch.js clears batch form before showing success', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'panel/tabs/batch.js'), 'utf8');
+    const fn = src.slice(src.indexOf('P.createBatchTasks = async function'));
+    const runAt = fn.indexOf('runAfterSuccess');
+    const resetAt = fn.indexOf('resetBatchCreateForm');
+    assert.ok(runAt >= 0, 'createBatchTasks must call runAfterSuccess');
+    assert.ok(resetAt > runAt, 'reset must be passed into runAfterSuccess');
+    assert.match(fn, /reset:\s*\(\)\s*=>\s*P\.resetBatchCreateForm\(\)/);
+    assert.match(fn, /showSuccess:\s*\(msg\)\s*=>\s*P\.showR\('batchResult', 'success'/);
+    assert.doesNotMatch(
+      fn.slice(0, runAt),
+      /showR\('batchResult', 'success'/,
+      'must not show success before runAfterSuccess',
+    );
+  });
+
+  it('batch.js failure path only prompts and does not reset the form', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'panel/tabs/batch.js'), 'utf8');
+    const fn = src.slice(src.indexOf('P.createBatchTasks = async function'));
+    const tryAt = fn.indexOf('try {');
+    const catchAt = fn.indexOf('} catch');
+    const finallyAt = fn.indexOf('} finally');
+    assert.ok(tryAt >= 0 && catchAt > tryAt && finallyAt > catchAt);
+    const catchFn = fn.slice(catchAt, finallyAt);
+    assert.match(catchFn, /showR\('batchResult', 'error'/);
+    assert.doesNotMatch(catchFn, /resetBatchCreateForm/);
+    assert.doesNotMatch(catchFn, /runAfterSuccess/);
+  });
+
+  it('panel.html loads panel-create-success.js before batch.js', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'panel/panel.html'), 'utf8');
+    const success = html.indexOf('panel-create-success.js');
+    const tab = html.indexOf('tabs/batch.js');
+    assert.ok(success >= 0 && success < tab);
+  });
+});
+
 describe('DevTools createSingleTask wires reset-then-success', () => {
   it('single-request.js resets before showing success', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'panel/tabs/single-request.js'), 'utf8');
