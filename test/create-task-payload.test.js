@@ -196,9 +196,9 @@ describe('repoBaseBranchKey / normalizeAssignees / buildRepoBaseEditorsHtml', ()
   });
 
   it('empty project list uses single-project empty hint, not select-then-fill copy', () => {
-    assert.equal(REPO_BASE_EMPTY_HINT, '一个任务一个项目，空则用项目默认分支');
+    assert.equal(REPO_BASE_EMPTY_HINT, '空则用项目默认分支');
     const html = buildRepoBaseEditorsHtml({ projectIds: [] });
-    assert.match(html, /一个任务一个项目，空则用项目默认分支/);
+    assert.match(html, /空则用项目默认分支/);
     assert.doesNotMatch(html, /选择项目后/);
     assert.doesNotMatch(html, /勾选项目/);
     assert.doesNotMatch(html, /按仓库填写/);

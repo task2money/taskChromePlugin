@@ -132,7 +132,7 @@
   };
 
   /**
-   * 选定项目后把远程分支填进逐仓基准分支 datalist（内置 develop/main 已在 HTML 中）。
+   * 选定项目后把远程分支填进基准分支 datalist（内置 develop/main 已在 HTML 中）。
    * 对齐工作面板 CreateTaskProjectBranchSection 的 per-repo datalist。
    */
   P.populateRepoBaseBranchDatalists = async function (containerEl, wsId) {
