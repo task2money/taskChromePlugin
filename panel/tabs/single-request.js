@@ -50,6 +50,18 @@
     if (wrap) wrap.hidden = source !== 'personal';
   };
 
+  P.resetSingleCreateForm = function () {
+    PanelCreateSuccess.resetSingleCreateFields(document, {
+      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
+      defaultDueDate: CreateTaskPayload.getDefaultTaskDeadline(),
+      defaultPriority: '1',
+    });
+    state.selectedRequest = null;
+    P.applyRequestFilters();
+    P.syncContainerAutoRun('singleProjects');
+    P.onFeatureParamsSourceChange();
+  };
+
   P.refreshRequestList = async function () {
     // 主动从 SW 拉取最新请求：devtools.js 每次 pushRequest 都会同步到 SW。
     // 仅做本地过滤会导致 postMessage 丢失后列表永久停滞（无法刷新）。
@@ -276,7 +288,12 @@
         if (tid) err.traceId = tid;
         throw err;
       }
-      P.showR('singleResult', 'success', `✅ 任务创建成功! ID: ${r.data?.id || r.data?._id || '(已创建)'}`);
+      const Success = PanelCreateSuccess;
+      Success.runAfterSuccess({
+        reset: () => P.resetSingleCreateForm(),
+        showSuccess: (msg) => P.showR('singleResult', 'success', msg),
+        message: Success.formatCreateSuccessMessage(Success.extractCreatedTaskId(r.data)),
+      });
     } catch (e) {
       P.showR('singleResult', 'error', `❌ 创建失败: ${e.message}`, e.traceId);
     } finally { btn.disabled = false; btn.textContent = '✅ 创建任务'; }

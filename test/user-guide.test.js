@@ -102,6 +102,14 @@ describe('UserGuide sections', () => {
     assert.match(html, /请求体/);
   });
 
+  it('DevTools 创建成功后先清空选项再提示', () => {
+    const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
+    assert.match(html, /先清空本次填写的选项/);
+    assert.match(html, /再显示成功提示/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /先清空本次填写的选项/);
+  });
+
   it('DevTools 使用说明不引导在面板里指针选择', () => {
     const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
     assert.doesNotMatch(html, /data-guide-id="element-pick"/);
