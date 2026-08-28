@@ -13,6 +13,7 @@ importScripts(
   '../lib/create-task-payload.js',
   '../lib/client-public-ip.js',
   '../lib/workspace-list.js',
+  '../lib/api-http.js',
   '../lib/api.js',
   '../lib/capture-status.js',
   '../lib/captured-entries.js',
