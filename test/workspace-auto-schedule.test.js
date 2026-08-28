@@ -134,7 +134,8 @@ describe('plugin surfaces wire queued auto-run', () => {
   });
 
   it('service worker handles getQueueSchedule', () => {
-    const sw = read('background/service-worker.js');
+    const { readSWLocalBundle } = require('./helpers/swBundle.js');
+    const sw = readSWLocalBundle();
     assert.match(sw, /case 'getQueueSchedule'/);
     assert.match(sw, /queue-schedule/);
   });

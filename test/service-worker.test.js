@@ -17,29 +17,11 @@
  * 属 Red→Green 回归用例。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const SW_PATH = path.join(__dirname, '../background/service-worker.js');
-const LIB_DIR = path.join(__dirname, '../lib');
-
-/** 读取 SW 源码并展开 importScripts：把 lib 文件按顺序拼接进同一 script，
- *  保证顶层 const/let 声明共享（与浏览器 importScripts 的全局作用域语义一致）。 */
-function buildSWScript() {
-  const swSrc = fs.readFileSync(SW_PATH, 'utf8');
-  const libs = [];
-  const swBody = swSrc.replace(/importScripts\(([\s\S]*?)\);/, (_, args) => {
-    for (const p of args.match(/'[^']+'/g) || []) {
-      const file = p.replace(/'/g, '').replace('../lib/', '');
-      libs.push(fs.readFileSync(path.join(LIB_DIR, file), 'utf8'));
-    }
-    return '';
-  });
-  return libs.join('\n') + '\n' + swBody;
-}
+const { buildSWScript } = require('./helpers/swBundle.js');
 
 /** 构造 chrome mock。withAlarms=false 模拟 manifest 缺 "alarms" 权限（chrome.alarms 为 undefined）。 */
 function makeChromeMock({ withAlarms }) {

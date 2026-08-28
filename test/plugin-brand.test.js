@@ -17,6 +17,8 @@ function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
+const { popupPageScriptsFromHtml } = require('./helpers/popupBundle.js');
+
 const USER_FACING = [
   'manifest.json',
   'popup/popup.html',
@@ -31,6 +33,8 @@ const USER_FACING = [
   'popup/popup.js',
 ];
 
+const USER_FACING_SCAN = [...new Set([...USER_FACING, ...popupPageScriptsFromHtml()])];
+
 describe('PLUGIN_DISPLAY_NAME', () => {
   it('SSOT 为「云端Coding: 自动创新助手」', () => {
     assert.equal(PLUGIN_DISPLAY_NAME, '云端Coding: 自动创新助手');
@@ -43,7 +47,7 @@ describe('PLUGIN_DISPLAY_NAME', () => {
   });
 
   it('用户可见文件不再出现旧名「云端 Coding」（空格）', () => {
-    for (const rel of USER_FACING) {
+    for (const rel of USER_FACING_SCAN) {
       const src = read(rel);
       assert.doesNotMatch(
         src,

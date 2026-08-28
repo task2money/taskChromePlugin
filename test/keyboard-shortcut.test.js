@@ -23,12 +23,14 @@ function read(rel) {
 }
 
 const manifest = JSON.parse(read('manifest.json'));
-const sw = read('background/service-worker.js');
+const { readSWLocalBundle } = require('./helpers/swBundle.js');
+const sw = readSWLocalBundle();
 const { readContentBundle } = require('./helpers/contentBundle.js');
 const content = readContentBundle();
 const pickFrame = read('content/pick-frame.js');
 const popupHtml = read('popup/popup.html');
-const popupJs = read('popup/popup.js');
+const { readPopupBundle } = require('./helpers/popupBundle.js');
+const popupJs = readPopupBundle();
 const userGuideMd = read('docs/USER_GUIDE.md');
 const userGuideJs = read('lib/user-guide.js');
 

@@ -58,7 +58,13 @@ taskChromePlugin/
 ├── manifest.json                  # Chrome 扩展配置 (Manifest V3)
 ├── icons/                         # 扩展图标
 ├── background/
-│   └── service-worker.js          # 后台服务：webRequest 监听 + 消息路由
+│   ├── service-worker.js          # importScripts 入口：监听 + 启动
+│   ├── sw-capture.js              # webRequest 捕获 / 角标 / tab
+│   ├── sw-auth.js                 # 登录落盘 + 静默刷新
+│   ├── sw-messages-session.js     # runtime 消息：会话/目录
+│   ├── sw-messages-task.js        # runtime 消息：任务/捕获/账号
+│   ├── sw-pick.js                 # 选元素广播 / 截图 / 快捷键改绑
+│   └── sw-expiry.js               # 账号过期 alarm
 ├── devtools/
 │   ├── devtools.html              # DevTools 入口页
 │   └── devtools.js                # 创建 DevTools 面板
@@ -77,8 +83,10 @@ taskChromePlugin/
 │       ├── errors.js              # Tab 3 错误列表
 │       └── history.js             # Tab 4 历史记录 & 重试
 ├── popup/
-│   ├── popup.html                 # 登录弹窗 UI
-│   ├── popup.js                   # 登录逻辑
+│   ├── popup.html                 # 登录弹窗 UI（script：auth → shortcut → popup.js）
+│   ├── popup-auth.js              # 登录态 / 悬浮球
+│   ├── popup-shortcut.js          # 元素拾取快捷键 + OAuth
+│   ├── popup.js                   # 事件绑定 / 请求预览 / 启动（最后加载）
 │   └── popup.css                  # 弹窗样式
 ├── content/
 │   ├── content.js                 # 页内浮窗（顶层）

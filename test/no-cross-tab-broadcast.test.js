@@ -18,7 +18,8 @@ function read(rel) {
 
 describe('跨 tab 扇出已下线', () => {
   it('T1 SW 不再 query 全部标签页，无三类广播函数', () => {
-    const sw = read('background/service-worker.js');
+    const { readSWLocalBundle } = require('./helpers/swBundle.js');
+    const sw = readSWLocalBundle();
     assert.doesNotMatch(sw, /chrome\.tabs\.query\(\{\}\)/);
     assert.doesNotMatch(sw, /function broadcastAuthStateChanged/);
     assert.doesNotMatch(sw, /function broadcastElementPickerShortcut/);
@@ -26,13 +27,15 @@ describe('跨 tab 扇出已下线', () => {
   });
 
   it('T2 Popup 不再向全部标签页发 authStateChanged', () => {
-    const popup = read('popup/popup.js');
+    const { readPopupBundle } = require('./helpers/popupBundle.js');
+    const popup = readPopupBundle();
     assert.doesNotMatch(popup, /notifyContentScriptsAuthChanged/);
     assert.doesNotMatch(popup, /action: 'authStateChanged'/);
   });
 
   it('T7 Popup 悬浮球开关不再向全部标签页 sendMessage (OPT-20260821-008)', () => {
-    const popup = read('popup/popup.js');
+    const { readPopupBundle } = require('./helpers/popupBundle.js');
+    const popup = readPopupBundle();
     const start = popup.indexOf('悬浮球开关');
     const end = popup.indexOf('跟踪开关');
     const seg = popup.slice(start, end === -1 ? popup.length : end);
@@ -48,7 +51,8 @@ describe('跨 tab 扇出已下线', () => {
   });
 
   it('T5 选元素仍按当前 tab 广播子 frame', () => {
-    const sw = read('background/service-worker.js');
+    const { readSWLocalBundle } = require('./helpers/swBundle.js');
+    const sw = readSWLocalBundle();
     assert.match(sw, /function broadcastPickToChildFrames/);
     assert.match(sw, /case 'broadcastStartElementPick'/);
   });
@@ -126,16 +130,7 @@ describe('SW 登录与快捷键不扇出其它 tab', () => {
   }
 
   function loadSW(chrome) {
-    const swSrc = read('background/service-worker.js');
-    const libDir = path.join(ROOT, 'lib');
-    const libs = [];
-    const swBody = swSrc.replace(/importScripts\(([\s\S]*?)\);/, (_, args) => {
-      for (const p of args.match(/'[^']+'/g) || []) {
-        const file = p.replace(/'/g, '').replace('../lib/', '');
-        libs.push(fs.readFileSync(path.join(libDir, file), 'utf8'));
-      }
-      return '';
-    });
+    const { buildSWScript } = require('./helpers/swBundle.js');
     const sandbox = {
       chrome,
       console,
@@ -170,7 +165,7 @@ describe('SW 登录与快捷键不扇出其它 tab', () => {
     };
     sandbox.self = sandbox;
     vm.createContext(sandbox);
-    vm.runInContext(libs.join('\n') + '\n' + swBody, sandbox, { filename: 'service-worker.js' });
+    vm.runInContext(buildSWScript(), sandbox, { filename: 'service-worker.js' });
     return sandbox;
   }
 

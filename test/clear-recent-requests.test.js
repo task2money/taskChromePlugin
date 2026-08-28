@@ -7,27 +7,11 @@
  * devToolsRequests，使后续「🔄 刷新列表」不再拉回旧数据。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const SW_PATH = path.join(__dirname, '../background/service-worker.js');
-const LIB_DIR = path.join(__dirname, '../lib');
-
-function buildSWScript() {
-  const swSrc = fs.readFileSync(SW_PATH, 'utf8');
-  const libs = [];
-  const swBody = swSrc.replace(/importScripts\(([\s\S]*?)\);/, (_, args) => {
-    for (const p of args.match(/'[^']+'/g) || []) {
-      const file = p.replace(/'/g, '').replace('../lib/', '');
-      libs.push(fs.readFileSync(path.join(LIB_DIR, file), 'utf8'));
-    }
-    return '';
-  });
-  return libs.join('\n') + '\n' + swBody;
-}
+const { buildSWScript } = require('./helpers/swBundle.js');
 
 function makeChromeMock() {
   const messageHandlers = [];

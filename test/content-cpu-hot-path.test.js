@@ -18,7 +18,8 @@ function read(rel) {
 const { readContentBundle } = require('./helpers/contentBundle.js');
 const content = readContentBundle();
 const pickFrame = read('content/pick-frame.js');
-const sw = read('background/service-worker.js');
+const { readSWLocalBundle } = require('./helpers/swBundle.js');
+const sw = readSWLocalBundle();
 const manifest = read('manifest.json');
 
 describe('content.js CPU 热路径契约', () => {
@@ -72,7 +73,8 @@ describe('SW webRequest body 热路径契约', () => {
   });
 
   it('importScripts / manifest 加载新 lib', () => {
-    assert.match(sw, /hot-path-guards\.js/);
+    const swEntry = read('background/service-worker.js');
+    assert.match(swEntry, /hot-path-guards\.js/);
     assert.match(manifest, /visibility-interval\.js/);
     assert.match(manifest, /hot-path-guards\.js/);
   });

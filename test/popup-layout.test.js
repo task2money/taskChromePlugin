@@ -16,13 +16,14 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
+const { readPopupBundle } = require('./helpers/popupBundle.js');
 
 function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
 }
 
 const popupHtml = read('popup/popup.html');
-const popupJs = read('popup/popup.js');
+const popupJs = readPopupBundle();
 const popupCss = read('popup/popup.css');
 
 describe('Popup 悬浮球显示隐藏开关常显', () => {

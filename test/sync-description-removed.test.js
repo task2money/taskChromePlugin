@@ -49,6 +49,8 @@ describe('跨页面任务描述同步已下线', () => {
   });
 
   it('T3 生产源码不再发送或处理 syncDescription', () => {
+    const { popupPageScriptsFromHtml } = require('./helpers/popupBundle.js');
+    const { swFilesForLineLimit } = require('./helpers/swBundle.js');
     const files = [
       'content/float-boot.js',
       'content/float-pick.js',
@@ -56,8 +58,8 @@ describe('跨页面任务描述同步已下线', () => {
       'content/float-form.js',
       'content/float-snapshot.js',
       'content/content.js',
-      'popup/popup.js',
-      'background/service-worker.js',
+      ...popupPageScriptsFromHtml(),
+      ...swFilesForLineLimit(),
       'lib/storage.js',
     ];
     for (const rel of files) {
@@ -133,16 +135,7 @@ describe('SW 旧版 syncDescription 不再转发', () => {
   }
 
   function loadSW(chrome) {
-    const swSrc = fs.readFileSync(path.join(ROOT, 'background/service-worker.js'), 'utf8');
-    const libDir = path.join(ROOT, 'lib');
-    const libs = [];
-    const swBody = swSrc.replace(/importScripts\(([\s\S]*?)\);/, (_, args) => {
-      for (const p of args.match(/'[^']+'/g) || []) {
-        const file = p.replace(/'/g, '').replace('../lib/', '');
-        libs.push(fs.readFileSync(path.join(libDir, file), 'utf8'));
-      }
-      return '';
-    });
+    const { buildSWScript } = require('./helpers/swBundle.js');
     const sandbox = {
       chrome,
       console,
@@ -176,7 +169,7 @@ describe('SW 旧版 syncDescription 不再转发', () => {
     };
     sandbox.self = sandbox;
     vm.createContext(sandbox);
-    vm.runInContext(libs.join('\n') + '\n' + swBody, sandbox, { filename: 'service-worker.js' });
+    vm.runInContext(buildSWScript(), sandbox, { filename: 'service-worker.js' });
     return sandbox;
   }
 

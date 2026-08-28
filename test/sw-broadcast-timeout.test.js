@@ -15,28 +15,11 @@
  * 计时用注入的手工 setTimeout：测试显式 advance(800) 驱动超时，零真实等待。
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
 const vm = require('node:vm');
 const { test } = require('node:test');
 const assert = require('node:assert');
 
-const SW_PATH = path.join(__dirname, '../background/service-worker.js');
-const LIB_DIR = path.join(__dirname, '../lib');
-
-/** 展开 importScripts 拼接 lib 源码（与浏览器 importScripts 共享全局作用域一致） */
-function buildSWScript() {
-  const swSrc = fs.readFileSync(SW_PATH, 'utf8');
-  const libs = [];
-  const swBody = swSrc.replace(/importScripts\(([\s\S]*?)\);/, (_, args) => {
-    for (const p of args.match(/'[^']+'/g) || []) {
-      const file = p.replace(/'/g, '').replace('../lib/', '');
-      libs.push(fs.readFileSync(path.join(LIB_DIR, file), 'utf8'));
-    }
-    return '';
-  });
-  return libs.join('\n') + '\n' + swBody;
-}
+const { buildSWScript } = require('./helpers/swBundle.js');
 
 /** 手工计时器：替代真实 setTimeout，测试显式推进时钟 */
 function manualTimers() {
