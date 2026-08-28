@@ -254,3 +254,34 @@ describe('OPT-20260820-039: deprecated /api/tenant/{companyId}/... mapping dropp
     assert.equal(ep.clientIp, '/custom/client-ip/');
   });
 });
+
+describe('network fetch failure keeps client X-Trace-Id', () => {
+  let origFetch;
+
+  beforeEach(() => {
+    origFetch = globalThis.fetch;
+    API.init('https://example.test', 'tok', null, 'u1');
+  });
+
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+    API.clearSession();
+  });
+
+  it('T10 getWorkspaces attaches requestTraceId when fetch throws Failed to fetch', async () => {
+    let sent = '';
+    globalThis.fetch = async (_url, opts) => {
+      sent = opts.headers['X-Trace-Id'];
+      throw new TypeError('Failed to fetch');
+    };
+    await assert.rejects(
+      () => API.getWorkspaces('co1'),
+      (err) => {
+        assert.equal(err.message, 'Failed to fetch');
+        assert.ok(sent);
+        assert.equal(err.traceId, sent);
+        return true;
+      },
+    );
+  });
+});
