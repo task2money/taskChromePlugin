@@ -132,6 +132,55 @@
   };
 
   /**
+   * 选定项目后把远程分支填进逐仓基准分支 datalist（内置 develop/main 已在 HTML 中）。
+   * 对齐工作面板 CreateTaskProjectBranchSection 的 per-repo datalist。
+   */
+  P.populateRepoBaseBranchDatalists = async function (containerEl, wsId) {
+    if (!containerEl || !wsId) return;
+    if (typeof CreateTaskPayload === 'undefined'
+        || typeof CreateTaskPayload.parseRemoteBranchNames !== 'function'
+        || typeof CreateTaskPayload.branchDatalistOptionsHtml !== 'function') {
+      return;
+    }
+    if (!(await P.ensureApiReady())) return;
+    const cached = state.projectsCache[wsId] || [];
+    const ws = state.workspaces.find((w) => String(w.id || w._id) === String(wsId));
+    const companyId = ws?.company_id || ws?.companyId;
+    if (!companyId) return;
+
+    const inputs = containerEl.querySelectorAll('[data-repo-base][data-project-id][list]');
+    for (const input of inputs) {
+      const projectId = input.getAttribute('data-project-id');
+      const repoIndex = Number(input.getAttribute('data-repo-index') || 0);
+      const listId = input.getAttribute('list');
+      const datalist = listId ? document.getElementById(listId) : null;
+      if (!datalist) continue;
+      const proj = cached.find((p) => String(p.id || p._id) === String(projectId));
+      const repos = Array.isArray(proj?.git_repos)
+        ? proj.git_repos.filter((u) => u && String(u).trim())
+        : [];
+      const repoUrl = repos[repoIndex];
+      if (!repoUrl) continue;
+      try {
+        const resp = await P.swApi('getBranches', {
+          companyId: String(companyId),
+          projectId,
+          repoUrl,
+        });
+        const names = CreateTaskPayload.parseRemoteBranchNames(resp);
+        datalist.innerHTML = CreateTaskPayload.branchDatalistOptionsHtml(names);
+      } catch (e) {
+        console.warn('[taskChromePlugin] repo-base getBranches failed', {
+          projectId,
+          repoIndex,
+          message: e && e.message ? String(e.message) : 'unknown',
+          traceId: e && e.traceId ? String(e.traceId) : '',
+        });
+      }
+    }
+  };
+
+  /**
    * 从选中的项目获取 Git 分支列表，填充到 datalist 中
    * @param {string} datalistId - datalist 元素 ID
    * @param {string} wsId - 工作空间 ID

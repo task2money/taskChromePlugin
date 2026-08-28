@@ -32,6 +32,7 @@ const LIB_FILES = [
   'lib/storage.js',
   'lib/dom-trace.js',
   'lib/create-task-git-identity.js',
+  'lib/branch-datalist.js',
   'lib/create-task-payload.js',
   'lib/element-picker.js',
   'lib/user-guide.js',

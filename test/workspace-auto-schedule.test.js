@@ -95,7 +95,7 @@ describe('applyCreateTaskQueuedVisibility', () => {
 
 describe('showFetchError', () => {
   it('writes message and data-traceId', () => {
-    const el = { hidden: true, textContent: '', attrs: {} };
+    const el = { hidden: true, textContent: '', className: 'result', attrs: {} };
     el.setAttribute = (k, v) => { el.attrs[k] = v; };
     el.removeAttribute = (k) => { delete el.attrs[k]; };
     const err = new Error('queue-schedule failed');
@@ -104,9 +104,27 @@ describe('showFetchError', () => {
     assert.equal(el.hidden, false);
     assert.equal(el.textContent, 'queue-schedule failed');
     assert.equal(el.attrs['data-traceId'], 'trace-abc');
+    assert.match(el.className, /\berror\b/);
     clearFetchError(el);
     assert.equal(el.hidden, true);
+    assert.equal(el.textContent, '');
     assert.equal(el.attrs['data-traceId'], undefined);
+    assert.doesNotMatch(el.className, /\berror\b/);
+  });
+});
+
+describe('queued auto-run empty red box must stay hidden', () => {
+  it('DevTools panel error nodes are not pre-classed as error', () => {
+    const html = read('panel/panel.html');
+    assert.match(html, /id="singleQueuedAutoRunError"[^>]*class="result"/);
+    assert.match(html, /id="batchQueuedAutoRunError"[^>]*class="result"/);
+    assert.doesNotMatch(html, /id="singleQueuedAutoRunError"[^>]*class="result error"/);
+    assert.doesNotMatch(html, /id="batchQueuedAutoRunError"[^>]*class="result error"/);
+  });
+
+  it('panel.css lets [hidden] win over .result.error display:block', () => {
+    const css = read('panel/panel.css');
+    assert.match(css, /\.result\[hidden\]\s*\{[^}]*display:\s*none\s*!important/);
   });
 });
 
@@ -131,6 +149,14 @@ describe('plugin surfaces wire queued auto-run', () => {
     const html = read('panel/panel.html');
     assert.match(html, /id="singleQueuedAutoRun"/);
     assert.match(html, /id="batchQueuedAutoRun"/);
+  });
+
+  it('panel refreshRepoBaseEditors fills per-repo branch datalists', () => {
+    const workspace = read('panel/lib/workspace.js');
+    const branches = read('panel/lib/branches.js');
+    assert.match(workspace, /populateRepoBaseBranchDatalists/);
+    assert.match(branches, /P\.populateRepoBaseBranchDatalists\s*=\s*async function/);
+    assert.match(branches, /getBranches/);
   });
 
   it('service worker handles getQueueSchedule', () => {

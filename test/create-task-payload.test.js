@@ -14,6 +14,9 @@ const {
   normalizeAssignees,
   buildRepoBaseEditorsHtml,
   shouldEnableDescReset,
+  parseRemoteBranchNames,
+  branchDatalistOptionsHtml,
+  repoBaseDatalistId,
   REPO_BASE_EMPTY_HINT,
 } = require('../lib/create-task-payload.js');
 
@@ -155,6 +158,41 @@ describe('repoBaseBranchKey / normalizeAssignees / buildRepoBaseEditorsHtml', ()
     assert.match(html, /data-repo-index="1"/);
     assert.match(html, /value="main"/);
     assert.match(html, /placeholder="develop"/);
+  });
+
+  it('buildRepoBaseEditorsHtml attaches datalist so repo branch dropdown appears', () => {
+    const html = buildRepoBaseEditorsHtml({
+      projectIds: ['p1'],
+      projectsList: [{
+        id: 'p1',
+        name: 'Demo',
+        git_repos: ['https://gitlab.example/a/b.git'],
+        default_branch: 'develop',
+      }],
+    });
+    const listId = repoBaseDatalistId('p1', 0);
+    assert.equal(listId, 'repo-base-list-p1-0');
+    assert.match(html, new RegExp(`list="${listId}"`));
+    assert.match(html, new RegExp(`<datalist id="${listId}"`));
+    assert.match(html, /<option value="develop">/);
+    assert.match(html, /<option value="main">/);
+  });
+
+  it('parseRemoteBranchNames unwraps string or {name} payloads without duplicates', () => {
+    assert.deepEqual(parseRemoteBranchNames({ branches: ['main', 'develop', 'main'] }), ['main', 'develop']);
+    assert.deepEqual(
+      parseRemoteBranchNames([{ name: 'feat/x' }, { branch_name: 'hotfix' }, 'feat/x']),
+      ['feat/x', 'hotfix'],
+    );
+    assert.deepEqual(parseRemoteBranchNames(null), []);
+  });
+
+  it('branchDatalistOptionsHtml always seeds develop/main then unique remotes', () => {
+    const html = branchDatalistOptionsHtml(['staging', 'main']);
+    assert.match(html, /value="develop"/);
+    assert.match(html, /value="main"/);
+    assert.match(html, /value="staging"/);
+    assert.equal((html.match(/value="main"/g) || []).length, 1);
   });
 
   it('empty project list uses single-project empty hint, not select-then-fill copy', () => {

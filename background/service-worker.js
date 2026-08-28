@@ -9,6 +9,7 @@
 importScripts(
   '../lib/storage.js',
   '../lib/create-task-git-identity.js',
+  '../lib/branch-datalist.js',
   '../lib/create-task-payload.js',
   '../lib/client-public-ip.js',
   '../lib/workspace-list.js',

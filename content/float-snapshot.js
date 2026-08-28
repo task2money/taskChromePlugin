@@ -105,6 +105,50 @@ async function loadBranchOptions(wsId, pids) {
   return options;
 }
 
+async function populateFloatRepoBaseDatalists() {
+  if (!repoBasesDiv || typeof CreateTaskPayload === 'undefined') return;
+  if (typeof CreateTaskPayload.parseRemoteBranchNames !== 'function'
+      || typeof CreateTaskPayload.branchDatalistOptionsHtml !== 'function') {
+    return;
+  }
+  const wsId = wsSelect?.value || '';
+  if (!wsId) return;
+  const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
+  const companyId = ws?.company_id || ws?.companyId;
+  if (!companyId) return;
+
+  const inputs = repoBasesDiv.querySelectorAll('[data-repo-base][data-project-id][list]');
+  for (const input of inputs) {
+    const projectId = input.getAttribute('data-project-id');
+    const repoIndex = Number(input.getAttribute('data-repo-index') || 0);
+    const listId = input.getAttribute('list');
+    const datalist = listId ? document.getElementById(listId) : null;
+    if (!datalist) continue;
+    const proj = projectsData.find((p) => String(p.id || p._id) === String(projectId));
+    const repos = Array.isArray(proj?.git_repos)
+      ? proj.git_repos.filter((u) => u && String(u).trim())
+      : [];
+    const repoUrl = repos[repoIndex];
+    if (!repoUrl) continue;
+    try {
+      const resp = await swApi('getBranches', {
+        companyId: String(companyId),
+        projectId,
+        repoUrl,
+      });
+      const names = CreateTaskPayload.parseRemoteBranchNames(resp);
+      datalist.innerHTML = CreateTaskPayload.branchDatalistOptionsHtml(names);
+    } catch (e) {
+      console.warn('[taskChromePlugin] float repo-base getBranches failed', {
+        projectId,
+        repoIndex,
+        message: e && e.message ? String(e.message) : 'unknown',
+        traceId: e && e.traceId ? String(e.traceId) : '',
+      });
+    }
+  }
+}
+
 function extractRepoLabel(url) {
   try {
     const u = new URL(url);
@@ -276,6 +320,7 @@ async function restoreOpenSnapshot(snap) {
       emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
     });
     refreshFloatGitIdentities();
+    populateFloatRepoBaseDatalists();
   }
 
   await fetchBranchesForFloatingPanel(wsId, pick ? [pick] : []);

@@ -261,6 +261,9 @@
       inputClass: 'form-input',
       emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
     });
+    if (typeof P.populateRepoBaseBranchDatalists === 'function') {
+      P.populateRepoBaseBranchDatalists(box, wsId);
+    }
     const identityId = repoContainerId === 'batchRepoBases' ? 'batchGitIdentities' : 'singleGitIdentities';
     const autoRunId = repoContainerId === 'batchRepoBases' ? 'batchAutoRun' : 'singleAutoRun';
     P.refreshGitIdentityEditors(identityId, projectsContainerId, wsId, autoRunId);

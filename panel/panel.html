@@ -169,7 +169,7 @@
               <span class="hint-inline" id="singleQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
             </span>
           </label>
-          <div id="singleQueuedAutoRunError" class="result error" hidden></div>
+          <div id="singleQueuedAutoRunError" class="result" hidden></div>
         </div>
         <div class="form-row" id="singleGitIdentities"></div>
         <div class="form-row">
@@ -298,7 +298,7 @@
               <span class="hint-inline" id="batchQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
             </span>
           </label>
-          <div id="batchQueuedAutoRunError" class="result error" hidden></div>
+          <div id="batchQueuedAutoRunError" class="result" hidden></div>
         </div>
         <div class="form-row" id="batchGitIdentities"></div>
         <div class="form-row">
@@ -375,6 +375,7 @@
   <script src="../lib/dom-trace.js"></script>
   <script src="../lib/capture-status.js"></script>
   <script src="../lib/create-task-git-identity.js"></script>
+  <script src="../lib/branch-datalist.js"></script>
   <script src="../lib/create-task-payload.js"></script>
   <script src="../lib/panel-request-bootstrap.js"></script>
   <script src="../lib/plugin-brand.js"></script>

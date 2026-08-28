@@ -191,6 +191,8 @@ label { display: block; font-size: 11px; color: #a6adc8; margin-bottom: 4px; }
 }
 .result.success { display: block; background: rgba(166, 227, 161, 0.15); color: #a6e3a1; border: 1px solid #a6e3a1; }
 .result.error { display: block; background: rgba(243, 139, 168, 0.15); color: #f38ba8; border: 1px solid #f38ba8; }
+/* .result.error 的 display:block 会盖过 HTML hidden；无文案时必须继续隐藏 */
+.result[hidden] { display: none !important; }
 
 /* === Status Text === */
 .status-text { font-size: 11px; color: #a6adc8; }

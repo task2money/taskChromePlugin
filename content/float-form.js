@@ -229,6 +229,7 @@ function refreshFloatRepoBases() {
     emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
   });
   refreshFloatGitIdentities();
+  populateFloatRepoBaseDatalists();
 }
 
 function renderAssignees() {

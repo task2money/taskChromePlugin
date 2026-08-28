@@ -42,6 +42,30 @@ describe('逐仓基准分支文案 — 单项目 + 空则用默认分支', () =>
     assert.doesNotMatch(content, /一个任务一个项目，按仓库填写/);
   });
 
+  it('浮窗选定项目后填充逐仓基准分支 datalist', () => {
+    const { readContentBundle } = require('./helpers/contentBundle.js');
+    const content = readContentBundle();
+    assert.match(content, /populateFloatRepoBaseDatalists/);
+    assert.match(content, /refreshFloatRepoBases/);
+  });
+
+  it('branch-datalist.js 在 payload 之前注入（panel / manifest / SW）', () => {
+    const html = read('panel/panel.html');
+    const man = JSON.parse(read('manifest.json'));
+    const sw = read('background/service-worker.js');
+    const scripts = man.content_scripts[0].js;
+    assert.ok(scripts.indexOf('lib/branch-datalist.js') >= 0);
+    assert.ok(scripts.indexOf('lib/branch-datalist.js') < scripts.indexOf('lib/create-task-payload.js'));
+    assert.ok(html.indexOf('branch-datalist.js') < html.indexOf('create-task-payload.js'));
+    assert.ok(sw.indexOf('branch-datalist.js') < sw.indexOf('create-task-payload.js'));
+  });
+
+  it('create-task-payload 不重复声明 const BranchDatalist（importScripts 同作用域）', () => {
+    const src = read('lib/create-task-payload.js');
+    assert.doesNotMatch(src, /const BranchDatalist\b/);
+    assert.match(src, /RepoBaseBranchDatalist/);
+  });
+
   it('DevTools 单请求/批量面板空态与浮窗同一语义', () => {
     const html = read('panel/panel.html');
     assert.match(html, new RegExp(UNIFIED_COPY));
