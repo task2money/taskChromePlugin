@@ -295,7 +295,11 @@
         message: Success.formatCreateSuccessMessage(Success.extractCreatedTaskId(r.data)),
       });
     } catch (e) {
-      P.showR('singleResult', 'error', `❌ 创建失败: ${e.message}`, e.traceId);
+      PanelCreateSuccess.runAfterFailure({
+        showError: (msg, traceId) => P.showR('singleResult', 'error', msg, traceId),
+        message: PanelCreateSuccess.formatCreateFailureMessage(e.message),
+        traceId: e.traceId,
+      });
     } finally { btn.disabled = false; btn.textContent = '✅ 创建任务'; }
   };
 })();

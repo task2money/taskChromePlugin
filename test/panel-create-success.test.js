@@ -62,6 +62,10 @@ describe('PanelCreateSuccess order', () => {
       PanelCreateSuccess.formatCreateSuccessMessage('t1'),
       '✅ 任务创建成功! ID: t1',
     );
+    assert.equal(
+      PanelCreateSuccess.formatCreateFailureMessage('网络超时'),
+      '❌ 创建失败: 网络超时',
+    );
   });
 
   it('runAfterSuccess resets form before showing the success message', () => {
@@ -83,6 +87,27 @@ describe('PanelCreateSuccess order', () => {
       reset: () => {},
       message: 'x',
     }), /showSuccess/);
+  });
+
+  it('runAfterFailure only shows the error and never resets', () => {
+    const order = [];
+    PanelCreateSuccess.runAfterFailure({
+      showError: (msg, traceId) => order.push(`error:${msg}:${traceId || ''}`),
+      message: '❌ 创建失败: boom',
+      traceId: 'tid-1',
+    });
+    assert.deepEqual(order, ['error:❌ 创建失败: boom:tid-1']);
+  });
+
+  it('runAfterFailure throws when showError is missing or reset is passed', () => {
+    assert.throws(() => PanelCreateSuccess.runAfterFailure({
+      message: 'x',
+    }), /showError/);
+    assert.throws(() => PanelCreateSuccess.runAfterFailure({
+      reset: () => {},
+      showError: () => {},
+      message: 'x',
+    }), /must not reset/);
   });
 });
 
@@ -134,6 +159,26 @@ describe('DevTools createSingleTask wires reset-then-success', () => {
       /showR\('singleResult', 'success'/,
       'must not show success before runAfterSuccess',
     );
+  });
+
+  it('single-request.js failure path only prompts and does not reset', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'panel/tabs/single-request.js'), 'utf8');
+    const fn = src.slice(src.indexOf('P.createSingleTask = async function'));
+    const tryAt = fn.indexOf('try {');
+    const catchAt = fn.indexOf('} catch');
+    const finallyAt = fn.indexOf('} finally');
+    assert.ok(tryAt >= 0 && catchAt > tryAt && finallyAt > catchAt);
+    assert.doesNotMatch(
+      fn.slice(0, tryAt),
+      /resetSingleCreateForm/,
+      'validation errors must not reset the form',
+    );
+    const catchFn = fn.slice(catchAt, finallyAt);
+    assert.match(catchFn, /runAfterFailure/);
+    assert.doesNotMatch(catchFn, /resetSingleCreateForm/);
+    assert.doesNotMatch(catchFn, /runAfterSuccess/);
+    assert.doesNotMatch(fn.slice(finallyAt), /resetSingleCreateForm/);
+    assert.match(catchFn, /showR\('singleResult', 'error'/);
   });
 
   it('panel.html loads panel-create-success.js before single-request.js', () => {

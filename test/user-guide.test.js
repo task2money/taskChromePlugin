@@ -108,6 +108,8 @@ describe('UserGuide sections', () => {
     assert.match(html, /再显示成功提示/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /先清空本次填写的选项/);
+    assert.match(html, /创建失败仅提示错误，不清空已填写的选项/);
+    assert.match(md, /创建失败仅提示错误，不清空已填写的选项/);
   });
 
   it('DevTools 使用说明不引导在面板里指针选择', () => {
