@@ -102,6 +102,15 @@ describe('UserGuide sections', () => {
     assert.match(html, /请求体/);
   });
 
+  it('devtools-single mentions type filter and column sort', () => {
+    const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(html, /XHR\/Doc\/JS\/CSS\/Img\/Other/);
+    assert.match(html, /点击列头/);
+    assert.match(md, /XHR\/Doc\/JS\/CSS\/Img\/Other/);
+    assert.match(md, /点击列头/);
+  });
+
   it('DevTools 创建成功后先清空选项再提示', () => {
     const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
     assert.match(html, /先清空本次填写的选项/);

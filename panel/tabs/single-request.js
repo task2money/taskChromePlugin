@@ -7,12 +7,28 @@
   const state = P.state;
 
   P.bindSingleTab = function () {
+    if (!state.requestSort) state.requestSort = { key: 'timestamp', dir: 'desc' };
+    if (state.requestTypeFilter == null) state.requestTypeFilter = '';
     P.$('#btnRefreshRequest').addEventListener('click', P.refreshRequestList);
     P.$('#btnClearRequestList')?.addEventListener('click', P.clearRequestList);
     // 搜索 & 过滤 — 实时过滤本地列表
     P.$('#requestSearch').addEventListener('input', P.applyRequestFilters);
     P.$('#requestMethodFilter').addEventListener('change', P.applyRequestFilters);
     P.$('#requestStatusFilter').addEventListener('change', P.applyRequestFilters);
+    P.$('#requestTypeFilters')?.addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-type]');
+      if (!btn) return;
+      state.requestTypeFilter = btn.getAttribute('data-type') || '';
+      P.syncTypeChips();
+      P.applyRequestFilters();
+    });
+    P.$$('.req-sort').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const Q = globalThis.RequestListQuery;
+        state.requestSort = Q.nextSortState(state.requestSort, btn.dataset.sort);
+        P.applyRequestFilters();
+      });
+    });
     P.$('#singleWorkspace').addEventListener('change', P.onSingleWorkspaceChange);
     P.$('#singleWorkBranch').addEventListener('change', () => P.handleBranchInputChange('singleWorkBranch', 'work', 'singleTaskTitle'));
     P.$('#singleMergeTarget').addEventListener('change', () => P.handleBranchInputChange('singleMergeTarget', 'merge'));
@@ -105,40 +121,47 @@
     P.applyRequestFilters();
   };
 
+  P.syncTypeChips = function () {
+    const selected = state.requestTypeFilter || '';
+    P.$$('#requestTypeFilters .type-chip').forEach((btn) => {
+      const on = (btn.getAttribute('data-type') || '') === selected;
+      btn.classList.toggle('active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+  };
+
+  P.syncSortHeaders = function () {
+    const sort = state.requestSort || { key: 'timestamp', dir: 'desc' };
+    P.$$('.req-sort').forEach((btn) => {
+      if (btn.dataset.sort === sort.key) {
+        btn.setAttribute('aria-sort', sort.dir === 'asc' ? 'ascending' : 'descending');
+      } else {
+        btn.removeAttribute('aria-sort');
+      }
+    });
+  };
+
   /**
-   * 前端实时过滤 — 按搜索文本 + 方法 + 状态码
+   * 前端实时过滤+排序 — 搜索 / 方法 / 状态 / 类型 + 列头
    */
   P.applyRequestFilters = function () {
     state.requestListBootstrapped = true;
-    const search = (P.$('#requestSearch')?.value || '').toLowerCase();
-    const method = P.$('#requestMethodFilter')?.value || '';
-    const status = P.$('#requestStatusFilter')?.value || '';
-
-    let filtered = state.recentRequests.filter((r) => {
-      // 搜索：匹配 URL 或方法或状态码
-      if (search) {
-        const url = (r.url || '').toLowerCase();
-        const m = (r.method || '').toLowerCase();
-        const sc = String(r.statusCode || '');
-        const canceledLabel = P.isRequestCanceled(r) ? 'canceled' : '';
-        if (!url.includes(search) && !m.includes(search) && !sc.includes(search) && !canceledLabel.includes(search)) {
-          return false;
-        }
-      }
-      // 方法过滤
-      if (method && r.method !== method) return false;
-      // 状态码过滤
-      if (status === 'canceled' && !P.isRequestCanceled(r)) return false;
-      if (status === '2xx' && !(r.statusCode >= 200 && r.statusCode < 300)) return false;
-      if (status === '3xx' && !(r.statusCode >= 300 && r.statusCode < 400)) return false;
-      if (status === '4xx' && !(r.statusCode >= 400 && r.statusCode < 500)) return false;
-      if (status === '5xx' && !(r.statusCode >= 500 && r.statusCode < 600)) return false;
-      return true;
+    const Q = (typeof window !== 'undefined' && window.RequestListQuery)
+      || (typeof globalThis !== 'undefined' && globalThis.RequestListQuery);
+    if (!Q || typeof Q.queryRequestList !== 'function') {
+      throw new Error('RequestListQuery.queryRequestList is required');
+    }
+    const sort = state.requestSort || { key: 'timestamp', dir: 'desc' };
+    const filtered = Q.queryRequestList(state.recentRequests, {
+      search: P.$('#requestSearch')?.value || '',
+      method: P.$('#requestMethodFilter')?.value || '',
+      status: P.$('#requestStatusFilter')?.value || '',
+      type: state.requestTypeFilter || '',
+      sortKey: sort.key,
+      sortDir: sort.dir,
     });
-
-    // 按时间倒序
-    filtered.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
+    P.syncTypeChips();
+    P.syncSortHeaders();
     P.renderRequestList(filtered.slice(0, 100));
     const countEl = P.$('#requestCount');
     if (countEl) countEl.textContent = `共 ${filtered.length} 条`;
@@ -163,11 +186,14 @@
       const statusLabel = P.formatRequestStatusLabel(req);
       const sel = state.selectedRequest?.id === req.id ? ' selected' : '';
       const urlShort = (req.url || '').length > 100 ? req.url.slice(0, 100) + '...' : req.url;
-      html += `<div class="request-item${sel}" data-id="${req.id}">
-        <span class="req-method ${req.method}">${req.method}</span>
-        <span class="req-status ${sc}">${statusLabel}</span>
+      const when = req.timestamp ? new Date(req.timestamp).toLocaleTimeString() : '';
+      const method = P.escHtml(req.method || '');
+      html += `<div class="request-item${sel}" data-id="${P.escHtml(req.id)}">
+        <span class="req-method ${method}">${method}</span>
+        <span class="req-status ${sc}">${P.escHtml(statusLabel)}</span>
         <span class="req-url" title="${P.escHtml(req.url)}">${P.escHtml(urlShort)}</span>
-        <span class="req-time">${req.time || '?'}ms</span>
+        <span class="req-time">${P.escHtml(String(req.time || '?'))}ms</span>
+        <span class="req-when">${P.escHtml(when)}</span>
       </div>`;
     }
     html += '</div>';

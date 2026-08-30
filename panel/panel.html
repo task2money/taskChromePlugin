@@ -43,6 +43,8 @@
             <option value="PUT">PUT</option>
             <option value="DELETE">DELETE</option>
             <option value="PATCH">PATCH</option>
+            <option value="OPTIONS">OPTIONS</option>
+            <option value="HEAD">HEAD</option>
           </select>
           <select id="requestStatusFilter" class="form-select search-select">
             <option value="">全部状态</option>
@@ -53,10 +55,28 @@
             <option value="canceled">Canceled 已取消</option>
           </select>
         </div>
+        <!-- Anti-Replay-OK: local view query only — type chips do not POST -->
+        <div id="requestTypeFilters" class="request-type-filters" role="group" aria-label="资源类型">
+          <button type="button" class="type-chip active" data-type="" aria-pressed="true">全部</button>
+          <button type="button" class="type-chip" data-type="xhr" aria-pressed="false">XHR</button>
+          <button type="button" class="type-chip" data-type="doc" aria-pressed="false">Doc</button>
+          <button type="button" class="type-chip" data-type="js" aria-pressed="false">JS</button>
+          <button type="button" class="type-chip" data-type="css" aria-pressed="false">CSS</button>
+          <button type="button" class="type-chip" data-type="img" aria-pressed="false">Img</button>
+          <button type="button" class="type-chip" data-type="other" aria-pressed="false">Other</button>
+        </div>
         <div class="btn-row">
           <button id="btnRefreshRequest" class="btn btn-sm">🔄 刷新列表</button>
           <button id="btnClearRequestList" class="btn btn-sm btn-danger" title="清空本面板与后台缓存的请求列表（不影响 Network 面板）">🗑️ 清空列表</button>
           <span id="requestCount" class="hint-inline"></span>
+        </div>
+        <!-- Anti-Replay-OK: local view query only — column headers sort in-memory list -->
+        <div class="request-list-header" role="row">
+          <button type="button" class="req-sort" data-sort="method">方法</button>
+          <button type="button" class="req-sort" data-sort="status">状态</button>
+          <button type="button" class="req-sort req-sort-url" data-sort="url">URL</button>
+          <button type="button" class="req-sort" data-sort="time">耗时</button>
+          <button type="button" class="req-sort" data-sort="timestamp" aria-sort="descending">时间</button>
         </div>
         <div id="selectedRequest" class="request-preview empty">
           <p class="placeholder">正在加载请求列表...</p>
@@ -383,6 +403,7 @@
   <script src="../lib/workspace-auto-schedule.js"></script>
   <script src="../lib/float-workspace-select.js"></script>
   <script src="../lib/request-task-desc.js"></script>
+  <script src="../lib/request-list-query.js"></script>
   <script src="../lib/hot-path-guards.js"></script>
   <script src="../lib/visibility-interval.js"></script>
   <script src="../lib/panel-create-success.js"></script>
