@@ -8,6 +8,8 @@ __pycache__/
 test-results/
 # 构建产物（watchdog/本地 build 生成）
 bin/
+# CRG 本地图（OPT-20260831-003）
+.code-review-graph/
 # Secret env files (meta gitignore parity — OPT-20260827-017)
 .env
 .env.*

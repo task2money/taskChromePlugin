@@ -115,6 +115,15 @@ describe('filterRequests', () => {
 });
 
 describe('sortRequests', () => {
+  it('popup capturedAt falls back as timestamp desc', () => {
+    const list = [
+      { id: 'old', capturedAt: 10, url: '/a', method: 'GET', statusCode: 200 },
+      { id: 'new', capturedAt: 90, url: '/b', method: 'GET', statusCode: 500 },
+    ];
+    const out = sortRequests(list, { key: 'timestamp', dir: 'desc' });
+    assert.deepEqual(out.map((r) => r.id), ['new', 'old']);
+  });
+
   it('T7 timestamp desc puts newer first', () => {
     const list = [
       req({ id: 'old', timestamp: 1 }),

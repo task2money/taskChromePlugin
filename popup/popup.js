@@ -96,6 +96,8 @@
     if (reqSearch) reqSearch.addEventListener('input', renderRequestList);
     const reqStatusFilter = $('#reqStatusFilter');
     if (reqStatusFilter) reqStatusFilter.addEventListener('change', renderRequestList);
+    const reqSort = $('#reqSort');
+    if (reqSort) reqSort.addEventListener('change', renderRequestList);
   }
 
   // ---- OAuth2+PKCE 登录（OPT-20260808-024）----
@@ -200,27 +202,14 @@
   }
 
   function renderRequestList() {
-    const search = ($('#reqSearch').value || '').toLowerCase();
-    const statusFilter = $('#reqStatusFilter').value;
-
-    let filtered = capturedRequests.filter(r => {
-      if (search) {
-        const url = (r.url || '').toLowerCase();
-        const m = (r.method || '').toLowerCase();
-        const sc = String(r.statusCode || '');
-        const canceledLabel = isRequestCanceled(r) ? 'canceled' : '';
-        if (!url.includes(search) && !m.includes(search) && !sc.includes(search) && !canceledLabel.includes(search)) return false;
-      }
-      if (statusFilter === 'canceled' && !isRequestCanceled(r)) return false;
-      if (statusFilter === '5xx' && !(r.statusCode >= 500 && r.statusCode < 600)) return false;
-      if (statusFilter === '4xx' && !(r.statusCode >= 400 && r.statusCode < 500)) return false;
-      if (statusFilter === '2xx' && !(r.statusCode >= 200 && r.statusCode < 300)) return false;
-      if (statusFilter === '3xx' && !(r.statusCode >= 300 && r.statusCode < 400)) return false;
-      return true;
-    });
-
-    filtered.sort((a, b) => (b.capturedAt || b.timeStamp || 0) - (a.capturedAt || a.timeStamp || 0));
-    const display = filtered.slice(0, 50);
+    const Q = globalThis.RequestListQuery;
+    const search = $('#reqSearch') ? ($('#reqSearch').value || '') : '';
+    const statusFilter = $('#reqStatusFilter') ? $('#reqStatusFilter').value : '';
+    const sortKey = $('#reqSort') ? ($('#reqSort').value || 'timestamp') : 'timestamp';
+    const sortDir = sortKey === 'url' ? 'asc' : 'desc';
+    const filtered = Q.filterRequests(capturedRequests, { search, status: statusFilter });
+    const sorted = Q.sortRequests(filtered, { key: sortKey, dir: sortDir });
+    const display = sorted.slice(0, 50);
     $('#requestCountBadge').textContent = `(${filtered.length} 条)`;
 
     const container = $('#requestList');
