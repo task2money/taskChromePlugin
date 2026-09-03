@@ -6,6 +6,13 @@
   const P = window.PanelApp;
   const state = P.state;
 
+  // OPT-20260903-013: 加载失败统一写 data-traceId（请求失败 UI 带 traceId 元规则）
+  P.setLoadError = function (el, html, err) {
+    if (!el) return;
+    el.innerHTML = html;
+    if (typeof setDataTraceId === 'function') setDataTraceId(el, err);
+  };
+
   P.loadMembers = async function (companyId, wsId) {
     const sel = P.$('#singleOwner');
     sel.innerHTML = '<option value="">加载中...</option>';
@@ -29,7 +36,7 @@
         sel.innerHTML = '<option value="">请重新登录</option>';
         return;
       }
-      sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
     }
   };
 
@@ -83,7 +90,7 @@
         sel.innerHTML = '<option value="">请重新登录</option>';
         return;
       }
-      sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
     }
   };
 
@@ -129,8 +136,7 @@
         if (typeof setDataTraceId === 'function') setDataTraceId(sel, e);
         return;
       }
-      sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
-      if (typeof setDataTraceId === 'function') setDataTraceId(sel, e);
+      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
     }
   };
 
@@ -311,7 +317,7 @@
         sel.innerHTML = '<option value="">请重新登录</option>';
         return;
       }
-      sel.innerHTML = `<option value="">加载失败: ${P.escHtml(e.message)}</option>`;
+      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
     }
   };
 
@@ -341,7 +347,7 @@
         sel.innerHTML = '<option value="">请重新登录</option>';
         return;
       }
-      sel.innerHTML = `<option value="">加载失败: ${P.escHtml(e.message)}</option>`;
+      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
     }
   };
 
@@ -360,7 +366,7 @@
       sel.innerHTML = h;
     } catch (e) {
       console.warn('[taskChromePlugin] loadPersonalFeatureParamsInto:', e.message);
-      sel.innerHTML = `<option value="">加载失败: ${P.escHtml(e.message)}</option>`;
+      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
     }
   };
 
@@ -391,7 +397,7 @@
         P.syncContainerAutoRun(containerId, false);
         return;
       }
-      c.innerHTML = `<p class="placeholder">加载失败: ${e.message}</p>`;
+      P.setLoadError(c, `<p class="placeholder">加载失败: ${P.escHtml(e.message)}</p>`, e);
       P.syncContainerAutoRun(containerId, false);
     }
   };
