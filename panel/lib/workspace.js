@@ -126,9 +126,11 @@
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
         sel.innerHTML = '<option value="">-- 请在扩展中重新登录 --</option>';
+        if (typeof setDataTraceId === 'function') setDataTraceId(sel, e);
         return;
       }
       sel.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+      if (typeof setDataTraceId === 'function') setDataTraceId(sel, e);
     }
   };
 

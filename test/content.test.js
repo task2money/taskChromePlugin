@@ -123,6 +123,16 @@ describe('content.js 角标已登录与工作空间下拉不得分裂', () => {
   });
 });
 
+describe('float-form loadWorkspaces 失败须带 data-traceId', () => {
+  it('catch 路径调用 setDataTraceId(wsSelect, e)', () => {
+    const form = fs.readFileSync(path.join(__dirname, '..', 'content', 'float-form.js'), 'utf8');
+    const catchIdx = form.indexOf('loadWorkspaces 失败');
+    assert.ok(catchIdx >= 0);
+    const slice = form.slice(catchIdx, catchIdx + 500);
+    assert.match(slice, /setDataTraceId\(wsSelect/);
+  });
+});
+
 describe('content 脚本行数门禁与注入顺序', () => {
   it('顶层 content/*.js 均 ≤500 行，且 content.js 最后注入', () => {
     const js = contentScriptJsFromManifest();

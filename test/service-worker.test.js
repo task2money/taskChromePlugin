@@ -116,3 +116,10 @@ test('chrome.alarms 权限正常时 SW 顶层执行不抛错且创建账号过�
     '应输出账号过期检测启动日志'
   );
 });
+
+test('账号过期探测 fetch 省略网页 Cookie', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const src = fs.readFileSync(path.join(__dirname, '..', 'background', 'sw-expiry.js'), 'utf8');
+  assert.match(src, /credentials:\s*['"]omit['"]/, 'checkAllAccountsForExpiry 不得带上网页 Cookie');
+});

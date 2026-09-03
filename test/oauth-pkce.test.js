@@ -107,6 +107,7 @@ describe('exchangeCodeForToken', () => {
 
     assert.equal(seenUrl, 'https://aidevpush.com/api/oidc/token');
     assert.equal(seenOpts.method, 'POST');
+    assert.equal(seenOpts.credentials, 'omit');
     assert.equal(seenOpts.headers['Content-Type'], 'application/json');
     assert.deepEqual(JSON.parse(seenOpts.body), {
       client_id: 'chrome-extension',
@@ -176,6 +177,7 @@ describe('refreshAccessToken', () => {
 
     assert.equal(seenUrl, 'https://aidevpush.com/api/oidc/token');
     assert.equal(seenOpts.method, 'POST');
+    assert.equal(seenOpts.credentials, 'omit');
     assert.deepEqual(JSON.parse(seenOpts.body), {
       client_id: 'chrome-extension',
       client_secret: OAuthPKCE.CLIENT_SECRET,
@@ -223,9 +225,11 @@ describe('fetchUserInfo', () => {
   it('GETs userinfo with Bearer token', async () => {
     let seenUrl = null;
     let seenHeaders = null;
+    let seenOpts = null;
     globalThis.fetch = async (url, opts) => {
       seenUrl = url;
       seenHeaders = opts.headers;
+      seenOpts = opts;
       return {
         ok: true,
         async json() {
@@ -238,6 +242,7 @@ describe('fetchUserInfo', () => {
     const user = await OAuthPKCE.fetchUserInfo('https://aidevpush.com', 'eyJ.token');
     assert.equal(seenUrl, 'https://aidevpush.com/api/oidc/userinfo');
     assert.equal(seenHeaders.Authorization, 'Bearer eyJ.token');
+    assert.equal(seenOpts.credentials, 'omit');
     assert.equal(user.sub, '9000000001');
   });
 });

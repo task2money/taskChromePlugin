@@ -79,3 +79,57 @@ describe('workspaceOptionLabels', () => {
     ]);
   });
 });
+
+describe('tenant membership denial vs plugin/web session mismatch', () => {
+  const {
+    isTenantMembershipDenied,
+    MEMBERSHIP_MISMATCH_HINT,
+    loadWorkspacesAcrossCompanies,
+  } = require('../lib/workspace-list.js');
+
+  it('detects 您不是该公司的成员 from API error text', () => {
+    assert.equal(isTenantMembershipDenied(new Error('您不是该公司的成员')), true);
+    assert.equal(isTenantMembershipDenied(new Error('API GET /x → 403: 您不是该公司的成员')), true);
+    assert.equal(isTenantMembershipDenied(new Error('network down')), false);
+  });
+
+  it('hint tells the user plugin login is independent of the website session', () => {
+    assert.match(MEMBERSHIP_MISMATCH_HINT, /您不是该公司的成员/);
+    assert.match(MEMBERSHIP_MISMATCH_HINT, /插件登录与网页登录是两套会话/);
+  });
+
+  it('skips a 403 membership company and keeps the next tenant workspaces', async () => {
+    const { merged, deniedCount } = await loadWorkspacesAcrossCompanies(
+      [
+        { id: 'co-web', name: 'WebsiteTenant' },
+        { id: 'co-plugin', name: 'PluginTenant' },
+      ],
+      async (cid) => {
+        if (cid === 'co-web') {
+          const err = new Error('您不是该公司的成员');
+          err.traceId = 'trace-denied-web';
+          throw err;
+        }
+        return [{ id: 'ws-ok', name: '用户的工作空间' }];
+      },
+    );
+    assert.equal(deniedCount, 1);
+    assert.equal(merged.length, 1);
+    assert.equal(merged[0].id, 'ws-ok');
+    assert.equal(merged[0].company_id, 'co-plugin');
+  });
+
+  it('returns deniedCount when every company is a membership 403', async () => {
+    const { merged, deniedCount, lastDeniedTraceId } = await loadWorkspacesAcrossCompanies(
+      [{ id: 'co1', name: 'A' }, { id: 'co2', name: 'B' }],
+      async () => {
+        const err = new Error('您不是该公司的成员');
+        err.traceId = 'trace-all-denied';
+        throw err;
+      },
+    );
+    assert.equal(merged.length, 0);
+    assert.equal(deniedCount, 2);
+    assert.equal(lastDeniedTraceId, 'trace-all-denied');
+  });
+});

@@ -284,4 +284,70 @@ describe('network fetch failure keeps client X-Trace-Id', () => {
       },
     );
   });
+
+  it('T11 API fetch omits website cookies so plugin JWT is not overridden', async () => {
+    let seenCreds = '';
+    globalThis.fetch = async (_url, opts) => {
+      seenCreds = opts.credentials;
+      return jsonOk([{ id: 'ws1', name: 'WS1' }]);
+    };
+    await API.getWorkspaces('co1');
+    assert.equal(seenCreds, 'omit');
+  });
+
+  it('T12 getWorkspaces skips a membership-403 company and keeps the rest', async () => {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/api/user/u1/accounts/users/me/')) {
+        return jsonOk({
+          id: 'u1',
+          companies: [
+            { id: 'co-web', name: 'WebsiteTenant' },
+            { id: 'co-plugin', name: 'PluginTenant' },
+          ],
+        });
+      }
+      if (u.includes('/tenant_id/co-web')) {
+        return {
+          ok: false,
+          status: 403,
+          json: async () => ({ error: '您不是该公司的成员' }),
+          text: async () => JSON.stringify({ error: '您不是该公司的成员' }),
+          headers: { get: (n) => (String(n).toLowerCase() === 'x-trace-id' ? 'tr-web' : '') },
+        };
+      }
+      if (u.includes('/tenant_id/co-plugin')) {
+        return jsonOk([{ id: 'ws-ok', name: '用户的工作空间' }]);
+      }
+      return { ok: false, status: 404, json: async () => ({}), text: async () => '', headers: { get: () => '' } };
+    };
+    const rows = await API.getWorkspaces();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].id, 'ws-ok');
+    assert.equal(rows[0].company_id, 'co-plugin');
+  });
+
+  it('T13 getWorkspaces all membership-403 → mismatch hint with traceId', async () => {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('/api/user/u1/accounts/users/me/')) {
+        return jsonOk({ id: 'u1', companies: [{ id: 'co1', name: 'Other' }] });
+      }
+      return {
+        ok: false,
+        status: 403,
+        json: async () => ({ error: '您不是该公司的成员' }),
+        text: async () => JSON.stringify({ error: '您不是该公司的成员' }),
+        headers: { get: (n) => (String(n).toLowerCase() === 'x-trace-id' ? 'tr-denied' : '') },
+      };
+    };
+    await assert.rejects(
+      () => API.getWorkspaces(),
+      (err) => {
+        assert.match(err.message, /插件登录与网页登录是两套会话/);
+        assert.equal(err.traceId, 'tr-denied');
+        return true;
+      },
+    );
+  });
 });

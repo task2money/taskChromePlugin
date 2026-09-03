@@ -57,6 +57,13 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(html, /Shift\+点击/);
   });
 
+  it('login 说明插件会话与网页登录互相独立', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /插件登录与网页登录是两套会话/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /插件登录与网页登录是两套会话/);
+  });
+
   it('float-create 说明包含同名工作空间按公司名区分', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /名称 · 公司名/);

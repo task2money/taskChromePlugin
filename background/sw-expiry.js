@@ -67,6 +67,7 @@ async function checkAllAccountsForExpiry() {
           'Authorization': `Token ${acct.token}`,
           'Accept': 'application/json',
         },
+        credentials: 'omit',
         signal: AbortSignal.timeout(10000),
       });
       if (resp.status === 401 || resp.status === 403) {

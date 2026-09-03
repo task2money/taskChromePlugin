@@ -28,8 +28,12 @@ async function loadWorkspaces() {
     await applyAidevMetaAfterWorkspacesLoaded();
   } catch (e) {
     console.warn('[taskChromePlugin] loadWorkspaces 失败:', e.message);
-    if (handleApiAuthFailure(e)) return;
+    if (handleApiAuthFailure(e)) {
+      if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
+      return;
+    }
     wsSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+    if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
   }
 }
 
@@ -196,6 +200,7 @@ async function loadProjects(wsId) {
     syncFloatAutoRun(false);
     if (handleApiAuthFailure(e)) return;
     projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">加载失败: ${e.message}</span>`;
+    if (typeof setDataTraceId === 'function') setDataTraceId(projectsDiv, e);
   }
 }
 
