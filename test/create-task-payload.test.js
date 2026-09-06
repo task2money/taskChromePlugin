@@ -234,12 +234,22 @@ describe('buildFeatureParamsFields', () => {
 });
 
 describe('validateCreateTaskForm', () => {
-  it('blocks when feature_params_source missing (work-panel gate)', () => {
+  it('allows missing feature_params_source when no container image (work-panel gate)', () => {
+    assert.equal(validateCreateTaskForm({
+      title: 't',
+      workspaceId: 'ws',
+      owner: 'o1',
+      projectIds: ['p1'],
+    }), '');
+  });
+
+  it('blocks when feature_params_source missing and container image is set', () => {
     const reason = validateCreateTaskForm({
       title: 't',
       workspaceId: 'ws',
       owner: 'o1',
       projectIds: ['p1'],
+      container_image_id: 'img-1',
     });
     assert.match(reason, /智能体资源配置/);
   });
