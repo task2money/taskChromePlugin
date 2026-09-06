@@ -73,7 +73,7 @@ describe('buildProjectsFromSelection', () => {
     ]);
   });
 
-  it('falls back to project default_branch then main when baseBranch empty', () => {
+  it('skips branch strategy when project has no repos (empty base/target)', () => {
     const projects = buildProjectsFromSelection({
       projectIds: ['p2'],
       projectsList: [{ id: 'p2', git_repos: [], default_branch: 'develop' }],
@@ -81,7 +81,7 @@ describe('buildProjectsFromSelection', () => {
       baseBranch: '',
     });
     assert.deepEqual(projects, [
-      { project_id: 'p2', repo_index: 0, base_branch: 'develop', target_branch: 'feature/y' },
+      { project_id: 'p2', repo_index: 0, base_branch: '', target_branch: '' },
     ]);
   });
 
