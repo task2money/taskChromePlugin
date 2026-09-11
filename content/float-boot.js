@@ -80,15 +80,15 @@ var pageToastTimer = null;
 var pickMode = false;
 /**
  * 快捷键兜底（页内 keydown）：chrome.commands 注册失败/被占用时，
- * 按键事件会穿透到页面，此监听保证 Cmd/Ctrl+Shift+X 依然可用。
+ * 按键事件会穿透到页面，此监听保证所选组合（默认 Alt+X）依然可用。
  * 与 chrome.commands 消息路径共享去抖，防止浏览器命令与 keydown 双触发。
  */
 var lastShortcutToggleAt = 0;
 var SHORTCUT_DEBOUNCE_MS = 300;
 /**
- * 页内兜底监听使用的快捷键组合串（如 'Ctrl+Shift+X' / 'Alt+Shift+E'）。
- * 由 Popup「快捷键」自定义配置决定，默认平台分派：mac ⌘+Shift+X / 其他 Ctrl+Shift+X
- * （Storage.getElementPickerShortcut；初始值取平台默认兜底 storage 读取失败路径）。
+ * 页内兜底监听使用的快捷键组合串（如 'Alt+X' / 'Ctrl+Shift+X' / 'Alt+Shift+E'）。
+ * 由 Popup「快捷键」自定义配置决定，默认统一 Alt+X
+ * （Storage.getElementPickerShortcut；初始值取默认兜底 storage 读取失败路径）。
  */
 var pickShortcutCombo = Storage.detectDefaultShortcut();
 var highlightedEls = [];

@@ -215,12 +215,12 @@ if (!__taskpluginFloatSkip) {
       root.style.setProperty('display', 'none', 'important');
     }
 
-    // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）
+    // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 Alt+X）
     try {
       pickShortcutCombo = await Storage.getElementPickerShortcut();
       renderShortcutHints();
       console.log('[taskChromePlugin] pick shortcut combo:', pickShortcutCombo);
-    } catch (_) { /* 保持平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X） */ }
+    } catch (_) { /* 保持默认 Alt+X */ }
 
     await restoreFloatBallPosition();
 

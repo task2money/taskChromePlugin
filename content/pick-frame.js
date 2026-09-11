@@ -11,15 +11,10 @@
   let pickMode = false;
   let highlightedEls = [];
   let pickSelection = [];
-  // 页内兜底快捷键组合串（与 content.js 同规则：默认平台分派 mac ⌘+Shift+X / 其他 Ctrl+Shift+X，
-  // Popup 可自定义）。子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底在子 frame
+  // 页内兜底快捷键组合串（与 content.js 同规则：默认 Alt+X，Popup 可自定义）。
+  // 子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底在子 frame
   // 聚焦时不触发（OPT-20260806-016）— 此处检测并转发 SW。
-  let pickShortcutCombo = (() => {
-    try {
-      const plat = String(navigator?.platform || navigator?.userAgent || '').toLowerCase();
-      return plat.includes('mac') ? 'Command+Shift+X' : 'Ctrl+Shift+X';
-    } catch { return 'Ctrl+Shift+X'; }
-  })();
+  let pickShortcutCombo = 'Alt+X';
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;
@@ -239,7 +234,7 @@
       const combo = v === 'cmd' ? 'Command+Shift+X' : v === 'ctrl' ? 'Ctrl+Shift+X' : v;
       if (combo.includes('+')) pickShortcutCombo = combo;
     });
-  } catch (_) { /* 保持平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X） */ }
+  } catch (_) { /* 保持默认 Alt+X */ }
 
   document.addEventListener('keydown', onShortcutKeyDown, true);
 

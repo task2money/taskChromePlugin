@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 快捷键 (Ctrl/⌘+Shift+X) 三层链路静态测试
+ * 快捷键 (默认 Alt+X) 三层链路静态测试
  *
  * 覆盖 chrome.commands 注册 → SW 转发 → content script 处理的完整链路，
  * 以及「页内 keydown 兜底」修复（chrome.commands 注册失败时保证快捷键仍可用）。
@@ -16,7 +16,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const COMMAND_NAME = 'toggle-element-picker';
 const MESSAGE_ACTION = 'toggleElementPick';
-const SHORTCUT_KEY_HINT = 'Ctrl+Shift+X';
+const SHORTCUT_KEY_HINT = 'Alt+X';
 
 function read(rel) {
   return fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -35,13 +35,12 @@ const userGuideMd = read('docs/USER_GUIDE.md');
 const userGuideJs = read('lib/user-guide.js');
 
 describe('键盘快捷键三层链路', () => {
-  it('manifest 注册 toggle-element-picker 命令及建议键位（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）', () => {
+  it('manifest 注册 toggle-element-picker 命令及建议键位（默认 Alt+X）', () => {
     assert.ok(manifest.commands, 'manifest.commands 缺失');
     const cmd = manifest.commands[COMMAND_NAME];
     assert.ok(cmd, `manifest.commands 缺少 ${COMMAND_NAME}`);
     assert.equal(cmd.suggested_key.default, SHORTCUT_KEY_HINT);
-    // Command 修饰键仅 macOS 有效；mac 默认 ⌘+Shift+X（用户要求），其他平台 Ctrl+Shift+X
-    assert.equal(cmd.suggested_key.mac, 'Command+Shift+X');
+    assert.equal(cmd.suggested_key.mac, 'Alt+X');
     assert.ok(cmd.description);
   });
 
@@ -58,9 +57,9 @@ describe('键盘快捷键三层链路', () => {
     );
   });
 
-  it('popup 静态键位锚点为平台中立，默认组合文案按平台注明（mac ⌘ / 其他 Ctrl）', () => {
-    assert.ok(popupHtml.includes('⌘/Ctrl+Shift+X'), '静态 kbd 应为平台中立 ⌘/Ctrl+Shift+X（JS 按平台渲染）');
-    assert.match(popupHtml, /默认 Mac 为 ⌘\+Shift\+X、其他系统为 Ctrl\+Shift\+X/, 'popup 说明应注明平台默认差异');
+  it('popup 静态键位锚点与说明为默认 Alt+X', () => {
+    assert.ok(popupHtml.includes('Alt+X'), '静态 kbd / 文案应含默认 Alt+X');
+    assert.match(popupHtml, /默认 Alt\+X/, 'popup 说明应注明默认 Alt+X');
   });
 
   it('service-worker 注册 onCommand 并转发 toggleElementPick 到活动 tab', () => {
@@ -81,7 +80,7 @@ describe('键盘快捷键三层链路', () => {
       /document\.addEventListener\('keydown', onShortcutKeyDown, true\)/.test(content),
       '兜底 keydown 监听未以捕获阶段注册到 document',
     );
-    // 组合串模型（默认 Ctrl+Shift+X，Popup 可自定义任意组合），严格匹配由 Storage.matchShortcutKeydown 承担
+    // 组合串模型（默认 Alt+X，Popup 可自定义任意组合），严格匹配由 Storage.matchShortcutKeydown 承担
     assert.ok(content.includes('pickShortcutCombo'), '缺少快捷键组合串变量');
     assert.match(
       content,
@@ -146,7 +145,7 @@ describe('键盘快捷键三层链路', () => {
     assert.ok(popupHtml.includes('id="pickShortcutResult"'), 'popup.html 缺少结果提示');
     assert.ok(popupHtml.includes('id="pickShortcutKey"'), '缺少快捷键列表键位锚点');
     assert.ok(popupHtml.includes('id="pickShortcutHintKey"'), '缺少 hint 键位锚点');
-    assert.ok(popupHtml.includes('Ctrl+Shift+X'), '默认组合未出现在 popup.html');
+    assert.ok(popupHtml.includes('Alt+X'), '默认组合未出现在 popup.html');
     // 按键捕获 + 提交（经 SW chrome.commands.update 改绑）
     assert.ok(popupJs.includes('startShortcutCapture'), 'popup.js 缺少按键捕获入口');
     assert.ok(popupJs.includes('commitShortcut'), 'popup.js 缺少快捷键提交函数');
@@ -180,13 +179,13 @@ describe('键盘快捷键三层链路', () => {
   it('storage.js 提供快捷键组合串模型（默认/迁移/校验/匹配）', () => {
     const storage = read('lib/storage.js');
     assert.ok(storage.includes('SHORTCUT_DEFAULT'), 'storage.js 缺少默认快捷键常量');
-    assert.match(storage, /'Ctrl\+Shift\+X'/, '默认快捷键应为 Ctrl+Shift+X');
+    assert.match(storage, /get SHORTCUT_DEFAULT\(\) \{ return 'Alt\+X'; \}/, '默认快捷键应为 Alt+X');
     assert.ok(storage.includes('normalizeShortcut'), '缺少组合校验函数');
     assert.ok(storage.includes('matchShortcutKeydown'), '缺少 keydown 严格匹配');
     assert.ok(storage.includes('shortcutToPlatformBinding'), '缺少平台绑定转换');
-    // 旧版 cmd/ctrl 迁移保留
+    // 旧版 cmd/ctrl 迁移保留（历史值，≠ 当前默认）
     assert.match(storage, /if \(v === 'cmd'\) return 'Command\+Shift\+X'/, '缺少旧版 cmd 迁移');
-    assert.match(storage, /if \(v === 'ctrl'\) return this\.SHORTCUT_DEFAULT/, '缺少旧版 ctrl 迁移');
+    assert.match(storage, /if \(v === 'ctrl'\) return 'Ctrl\+Shift\+X'/, '缺少旧版 ctrl 迁移');
   });
 
   it('文档说明快捷键无效时的排查路径', () => {

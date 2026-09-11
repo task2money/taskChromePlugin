@@ -141,11 +141,11 @@ describe('UserGuide sections', () => {
     assert.equal(UserGuide.escapeHtml('<script>'), '&lt;script&gt;');
   });
 
-  it('快捷键说明按用户自定义的组合动态插值（默认 Ctrl+Shift+X）', () => {
-    // 默认（未选择）→ Ctrl+Shift+X 文案
+  it('快捷键说明按用户自定义的组合动态插值（默认 Alt+X）', () => {
+    // 默认（未选择）→ Alt+X 文案
     UserGuide.setShortcutMode('');
     const generic = UserGuide.renderCollapsibleHtml({ surface: 'popup' });
-    assert.match(generic, /Ctrl\+Shift\+X/);
+    assert.match(generic, /Alt\+X/);
 
     // 旧版 'cmd' 迁移 → Command+Shift+X
     UserGuide.setShortcutMode('cmd');
@@ -162,10 +162,10 @@ describe('UserGuide sections', () => {
     const customHtml = UserGuide.renderCollapsibleHtml({ surface: 'popup' });
     assert.match(customHtml, /Alt\+Shift\+E：切换指针选择模式/);
 
-    // 非法值忽略，回退默认 Ctrl+Shift+X 文案
+    // 非法值忽略，回退默认 Alt+X 文案
     UserGuide.setShortcutMode('weird');
     const fallback = UserGuide.renderCollapsibleHtml({ surface: 'float' });
-    assert.match(fallback, /Ctrl\+Shift\+X/);
+    assert.match(fallback, /Alt\+X/);
     UserGuide.setShortcutMode('');
   });
 });

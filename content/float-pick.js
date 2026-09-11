@@ -438,7 +438,7 @@ function togglePickModeFromShortcut() {
 }
 
 /**
- * 页内 keydown 兜底：严格匹配用户自定义的组合串（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X）。
+ * 页内 keydown 兜底：严格匹配用户自定义的组合串（默认 Alt+X）。
  * Storage.matchShortcutKeydown 规则：组合中列出的修饰键必须按下、未列出的不得按下，
  * 与浏览器级键位（chrome.commands.update）行为一致。
  */

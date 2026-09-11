@@ -63,12 +63,12 @@ describe('content.js 元素拾取快捷键提示语（平台默认分派）', ()
     assert.match(
       contentJs,
       /pickShortcutCombo \|\| Storage\.detectDefaultShortcut\(\)/,
-      'hint 文案兜底应平台分派，而非硬编码 Ctrl+Shift+X',
+      'hint 文案兜底应走 detectDefaultShortcut，而非硬编码旧默认',
     );
     assert.match(
       contentJs,
       /var pickShortcutCombo = Storage\.detectDefaultShortcut\(\)/,
-      '页内兜底初始组合应取平台默认（mac ⌘+Shift+X / 其他 Ctrl+Shift+X）',
+      '页内兜底初始组合应取 detectDefaultShortcut（默认 Alt+X）',
     );
   });
 });

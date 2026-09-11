@@ -15,7 +15,7 @@
 
 | ID | 标准 |
 |----|------|
-| S1 | Popup「快捷键」支持捕获任意合法组合串（须含 Ctrl/Alt/Command，可选 Shift，一个按键），默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X |
+| S1 | Popup「快捷键」支持捕获任意合法组合串（须含 Ctrl/Alt/Command，可选 Shift，一个按键），默认统一 `Alt+X` |
 | S2 | 页内 keydown 兜底严格匹配组合串：列出的修饰键必须按下、未列出的不得按下（与浏览器级键位规则一致） |
 | S3 | 实时生效：SW 经 `chrome.commands.update` 改绑浏览器级键位（Chrome 110+；旧浏览器降级为仅页内兜底）+ 持久化 + 广播；content 双通道（消息 + storage.onChanged）即时更新 |
 | S4 | Popup 静态键位展示跟随组合动态渲染；与 `chrome://extensions/shortcuts` 实际绑定存在差异时展示提示与「恢复」入口（OPT-20260806-048） |
@@ -29,10 +29,22 @@
 | 浏览器级改绑 | `chrome.commands.update({ name: 'toggle-element-picker', shortcut: binding })`（Chrome 110+）；mac 下 `Ctrl` 修饰键经 `shortcutToPlatformBinding` 转 `MacCtrl`；改绑失败（占用冲突）错误原样回显 Popup |
 | 旧浏览器降级 | < Chrome 110 无 commands.update：仅持久化 + 页内兜底生效，Popup 提示 |
 | 手动改绑防护 | SW **不做启动重绑**（避免覆盖 chrome://extensions/shortcuts 手动设置）；Popup 打开时经 `getElementPickerShortcutStatus`（commands.getAll 对比）展示差异提示，可一键恢复（OPT-20260806-048） |
-| 配置存储 | `elementPickerShortcut` key（组合串）；旧值 'cmd'/'ctrl' 自动迁移；未设置回退平台默认（mac Command+Shift+X / 其他 Ctrl+Shift+X） |
+| 配置存储 | `elementPickerShortcut` key（组合串）；旧值 'cmd'/'ctrl' 自动迁移；未设置回退统一默认 `Alt+X`（2026-09-11：原 mac Command+Shift+X / 其他 Ctrl+Shift+X；冲突核查见下文） |
 | 严格匹配 | 页内 keydown 兜底 `Storage.matchShortcutKeydown`：串中修饰键必须按下、未列出的不得按下，与浏览器级键位行为一致；与浏览器命令路径共享 300ms 去抖 |
 | 实时生效 | Popup 保存 → SW 改绑 + 广播 `setElementPickerShortcut` + storage 持久化；content 双通道（消息 + storage.onChanged）兜底（新开标签页 / 广播失败） |
-| 版本 | 1.7.2 → 1.8.0，description 追加快捷键自定义说明 |
+| 版本 | 1.7.2 → 1.8.0，description 追加快捷键自定义说明；默认键 2026-09-11 改为 Alt+X（v1.8.27） |
+
+## Alt+X 默认键冲突核查（2026-09-11）
+
+| 来源 | 键位 | 与 Alt+X |
+|------|------|----------|
+| Chrome 官方快捷键表 | Alt+F/E/D/Home/←/→ 等 | **无冲突**（无 Alt+X） |
+| Chrome Tab Groups（M139+） | Alt+Shift+X（下一分组） | **无冲突**（多 Shift） |
+| Windows 窗口菜单 | Alt+Space 再按 X（最大化，序列） | **无冲突** |
+| Chrome 菜单「退出」 | Alt+F 再按 X（序列） | **无冲突** |
+| macOS Option+X | 部分输入法下插入 ≈ | 软注意：页内兜底在文本框聚焦时可能与字符输入竞态；浏览器级 `chrome.commands` 仍可拦截 |
+
+结论：无硬保留冲突 → 默认改为全平台 `Alt+X`。
 
 ## 架构
 

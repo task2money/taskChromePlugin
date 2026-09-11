@@ -68,7 +68,7 @@
       <div id="shortcutsBody" style="display:none">
         <div class="shortcuts-list">
           <div class="shortcut-item">
-            <kbd id="pickShortcutKey">⌘/Ctrl+Shift+X</kbd>
+            <kbd id="pickShortcutKey">Alt+X</kbd>
             <span class="shortcut-desc">切换指针选择模式</span>
           </div>
           <div class="shortcut-item">
@@ -89,22 +89,22 @@
           </div>
         </div>
 
-        <!-- 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X；浏览器级经 chrome.commands.update 改绑，页内兜底跟随） -->
+        <!-- 元素拾取快捷键自定义（默认 Alt+X；浏览器级经 chrome.commands.update 改绑，页内兜底跟随） -->
         <div class="shortcut-choice">
           <p class="shortcut-choice-title">🎯 唤起元素拾取：</p>
           <div class="shortcut-custom-row">
-            <kbd id="pickShortcutCustomKey">⌘/Ctrl+Shift+X</kbd>
+            <kbd id="pickShortcutCustomKey">Alt+X</kbd>
             <button id="btnPickShortcutEdit" class="btn btn-sm">✏️ 修改</button>
             <button id="btnPickShortcutReset" class="btn btn-sm" title="恢复默认快捷键">↩️ 恢复默认</button>
           </div>
           <p id="pickShortcutCaptureHint" class="shortcut-choice-note" style="display:none">请按下新的快捷键组合（须包含 Ctrl/Alt/Command，可选 Shift）… 按 <kbd>Esc</kbd> 取消</p>
           <p id="pickShortcutResult" class="shortcut-choice-note"></p>
           <p id="pickShortcutDiffHint" class="shortcut-choice-note err" style="display:none"></p>
-          <p class="shortcut-choice-note">💡 默认 Mac 为 ⌘+Shift+X、其他系统为 Ctrl+Shift+X（Chrome 限制 ⌘ 仅 macOS 可用）。修改后浏览器级键位与页内兜底监听同步生效；若键位被其他扩展占用会提示更换。</p>
+          <p class="shortcut-choice-note">💡 默认 Alt+X（全平台统一；Chrome 官方快捷键无占用，Tab Groups 占用的是 Alt+Shift+X）。修改后浏览器级键位与页内兜底监听同步生效；若键位被其他扩展占用会提示更换。</p>
         </div>
 
-        <p class="shortcuts-hint">💡 在任意页面按 <kbd id="pickShortcutHintKey">⌘/Ctrl+Shift+X</kbd> 即可进入指针选择模式，选取元素加入任务描述。</p>
-        <p class="shortcuts-hint" style="margin-top:2px">⚠️ 快捷键无效？<a href="#" id="taskplugin-shortcut-settings">点此检查 chrome://extensions/shortcuts 中的键位绑定</a>（默认 Mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可能被其他扩展占用）。</p>
+        <p class="shortcuts-hint">💡 在任意页面按 <kbd id="pickShortcutHintKey">Alt+X</kbd> 即可进入指针选择模式，选取元素加入任务描述。</p>
+        <p class="shortcuts-hint" style="margin-top:2px">⚠️ 快捷键无效？<a href="#" id="taskplugin-shortcut-settings">点此检查 chrome://extensions/shortcuts 中的键位绑定</a>（默认 Alt+X，可能被其他扩展占用）。</p>
       </div>
     </section>
 

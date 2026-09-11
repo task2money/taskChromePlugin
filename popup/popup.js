@@ -72,7 +72,7 @@
       });
     }
 
-    // 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可改任意组合）
+    // 元素拾取快捷键自定义（默认 Alt+X，可改任意组合）
     const btnPickShortcutEdit = $('#btnPickShortcutEdit');
     if (btnPickShortcutEdit) btnPickShortcutEdit.addEventListener('click', startShortcutCapture);
     const btnPickShortcutReset = $('#btnPickShortcutReset');

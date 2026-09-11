@@ -1,5 +1,5 @@
 /** Popup 元素拾取快捷键 + OAuth 登录/登出（OPT-20260821-004 split）. */
-  // ---- 元素拾取快捷键自定义（默认 mac ⌘+Shift+X / 其他 Ctrl+Shift+X，可改任意组合）----
+  // ---- 元素拾取快捷键自定义（默认 Alt+X，可改任意组合）----
 
   /** 事件键名 → Chrome 命令键名（ArrowUp→Up、,→Comma、.→Period、空格→Space） */
   function eventKeyToShortcutName(e) {
@@ -99,7 +99,7 @@
     }
   }
 
-  /** 恢复默认（mac ⌘+Shift+X / 其他平台 Ctrl+Shift+X） */
+  /** 恢复默认（Alt+X） */
   async function resetShortcut() {
     showShortcutResult('', '');
     await commitShortcut(Storage.detectDefaultShortcut());

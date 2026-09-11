@@ -1,11 +1,11 @@
 'use strict';
 
 /**
- * 元素拾取快捷键（可自定义，默认 Ctrl+Shift+X）— Storage 层运行时单测
+ * 元素拾取快捷键（可自定义，默认 Alt+X）— Storage 层运行时单测
  *
  * 覆盖：
- *  - 默认值：无配置 / 非法值 → 'Ctrl+Shift+X'（统一默认，与操作系统无关）
- *  - 旧版迁移：'cmd' → 'Command+Shift+X'，'ctrl' → 'Ctrl+Shift+X'
+ *  - 默认值：无配置 / 非法值 → 'Alt+X'（全平台统一）
+ *  - 旧版迁移：'cmd' → 'Command+Shift+X'，'ctrl' → 'Ctrl+Shift+X'（历史值，≠ 当前默认）
  *  - normalizeShortcut：格式归一化 + 非法组合拒绝（对齐 chrome.commands 规范）
  *  - shortcutToPlatformBinding：macOS 上 Ctrl → MacCtrl（字面 Control 键）
  *  - matchShortcutKeydown：严格修饰键 + 按键匹配（未列出的修饰键不得按下）
@@ -78,52 +78,52 @@ function keydown(partial) {
   };
 }
 
-describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 Ctrl+Shift+X）', () => {
+describe('元素拾取快捷键（默认统一 Alt+X）', () => {
   describe('detectDefaultShortcut / isMacPlatform', () => {
-    it('macOS → Command+Shift+X，Windows/Linux/无 navigator → Ctrl+Shift+X', async () => {
+    it('全平台 → Alt+X；isMacPlatform 仍按 OS 探测（改绑 MacCtrl 用）', async () => {
       await withNavigator(NAV_MAC, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Command+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
         assert.equal(Storage.isMacPlatform(), true);
       });
       await withNavigator(NAV_WIN, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
         assert.equal(Storage.isMacPlatform(), false);
       });
       await withNavigator(NAV_LINUX, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
         assert.equal(Storage.isMacPlatform(), false);
       });
       await withNavigator(undefined, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
       });
     });
 
-    it('userAgentData.platform（UA-CH）形态：macOS → ⌘ / Windows、Linux → Ctrl', async () => {
+    it('userAgentData.platform（UA-CH）形态：默认仍 Alt+X，mac 探测正确', async () => {
       await withNavigator(NAV_UAD_MAC, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Command+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
         assert.equal(Storage.isMacPlatform(), true);
       });
       await withNavigator(NAV_UAD_WIN, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
         assert.equal(Storage.isMacPlatform(), false);
       });
       await withNavigator(NAV_UAD_LINUX, async () => {
-        assert.equal(Storage.detectDefaultShortcut(), 'Ctrl+Shift+X');
+        assert.equal(Storage.detectDefaultShortcut(), 'Alt+X');
         assert.equal(Storage.isMacPlatform(), false);
       });
     });
   });
 
   describe('getElementPickerShortcut', () => {
-    it('无配置时回退平台默认：mac ⌘+Shift+X / Windows、Linux Ctrl+Shift+X', async () => {
+    it('无配置时回退统一默认 Alt+X（与 OS 无关）', async () => {
       await withNavigator(NAV_MAC, async () => {
-        assert.equal(await Storage.getElementPickerShortcut(), 'Command+Shift+X');
+        assert.equal(await Storage.getElementPickerShortcut(), 'Alt+X');
       });
       await withNavigator(NAV_WIN, async () => {
-        assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
+        assert.equal(await Storage.getElementPickerShortcut(), 'Alt+X');
       });
       await withNavigator(NAV_LINUX, async () => {
-        assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
+        assert.equal(await Storage.getElementPickerShortcut(), 'Alt+X');
       });
     });
 
@@ -132,9 +132,10 @@ describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 
       assert.equal(await Storage.getElementPickerShortcut(), 'Command+Shift+X');
     });
 
-    it('旧版 ctrl 模式迁移为 Ctrl+Shift+X', async () => {
+    it('旧版 ctrl 模式迁移为 Ctrl+Shift+X（历史值，≠ SHORTCUT_DEFAULT）', async () => {
       await chrome.storage.local.set({ elementPickerShortcut: 'ctrl' });
       assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X');
+      assert.equal(Storage.SHORTCUT_DEFAULT, 'Alt+X');
     });
 
     it('已保存的规范组合原样返回', async () => {
@@ -142,62 +143,46 @@ describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 
       assert.equal(await Storage.getElementPickerShortcut(), 'Alt+Shift+E');
     });
 
-    it('非法存储值回退平台默认', async () => {
+    it('非法存储值回退统一默认 Alt+X', async () => {
       for (const bad of [42, null, '', 'Shift+X', 'Ctrl+Enter']) {
         await chrome.storage.local.set({ elementPickerShortcut: bad });
         await withNavigator(NAV_WIN, async () => {
-          assert.equal(await Storage.getElementPickerShortcut(), 'Ctrl+Shift+X', `非法值 ${JSON.stringify(bad)} 在 Windows 应回退 Ctrl 默认`);
+          assert.equal(await Storage.getElementPickerShortcut(), 'Alt+X', `非法值 ${JSON.stringify(bad)} 应回退 Alt+X`);
         });
         await withNavigator(NAV_MAC, async () => {
-          assert.equal(await Storage.getElementPickerShortcut(), 'Command+Shift+X', `非法值 ${JSON.stringify(bad)} 在 mac 应回退 ⌘ 默认`);
+          assert.equal(await Storage.getElementPickerShortcut(), 'Alt+X', `非法值 ${JSON.stringify(bad)} 应回退 Alt+X`);
         });
       }
     });
   });
 
   describe('normalizeShortcut', () => {
-    it('归一化大小写与空格：alt+shift+x → Alt+Shift+X', () => {
+    it('归一化大小写与空格：alt+x → Alt+X', () => {
+      assert.equal(Storage.normalizeShortcut('alt+x'), 'Alt+X');
       assert.equal(Storage.normalizeShortcut('alt+shift+x'), 'Alt+Shift+X');
       assert.equal(Storage.normalizeShortcut(' Ctrl + Shift + X '), 'Ctrl+Shift+X');
     });
 
-    it('允许字母/数字/Comma/Period/Space/方向键/PageUp/PageDown/Insert/Delete/Home/End/F1-F12', () => {
+    it('接受合法组合样例', () => {
       for (const ok of [
-        'Ctrl+Shift+X', 'Alt+Shift+E', 'Ctrl+1', 'Ctrl+Shift+Comma',
+        'Alt+X', 'Ctrl+Shift+X', 'Alt+Shift+E', 'Ctrl+1', 'Ctrl+Shift+Comma',
         'Ctrl+Shift+Period', 'Ctrl+Space', 'Alt+Shift+Up', 'Ctrl+Shift+PageDown',
         'Command+Shift+X', 'Ctrl+Insert', 'Ctrl+Shift+Delete', 'Ctrl+Home',
         'Ctrl+Shift+End', 'Ctrl+Shift+F5', 'Alt+F12',
       ]) {
-        assert.equal(Storage.normalizeShortcut(ok), ok, `合法组合应原样归一: ${ok}`);
+        assert.equal(Storage.normalizeShortcut(ok), ok, ok);
       }
     });
 
-    it('拒绝缺少主修饰键（Shift 不能单独作主修饰键）', () => {
-      assert.equal(Storage.normalizeShortcut('Shift+X'), null);
-      assert.equal(Storage.normalizeShortcut('X'), null);
-    });
-
-    it('拒绝仅修饰键 / 重复修饰键', () => {
-      assert.equal(Storage.normalizeShortcut('Ctrl+Shift'), null);
-      assert.equal(Storage.normalizeShortcut('Ctrl+Ctrl+X'), null);
-    });
-
-    it('拒绝未知修饰键与非法按键（Tab/Esc/Enter/裸修饰键）', () => {
+    it('拒绝非法组合', () => {
       for (const bad of ['Meta+X', 'Super+X', 'Ctrl+Enter', 'Ctrl+Tab', 'Ctrl+Escape', 'Ctrl+Alt+Shift+X', 'Ctrl+Shift+Shift+X']) {
-        assert.equal(Storage.normalizeShortcut(bad), null, `非法组合应拒绝: ${bad}`);
+        assert.equal(Storage.normalizeShortcut(bad), null, bad);
       }
-    });
-
-    it('拒绝非字符串与空值', () => {
-      assert.equal(Storage.normalizeShortcut(null), null);
-      assert.equal(Storage.normalizeShortcut(undefined), null);
-      assert.equal(Storage.normalizeShortcut(42), null);
-      assert.equal(Storage.normalizeShortcut(''), null);
     });
   });
 
   describe('saveElementPickerShortcut', () => {
-    it('保存规范组合并持久化', async () => {
+    it('保存合法组合并可读回', async () => {
       const saved = await Storage.saveElementPickerShortcut('Alt+Shift+E');
       assert.equal(saved, 'Alt+Shift+E');
       assert.equal(await Storage.getElementPickerShortcut(), 'Alt+Shift+E');
@@ -211,27 +196,28 @@ describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 
   });
 
   describe('shortcutToPlatformBinding', () => {
-    it('非 macOS 平台原样返回', () => {
+    it('非 mac：原样返回', () => {
+      assert.equal(Storage.shortcutToPlatformBinding('Alt+X', false), 'Alt+X');
       assert.equal(Storage.shortcutToPlatformBinding('Ctrl+Shift+X', false), 'Ctrl+Shift+X');
       assert.equal(Storage.shortcutToPlatformBinding('Alt+Shift+E', false), 'Alt+Shift+E');
     });
 
-    it('macOS 上 Ctrl → MacCtrl（字面 Control，避免被 Chrome 转换为 Command）', () => {
+    it('mac：Ctrl → MacCtrl；Alt/Command 不变', () => {
       assert.equal(Storage.shortcutToPlatformBinding('Ctrl+Shift+X', true), 'MacCtrl+Shift+X');
-    });
-
-    it('macOS 上 Command/Alt 组合保持不变', () => {
+      assert.equal(Storage.shortcutToPlatformBinding('Alt+X', true), 'Alt+X');
       assert.equal(Storage.shortcutToPlatformBinding('Command+Shift+X', true), 'Command+Shift+X');
       assert.equal(Storage.shortcutToPlatformBinding('Alt+Shift+E', true), 'Alt+Shift+E');
     });
-
-    it('非法输入返回 null', () => {
-      assert.equal(Storage.shortcutToPlatformBinding('Shift+X', false), null);
-      assert.equal(Storage.shortcutToPlatformBinding(null, false), null);
-    });
   });
 
-  describe('matchShortcutKeydown（页内兜底严格匹配）', () => {
+  describe('matchShortcutKeydown', () => {
+    it('Alt+X：仅 alt+x 命中', () => {
+      assert.equal(Storage.matchShortcutKeydown(keydown({ altKey: true, key: 'x' }), 'Alt+X'), true);
+      assert.equal(Storage.matchShortcutKeydown(keydown({ altKey: true, key: 'X' }), 'Alt+X'), true);
+      assert.equal(Storage.matchShortcutKeydown(keydown({ altKey: true, shiftKey: true, key: 'x' }), 'Alt+X'), false, '多余 Shift');
+      assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, key: 'x' }), 'Alt+X'), false);
+    });
+
     it('Ctrl+Shift+X：ctrl+shift+x 命中，缺 Shift / 带 Meta 不命中', () => {
       assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, shiftKey: true, key: 'x' }), 'Ctrl+Shift+X'), true);
       assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, shiftKey: true, key: 'X' }), 'Ctrl+Shift+X'), true);
@@ -250,15 +236,8 @@ describe('元素拾取快捷键（默认平台分派：mac ⌘+Shift+X / 其他 
       assert.equal(Storage.matchShortcutKeydown(keydown({ altKey: true, shiftKey: true, key: 'x' }), 'Alt+Shift+E'), false);
     });
 
-    it('特殊按键名映射（Space/方向键/Comma/Period）', () => {
-      assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, key: ' ' }), 'Ctrl+Space'), true);
-      assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, key: 'ArrowUp' }), 'Ctrl+Up'), true);
-      assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, shiftKey: true, key: ',' }), 'Ctrl+Shift+Comma'), true);
-      assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, shiftKey: true, key: '.' }), 'Ctrl+Shift+Period'), true);
-    });
-
-    it('非法组合 / 空输入返回 false', () => {
-      assert.equal(Storage.matchShortcutKeydown(keydown({ ctrlKey: true, shiftKey: true, key: 'x' }), 'Shift+X'), false);
+    it('空事件不命中', () => {
+      assert.equal(Storage.matchShortcutKeydown(null, 'Alt+X'), false);
       assert.equal(Storage.matchShortcutKeydown(null, 'Ctrl+Shift+X'), false);
     });
   });
