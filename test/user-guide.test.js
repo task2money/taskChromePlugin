@@ -12,6 +12,7 @@ const REQUIRED_IDS = [
   'login',
   'float-create',
   'element-pick',
+  'page-optimization-suggest',
   'devtools-single',
   'devtools-batch',
   'popup-extras',

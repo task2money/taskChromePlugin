@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.27",
+  "version": "1.8.28",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -10,6 +10,13 @@
         "mac": "Alt+X"
       },
       "description": "切换指针选择模式（选取页面元素加入任务描述）"
+    },
+    "page-optimization-suggest": {
+      "suggested_key": {
+        "default": "Alt+E",
+        "mac": "Alt+E"
+      },
+      "description": "对当前页面生成优化建议并填入任务描述（多选，不自动创建）"
     }
   },
   "permissions": [
@@ -61,11 +68,15 @@
         "lib/hot-path-guards.js",
         "lib/visibility-interval.js",
         "lib/auth-refresh-debounce.js",
+        "lib/page-context.js",
+        "lib/page-advisor-fill.js",
+        "lib/click-guard.js",
         "content/float-boot.js",
         "content/float-pick.js",
         "content/float-drag-auth.js",
         "content/float-form.js",
         "content/float-snapshot.js",
+        "content/float-page-advisor.js",
         "content/content.js"
       ],
       "css": [

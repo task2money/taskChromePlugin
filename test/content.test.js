@@ -142,6 +142,7 @@ describe('content 脚本行数门禁与注入顺序', () => {
       'content/float-drag-auth.js',
       'content/float-form.js',
       'content/float-snapshot.js',
+      'content/float-page-advisor.js',
       'content/content.js',
     ]);
     for (const rel of js) {

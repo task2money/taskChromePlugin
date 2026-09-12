@@ -25,11 +25,14 @@ importScripts(
   '../lib/oauth-pkce.js',
   '../lib/request-body-cache.js',
   '../lib/hot-path-guards.js',
+  '../lib/click-guard.js',
+  '../lib/page-advisor-api.js',
   './sw-capture.js',
   './sw-auth.js',
   './sw-messages-session.js',
   './sw-messages-task.js',
   './sw-pick.js',
+  './sw-page-advisor.js',
   './sw-expiry.js',
 );
 
@@ -52,6 +55,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
+  if (command === 'page-optimization-suggest') {
+    try {
+      await handlePageOptimizationSuggestCommand();
+    } catch (e) {
+      console.warn('[taskChromePlugin] page-optimization-suggest failed:', e.message || e);
+    }
+    return;
+  }
   if (command !== 'toggle-element-picker') return;
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });

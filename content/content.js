@@ -58,6 +58,28 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
     if (!msg.enabled) hideFloatPanel();
   }
+  if (msg.action === 'getPageAdvisorContext') {
+    try {
+      const resp = (typeof getPageAdvisorContextFromFloat === 'function')
+        ? getPageAdvisorContextFromFloat()
+        : { success: false, error: 'page advisor content 未就绪' };
+      sendResponse?.(resp);
+    } catch (e) {
+      sendResponse?.({ success: false, error: e?.message || '采集页面上下文失败' });
+    }
+    return true;
+  }
+  if (msg.action === 'pageAdvisorResult') {
+    try {
+      if (typeof handlePageAdvisorResultMessage === 'function') {
+        handlePageAdvisorResultMessage(msg);
+      }
+      sendResponse?.({ success: true });
+    } catch (e) {
+      sendResponse?.({ success: false, error: e?.message || '展示建议失败' });
+    }
+    return true;
+  }
   if (msg.action === 'toggleElementPick') {
     console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');
     // 与页内 keydown 兜底监听共享去抖时间戳：

@@ -309,6 +309,89 @@ html.taskplugin-picking .taskplugin-el-highlight {
   margin-top: 8px !important;
 }
 
+/* Alt+E 页面优化建议浮层（复用 modal 骨架） */
+#taskplugin-page-advisor-modal.taskplugin-modal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  background: rgba(17, 17, 27, 0.55) !important;
+  pointer-events: auto !important;
+  padding: 16px !important;
+  box-sizing: border-box !important;
+}
+#taskplugin-page-advisor-modal[hidden] {
+  display: none !important;
+}
+#taskplugin-page-advisor-modal .taskplugin-modal-card {
+  width: min(480px, 100%) !important;
+  max-height: min(80vh, 640px) !important;
+  overflow: auto !important;
+}
+.taskplugin-page-advisor-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  max-height: 320px !important;
+  overflow: auto !important;
+  margin: 0 0 8px !important;
+}
+.taskplugin-page-advisor-item {
+  display: flex !important;
+  gap: 10px !important;
+  align-items: flex-start !important;
+  padding: 8px 10px !important;
+  background: #252536 !important;
+  border: 1px solid #313244 !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  color: #cdd6f4 !important;
+  font-size: 12px !important;
+}
+.taskplugin-page-advisor-item input {
+  margin-top: 3px !important;
+  accent-color: #89b4fa !important;
+  cursor: pointer !important;
+}
+.taskplugin-page-advisor-item-body {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 4px !important;
+  min-width: 0 !important;
+}
+.taskplugin-page-advisor-item-body strong {
+  color: #cdd6f4 !important;
+  font-weight: 600 !important;
+}
+.taskplugin-page-advisor-summary {
+  color: #a6adc8 !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  word-break: break-word !important;
+}
+.taskplugin-page-advisor-loading {
+  margin: 0 !important;
+  color: #a6adc8 !important;
+  font-size: 12px !important;
+}
+.taskplugin-page-advisor-links {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  margin: 0 0 8px !important;
+}
+.taskplugin-page-advisor-link {
+  color: #89b4fa !important;
+  font-size: 12px !important;
+  text-decoration: underline !important;
+  word-break: break-all !important;
+}
+#taskplugin-page-advisor-modal .taskplugin-result {
+  margin-top: 8px !important;
+}
+
 #taskplugin-queued-auto-run-wrap {
   margin-left: 22px !important;
 }

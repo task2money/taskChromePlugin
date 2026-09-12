@@ -24,6 +24,10 @@
 - 可选勾选「附带元素截图」：裁剪后**上传媒体存储**，描述写入 **https URL**（支持 CDN 基址与 TTL；上传失败会报错）；多选时截取全部选中元素包围盒并集
 - Esc 或再次按快捷键 / 点击悬浮球可取消选元素模式；弹窗取消不写入描述
 
+### 0.6 页面优化建议（Alt+E）
+- 登录并选择工作空间后按 **Alt+E** → 采集可见页文并请求优化建议
+- 多选建议后「填入任务描述」（不自动创建任务）；无智能体资源时提示配置入口
+
 ### 1. 单请求创建任务
 - 打开 DevTools (F12) → 切换到 **云端Coding: 自动创新助手** 面板
 - 请求列表支持搜索、方法/状态/类型筛选，以及点击列头（方法、状态、URL、耗时、时间）排序后点选一条
@@ -64,6 +68,7 @@ taskChromePlugin/
 │   ├── sw-messages-session.js     # runtime 消息：会话/目录
 │   ├── sw-messages-task.js        # runtime 消息：任务/捕获/账号
 │   ├── sw-pick.js                 # 选元素广播 / 截图 / 快捷键改绑
+│   ├── sw-page-advisor.js         # Alt+E 页面优化建议：建 job + 轮询
 │   └── sw-expiry.js               # 账号过期 alarm
 ├── devtools/
 │   ├── devtools.html              # DevTools 入口页
