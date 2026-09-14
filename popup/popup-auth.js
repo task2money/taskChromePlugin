@@ -179,6 +179,9 @@
   }
 
   function showLoginUI(errorMessage) {
+    if (window.PopupPageAdvisorDefaults?.setDefaultsSectionVisible) {
+      window.PopupPageAdvisorDefaults.setDefaultsSectionVisible(false);
+    }
     const status = $('#popupStatus');
     const headerArea = $('#headerUserArea');
     const loginSec = $('#loginSection');
@@ -240,6 +243,10 @@
       loginHint.style.color = '#fab387';
     }
 
+    if (window.PopupPageAdvisorDefaults?.setDefaultsSectionVisible) {
+      window.PopupPageAdvisorDefaults.setDefaultsSectionVisible(false);
+    }
+
     const btn = $('#btnLogin');
     if (btn) {
       btn.textContent = '🔄 重新登录';
@@ -265,6 +272,9 @@
     setFloatBallSectionVisible(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
+    if (window.PopupPageAdvisorDefaults?.setDefaultsSectionVisible) {
+      window.PopupPageAdvisorDefaults.setDefaultsSectionVisible(true);
+    }
   }
 
   async function loadStateFromStorage() {
@@ -408,6 +418,9 @@
         loadFloatBallConfig(),
         loadTrackingConfig(),
         loadCapturedRequests(),
+        window.PopupPageAdvisorDefaults?.loadPageAdvisorDefaults
+          ? window.PopupPageAdvisorDefaults.loadPageAdvisorDefaults()
+          : Promise.resolve(),
       ]);
       for (const r of results) {
         if (r.status === 'rejected') {

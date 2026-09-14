@@ -26,6 +26,24 @@ async function loadWorkspaces() {
       wsSelect.innerHTML += `<option value="${id}">${esc(labels[i])}</option>`;
     }
     await applyAidevMetaAfterWorkspacesLoaded();
+    // 无 aidev 自动选中时，恢复弹窗/上次保存的默认工作空间
+    if (typeof Storage !== 'undefined' && Storage.getLastWorkspace
+        && typeof FloatLastSelection !== 'undefined') {
+      try {
+        const lastWs = await Storage.getLastWorkspace();
+        const applied = FloatLastSelection.applyLastWorkspaceToSelect(
+          wsSelect, workspacesData, lastWs,
+        );
+        if (applied) {
+          await loadProjects(applied);
+          await loadWorkspaceCreateMeta(applied);
+          refreshFloatRepoBases();
+          await seedBranchDatalists([]);
+        }
+      } catch (e) {
+        console.warn('[taskChromePlugin] restore lastWorkspace failed:', e.message || e);
+      }
+    }
   } catch (e) {
     console.warn('[taskChromePlugin] loadWorkspaces 失败:', e.message);
     if (handleApiAuthFailure(e)) {
@@ -34,63 +52,6 @@ async function loadWorkspaces() {
     }
     wsSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
     if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
-  }
-}
-
-function setAidevStatus(text, visible = true) {
-  if (!aidevStatusEl) return;
-  if (!visible || !text) {
-    aidevStatusEl.hidden = true;
-    aidevStatusEl.textContent = '';
-    return;
-  }
-  aidevStatusEl.textContent = text;
-  aidevStatusEl.hidden = false;
-}
-
-function checkAidevMatchingProjects(wsId) {
-  if (!pendingAidevMatches?.length || typeof AidevMeta === 'undefined') return;
-  const pids = AidevMeta.projectIdsForWorkspace(pendingAidevMatches, wsId);
-  if (!pids.length) return;
-  const available = Array.from(projectsDiv.querySelectorAll('input.project-radio')).map((el) => el.value);
-  const pick = ProjectAutoRunLabel.pickSingleProjectId(pids, available);
-  for (const el of projectsDiv.querySelectorAll('input.project-radio')) {
-    el.checked = el.value === pick;
-  }
-}
-
-async function applyAidevMetaAfterWorkspacesLoaded() {
-  pendingAidevMatches = null;
-  if (typeof AidevMeta === 'undefined') {
-    setAidevStatus('', false);
-    return;
-  }
-
-  const meta = AidevMeta.readAidevMetaFromDocument(document);
-  if (!meta?.service_id) {
-    setAidevStatus('', false);
-    return;
-  }
-
-  try {
-    const resp = await swApi('resolveAidevMeta', { serviceId: meta.service_id });
-    const matches = Array.isArray(resp?.matches) ? resp.matches : [];
-    setAidevStatus(AidevMeta.formatAidevResolveStatus(matches));
-    if (!matches.length) return;
-
-    pendingAidevMatches = matches;
-    const wsIds = AidevMeta.uniqueWorkspaceIdsFromMatches(matches);
-    if (wsIds.length === 1) {
-      wsSelect.value = wsIds[0];
-      await loadProjects(wsIds[0]);
-      checkAidevMatchingProjects(wsIds[0]);
-      await loadWorkspaceCreateMeta(wsIds[0]);
-      refreshFloatRepoBases();
-      await seedBranchDatalists([]);
-    }
-  } catch (e) {
-    console.warn('[taskChromePlugin] aidev resolve 失败:', e.message);
-    setAidevStatus(`元信息反查失败: ${e.message}`);
   }
 }
 
@@ -193,6 +154,15 @@ async function loadProjects(wsId) {
     }
     projectsDiv.innerHTML = html;
     checkAidevMatchingProjects(wsId);
+    if (typeof Storage !== 'undefined' && Storage.getLastProjectIds
+        && typeof FloatLastSelection !== 'undefined') {
+      try {
+        const lastIds = await Storage.getLastProjectIds();
+        FloatLastSelection.applyLastProjectToRadios(projectsDiv, projectsData, lastIds);
+      } catch (e) {
+        console.warn('[taskChromePlugin] restore lastProjectIds failed:', e.message || e);
+      }
+    }
     syncFloatAutoRun();
   } catch (e) {
     console.warn('[taskChromePlugin] loadProjects 失败:', e.message);
@@ -274,8 +244,10 @@ wsSelect.addEventListener('change', async () => {
     syncFloatAutoRun(false);
     await refreshWorkspaceScheduleEnabled('', '');
     await seedBranchDatalists([]);
+    if (typeof FloatLastSelection !== 'undefined') await FloatLastSelection.persistLastWorkspace(null);
     return;
   }
+  if (typeof FloatLastSelection !== 'undefined') await FloatLastSelection.persistLastWorkspace(wsId);
   await loadProjects(wsId);
   await loadWorkspaceCreateMeta(wsId);
   refreshFloatRepoBases();
@@ -295,6 +267,7 @@ projectsDiv.addEventListener('change', async (e) => {
   if (e.target.type !== 'radio' || !e.target.classList.contains('project-radio')) return;
   const wsId = wsSelect.value;
   const pids = selectedFloatProjectIds();
+  if (typeof FloatLastSelection !== 'undefined') await FloatLastSelection.persistLastProjectIds(pids);
   syncFloatAutoRun();
   refreshFloatRepoBases();
   await fetchBranchesForFloatingPanel(wsId, pids);

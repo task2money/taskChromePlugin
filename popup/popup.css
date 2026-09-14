@@ -153,6 +153,33 @@ body {
 }
 .form-select:focus { outline: none; border-color: #89b4fa; }
 
+/* Alt+E 默认项目列表 */
+.popup-project-list {
+  max-height: 140px;
+  overflow-y: auto;
+  border: 1px solid #45475a;
+  border-radius: 5px;
+  background: #313244;
+  padding: 6px 8px;
+}
+.popup-project-list label {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: #cdd6f4;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.popup-project-list input[type="radio"] {
+  accent-color: #89b4fa;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+.popup-project-list .hint { font-size: 10px; color: #6c7086; }
+.popup-project-list .hint.err { color: #f38ba8; }
+#popupDefaultsStatus { margin-top: 6px; min-height: 14px; }
+
 /* === Textarea === */
 .form-textarea {
   width: 100%; padding: 6px 8px; border: 1px solid #45475a;

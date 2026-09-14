@@ -140,6 +140,7 @@ describe('content 脚本行数门禁与注入顺序', () => {
       'content/float-boot.js',
       'content/float-pick.js',
       'content/float-drag-auth.js',
+      'content/float-aidev.js',
       'content/float-form.js',
       'content/float-snapshot.js',
       'content/float-page-advisor.js',

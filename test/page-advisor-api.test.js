@@ -162,7 +162,7 @@ describe('page-advisor wiring contracts', () => {
     assert.equal(cmd.suggested_key.mac, 'Alt+E');
     assert.ok(manifest.content_scripts[0].js.includes('lib/page-context.js'));
     assert.ok(manifest.content_scripts[0].js.includes('content/float-page-advisor.js'));
-    assert.match(manifest.version, /^1\.8\.28/);
+    assert.match(manifest.version, /^1\.8\.(2[9]|[3-9]\d|\d{3,})$/);
   });
 
   it('SW imports page-advisor and handles command', () => {

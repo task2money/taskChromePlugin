@@ -110,13 +110,35 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   const data = ctxResp.data;
-  const workspaceId = String(data.workspaceId || '').trim();
-  const tenantId = String(data.companyId || data.tenantId || '').trim();
+  let workspaceId = String(data.workspaceId || '').trim();
+  let tenantId = String(data.companyId || data.tenantId || '').trim();
+
+  if (!workspaceId || !tenantId) {
+    let workspaces = [];
+    try {
+      const list = await API.getWorkspaces();
+      workspaces = Array.isArray(list) ? list : (list?.results || list?.items || list?.data || []);
+    } catch (e) {
+      console.warn('[taskChromePlugin] page advisor getWorkspaces for defaults:', e?.message || e);
+    }
+    const lastWorkspaceId = await Storage.getLastWorkspace();
+    const resolved = (typeof PageAdvisorDefaults !== 'undefined'
+      && PageAdvisorDefaults.resolvePageAdvisorWorkspace)
+      ? PageAdvisorDefaults.resolvePageAdvisorWorkspace({
+        floatWorkspaceId: workspaceId,
+        floatCompanyId: tenantId,
+        lastWorkspaceId,
+        workspaces,
+      })
+      : { workspaceId: '', companyId: '', source: '' };
+    workspaceId = resolved.workspaceId;
+    tenantId = resolved.companyId;
+  }
 
   if (!workspaceId || !tenantId) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: '请先打开浮窗并选择工作空间（需含租户）后再按 Alt+E',
+      error: '请先在扩展弹窗选择 Alt+E 默认工作空间，或打开浮窗选择工作空间后再按 Alt+E',
     });
     return;
   }
