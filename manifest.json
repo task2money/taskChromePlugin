@@ -73,6 +73,7 @@
         "lib/page-advisor-defaults.js",
         "lib/float-last-selection.js",
         "lib/click-guard.js",
+        "lib/is-auth-route.js",
         "content/float-boot.js",
         "content/float-pick.js",
         "content/float-drag-auth.js",

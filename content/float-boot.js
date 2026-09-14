@@ -4,6 +4,12 @@
  */
 var __taskpluginFloatSkip = !!document.getElementById('taskplugin-float-root');
 
+// Auth surfaces: hide float ball (no workspace/project). Still mount a muted root
+// so other scripts that expect #taskplugin-float-root do not throw.
+var __taskpluginOnAuthRoute = (typeof IsAuthRoutePath !== 'undefined'
+  && IsAuthRoutePath.isAuthRoutePath
+  && IsAuthRoutePath.isAuthRoutePath(location.pathname));
+
 // ---- 创建 DOM ----
 var root = document.getElementById('taskplugin-float-root');
 if (!root) {
@@ -15,7 +21,19 @@ if (!root) {
   document.body.appendChild(root);
 }
 
-if (!__taskpluginFloatSkip) {
+if (__taskpluginOnAuthRoute && root) {
+  root.setAttribute('data-taskplugin-auth-route', '1');
+  root.style.display = 'none';
+  root.setAttribute('aria-hidden', 'true');
+  // Leave a single-line tip on the ball if markup exists (for e2e / power users who force-show).
+  var authBtn = document.getElementById('taskplugin-float-btn');
+  if (authBtn) {
+    authBtn.title = '请先登录后再创建任务';
+    authBtn.setAttribute('aria-label', '请先登录后再创建任务');
+  }
+}
+
+if (!__taskpluginFloatSkip && !__taskpluginOnAuthRoute) {
 // ---- 使用说明（SSOT: lib/user-guide.js）----
 (async function mountFloatUserGuide() {
   const host = document.getElementById('taskplugin-user-guide');

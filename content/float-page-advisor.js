@@ -31,6 +31,7 @@ function ensurePageAdvisorModal() {
       <div id="taskplugin-page-advisor-links" class="taskplugin-page-advisor-links" hidden></div>
       <div class="taskplugin-modal-actions">
         <button type="button" class="taskplugin-btn" id="taskplugin-page-advisor-cancel">取消</button>
+        <button type="button" class="taskplugin-btn" id="taskplugin-page-advisor-retry" hidden>重试</button>
         <button type="button" class="taskplugin-btn taskplugin-btn-primary taskplugin-btn-modal-primary" id="taskplugin-page-advisor-confirm" aria-busy="false">填入任务描述</button>
       </div>
       <div id="taskplugin-page-advisor-error" class="taskplugin-result"></div>
@@ -49,6 +50,21 @@ function ensurePageAdvisorModal() {
 
   document.getElementById('taskplugin-page-advisor-confirm')?.addEventListener('click', () => {
     void confirmPageAdvisorFill();
+  });
+
+  document.getElementById('taskplugin-page-advisor-retry')?.addEventListener('click', () => {
+    // Anti-Replay-OK: re-triggers Alt+E flow via runtime message (idempotent job create uses new key)
+    const retryBtn = document.getElementById('taskplugin-page-advisor-retry');
+    if (retryBtn) retryBtn.hidden = true;
+    setPageAdvisorError('');
+    showPageAdvisorLoading('正在采集页面并生成优化建议…');
+    try {
+      chrome.runtime.sendMessage({ action: 'pageOptimizationSuggest' }, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch (e) {
+      setPageAdvisorError(e?.message || '重试失败');
+    }
   });
 
   return modal;
@@ -137,10 +153,18 @@ function showPageAdvisorSuggestions(payload) {
   }
 
   if (!suggestions.length) {
-    if (list) list.innerHTML = '<p class="taskplugin-page-advisor-loading">未返回可用建议</p>';
+    if (list) {
+      list.innerHTML = '<p class="taskplugin-page-advisor-loading">未返回可用建议</p>';
+    }
     if (confirmBtn) {
       confirmBtn.disabled = true;
       confirmBtn.setAttribute('aria-busy', 'false');
+      confirmBtn.title = '暂无建议可填入';
+    }
+    const cancelBtn = document.getElementById('taskplugin-page-advisor-cancel');
+    if (cancelBtn) {
+      cancelBtn.disabled = true;
+      cancelBtn.title = '暂无建议，请关闭浮窗或重试 Alt+E';
     }
   } else if (list) {
     list.innerHTML = suggestions.map((s, idx) => {
@@ -322,7 +346,8 @@ function handlePageAdvisorResultMessage(msg) {
     showPageAdvisorLoading('');
     const list = document.getElementById('taskplugin-page-advisor-list');
     if (list) list.innerHTML = '';
-    setPageAdvisorError(msg.error || '页面优化建议失败', msg.traceId);
+    const errText = msg.error || '页面优化建议失败';
+    setPageAdvisorError(errText, msg.traceId);
     openFloatPanelForAdvisor();
     const modal = document.getElementById('taskplugin-page-advisor-modal');
     if (modal) modal.hidden = false;
@@ -330,6 +355,12 @@ function handlePageAdvisorResultMessage(msg) {
     if (confirmBtn) {
       confirmBtn.disabled = true;
       confirmBtn.setAttribute('aria-busy', 'false');
+      confirmBtn.title = '生成失败，无法填入';
+    }
+    const retryBtn = document.getElementById('taskplugin-page-advisor-retry');
+    if (retryBtn) {
+      retryBtn.hidden = false;
+      retryBtn.disabled = false;
     }
     return;
   }

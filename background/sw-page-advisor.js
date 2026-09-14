@@ -2,7 +2,7 @@
 
 'use strict';
 
-const PAGE_ADVISOR_POLL_MAX_MS = 60000;
+const PAGE_ADVISOR_POLL_MAX_MS = 15000;
 
 /**
  * 可选截图上传钩子（失败不阻断）。默认跳过复杂路径；需要时由调用方注入。
@@ -198,10 +198,13 @@ async function runPageOptimizationSuggest(tabId) {
       maxMs: PAGE_ADVISOR_POLL_MAX_MS,
     });
   } catch (e) {
+    const timedOut = /timeout|超时|timed?\s*out/i.test(String(e?.message || e?.errorCode || ''));
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: e?.message || '轮询建议结果失败',
-      errorCode: e?.errorCode || '',
+      error: timedOut
+        ? '生成优化建议超时（15 秒），请重试'
+        : (e?.message || '轮询建议结果失败'),
+      errorCode: timedOut ? 'PAGE_ADVISOR_TIMEOUT' : (e?.errorCode || ''),
       traceId: e?.traceId || '',
     });
     return;
