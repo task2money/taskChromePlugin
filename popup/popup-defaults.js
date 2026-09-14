@@ -16,7 +16,27 @@
   }
 
   let workspacesCache = [];
+  let projectsCache = [];
   let loadingProjects = false;
+
+  /** 仅改 UI：按 ids 勾选项目单选（不写 storage，供 storage.onChanged 同步路径复用）。 */
+  function applyProjectSelection(ids) {
+    const projHost = $('#popupDefaultProjects');
+    if (!projHost) return [];
+    const radios = projHost.querySelectorAll('input.project-radio');
+    const pick = (typeof PageAdvisorDefaults !== 'undefined'
+      && PageAdvisorDefaults.resolveDefaultProjectId)
+      ? PageAdvisorDefaults.resolveDefaultProjectId(ids || [], projectsCache)
+      : String((ids || [])[0] || '');
+    let matched = false;
+    for (const el of radios) {
+      const on = Boolean(pick) && el.value === String(pick);
+      el.checked = on;
+      if (on) matched = true;
+    }
+    if (!matched && radios[0]) radios[0].checked = true;
+    return Array.from(radios).filter((el) => el.checked).map((el) => el.value);
+  }
 
   async function loadPageAdvisorDefaults() {
     const wsSel = $('#popupDefaultWorkspace');
@@ -65,7 +85,12 @@
     }
   }
 
-  async function loadPopupProjects(wsId) {
+  /**
+   * 加载并渲染项目单选。
+   * persist=false（storage 同步路径）时绝不回写 storage，避免 popup↔浮窗写回环。
+   */
+  async function loadPopupProjects(wsId, opts) {
+    const persist = opts?.persist !== false;
     const projHost = $('#popupDefaultProjects');
     if (!projHost) return;
     if (!wsId) {
@@ -85,18 +110,12 @@
       }, 12000);
       if (!r?.success) throw new Error(r?.error || '加载项目失败');
       const data = r.data;
-      const projectsCache = Array.isArray(data) ? data : (data?.items || data?.data || []);
+      projectsCache = Array.isArray(data) ? data : (data?.items || data?.data || []);
       if (!projectsCache.length) {
         projHost.innerHTML = '<span class="hint">无项目</span>';
-        await Storage.saveLastProjectIds([]);
+        if (persist) await Storage.saveLastProjectIds([]);
         return;
       }
-
-      const lastIds = await Storage.getLastProjectIds();
-      const pick = (typeof PageAdvisorDefaults !== 'undefined'
-        && PageAdvisorDefaults.resolveDefaultProjectId)
-        ? PageAdvisorDefaults.resolveDefaultProjectId(lastIds, projectsCache)
-        : (lastIds[0] || '');
 
       let html = '';
       for (const p of projectsCache) {
@@ -112,17 +131,8 @@
         }
       }
       projHost.innerHTML = html;
-      const radios = projHost.querySelectorAll('input.project-radio');
-      let matched = false;
-      for (const el of radios) {
-        if (pick && el.value === pick) {
-          el.checked = true;
-          matched = true;
-        }
-      }
-      if (!matched && radios[0]) radios[0].checked = true;
-      const checked = Array.from(radios).filter((el) => el.checked).map((el) => el.value);
-      await Storage.saveLastProjectIds(checked);
+      const checked = applyProjectSelection(await Storage.getLastProjectIds());
+      if (persist) await Storage.saveLastProjectIds(checked);
     } catch (e) {
       console.warn('[TaskPlugin] loadPopupProjects:', e.message || e);
       projHost.innerHTML = `<span class="hint err">${esc(e.message || '加载失败')}</span>`;
@@ -132,7 +142,41 @@
     }
   }
 
+  /**
+   * OPT-20260914-006: 监听浮窗对共用默认上下文的改写，popup 保持打开时即时跟随。
+   * 处理器只读 storage 重渲染（persist:false），绝不再写回。
+   */
+  function bindDefaultsStorageSync() {
+    if (typeof PopupDefaultsSync === 'undefined'
+      || !PopupDefaultsSync.createDefaultsStorageSync) return;
+    const sync = PopupDefaultsSync.createDefaultsStorageSync({
+      getLastWorkspace: () => Storage.getLastWorkspace(),
+      getLastProjectIds: () => Storage.getLastProjectIds(),
+      getWorkspaces: () => workspacesCache,
+      getCurrentWorkspace: () => $('#popupDefaultWorkspace')?.value || '',
+      setCurrentWorkspace: (id) => {
+        const sel = $('#popupDefaultWorkspace');
+        if (sel) sel.value = id;
+        if (!id) {
+          const projHost = $('#popupDefaultProjects');
+          if (projHost) projHost.innerHTML = '<span class="hint">请先选择工作空间</span>';
+        }
+      },
+      loadProjects: (wsId) => loadPopupProjects(wsId, { persist: false }),
+      applyProjects: (ids) => {
+        applyProjectSelection(ids);
+      },
+      setStatus: (text) => {
+        const status = $('#popupDefaultsStatus');
+        if (status) status.textContent = text;
+      },
+      warn: (e) => console.warn('[TaskPlugin] popup defaults storage sync:', e?.message || e),
+    });
+    sync.register(typeof chrome !== 'undefined' ? chrome : undefined);
+  }
+
   function bindPageAdvisorDefaultsEvents() {
+    bindDefaultsStorageSync();
     const wsSel = $('#popupDefaultWorkspace');
     const projHost = $('#popupDefaultProjects');
     if (!wsSel || wsSel.dataset.bound === '1') return;
