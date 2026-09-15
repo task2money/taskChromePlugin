@@ -134,6 +134,124 @@ describe('page-advisor error data-traceId', () => {
   });
 });
 
+describe('dismissPageAdvisorSuggestion focus restore', () => {
+  it('focuses fill-one or next card when layer stays open', () => {
+    const ui = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor.js'),
+      'utf8',
+    );
+    const layer = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-layer.js'),
+      'utf8',
+    );
+    assert.match(layer, /function focusAfterPageAdvisorDismiss/);
+    assert.match(ui, /taskplugin-page-advisor-fill-one/);
+    assert.match(
+      ui,
+      /dismissPageAdvisorSuggestion[\s\S]*focusAfterPageAdvisorDismiss/,
+    );
+  });
+
+  it('vm: dismiss moves focus to fill-one when enabled', () => {
+    let focused = null;
+    const fillOne = {
+      disabled: false,
+      setAttribute() {},
+      textContent: '',
+      focus() {
+        focused = 'fill-one';
+      },
+    };
+    const byId = {
+      'taskplugin-page-advisor-layer': { hidden: false },
+      'taskplugin-page-advisor-cards': {
+        querySelector() {
+          return null;
+        },
+        querySelectorAll() {
+          return [];
+        },
+      },
+      'taskplugin-page-advisor-fill-all': {
+        disabled: false,
+        setAttribute() {},
+        textContent: '',
+      },
+      'taskplugin-page-advisor-fill-one': fillOne,
+      'taskplugin-page-advisor-fill-all': {
+        disabled: false,
+        setAttribute() {},
+        textContent: '',
+      },
+    };
+    const sandbox = {
+      document: {
+        getElementById: (id) => byId[id] || null,
+        querySelector: (sel) => {
+          if (String(sel).includes('data-sid="s1"')) {
+            return { remove() {} };
+          }
+          return null;
+        },
+        querySelectorAll: (sel) => {
+          if (String(sel).includes('taskplugin-page-advisor-check:checked')) {
+            return [{
+              value: 's2',
+              checked: true,
+              getAttribute: () => '1',
+            }];
+          }
+          return [];
+        },
+        createElement: () => ({
+          setAttribute() {},
+          addEventListener() {},
+          appendChild() {},
+        }),
+        body: { appendChild() {} },
+      },
+      isPageAdvisorLayerVisible: () => true,
+      showPageAdvisorLoading() {},
+      setPageAdvisorError() {},
+      clearPageAdvisorPin() {},
+      syncPageAdvisorFillButtons() {},
+      layoutPageAdvisorCards() {},
+      closePageAdvisorModal() {},
+      stopPageAdvisorDomWatcher() {},
+      restorePageAdvisorDocumentTitle() {},
+      setPageAdvisorLiveStatus() {},
+      syncFloatPanelFocusTrap() {},
+      ClickGuard: undefined,
+      pageAdvisorState: { suggestions: [{ id: 's1' }, { id: 's2' }], pageUrl: '', jobId: '' },
+      pageAdvisorPreviewSession: { undoOne() {}, undoAll() {} },
+      esc: (s) => String(s || ''),
+      chrome: { runtime: { sendMessage() {}, lastError: null } },
+      window: { addEventListener() {}, requestAnimationFrame: () => 0 },
+      console,
+    };
+    const src = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor.js'),
+      'utf8',
+    );
+    const layerSrc = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-layer.js'),
+      'utf8',
+    );
+    vm.runInNewContext(
+      `${layerSrc}\n${src}\n`
+      + 'this.dismissPageAdvisorSuggestion = dismissPageAdvisorSuggestion;\n',
+      sandbox,
+    );
+    sandbox.pageAdvisorState = {
+      suggestions: [{ id: 's1' }, { id: 's2' }],
+      pageUrl: '',
+      jobId: '',
+    };
+    sandbox.dismissPageAdvisorSuggestion('s1');
+    assert.equal(focused, 'fill-one');
+  });
+});
+
 describe('float-page-advisor dismiss wiring', () => {
   it('binds dismiss with ClickGuard and mousedown stopPropagation', () => {
     const ui = fs.readFileSync(

@@ -7,6 +7,7 @@
 
 var pageAdvisorPinBySid = new Map();
 var pageAdvisorDragActive = null;
+var PAGE_ADVISOR_KEYBOARD_NUDGE_PX = 8;
 
 function getPageAdvisorPin(sid) {
   const id = String(sid || '');
@@ -56,6 +57,44 @@ function attachPageAdvisorCardDrag(card) {
   card.setAttribute('data-drag-bound', '1');
 
   const threshold = (typeof DRAG_THRESHOLD === 'number') ? DRAG_THRESHOLD : 4;
+
+  handle.addEventListener('keydown', (ev) => {
+    const key = ev.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    const step = PAGE_ADVISOR_KEYBOARD_NUDGE_PX;
+    let dx = 0;
+    let dy = 0;
+    if (key === 'ArrowUp') dy = -step;
+    else if (key === 'ArrowDown') dy = step;
+    else if (key === 'ArrowLeft') dx = -step;
+    else if (key === 'ArrowRight') dx = step;
+
+    const rect = card.getBoundingClientRect();
+    let newLeft = (Number.isFinite(parseInt(card.style.left, 10))
+      ? parseInt(card.style.left, 10)
+      : rect.left) + dx;
+    let newTop = (Number.isFinite(parseInt(card.style.top, 10))
+      ? parseInt(card.style.top, 10)
+      : rect.top) + dy;
+    const w = card.offsetWidth || 260;
+    const h = card.offsetHeight || 80;
+    newLeft = Math.max(0, Math.min(newLeft, window.innerWidth - w));
+    newTop = Math.max(0, Math.min(newTop, window.innerHeight - h));
+    card.style.left = `${Math.round(newLeft)}px`;
+    card.style.top = `${Math.round(newTop)}px`;
+    const sid = String(card.getAttribute('data-sid') || '');
+    setPageAdvisorPin(sid, newTop, newLeft);
+    card.classList.add('taskplugin-page-advisor-pinned');
+    if (typeof schedulePageAdvisorLayout === 'function') {
+      schedulePageAdvisorLayout();
+    } else if (typeof layoutPageAdvisorCards === 'function') {
+      layoutPageAdvisorCards();
+    }
+  });
 
   handle.addEventListener('dblclick', (ev) => {
     ev.preventDefault();

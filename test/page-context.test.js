@@ -160,6 +160,55 @@ describe('page-context capturePageContextInRect', () => {
     assert.match(ctx.pageText, /HOST_PAGE/);
     assert.doesNotMatch(ctx.pageText, /工作空间/);
   });
+
+  it('pierces same-origin iframe and captures intersecting child text', () => {
+    const inner = el('p', { children: [textNode('IFRAME_INNER')] });
+    const iframeBody = el('body', { children: [inner] });
+    const iframe = el('iframe', {});
+    iframe.contentDocument = { body: iframeBody, documentElement: iframeBody };
+    const outside = el('p', { children: [textNode('TOP_ONLY')] });
+    const root = el('body', { children: [outside, iframe] });
+    const rects = new Map([
+      [outside, { left: 0, top: 0, width: 40, height: 20 }],
+      [iframe, { left: 100, top: 0, width: 200, height: 100 }],
+      [inner, { left: 10, top: 10, width: 50, height: 20 }],
+      [iframeBody, { left: 0, top: 0, width: 200, height: 100 }],
+      [root, { left: 0, top: 0, width: 400, height: 200 }],
+    ]);
+    const ctx = capturePageContextInRect({
+      url: 'https://example.com/iframe',
+      title: 'Iframe',
+      root,
+      region: { left: 100, top: 0, width: 80, height: 40 },
+      stampNids: false,
+      getBoundingClientRect: (node) => rects.get(node) || { left: 0, top: 0, width: 0, height: 0 },
+    });
+    assert.match(ctx.pageText, /IFRAME_INNER/);
+    assert.doesNotMatch(ctx.pageText, /TOP_ONLY/);
+  });
+
+  it('skips cross-origin iframe without throwing', () => {
+    const iframe = el('iframe', {});
+    Object.defineProperty(iframe, 'contentDocument', {
+      get() {
+        throw new Error('Blocked a frame with origin');
+      },
+    });
+    const root = el('body', { children: [iframe] });
+    const rects = new Map([
+      [iframe, { left: 0, top: 0, width: 100, height: 100 }],
+      [root, { left: 0, top: 0, width: 200, height: 200 }],
+    ]);
+    const ctx = capturePageContextInRect({
+      url: 'https://example.com/xframe',
+      title: 'X',
+      root,
+      region: { left: 0, top: 0, width: 50, height: 50 },
+      stampNids: false,
+      getBoundingClientRect: (node) => rects.get(node) || { left: 0, top: 0, width: 0, height: 0 },
+    });
+    assert.equal(ctx.pageText, '');
+  });
 });
 
 describe('page-context extractVisibleReadableText skips plugin chrome', () => {

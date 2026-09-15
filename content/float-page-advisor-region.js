@@ -10,6 +10,72 @@ var pendingPageAdvisorElements = null;
 var pageAdvisorRegionMode = false;
 var pageAdvisorPickSelection = [];
 var pageAdvisorPickFrame = null;
+var pageAdvisorLastRegion = null;
+
+function unionPageAdvisorElementRects(els) {
+  const list = Array.isArray(els) ? els : [];
+  const Region = typeof PageAdvisorRegion !== 'undefined' ? PageAdvisorRegion : null;
+  let left = Infinity;
+  let top = Infinity;
+  let right = -Infinity;
+  let bottom = -Infinity;
+  for (const el of list) {
+    if (!el || typeof el.getBoundingClientRect !== 'function') continue;
+    let r;
+    try {
+      r = el.getBoundingClientRect();
+    } catch (_) {
+      continue;
+    }
+    left = Math.min(left, Number(r.left) || 0);
+    top = Math.min(top, Number(r.top) || 0);
+    right = Math.max(right, Number(r.right) || 0);
+    bottom = Math.max(bottom, Number(r.bottom) || 0);
+  }
+  if (!Number.isFinite(left)) return null;
+  const region = {
+    left,
+    top,
+    width: Math.max(0, right - left),
+    height: Math.max(0, bottom - top),
+  };
+  if (Region && Region.isValidRegion && !Region.isValidRegion(region)) return null;
+  return region;
+}
+
+function rememberPageAdvisorLastRegion(region) {
+  if (!region) return;
+  pageAdvisorLastRegion = {
+    left: Number(region.left) || 0,
+    top: Number(region.top) || 0,
+    width: Number(region.width) || 0,
+    height: Number(region.height) || 0,
+  };
+}
+
+function getPageAdvisorLastRegion() {
+  return pageAdvisorLastRegion
+    ? {
+      left: pageAdvisorLastRegion.left,
+      top: pageAdvisorLastRegion.top,
+      width: pageAdvisorLastRegion.width,
+      height: pageAdvisorLastRegion.height,
+    }
+    : null;
+}
+
+function clearPageAdvisorLastRegion() {
+  pageAdvisorLastRegion = null;
+}
+
+/** 重试前恢复上次区域采集范围（矩形 / 元素点选并集） */
+function restorePageAdvisorLastCaptureForRetry() {
+  const last = getPageAdvisorLastRegion();
+  if (!last) return false;
+  setPendingPageAdvisorRegion(last);
+  clearPendingPageAdvisorElements();
+  return true;
+}
 
 function getPendingPageAdvisorRegion() {
   return pendingPageAdvisorRegion;
@@ -160,6 +226,8 @@ function confirmAdvisorElements(els) {
   if (!list.length) return;
   setPendingPageAdvisorElements(list);
   clearPendingPageAdvisorRegion();
+  const union = unionPageAdvisorElementRects(list);
+  if (union) rememberPageAdvisorLastRegion(union);
   stopPageAdvisorRegionSelect();
   try {
     chrome.runtime.sendMessage({ action: 'pageOptimizationSuggest' }, () => {
@@ -271,6 +339,9 @@ if (typeof globalThis !== 'undefined') {
   globalThis.clearPendingPageAdvisorRegion = clearPendingPageAdvisorRegion;
   globalThis.getPendingPageAdvisorElements = getPendingPageAdvisorElements;
   globalThis.clearPendingPageAdvisorElements = clearPendingPageAdvisorElements;
+  globalThis.getPageAdvisorLastRegion = getPageAdvisorLastRegion;
+  globalThis.clearPageAdvisorLastRegion = clearPageAdvisorLastRegion;
+  globalThis.restorePageAdvisorLastCaptureForRetry = restorePageAdvisorLastCaptureForRetry;
   globalThis.startPageAdvisorRegionSelect = startPageAdvisorRegionSelect;
   globalThis.stopPageAdvisorRegionSelect = stopPageAdvisorRegionSelect;
   globalThis.isPageAdvisorRegionMode = isPageAdvisorRegionMode;

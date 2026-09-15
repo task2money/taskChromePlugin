@@ -72,19 +72,8 @@ function ensurePageAdvisorLayer() {
     .getElementById("taskplugin-page-advisor-retry")
     ?.addEventListener("click", () => {
       // Anti-Replay-OK: re-triggers Alt+E flow via runtime message
-      const retryBtn = document.getElementById("taskplugin-page-advisor-retry");
-      if (retryBtn) retryBtn.hidden = true;
-      setPageAdvisorError("");
-      showPageAdvisorLoading("正在采集页面并生成优化建议…");
-      try {
-        chrome.runtime.sendMessage(
-          { action: "pageOptimizationSuggest" },
-          () => {
-            void chrome.runtime.lastError;
-          },
-        );
-      } catch (e) {
-        setPageAdvisorError(e?.message || "重试失败");
+      if (typeof retryPageAdvisorSuggestFromToolbar === "function") {
+        retryPageAdvisorSuggestFromToolbar();
       }
     });
 
@@ -134,8 +123,10 @@ function closePageAdvisorModal() {
     links.innerHTML = "";
   }
   syncPageAdvisorFillButtons();
-  if (typeof btn !== "undefined" && btn && typeof btn.focus === "function")
-    btn.focus();
+  if (typeof clearPageAdvisorLastRegion === "function") clearPageAdvisorLastRegion();
+  if (typeof syncFloatPanelPrimaryHeading === "function") syncFloatPanelPrimaryHeading();
+  if (typeof descInput !== "undefined" && descInput?.focus) descInput.focus();
+  else if (typeof btn !== "undefined" && btn?.focus) btn.focus();
   if (typeof syncFloatPanelFocusTrap === "function") syncFloatPanelFocusTrap();
 }
 
@@ -249,6 +240,8 @@ function dismissPageAdvisorSuggestion(sid) {
   if (typeof layoutPageAdvisorCards === "function") layoutPageAdvisorCards();
   if (!pageAdvisorState.suggestions.length) {
     closePageAdvisorModal();
+  } else {
+    focusAfterPageAdvisorDismiss();
   }
   return { dismissed: true };
 }

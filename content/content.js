@@ -47,7 +47,7 @@ function esc(s) {
   return d.innerHTML;
 }
 
-if (!__taskpluginFloatSkip) {
+if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
 // ---- 监听来自 popup / background 的消息 ----
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.action === 'openDevToolsHint') {
@@ -229,7 +229,7 @@ style.textContent = `
 document.head.appendChild(style);
 }
 
-if (!__taskpluginFloatSkip) {
+if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
 // ---- Init ----
 (async function init() {
   try {

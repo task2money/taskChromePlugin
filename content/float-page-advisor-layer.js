@@ -83,8 +83,63 @@ function syncPageAdvisorFocusTrap() {
   });
 }
 
+function retryPageAdvisorSuggestFromToolbar() {
+  const retryBtn = document.getElementById("taskplugin-page-advisor-retry");
+  if (retryBtn) retryBtn.hidden = true;
+  setPageAdvisorError("");
+  showPageAdvisorLoading("正在采集页面并生成优化建议…");
+  if (typeof restorePageAdvisorLastCaptureForRetry === "function") {
+    restorePageAdvisorLastCaptureForRetry();
+  }
+  try {
+    chrome.runtime.sendMessage({ action: "pageOptimizationSuggest" }, () => {
+      void chrome.runtime.lastError;
+    });
+  } catch (e) {
+    setPageAdvisorError(e?.message || "重试失败");
+  }
+}
+
+function focusAfterPageAdvisorDismiss() {
+  if (typeof isPageAdvisorLayerVisible === "function" && !isPageAdvisorLayerVisible()) {
+    if (typeof descInput !== "undefined" && descInput && typeof descInput.focus === "function") {
+      descInput.focus();
+    }
+    return;
+  }
+  const fillOne = document.getElementById("taskplugin-page-advisor-fill-one");
+  if (fillOne && !fillOne.disabled && typeof fillOne.focus === "function") {
+    fillOne.focus();
+    return;
+  }
+  const cardsRoot = document.getElementById("taskplugin-page-advisor-cards");
+  const card = cardsRoot?.querySelector(".taskplugin-page-advisor-float-card");
+  if (!card) return;
+  const dismissBtn = card.querySelector(".taskplugin-page-advisor-dismiss");
+  const check = card.querySelector(".taskplugin-page-advisor-check");
+  const target = dismissBtn || check;
+  if (target && typeof target.focus === "function") target.focus();
+}
+
+function syncFloatPanelPrimaryHeading() {
+  const floatTitle = document.getElementById("taskplugin-float-title");
+  if (!floatTitle) return;
+  const advisorOpen =
+    typeof isPageAdvisorLayerVisible === "function" &&
+    isPageAdvisorLayerVisible();
+  const wantTag = advisorOpen ? "h2" : "h1";
+  const current = floatTitle.tagName.toLowerCase();
+  if (current === wantTag) return;
+  const replacement = document.createElement(wantTag);
+  replacement.id = "taskplugin-float-title";
+  replacement.className = floatTitle.className || "taskplugin-float-heading";
+  replacement.textContent = floatTitle.textContent || "快速创建任务";
+  floatTitle.replaceWith(replacement);
+}
+
 function showPageAdvisorLayer() {
   applyPageAdvisorDocumentTitle();
+  syncFloatPanelPrimaryHeading();
   syncPageAdvisorFocusTrap();
   startPageAdvisorDomWatcher();
 }
@@ -223,6 +278,19 @@ function getPageAdvisorContextFromFloat() {
     typeof getPendingPageAdvisorRegion === "function"
       ? getPendingPageAdvisorRegion()
       : null;
+  if (pendingRegion && typeof rememberPageAdvisorLastRegion === "function") {
+    rememberPageAdvisorLastRegion(pendingRegion);
+  }
+  if (
+    Array.isArray(pendingEls) &&
+    pendingEls.length &&
+    typeof unionPageAdvisorElementRects === "function" &&
+    typeof rememberPageAdvisorLastRegion === "function"
+  ) {
+    const union = unionPageAdvisorElementRects(pendingEls);
+    if (union) rememberPageAdvisorLastRegion(union);
+  }
+
   let page;
   if (Capture && Array.isArray(pendingEls) && pendingEls.length
     && Capture.capturePageContextForElements) {

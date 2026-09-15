@@ -52,6 +52,16 @@ describe('page-advisor-card-drag pin state', () => {
     assert.equal(sandbox.isPageAdvisorPinned('s1'), false);
   });
 
+  it('drag handle binds Arrow key nudge and persists pin', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-drag.js'),
+      'utf8',
+    );
+    assert.match(src, /PAGE_ADVISOR_KEYBOARD_NUDGE_PX/);
+    assert.match(src, /addEventListener\('keydown'/);
+    assert.match(src, /ArrowUp[\s\S]*setPageAdvisorPin/);
+  });
+
   it('clearAll removes every pin', () => {
     sandbox.setPageAdvisorPin('a', 1, 2);
     sandbox.setPageAdvisorPin('b', 3, 4);
@@ -126,6 +136,9 @@ describe('page-advisor dismissPageAdvisorSuggestion', () => {
     const undone = [];
     const cleared = [];
     const cards = {
+      querySelector() {
+        return null;
+      },
       querySelectorAll() {
         return [];
       },
@@ -198,9 +211,12 @@ describe('page-advisor dismissPageAdvisorSuggestion', () => {
       path.join(__dirname, '../content/float-page-advisor.js'),
       'utf8',
     );
+    const layerSrc = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-layer.js'),
+      'utf8',
+    );
     vm.runInNewContext(
-      `${src}\n`
-      + 'pageAdvisorState.suggestions = [{ id: "s1", title: "a" }, { id: "s2", title: "b" }];\n'
+      `${layerSrc}\n${src}\n`
       + 'pageAdvisorPreviewSession = {\n'
       + '  undoOne(id) { undone.push(String(id)); },\n'
       + '  undoAll() {},\n'
@@ -209,6 +225,11 @@ describe('page-advisor dismissPageAdvisorSuggestion', () => {
       + 'this.getAdvisorState = () => pageAdvisorState;\n',
       sandbox,
     );
+    sandbox.pageAdvisorState = {
+      suggestions: [{ id: 's1', title: 'a' }, { id: 's2', title: 'b' }],
+      pageUrl: '',
+      jobId: '',
+    };
     const r = sandbox.dismissPageAdvisorSuggestion('s1');
     assert.equal(r.dismissed, true);
     assert.deepEqual(undone, ['s1']);
