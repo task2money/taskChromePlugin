@@ -10,6 +10,10 @@ var pageAdvisorConfirmGuard =
   typeof ClickGuard !== "undefined" && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
+var pageAdvisorDismissGuard =
+  typeof ClickGuard !== "undefined" && ClickGuard.createClickGuard
+    ? ClickGuard.createClickGuard({ debounceMs: 300 })
+    : null;
 var pageAdvisorState = {
   suggestions: [],
   pageUrl: "",
@@ -212,6 +216,65 @@ function onPageAdvisorCheckChange(ev) {
   syncPageAdvisorFillButtons();
 }
 
+/**
+ * 关闭单条建议：撤销预览 + 清 pin + 移除卡 + 更新状态（不写入任务描述）。
+ * @param {string} sid
+ * @returns {{ dismissed: boolean }}
+ */
+function dismissPageAdvisorSuggestion(sid) {
+  const id = String(sid || "");
+  if (!id) return { dismissed: false };
+  const session = getPageAdvisorPreviewSession();
+  session?.undoOne(id);
+  if (typeof clearPageAdvisorPin === "function") clearPageAdvisorPin(id);
+  const safe = id.replace(/"/g, "");
+  const card = document.querySelector(
+    `.taskplugin-page-advisor-float-card[data-sid="${safe}"]`,
+  );
+  card?.remove();
+  pageAdvisorState.suggestions = pageAdvisorState.suggestions.filter(
+    (s) => String(s.id) !== id,
+  );
+  const root = document.getElementById("taskplugin-page-advisor-cards");
+  if (root) {
+    root
+      .querySelectorAll(".taskplugin-page-advisor-float-card")
+      .forEach((el, i) => {
+        el.setAttribute("data-order", String(i));
+        const check = el.querySelector(".taskplugin-page-advisor-check");
+        if (check) check.setAttribute("data-order", String(i));
+      });
+  }
+  syncPageAdvisorFillButtons();
+  if (typeof layoutPageAdvisorCards === "function") layoutPageAdvisorCards();
+  if (!pageAdvisorState.suggestions.length) {
+    closePageAdvisorModal();
+  }
+  return { dismissed: true };
+}
+
+function bindPageAdvisorCardDismiss(root) {
+  if (!root) return;
+  root.querySelectorAll(".taskplugin-page-advisor-dismiss").forEach((btnEl) => {
+    if (btnEl.getAttribute("data-dismiss-bound") === "1") return;
+    btnEl.setAttribute("data-dismiss-bound", "1");
+    btnEl.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const card = btnEl.closest(".taskplugin-page-advisor-float-card");
+      const sid = card
+        ? String(card.getAttribute("data-sid") || "")
+        : String(btnEl.getAttribute("data-sid") || "");
+      const run = () => dismissPageAdvisorSuggestion(sid);
+      if (pageAdvisorDismissGuard) {
+        void pageAdvisorDismissGuard.run(async () => run());
+        return;
+      }
+      run();
+    });
+  });
+}
+
 function showPageAdvisorSuggestions(payload) {
   const layer = ensurePageAdvisorLayer();
   const cards = document.getElementById("taskplugin-page-advisor-cards");
@@ -253,8 +316,12 @@ function showPageAdvisorSuggestions(payload) {
         const summary = esc(s.summary || s.detail || "");
         return `
         <div class="taskplugin-page-advisor-float-card" data-order="${idx}" data-sid="${esc(id)}">
-          <div class="taskplugin-page-advisor-drag-handle" role="button" tabindex="0"
-            aria-label="拖动建议卡，双击复位" title="拖动移动；双击复位">⋮⋮</div>
+          <div class="taskplugin-page-advisor-card-chrome">
+            <div class="taskplugin-page-advisor-drag-handle" role="button" tabindex="0"
+              aria-label="拖动建议卡，双击复位" title="拖动移动；双击把手复位">⋮⋮</div>
+            <button type="button" class="taskplugin-page-advisor-dismiss" data-sid="${esc(id)}"
+              aria-label="关闭此建议" title="关闭并还原此条预览">×</button>
+          </div>
           <label class="taskplugin-page-advisor-item">
             <input type="checkbox" class="taskplugin-page-advisor-check" value="${esc(id)}" data-order="${idx}" checked>
             <span class="taskplugin-page-advisor-item-body">
@@ -277,6 +344,7 @@ function showPageAdvisorSuggestions(payload) {
     });
     if (typeof bindPageAdvisorCardDrags === "function")
       bindPageAdvisorCardDrags(cards);
+    bindPageAdvisorCardDismiss(cards);
   }
 
   setPageAdvisorError("");
@@ -384,20 +452,7 @@ async function confirmPageAdvisorFill(opts = {}) {
       }
     } else {
       const id = selectedIds[0];
-      session?.undoOne(id);
-      if (typeof clearPageAdvisorPin === "function") clearPageAdvisorPin(id);
-      const card = document.querySelector(
-        `.taskplugin-page-advisor-float-card[data-sid="${String(id).replace(/"/g, "")}"]`,
-      );
-      card?.remove();
-      pageAdvisorState.suggestions = pageAdvisorState.suggestions.filter(
-        (s) => String(s.id) !== id,
-      );
-      syncPageAdvisorFillButtons();
-      layoutPageAdvisorCards();
-      if (!pageAdvisorState.suggestions.length) {
-        closePageAdvisorModal();
-      }
+      dismissPageAdvisorSuggestion(id);
       if (typeof showResult === "function") {
         showResult("已填入一条建议（未自动创建任务）", "success");
       }

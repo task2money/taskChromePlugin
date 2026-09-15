@@ -127,7 +127,9 @@ function layoutPageAdvisorCards() {
   const specs = cardEls.map((card) => {
     const idx = Number(card.getAttribute("data-order") || 0);
     const sid = String(card.getAttribute("data-sid") || "");
-    const sug = pageAdvisorState.suggestions[idx];
+    const sug =
+      pageAdvisorState.suggestions.find((s) => String(s.id) === sid) ||
+      pageAdvisorState.suggestions[idx];
     const anchor = sug ? resolveSuggestionAnchor(sug) : null;
     const width = Math.max(160, card.offsetWidth || 260);
     const height = Math.max(48, card.offsetHeight || 80);

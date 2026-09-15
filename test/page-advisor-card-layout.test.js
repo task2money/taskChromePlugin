@@ -32,8 +32,8 @@ describe('page-advisor-card-layout rectsOverlap', () => {
   });
 });
 
-describe('page-advisor-card-layout resolveAdvisorCardPositions', () => {
-  it('separates two cards that prefer the same anchor spot', () => {
+describe('page-advisor-card-layout resolveAdvisorCardPositions (no auto-avoid)', () => {
+  it('keeps two cards on the same preferred anchor (overlap allowed)', () => {
     const out = Layout.resolveAdvisorCardPositions(
       [
         {
@@ -61,18 +61,13 @@ describe('page-advisor-card-layout resolveAdvisorCardPositions', () => {
     assert.equal(out.length, 2);
     const a = out.find((c) => c.sid === 's1');
     const b = out.find((c) => c.sid === 's2');
-    assert.ok(a && b);
-    assert.equal(
-      Layout.rectsOverlap(
-        { top: a.top, left: a.left, width: a.width, height: a.height },
-        { top: b.top, left: b.left, width: b.width, height: b.height },
-        GAP,
-      ),
-      false,
-    );
+    assert.equal(a.top, 100);
+    assert.equal(a.left, 400);
+    assert.equal(b.top, 100);
+    assert.equal(b.left, 400);
   });
 
-  it('keeps pinned card at user coords while blocking others', () => {
+  it('keeps pinned card at user coords; anchored stays on preferred even if overlaps', () => {
     const out = Layout.resolveAdvisorCardPositions(
       [
         {
@@ -104,17 +99,11 @@ describe('page-advisor-card-layout resolveAdvisorCardPositions', () => {
     assert.equal(pin.mode, 'pinned');
     assert.equal(pin.top, 200);
     assert.equal(pin.left, 300);
-    assert.equal(
-      Layout.rectsOverlap(
-        { top: pin.top, left: pin.left, width: pin.width, height: pin.height },
-        { top: auto.top, left: auto.left, width: auto.width, height: auto.height },
-        GAP,
-      ),
-      false,
-    );
+    assert.equal(auto.top, 200);
+    assert.equal(auto.left, 300);
   });
 
-  it('stacks corner cards without overlap', () => {
+  it('places corner cards at their preferred stack offsets (caller supplies offsets)', () => {
     const out = Layout.resolveAdvisorCardPositions(
       [
         {
@@ -130,7 +119,7 @@ describe('page-advisor-card-layout resolveAdvisorCardPositions', () => {
           sid: 'c1',
           order: 1,
           mode: 'corner',
-          preferredTop: 640,
+          preferredTop: 544,
           preferredLeft: 900,
           width: 260,
           height: 80,
@@ -139,16 +128,10 @@ describe('page-advisor-card-layout resolveAdvisorCardPositions', () => {
       VIEW,
       { gap: GAP },
     );
-    const a = out[0];
-    const b = out[1];
-    assert.equal(
-      Layout.rectsOverlap(
-        { top: a.top, left: a.left, width: a.width, height: a.height },
-        { top: b.top, left: b.left, width: b.width, height: b.height },
-        GAP,
-      ),
-      false,
-    );
+    assert.equal(out[0].top, 640);
+    assert.equal(out[1].top, 544);
+    assert.equal(out[0].left, 900);
+    assert.equal(out[1].left, 900);
   });
 
   it('clamps positions inside viewport', () => {

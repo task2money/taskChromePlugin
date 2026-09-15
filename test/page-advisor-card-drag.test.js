@@ -67,6 +67,7 @@ describe('page-advisor card layout wiring', () => {
       fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'),
     );
     const js = manifest.content_scripts[0].js;
+    const css = manifest.content_scripts[0].css;
     const layout = js.indexOf('lib/page-advisor-card-layout.js');
     const drag = js.indexOf('content/float-page-advisor-drag.js');
     const ui = js.indexOf('content/float-page-advisor.js');
@@ -75,6 +76,7 @@ describe('page-advisor card layout wiring', () => {
     assert.ok(ui >= 0);
     assert.ok(layout < ui);
     assert.ok(drag < ui);
+    assert.ok(css.includes('content/page-advisor.css'));
   });
 
   it('float-page-advisor uses PageAdvisorCardLayout and drag handle markup', () => {
@@ -91,5 +93,106 @@ describe('page-advisor card layout wiring', () => {
     assert.match(src, /taskplugin-page-advisor-drag-handle/);
     assert.match(src, /bindPageAdvisorCardDrags/);
     assert.match(src, /clearAllPageAdvisorPins/);
+    assert.match(ui, /dismissPageAdvisorSuggestion/);
+    assert.match(ui, /taskplugin-page-advisor-dismiss/);
+  });
+});
+
+describe('page-advisor dismissPageAdvisorSuggestion', () => {
+  it('removes card, clears pin, and undoes preview for sid', () => {
+    const removed = [];
+    const undone = [];
+    const cleared = [];
+    const cards = {
+      querySelectorAll() {
+        return [];
+      },
+    };
+    const byId = {
+      'taskplugin-page-advisor-cards': cards,
+      'taskplugin-page-advisor-fill-all': {
+        disabled: false,
+        setAttribute() {},
+        textContent: '',
+      },
+      'taskplugin-page-advisor-fill-one': {
+        disabled: false,
+        setAttribute() {},
+        textContent: '',
+      },
+    };
+    const sandbox = {
+      document: {
+        getElementById: (id) => byId[id] || null,
+        querySelector: (sel) => {
+          if (String(sel).includes('data-sid="s1"')) {
+            return {
+              remove() {
+                removed.push('s1');
+              },
+            };
+          }
+          return null;
+        },
+        querySelectorAll: () => [],
+        createElement: () => ({
+          setAttribute() {},
+          addEventListener() {},
+          appendChild() {},
+        }),
+        body: { appendChild() {} },
+      },
+      clearPageAdvisorPin(id) {
+        cleared.push(String(id));
+      },
+      syncPageAdvisorFillButtons() {},
+      layoutPageAdvisorCards() {},
+      closePageAdvisorModal() {},
+      stopPageAdvisorDomWatcher() {},
+      restorePageAdvisorDocumentTitle() {},
+      setPageAdvisorLiveStatus() {},
+      syncFloatPanelFocusTrap() {},
+      ClickGuard: undefined,
+      PageAdvisorPreview: undefined,
+      PageAdvisorA11y: undefined,
+      PageContext: undefined,
+      DialogFocusTrap: undefined,
+      root: null,
+      btn: null,
+      panel: null,
+      isOpen: false,
+      esc: (s) => String(s || ''),
+      chrome: { runtime: { sendMessage() {}, lastError: null } },
+      window: {
+        addEventListener() {},
+        requestAnimationFrame() {
+          return 0;
+        },
+      },
+      console,
+      undone,
+    };
+    const src = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor.js'),
+      'utf8',
+    );
+    vm.runInNewContext(
+      `${src}\n`
+      + 'pageAdvisorState.suggestions = [{ id: "s1", title: "a" }, { id: "s2", title: "b" }];\n'
+      + 'pageAdvisorPreviewSession = {\n'
+      + '  undoOne(id) { undone.push(String(id)); },\n'
+      + '  undoAll() {},\n'
+      + '};\n'
+      + 'this.dismissPageAdvisorSuggestion = dismissPageAdvisorSuggestion;\n'
+      + 'this.getAdvisorState = () => pageAdvisorState;\n',
+      sandbox,
+    );
+    const r = sandbox.dismissPageAdvisorSuggestion('s1');
+    assert.equal(r.dismissed, true);
+    assert.deepEqual(undone, ['s1']);
+    assert.deepEqual(cleared, ['s1']);
+    assert.deepEqual(removed, ['s1']);
+    assert.equal(sandbox.getAdvisorState().suggestions.length, 1);
+    assert.equal(sandbox.getAdvisorState().suggestions[0].id, 's2');
   });
 });
