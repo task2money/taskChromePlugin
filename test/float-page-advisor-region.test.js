@@ -31,13 +31,22 @@ describe('float-page-advisor-region element pick', () => {
     );
   });
 
-  it('closes float panel and toggles region-selecting class', () => {
+  it('closes float panel via layer single source and toggles region-selecting class', () => {
     const src = fs.readFileSync(
       path.join(root, 'content/float-page-advisor-region.js'),
       'utf8',
     );
     assert.match(src, /taskplugin-region-selecting/);
-    assert.match(src, /classList\.remove\('taskplugin-open'\)/);
+    assert.match(
+      src,
+      /function closeFloatPanelForRegionSelect\(\)\s*\{[\s\S]*?collapseFloatPanelDuringAdvisor\(\)/,
+      '收起浮窗须委托 layer 的 collapseFloatPanelDuringAdvisor 单一实现',
+    );
+    assert.doesNotMatch(
+      src,
+      /classList\.remove\('taskplugin-open'\)/,
+      '不得在 region 侧重复实现收起逻辑（会与 layer 漂移）',
+    );
     assert.match(
       src,
       /stopPageAdvisorRegionSelect[\s\S]*taskplugin-region-selecting/,

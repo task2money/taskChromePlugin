@@ -134,16 +134,13 @@ function detachRegionSelectListeners() {
   document.removeEventListener('keydown', onRegionSelectKeyDown, true);
 }
 
+/**
+ * 区域点选开始前收起「快速创建任务」浮窗。
+ * 统一委托 layer 的 collapseFloatPanelDuringAdvisor，避免两处收起逻辑漂移
+ * （layer 侧含 FAB 文案复位，region 侧此前遗漏）。
+ */
 function closeFloatPanelForRegionSelect() {
-  if (typeof panel !== 'undefined' && panel) {
-    panel.classList.remove('taskplugin-open');
-  }
-  if (typeof btn !== 'undefined' && btn) {
-    btn.classList.remove('taskplugin-active');
-  }
-  if (typeof isOpen !== 'undefined') {
-    isOpen = false;
-  }
+  collapseFloatPanelDuringAdvisor();
 }
 
 function stopPageAdvisorRegionSelect(opts = {}) {
