@@ -2,7 +2,10 @@
 
 'use strict';
 
-const PAGE_ADVISOR_POLL_MAX_MS = 15000;
+// 与 conf/ai/task-page-advisor upstreamTimeoutSec(60s) + 排队开销对齐。
+// 现网成功 job 常见 17–27s；15s 客户端上限会在 LLM 仍成功时误报超时。
+const PAGE_ADVISOR_POLL_MAX_MS = 75000;
+const PAGE_ADVISOR_POLL_MAX_SEC = Math.round(PAGE_ADVISOR_POLL_MAX_MS / 1000);
 
 /**
  * 可选截图上传钩子（失败不阻断）。默认跳过复杂路径；需要时由调用方注入。
@@ -186,6 +189,10 @@ async function runPageOptimizationSuggest(tabId) {
     return;
   }
 
+  if (!createTraceId && typeof APIHttp !== 'undefined' && APIHttp.newRequestTraceId) {
+    createTraceId = String(APIHttp.newRequestTraceId() || '').trim();
+  }
+
   const jobId = String(created?.job_id || created?.id || '').trim();
   if (!jobId) {
     await notifyContentPageAdvisor(tabId, {
@@ -204,13 +211,19 @@ async function runPageOptimizationSuggest(tabId) {
     });
   } catch (e) {
     const timedOut = /timeout|超时|timed?\s*out/i.test(String(e?.message || e?.errorCode || ''));
+    const timeoutTraceId = String(e?.traceId || createTraceId || '').trim()
+      || (typeof APIHttp !== 'undefined' && APIHttp.newRequestTraceId
+        ? String(APIHttp.newRequestTraceId() || '').trim()
+        : '')
+      || `page-advisor-timeout-${Date.now()}`;
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: timedOut
-        ? '生成优化建议超时（15 秒），请重试'
+        ? `生成优化建议超时（${PAGE_ADVISOR_POLL_MAX_SEC} 秒），请重试`
         : (e?.message || '轮询建议结果失败'),
       errorCode: timedOut ? 'PAGE_ADVISOR_TIMEOUT' : (e?.errorCode || ''),
-      traceId: e?.traceId || createTraceId || '',
+      // 请求失败 UI 必须带 data-traceId（约束 24）；超时路径禁止空串。
+      traceId: timeoutTraceId,
     });
     return;
   }

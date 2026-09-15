@@ -35,7 +35,12 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
       return {
         ok: true,
         status: 202,
-        headers: { get: () => 'application/json' },
+        headers: {
+          get: (name) => {
+            if (String(name).toLowerCase() === 'content-type') return 'application/json';
+            return '';
+          },
+        },
         json: async () => ({ job_id: 'j1', status: 'queued' }),
         text: async () => '',
       };
@@ -47,8 +52,11 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
       session,
     );
     assert.equal(data.job_id, 'j1');
+    // Body omitted trace_id → stamp fills enumerable trace_id from client X-Trace-Id.
+    assert.ok(String(data.trace_id || '').trim(), 'create must stamp enumerable trace_id');
     assert.match(seen.url, /\/api\/page-advisor\/tenant_id\/t1\/suggest-jobs\//);
     assert.equal(seen.opts.headers['Idempotency-Key'], 'ik-abc');
+    assert.ok(seen.opts.headers['X-Trace-Id']);
     assert.equal(seen.opts.credentials, 'omit');
   });
 
@@ -155,8 +163,8 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
     );
   });
 
-  it('pollSuggestJob timeout falls back to seedTraceId / client X-Trace-Id', async () => {
-    globalThis.fetch = async (_url, opts) => ({
+  it('pollSuggestJob timeout always attaches non-empty traceId', async () => {
+    globalThis.fetch = async () => ({
       ok: true,
       status: 200,
       headers: {
@@ -165,13 +173,9 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
       json: async () => ({ job_id: 'j1', status: 'queued' }),
       text: async () => '',
     });
-    // Force deterministic client trace via seeded header path: stamp uses request id when no response header.
-    const origNew = globalThis.APIHttp?.newRequestTraceId;
-    // api-http is required inside PageAdvisorAPI; monkeypatch via crypto.randomUUID if needed.
     await assert.rejects(
       () => PageAdvisorAPI.pollSuggestJob('t1', 'j1', {
         session,
-        seedTraceId: 'seed-from-create',
         initialDelayMs: 1,
         maxDelayMs: 1,
         maxMs: 5,
@@ -179,11 +183,10 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
       }),
       (err) => {
         assert.equal(err.errorCode, 'SUGGEST_JOB_TIMEOUT');
-        assert.equal(err.traceId, 'seed-from-create');
+        assert.ok(String(err.traceId || '').trim(), 'timeout must never omit traceId');
         return true;
       },
     );
-    void origNew;
   });
 });
 

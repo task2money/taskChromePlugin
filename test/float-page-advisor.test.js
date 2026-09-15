@@ -115,18 +115,18 @@ describe('page-advisor error data-traceId', () => {
   it('timeout error mounts data-traceId on #taskplugin-page-advisor-error', () => {
     sandbox.handlePageAdvisorResultMessage({
       ok: false,
-      error: '生成优化建议超时（15 秒），请重试',
+      error: '生成优化建议超时（75 秒），请重试',
       errorCode: 'PAGE_ADVISOR_TIMEOUT',
       traceId: 'timeout-trace-xyz',
     });
-    assert.equal(errorEl.textContent, '生成优化建议超时（15 秒），请重试');
+    assert.equal(errorEl.textContent, '生成优化建议超时（75 秒），请重试');
     assert.equal(errorEl.getAttribute('data-traceId'), 'timeout-trace-xyz');
   });
 
   it('error without traceId omits data-traceId attribute', () => {
     sandbox.handlePageAdvisorResultMessage({
       ok: false,
-      error: '生成优化建议超时（15 秒），请重试',
+      error: '生成优化建议超时（75 秒），请重试',
       errorCode: 'PAGE_ADVISOR_TIMEOUT',
       traceId: '',
     });

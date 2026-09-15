@@ -95,9 +95,11 @@ describe('UserGuide sections', () => {
   it('page-optimization-suggest documents timeout data-traceId', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /data-traceId/);
+    assert.match(html, /75\s*秒/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /data-traceId/);
     assert.match(md, /生成优化建议超时/);
+    assert.match(md, /75\s*秒/);
   });
 
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
