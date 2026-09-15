@@ -92,6 +92,9 @@ function schedulePageAdvisorLayout() {
 }
 
 function closePageAdvisorModal() {
+  if (typeof clearPageAdvisorRegionHighlight === "function") {
+    clearPageAdvisorRegionHighlight();
+  }
   stopPageAdvisorDomWatcher();
   const Trap = typeof DialogFocusTrap !== "undefined" ? DialogFocusTrap : null;
   const layer = document.getElementById("taskplugin-page-advisor-layer");
@@ -215,6 +218,9 @@ function onPageAdvisorCheckChange(ev) {
 function dismissPageAdvisorSuggestion(sid) {
   const id = String(sid || "");
   if (!id) return { dismissed: false };
+  if (typeof clearPageAdvisorRegionHighlight === "function") {
+    clearPageAdvisorRegionHighlight();
+  }
   const session = getPageAdvisorPreviewSession();
   session?.undoOne(id);
   if (typeof clearPageAdvisorPin === "function") clearPageAdvisorPin(id);
@@ -341,6 +347,8 @@ function showPageAdvisorSuggestions(payload) {
     if (typeof bindPageAdvisorCardDrags === "function")
       bindPageAdvisorCardDrags(cards);
     bindPageAdvisorCardDismiss(cards);
+    if (typeof bindPageAdvisorCardRegionHover === "function")
+      bindPageAdvisorCardRegionHover(cards);
   }
 
   setPageAdvisorError("");

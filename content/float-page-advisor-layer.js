@@ -167,6 +167,72 @@ function resolveSuggestionAnchor(suggestion) {
   return null;
 }
 
+/** Distinct from pick-mode `.taskplugin-el-highlight` (needs html.taskplugin-picking). */
+var pageAdvisorRegionHighlightEls = [];
+
+function ensurePageAdvisorRegionHighlightStyle(doc) {
+  if (!doc || doc.getElementById("taskplugin-advisor-region-hl-style")) return;
+  const s = doc.createElement("style");
+  s.id = "taskplugin-advisor-region-hl-style";
+  s.textContent =
+    ".taskplugin-advisor-region-highlight{outline:2px solid #f9e2af!important;"
+    + "outline-offset:2px!important;"
+    + "box-shadow:0 0 0 4px rgba(249,226,175,.4)!important;}";
+  (doc.head || doc.documentElement).appendChild(s);
+}
+
+function clearPageAdvisorRegionHighlight() {
+  for (const el of pageAdvisorRegionHighlightEls) {
+    try {
+      el.classList.remove("taskplugin-advisor-region-highlight");
+    } catch (_) {
+      /* detached */
+    }
+  }
+  pageAdvisorRegionHighlightEls = [];
+}
+
+function applyPageAdvisorRegionHighlight(el) {
+  clearPageAdvisorRegionHighlight();
+  if (!el || el.nodeType !== 1) return;
+  const owner = el.ownerDocument || document;
+  ensurePageAdvisorRegionHighlightStyle(owner);
+  el.classList.add("taskplugin-advisor-region-highlight");
+  pageAdvisorRegionHighlightEls.push(el);
+}
+
+function highlightPageAdvisorCardRegion(card) {
+  const sid = String(card?.getAttribute?.("data-sid") || "");
+  const sug =
+    typeof pageAdvisorState !== "undefined" && pageAdvisorState?.suggestions
+      ? pageAdvisorState.suggestions.find((s) => String(s.id) === sid)
+      : null;
+  const anchor = sug ? resolveSuggestionAnchor(sug) : null;
+  if (anchor) applyPageAdvisorRegionHighlight(anchor);
+  else clearPageAdvisorRegionHighlight();
+}
+
+function bindPageAdvisorCardRegionHover(root) {
+  if (!root) return;
+  root.querySelectorAll(".taskplugin-page-advisor-float-card").forEach((card) => {
+    if (card.getAttribute("data-region-hover-bound") === "1") return;
+    card.setAttribute("data-region-hover-bound", "1");
+    card.addEventListener("mouseenter", () => {
+      highlightPageAdvisorCardRegion(card);
+    });
+    card.addEventListener("mouseleave", () => {
+      clearPageAdvisorRegionHighlight();
+    });
+    card.addEventListener("focusin", () => {
+      highlightPageAdvisorCardRegion(card);
+    });
+    card.addEventListener("focusout", (e) => {
+      if (e?.relatedTarget && card.contains(e.relatedTarget)) return;
+      clearPageAdvisorRegionHighlight();
+    });
+  });
+}
+
 function layoutPageAdvisorCards() {
   const cardsRoot = document.getElementById("taskplugin-page-advisor-cards");
   if (!cardsRoot) return;

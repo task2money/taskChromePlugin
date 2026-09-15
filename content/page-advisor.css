@@ -189,4 +189,10 @@
 #taskplugin-page-advisor-layer .taskplugin-result {
   margin-top: 8px !important;
 }
+/* Hover/focus on float card → highlight corresponding page anchor (no picking mode). */
+.taskplugin-advisor-region-highlight {
+  outline: 2px solid #f9e2af !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(249, 226, 175, 0.4) !important;
+}
 
