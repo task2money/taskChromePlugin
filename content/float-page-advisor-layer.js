@@ -144,18 +144,32 @@ function showPageAdvisorLayer() {
   startPageAdvisorDomWatcher();
 }
 
+function queryPageAdvisorNidElement(nid) {
+  const id = String(nid || "").trim().replace(/"/g, "");
+  if (!id) return null;
+  try {
+    return document.querySelector(`[data-taskplugin-nid="${id}"]`);
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Resolve the host page element for layout + hover highlight.
+ * Order: target_nid → first still-present preview.ops[].nid → anchor_text.
+ */
 function resolveSuggestionAnchor(suggestion) {
-  const nid = String(suggestion?.target_nid || "").trim();
-  if (nid) {
-    try {
-      const el = document.querySelector(
-        `[data-taskplugin-nid="${nid.replace(/"/g, "")}"]`,
-      );
+  const byTarget = queryPageAdvisorNidElement(suggestion?.target_nid);
+  if (byTarget) return byTarget;
+
+  const ops = suggestion?.preview?.ops;
+  if (Array.isArray(ops)) {
+    for (const op of ops) {
+      const el = queryPageAdvisorNidElement(op?.nid);
       if (el) return el;
-    } catch (_) {
-      /* ignore */
     }
   }
+
   const anchor = String(suggestion?.anchor_text || "").trim();
   if (anchor && anchor.length >= 2) {
     const stamped = document.querySelectorAll("[data-taskplugin-nid]");

@@ -203,6 +203,47 @@ describe('page-advisor card region hover highlight', () => {
       );
     });
 
+    it('resolveSuggestionAnchor falls back to preview.ops nid when target_nid missing', () => {
+      sandbox.pageAdvisorState.suggestions = [
+        {
+          id: 's2',
+          // no target_nid / anchor_text — LLM often only puts nid in ops
+          preview: { ops: [{ op: 'setText', nid: 'n1', value: '登录' }] },
+          title: '强化登录 CTA',
+        },
+      ];
+      const el = sandbox.resolveSuggestionAnchor(
+        sandbox.pageAdvisorState.suggestions[0],
+      );
+      assert.equal(el, anchorEl);
+      const card = {
+        getAttribute(name) {
+          return name === 'data-sid' ? 's2' : null;
+        },
+      };
+      sandbox.highlightPageAdvisorCardRegion(card);
+      assert.equal(
+        anchorEl.classList.contains('taskplugin-advisor-region-highlight'),
+        true,
+      );
+    });
+
+    it('resolveSuggestionAnchor still finds nid after setText-like text change', () => {
+      sandbox.pageAdvisorState.suggestions = [
+        {
+          id: 's3',
+          anchor_text: '登录按钮', // would fail after text mutate
+          preview: { ops: [{ op: 'setText', nid: 'n1', value: '立即登录' }] },
+          title: '改文案',
+        },
+      ];
+      anchorEl.textContent = '立即登录';
+      const el = sandbox.resolveSuggestionAnchor(
+        sandbox.pageAdvisorState.suggestions[0],
+      );
+      assert.equal(el, anchorEl, 'ops.nid must win over stale anchor_text');
+    });
+
     it('bindPageAdvisorCardRegionHover wires mouseenter/mouseleave', () => {
       const listeners = {};
       const card = {
