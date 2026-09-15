@@ -28,6 +28,7 @@ describe('normalizeOpenSnapshot', () => {
       priority: '0',
       auto_run: true,
       repoBaseBranches: { a: 'main' },
+      ownerId: 'm7',
       assigneeIds: [9],
       workBranch: 'feature/x',
       mergeTarget: 'develop',
@@ -37,7 +38,12 @@ describe('normalizeOpenSnapshot', () => {
     assert.equal(snap.title, 't');
     assert.equal(snap.auto_run, true);
     assert.deepEqual(snap.repoBaseBranches, { a: 'main' });
+    assert.equal(snap.ownerId, 'm7');
     assert.deepEqual(snap.assigneeIds, ['9']);
+  });
+
+  it('owner 别名写入 ownerId', () => {
+    assert.equal(normalizeOpenSnapshot({ owner: 'ox' }).ownerId, 'ox');
   });
 });
 

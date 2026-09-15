@@ -197,27 +197,6 @@ async function fetchCreateTaskFieldSettings(companyId) {
   };
 }
 
-async function resolveTaskOwner(endpointMapping, wsId) {
-  if (endpointMapping?.owner) return String(endpointMapping.owner);
-  const cred = await Storage.getCredentials();
-  if (cred.memberId) return String(cred.memberId);
-
-  const ws = workspacesData.find(w => String(w.id || w._id) === String(wsId));
-  const companyId = ws?.company_id || ws?.companyId;
-  if (companyId && cred.userId) {
-    try {
-      const data = await swApi('getMembers', { companyId: String(companyId) });
-      const members = Array.isArray(data) ? data : (data?.results || data?.data || []);
-      const mine = members.find((m) => String(m.user_id || m.userId) === String(cred.userId));
-      if (mine?.id) return String(mine.id);
-      if (members.length === 1) return String(members[0].id);
-    } catch (e) {
-      console.warn('[taskChromePlugin] resolveTaskOwner getMembers 失败:', e.message);
-    }
-  }
-  return '';
-}
-
 /**
  * 经 Service Worker 读取登录态（与 Popup 同源），避免 content script
  * 直读 storage 与过期字段不同步、或扩展上下文异常时误判未登录。

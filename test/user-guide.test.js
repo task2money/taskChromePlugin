@@ -92,6 +92,8 @@ describe('UserGuide sections', () => {
     assert.match(md, /项目（单选）/);
     assert.doesNotMatch(md, /与项目（可多选）/);
     assert.match(md, /已安装镜像才能勾选/);
+    assert.match(html, /选择负责人（必选/);
+    assert.match(md, /选择\*\*负责人\*\*|选择负责人（必选/);
     assert.match(html, /填写基准分支（空则用项目默认分支）/);
     assert.match(md, /填写基准分支（空则用项目默认分支）/);
     assert.doesNotMatch(html, /逐仓基准分支/);

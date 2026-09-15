@@ -209,17 +209,46 @@ function refreshFloatRepoBases() {
 
 function renderAssignees() {
   if (!assigneesDiv) return;
-  if (!membersData.length) {
+  const Ui = typeof FloatMembersUi !== 'undefined' ? FloatMembersUi : null;
+  const WM = typeof WorkspaceMembers !== 'undefined' ? WorkspaceMembers : null;
+  if (!Ui) {
     assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">暂无成员</span>';
     return;
   }
-  let html = '';
-  for (const m of membersData) {
-    const mid = String(m.id);
-    const name = m.member_name || m.name || mid;
-    html += `<label><input type="checkbox" class="taskplugin-assignee" value="${esc(mid)}"> ${esc(name)}</label>`;
+  assigneesDiv.innerHTML = Ui.buildAssigneesCheckboxHtml(membersData, { WorkspaceMembers: WM });
+}
+
+/**
+ * 负责人下拉：与 Panel 同源（workspace-collaborators + 默认当前用户）。
+ * @param {{ preferredOwnerId?: string }} [opts]
+ */
+async function renderOwnerOptions(opts = {}) {
+  if (!ownerSelect) return;
+  const Ui = typeof FloatMembersUi !== 'undefined' ? FloatMembersUi : null;
+  const WM = typeof WorkspaceMembers !== 'undefined' ? WorkspaceMembers : null;
+  if (!Ui) {
+    ownerSelect.innerHTML = '<option value="">暂无协作人</option>';
+    return;
   }
-  assigneesDiv.innerHTML = html;
+  let preferred = String(opts.preferredOwnerId || '').trim();
+  let currentUserId = '';
+  let currentMemberId = '';
+  if (!preferred && typeof Storage !== 'undefined' && Storage.getCredentials) {
+    const cred = await Storage.getCredentials();
+    currentUserId = cred.userId || '';
+    currentMemberId = cred.memberId || '';
+  }
+  const built = Ui.buildOwnerSelectHtml(membersData, {
+    preferredOwnerId: preferred,
+    currentUserId,
+    currentMemberId,
+    WorkspaceMembers: WM,
+  });
+  ownerSelect.innerHTML = built.html;
+  preferred = preferred || built.preferred;
+  if (preferred && Array.from(ownerSelect.options).some((o) => o.value === preferred)) {
+    ownerSelect.value = preferred;
+  }
 }
 
 function getSelectedAssigneeIds() {
@@ -239,6 +268,7 @@ wsSelect.addEventListener('change', async () => {
         + CreateTaskPayload.REPO_BASE_EMPTY_HINT + '</span>';
     }
     if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
+    if (ownerSelect) ownerSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
     membersData = [];
     projectsData = [];
     syncFloatAutoRun(false);
@@ -296,7 +326,7 @@ async function loadWorkspaceCreateMeta(wsId) {
       swApi('getDeliverableTypes', { companyId: cid, workspaceId: wsId }).catch((e) => ({ __err: e })),
       swApi('getInstalledImages', { companyId: cid }).catch((e) => ({ __err: e })),
       swApi('getPersonalFeatureParamsConfigs').catch((e) => ({ __err: e })),
-      swApi('getMembers', { companyId: cid }).catch((e) => ({ __err: e })),
+      swApi('getMembers', { companyId: cid, workspaceId: wsId }).catch((e) => ({ __err: e })),
       swApi('listGitIdentities', { companyId: cid }).catch((e) => ({ __err: e })),
     ]);
 
@@ -329,8 +359,15 @@ async function loadWorkspaceCreateMeta(wsId) {
         + configs.map((c) => `<option value="${esc(String(c.id || c._id))}">${esc(c.name || c.title || c.id)}</option>`).join('');
     }
     if (!membersResp.__err) {
-      membersData = Array.isArray(membersResp) ? membersResp : (membersResp?.results || membersResp?.data || []);
+      const WM = typeof WorkspaceMembers !== 'undefined' ? WorkspaceMembers : null;
+      membersData = WM
+        ? WM.unwrapMembersResponse(membersResp)
+        : (Array.isArray(membersResp) ? membersResp : (membersResp?.results || membersResp?.data || []));
+      await renderOwnerOptions();
       renderAssignees();
+    } else if (ownerSelect) {
+      ownerSelect.innerHTML = `<option value="">成员加载失败</option>`;
+      if (typeof setDataTraceId === 'function') setDataTraceId(ownerSelect, membersResp.__err);
     }
     const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
     gitIdentitiesCache = (!identResp.__err && GitId)
@@ -361,18 +398,14 @@ submitBtn.addEventListener('click', async () => {
   if (!wsId) return showResult('请选择工作空间', 'error');
   if (!pids.length) return showResult('请选择一个项目', 'error');
   if (!title) return showResult('请输入任务标题', 'error');
+  const owner = String(ownerSelect?.value || '').trim();
+  if (!owner) return showResult('请选择负责人', 'error');
 
   submitBtn.disabled = true;
   submitBtn.textContent = '创建中...';
 
   try {
     const mappingResp = await sendMessageWithTimeout({ action: 'getEndpointMapping' }, 5000);
-    const endpointMapping = mappingResp.success ? mappingResp.data : null;
-    const owner = await resolveTaskOwner(endpointMapping, wsId);
-    if (!owner) {
-      showResult('无法确定任务负责人，请在扩展 Popup 中重新登录', 'error');
-      return;
-    }
 
     const wb = workBranch.value.trim();
     const mt = mergeTarget.value.trim();

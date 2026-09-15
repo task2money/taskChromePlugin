@@ -203,6 +203,7 @@ function captureOpenSnapshot() {
       ? CreateTaskPayload.readRepoBaseBranchesFromRoot(repoBasesDiv)
       : {},
     assigneeIds: getSelectedAssigneeIds(),
+    ownerId: ownerSelect?.value || '',
     workBranch: workBranch.value,
     mergeTarget: mergeTarget.value,
   };
@@ -248,6 +249,7 @@ async function restoreOpenSnapshot(snap) {
         + CreateTaskPayload.REPO_BASE_EMPTY_HINT + '</span>';
     }
     if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
+    if (ownerSelect) ownerSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
     membersData = [];
     projectsData = [];
     syncFloatAutoRun(false);
@@ -278,6 +280,11 @@ async function restoreOpenSnapshot(snap) {
     personalConfigSelect.value = normalized.personal_feature_params_config_id || '';
   }
   if (dueDateInput) dueDateInput.value = normalized.due_date || '';
+
+  if (ownerSelect && normalized.ownerId) {
+    const has = Array.from(ownerSelect.options).some((o) => o.value === normalized.ownerId);
+    if (has) ownerSelect.value = normalized.ownerId;
+  }
 
   const assigneeSet = new Set(normalized.assigneeIds || []);
   if (assigneesDiv) {

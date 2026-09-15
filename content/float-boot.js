@@ -61,6 +61,7 @@ var mergeTarget = document.getElementById('taskplugin-merge-target');
 var workBranch = document.getElementById('taskplugin-work-branch');
 var repoBasesDiv = document.getElementById('taskplugin-repo-bases');
 var gitIdentitiesDiv = document.getElementById('taskplugin-git-identities');
+var ownerSelect = document.getElementById('taskplugin-owner');
 var assigneesDiv = document.getElementById('taskplugin-assignees');
 var titleInput = document.getElementById('taskplugin-title');
 var descInput = document.getElementById('taskplugin-desc');
