@@ -336,6 +336,35 @@ html.taskplugin-picking .taskplugin-el-highlight {
   border: 1px solid #45475a !important;
   border-radius: 10px !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+.taskplugin-page-advisor-drag-handle {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 22px !important;
+  cursor: grab !important;
+  user-select: none !important;
+  color: #6c7086 !important;
+  font-size: 11px !important;
+  letter-spacing: 2px !important;
+  border-bottom: 1px solid #313244 !important;
+  border-radius: 10px 10px 0 0 !important;
+  background: #181825 !important;
+}
+.taskplugin-page-advisor-drag-handle:active,
+.taskplugin-page-advisor-dragging .taskplugin-page-advisor-drag-handle {
+  cursor: grabbing !important;
+}
+.taskplugin-page-advisor-pinned {
+  border-color: #89b4fa !important;
+  box-shadow: 0 8px 24px rgba(137, 180, 250, 0.22) !important;
+}
+.taskplugin-page-advisor-dragging {
+  opacity: 0.92 !important;
+  z-index: 2147483647 !important;
 }
 .taskplugin-page-advisor-status-card {
   position: fixed !important;

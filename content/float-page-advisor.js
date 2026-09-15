@@ -108,6 +108,7 @@ function closePageAdvisorModal() {
     PageContext.clearDomNids(document);
   }
   pageAdvisorState = { suggestions: [], pageUrl: '', jobId: '' };
+  if (typeof clearAllPageAdvisorPins === 'function') clearAllPageAdvisorPins();
   const cards = document.getElementById('taskplugin-page-advisor-cards');
   if (cards) cards.innerHTML = '';
   const err = document.getElementById('taskplugin-page-advisor-error');
@@ -197,28 +198,89 @@ function resolveSuggestionAnchor(suggestion) {
 function layoutPageAdvisorCards() {
   const cardsRoot = document.getElementById('taskplugin-page-advisor-cards');
   if (!cardsRoot) return;
-  const cardEls = cardsRoot.querySelectorAll('.taskplugin-page-advisor-float-card');
+  const Layout = typeof PageAdvisorCardLayout !== 'undefined' ? PageAdvisorCardLayout : null;
+  const cardEls = Array.from(cardsRoot.querySelectorAll('.taskplugin-page-advisor-float-card'));
+  if (!cardEls.length) return;
+
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
   let cornerIndex = 0;
-  cardEls.forEach((card) => {
+  const specs = cardEls.map((card) => {
     const idx = Number(card.getAttribute('data-order') || 0);
+    const sid = String(card.getAttribute('data-sid') || '');
     const sug = pageAdvisorState.suggestions[idx];
     const anchor = sug ? resolveSuggestionAnchor(sug) : null;
+    const width = Math.max(160, card.offsetWidth || 260);
+    const height = Math.max(48, card.offsetHeight || 80);
+    const pin = (typeof getPageAdvisorPin === 'function') ? getPageAdvisorPin(sid) : null;
+
+    if (pin) {
+      card.classList.add('taskplugin-page-advisor-pinned');
+      card.classList.remove('taskplugin-page-advisor-corner');
+      return {
+        sid,
+        order: idx,
+        mode: 'pinned',
+        top: pin.top,
+        left: pin.left,
+        preferredTop: pin.top,
+        preferredLeft: pin.left,
+        width,
+        height,
+        el: card,
+      };
+    }
+
     if (anchor) {
       const r = anchor.getBoundingClientRect();
-      let top = Math.max(8, Math.min(window.innerHeight - 120, r.top));
-      let left = Math.min(window.innerWidth - 280, r.right + 8);
-      if (left < 8) left = Math.max(8, r.left);
-      card.style.top = `${Math.round(top)}px`;
-      card.style.left = `${Math.round(left)}px`;
+      let preferredTop = Math.max(8, Math.min(window.innerHeight - 120, r.top));
+      let preferredLeft = Math.min(window.innerWidth - width - 8, r.right + 8);
+      if (preferredLeft < 8) preferredLeft = Math.max(8, r.left - width - 8);
       card.classList.remove('taskplugin-page-advisor-corner');
-    } else {
-      const top = Math.max(8, window.innerHeight - 160 - cornerIndex * 96);
-      const left = Math.max(8, window.innerWidth - 300);
-      card.style.top = `${Math.round(top)}px`;
-      card.style.left = `${Math.round(left)}px`;
-      card.classList.add('taskplugin-page-advisor-corner');
-      cornerIndex += 1;
+      card.classList.remove('taskplugin-page-advisor-pinned');
+      return {
+        sid,
+        order: idx,
+        mode: 'anchored',
+        preferredTop,
+        preferredLeft,
+        width,
+        height,
+        el: card,
+      };
     }
+
+    const preferredTop = Math.max(8, window.innerHeight - 160 - cornerIndex * 96);
+    const preferredLeft = Math.max(8, window.innerWidth - 300);
+    cornerIndex += 1;
+    card.classList.add('taskplugin-page-advisor-corner');
+    card.classList.remove('taskplugin-page-advisor-pinned');
+    return {
+      sid,
+      order: idx,
+      mode: 'corner',
+      preferredTop,
+      preferredLeft,
+      width,
+      height,
+      el: card,
+    };
+  });
+
+  const resolved = Layout
+    ? Layout.resolveAdvisorCardPositions(specs, viewport, { gap: 8 })
+    : specs.map((s) => ({
+      ...s,
+      top: s.top != null ? s.top : s.preferredTop,
+      left: s.left != null ? s.left : s.preferredLeft,
+    }));
+
+  const bySid = new Map(resolved.map((r) => [String(r.sid), r]));
+  specs.forEach((spec) => {
+    const pos = bySid.get(String(spec.sid)) || spec;
+    const card = spec.el;
+    card.style.top = `${Math.round(pos.top)}px`;
+    card.style.left = `${Math.round(pos.left)}px`;
+    card.style.zIndex = String(2147483640 + (Number(spec.order) || 0));
   });
 }
 
@@ -269,6 +331,8 @@ function showPageAdvisorSuggestions(payload) {
       const summary = esc(s.summary || s.detail || '');
       return `
         <div class="taskplugin-page-advisor-float-card" data-order="${idx}" data-sid="${esc(id)}">
+          <div class="taskplugin-page-advisor-drag-handle" role="button" tabindex="0"
+            aria-label="拖动建议卡，双击复位" title="拖动移动；双击复位">⋮⋮</div>
           <label class="taskplugin-page-advisor-item">
             <input type="checkbox" class="taskplugin-page-advisor-check" value="${esc(id)}" data-order="${idx}" checked>
             <span class="taskplugin-page-advisor-item-body">
@@ -279,6 +343,7 @@ function showPageAdvisorSuggestions(payload) {
         </div>
       `;
     }).join('');
+    if (typeof clearAllPageAdvisorPins === 'function') clearAllPageAdvisorPins();
     cards.querySelectorAll('.taskplugin-page-advisor-check').forEach((el) => {
       el.addEventListener('change', onPageAdvisorCheckChange);
       // 默认勾选 → 立即预览
@@ -286,6 +351,7 @@ function showPageAdvisorSuggestions(payload) {
       const sug = pageAdvisorState.suggestions.find((s) => String(s.id) === id);
       if (sug) getPageAdvisorPreviewSession()?.applySuggestion(sug);
     });
+    if (typeof bindPageAdvisorCardDrags === 'function') bindPageAdvisorCardDrags(cards);
   }
 
   setPageAdvisorError('');
@@ -388,6 +454,7 @@ async function confirmPageAdvisorFill(opts = {}) {
     } else {
       const id = selectedIds[0];
       session?.undoOne(id);
+      if (typeof clearPageAdvisorPin === 'function') clearPageAdvisorPin(id);
       const card = document.querySelector(`.taskplugin-page-advisor-float-card[data-sid="${String(id).replace(/"/g, '')}"]`);
       card?.remove();
       pageAdvisorState.suggestions = pageAdvisorState.suggestions.filter((s) => String(s.id) !== id);

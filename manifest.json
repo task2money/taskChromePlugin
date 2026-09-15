@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.33",
+  "version": "1.8.34",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -72,6 +72,7 @@
         "lib/page-advisor-fill.js",
         "lib/page-advisor-preview.js",
         "lib/page-advisor-defaults.js",
+        "lib/page-advisor-card-layout.js",
         "lib/float-last-selection.js",
         "lib/click-guard.js",
         "lib/is-auth-route.js",
@@ -83,6 +84,7 @@
         "content/float-form.js",
         "content/float-snapshot.js",
         "content/float-page-advisor-layer.js",
+        "content/float-page-advisor-drag.js",
         "content/float-page-advisor.js",
         "content/content.js"
       ],
