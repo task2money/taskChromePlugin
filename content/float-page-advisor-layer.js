@@ -2,17 +2,17 @@
  * Alt+E 建议层：焦点陷阱、DOM 预览 watcher（从 float-page-advisor.js 抽出以满足行数门禁）。
  */
 
-'use strict';
+"use strict";
 
 var pageAdvisorDomWatcher = null;
 
 function isPageAdvisorLayerVisible() {
-  const layer = document.getElementById('taskplugin-page-advisor-layer');
+  const layer = document.getElementById("taskplugin-page-advisor-layer");
   return !!(layer && !layer.hidden);
 }
 
 function isPageAdvisorSuggestionSelected(id) {
-  const sid = String(id || '').replace(/"/g, '\\"');
+  const sid = String(id || "").replace(/"/g, '\\"');
   const check = document.querySelector(
     `#taskplugin-page-advisor-cards .taskplugin-page-advisor-check[value="${sid}"]`,
   );
@@ -28,17 +28,19 @@ function stopPageAdvisorDomWatcher() {
 
 function startPageAdvisorDomWatcher() {
   stopPageAdvisorDomWatcher();
-  const Preview = typeof PageAdvisorPreview !== 'undefined' ? PageAdvisorPreview : null;
-  const session = typeof getPageAdvisorPreviewSession === 'function'
-    ? getPageAdvisorPreviewSession()
-    : null;
+  const Preview =
+    typeof PageAdvisorPreview !== "undefined" ? PageAdvisorPreview : null;
+  const session =
+    typeof getPageAdvisorPreviewSession === "function"
+      ? getPageAdvisorPreviewSession()
+      : null;
   if (!Preview?.createPreviewDomWatcher || !session) return;
   pageAdvisorDomWatcher = Preview.createPreviewDomWatcher({
     document,
     session,
     getSuggestions: () => pageAdvisorState.suggestions,
     resolveNid: (nid) => {
-      const nidId = String(nid || '').replace(/"/g, '');
+      const nidId = String(nid || "").replace(/"/g, "");
       return document.querySelector(`[data-taskplugin-nid="${nidId}"]`);
     },
     isSelected: (sid) => isPageAdvisorSuggestionSelected(sid),
@@ -47,57 +49,206 @@ function startPageAdvisorDomWatcher() {
   pageAdvisorDomWatcher.start();
 }
 
+var pageAdvisorSavedDocumentTitle = null;
+
+function applyPageAdvisorDocumentTitle() {
+  const A11y = typeof PageAdvisorA11y !== "undefined" ? PageAdvisorA11y : null;
+  if (!A11y || !A11y.documentTitle) return;
+  if (pageAdvisorSavedDocumentTitle == null) {
+    pageAdvisorSavedDocumentTitle = document.title;
+  }
+  document.title = A11y.documentTitle;
+}
+
+function restorePageAdvisorDocumentTitle() {
+  if (pageAdvisorSavedDocumentTitle == null) return;
+  document.title = pageAdvisorSavedDocumentTitle;
+  pageAdvisorSavedDocumentTitle = null;
+}
+
 function syncPageAdvisorFocusTrap() {
-  const Trap = typeof DialogFocusTrap !== 'undefined' ? DialogFocusTrap : null;
-  const layer = document.getElementById('taskplugin-page-advisor-layer');
+  const Trap = typeof DialogFocusTrap !== "undefined" ? DialogFocusTrap : null;
+  const layer = document.getElementById("taskplugin-page-advisor-layer");
   if (!Trap || !layer || layer.hidden) return;
-  layer.setAttribute('role', 'dialog');
-  layer.setAttribute('aria-modal', 'true');
-  layer.setAttribute('aria-label', '页面优化建议');
-  const returnEl = (typeof btn !== 'undefined' && btn) ? btn : null;
+  layer.setAttribute("role", "dialog");
+  layer.setAttribute("aria-modal", "true");
+  layer.setAttribute("aria-labelledby", "taskplugin-page-advisor-heading");
+  layer.removeAttribute("aria-label");
+  const returnEl = typeof btn !== "undefined" && btn ? btn : null;
   Trap.activateFocusTrap(layer, {
     returnFocusEl: returnEl,
     onEscape: () => {
-      if (typeof closePageAdvisorModal === 'function') closePageAdvisorModal();
+      if (typeof closePageAdvisorModal === "function") closePageAdvisorModal();
     },
   });
 }
 
 function showPageAdvisorLayer() {
+  applyPageAdvisorDocumentTitle();
   syncPageAdvisorFocusTrap();
   startPageAdvisorDomWatcher();
+}
+
+function resolveSuggestionAnchor(suggestion) {
+  const nid = String(suggestion?.target_nid || "").trim();
+  if (nid) {
+    try {
+      const el = document.querySelector(
+        `[data-taskplugin-nid="${nid.replace(/"/g, "")}"]`,
+      );
+      if (el) return el;
+    } catch (_) {
+      /* ignore */
+    }
+  }
+  const anchor = String(suggestion?.anchor_text || "").trim();
+  if (anchor && anchor.length >= 2) {
+    const stamped = document.querySelectorAll("[data-taskplugin-nid]");
+    for (const el of stamped) {
+      const t = String(el.textContent || "").replace(/\s+/g, " ");
+      if (t.includes(anchor)) return el;
+    }
+  }
+  return null;
+}
+
+function layoutPageAdvisorCards() {
+  const cardsRoot = document.getElementById("taskplugin-page-advisor-cards");
+  if (!cardsRoot) return;
+  const Layout =
+    typeof PageAdvisorCardLayout !== "undefined" ? PageAdvisorCardLayout : null;
+  const cardEls = Array.from(
+    cardsRoot.querySelectorAll(".taskplugin-page-advisor-float-card"),
+  );
+  if (!cardEls.length) return;
+
+  const viewport = { width: window.innerWidth, height: window.innerHeight };
+  let cornerIndex = 0;
+  const specs = cardEls.map((card) => {
+    const idx = Number(card.getAttribute("data-order") || 0);
+    const sid = String(card.getAttribute("data-sid") || "");
+    const sug = pageAdvisorState.suggestions[idx];
+    const anchor = sug ? resolveSuggestionAnchor(sug) : null;
+    const width = Math.max(160, card.offsetWidth || 260);
+    const height = Math.max(48, card.offsetHeight || 80);
+    const pin =
+      typeof getPageAdvisorPin === "function" ? getPageAdvisorPin(sid) : null;
+
+    if (pin) {
+      card.classList.add("taskplugin-page-advisor-pinned");
+      card.classList.remove("taskplugin-page-advisor-corner");
+      return {
+        sid,
+        order: idx,
+        mode: "pinned",
+        top: pin.top,
+        left: pin.left,
+        preferredTop: pin.top,
+        preferredLeft: pin.left,
+        width,
+        height,
+        el: card,
+      };
+    }
+
+    if (anchor) {
+      const r = anchor.getBoundingClientRect();
+      let preferredTop = Math.max(8, Math.min(window.innerHeight - 120, r.top));
+      let preferredLeft = Math.min(window.innerWidth - width - 8, r.right + 8);
+      if (preferredLeft < 8) preferredLeft = Math.max(8, r.left - width - 8);
+      card.classList.remove("taskplugin-page-advisor-corner");
+      card.classList.remove("taskplugin-page-advisor-pinned");
+      return {
+        sid,
+        order: idx,
+        mode: "anchored",
+        preferredTop,
+        preferredLeft,
+        width,
+        height,
+        el: card,
+      };
+    }
+
+    const preferredTop = Math.max(
+      8,
+      window.innerHeight - 160 - cornerIndex * 96,
+    );
+    const preferredLeft = Math.max(8, window.innerWidth - 300);
+    cornerIndex += 1;
+    card.classList.add("taskplugin-page-advisor-corner");
+    card.classList.remove("taskplugin-page-advisor-pinned");
+    return {
+      sid,
+      order: idx,
+      mode: "corner",
+      preferredTop,
+      preferredLeft,
+      width,
+      height,
+      el: card,
+    };
+  });
+
+  const resolved = Layout
+    ? Layout.resolveAdvisorCardPositions(specs, viewport, { gap: 8 })
+    : specs.map((s) => ({
+        ...s,
+        top: s.top != null ? s.top : s.preferredTop,
+        left: s.left != null ? s.left : s.preferredLeft,
+      }));
+
+  const bySid = new Map(resolved.map((r) => [String(r.sid), r]));
+  specs.forEach((spec) => {
+    const pos = bySid.get(String(spec.sid)) || spec;
+    const card = spec.el;
+    card.style.top = `${Math.round(pos.top)}px`;
+    card.style.left = `${Math.round(pos.left)}px`;
+    card.style.zIndex = String(2147483640 + (Number(spec.order) || 0));
+  });
 }
 
 /**
  * Content → SW：采集页面上下文 + 当前浮窗工作空间/租户。
  */
 function getPageAdvisorContextFromFloat() {
-  const Capture = typeof PageContext !== 'undefined' ? PageContext : null;
-  const pendingRegion = (typeof getPendingPageAdvisorRegion === 'function')
-    ? getPendingPageAdvisorRegion()
-    : null;
+  const Capture = typeof PageContext !== "undefined" ? PageContext : null;
+  const pendingRegion =
+    typeof getPendingPageAdvisorRegion === "function"
+      ? getPendingPageAdvisorRegion()
+      : null;
   const page = Capture
-    ? (pendingRegion && Capture.capturePageContextInRect
-      ? Capture.capturePageContextInRect({ stampNids: true, region: pendingRegion })
-      : Capture.capturePageContext({ stampNids: true }))
+    ? pendingRegion && Capture.capturePageContextInRect
+      ? Capture.capturePageContextInRect({
+          stampNids: true,
+          region: pendingRegion,
+        })
+      : Capture.capturePageContext({ stampNids: true })
     : {
-      url: location.href,
-      title: document.title,
-      pageText: '',
-      pageTextTruncated: false,
-      domOutline: [],
-    };
-  if (typeof clearPendingPageAdvisorRegion === 'function') {
+        url: location.href,
+        title: document.title,
+        pageText: "",
+        pageTextTruncated: false,
+        domOutline: [],
+      };
+  if (typeof clearPendingPageAdvisorRegion === "function") {
     clearPendingPageAdvisorRegion();
   }
 
-  const workspaceId = (typeof wsSelect !== 'undefined' && wsSelect?.value)
-    ? String(wsSelect.value).trim()
-    : '';
-  let companyId = '';
-  if (workspaceId && typeof workspacesData !== 'undefined' && Array.isArray(workspacesData)) {
-    const ws = workspacesData.find((w) => String(w.id || w._id) === workspaceId);
-    companyId = String(ws?.company_id || ws?.companyId || '').trim();
+  const workspaceId =
+    typeof wsSelect !== "undefined" && wsSelect?.value
+      ? String(wsSelect.value).trim()
+      : "";
+  let companyId = "";
+  if (
+    workspaceId &&
+    typeof workspacesData !== "undefined" &&
+    Array.isArray(workspacesData)
+  ) {
+    const ws = workspacesData.find(
+      (w) => String(w.id || w._id) === workspaceId,
+    );
+    companyId = String(ws?.company_id || ws?.companyId || "").trim();
   }
 
   return {
@@ -117,34 +268,34 @@ function getPageAdvisorContextFromFloat() {
 }
 
 function handlePageAdvisorResultMessage(msg) {
-  if (msg.phase === 'loading') {
-    showPageAdvisorLoading(msg.message || '生成中…');
+  if (msg.phase === "loading") {
+    showPageAdvisorLoading(msg.message || "生成中…");
     return;
   }
   if (!msg.ok) {
-    if (msg.errorCode === 'AGENT_RESOURCE_NOT_CONFIGURED' || msg.links) {
+    if (msg.errorCode === "AGENT_RESOURCE_NOT_CONFIGURED" || msg.links) {
       showPageAdvisorResourceError(msg);
       return;
     }
     ensurePageAdvisorLayer();
-    showPageAdvisorLoading('');
-    const cards = document.getElementById('taskplugin-page-advisor-cards');
-    if (cards) cards.innerHTML = '';
-    const errText = msg.error || '页面优化建议失败';
+    showPageAdvisorLoading("");
+    const cards = document.getElementById("taskplugin-page-advisor-cards");
+    if (cards) cards.innerHTML = "";
+    const errText = msg.error || "页面优化建议失败";
     setPageAdvisorError(errText, msg.traceId);
     openFloatPanelForAdvisor();
-    const layer = document.getElementById('taskplugin-page-advisor-layer');
+    const layer = document.getElementById("taskplugin-page-advisor-layer");
     if (layer) layer.hidden = false;
     syncPageAdvisorFillButtons();
     showPageAdvisorLayer();
-    const retryBtn = document.getElementById('taskplugin-page-advisor-retry');
+    const retryBtn = document.getElementById("taskplugin-page-advisor-retry");
     if (retryBtn) {
       retryBtn.hidden = false;
       retryBtn.disabled = false;
     }
     return;
   }
-  if (msg.phase === 'done' || Array.isArray(msg.suggestions)) {
+  if (msg.phase === "done" || Array.isArray(msg.suggestions)) {
     showPageAdvisorSuggestions(msg);
   }
 }

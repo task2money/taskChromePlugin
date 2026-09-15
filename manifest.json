@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.35",
+  "version": "1.8.36",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -77,6 +77,7 @@
         "lib/auth-refresh-debounce.js",
         "lib/page-context.js",
         "lib/page-advisor-region.js",
+        "lib/page-advisor-a11y.js",
         "lib/page-advisor-fill.js",
         "lib/page-advisor-preview.js",
         "lib/page-advisor-defaults.js",

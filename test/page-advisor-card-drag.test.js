@@ -82,9 +82,14 @@ describe('page-advisor card layout wiring', () => {
       path.join(__dirname, '../content/float-page-advisor.js'),
       'utf8',
     );
-    assert.match(ui, /PageAdvisorCardLayout/);
-    assert.match(ui, /taskplugin-page-advisor-drag-handle/);
-    assert.match(ui, /bindPageAdvisorCardDrags/);
-    assert.match(ui, /clearAllPageAdvisorPins/);
+    const layer = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-layer.js'),
+      'utf8',
+    );
+    const src = ui + layer;
+    assert.match(src, /PageAdvisorCardLayout/);
+    assert.match(src, /taskplugin-page-advisor-drag-handle/);
+    assert.match(src, /bindPageAdvisorCardDrags/);
+    assert.match(src, /clearAllPageAdvisorPins/);
   });
 });
