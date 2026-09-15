@@ -236,6 +236,34 @@ describe('元素拾取快捷键（默认统一 Alt+X）', () => {
       assert.equal(Storage.matchShortcutKeydown(keydown({ altKey: true, shiftKey: true, key: 'x' }), 'Alt+Shift+E'), false);
     });
 
+    it('Alt+` / Alt+Shift+`：反引号归一为 Backquote 并命中', () => {
+      assert.equal(Storage.normalizeShortcut('Alt+`'), 'Alt+Backquote');
+      assert.equal(Storage.normalizeShortcut('Alt+Shift+`'), 'Alt+Shift+Backquote');
+      assert.equal(Storage.PAGE_ADVISOR_SHORTCUT, 'Alt+`');
+      assert.equal(Storage.PAGE_ADVISOR_REGION_SHORTCUT, 'Alt+Shift+`');
+      assert.equal(
+        Storage.matchShortcutKeydown(
+          keydown({ altKey: true, key: '`', code: 'Backquote' }),
+          'Alt+`',
+        ),
+        true,
+      );
+      assert.equal(
+        Storage.matchShortcutKeydown(
+          keydown({ altKey: true, shiftKey: true, key: '`', code: 'Backquote' }),
+          'Alt+Shift+`',
+        ),
+        true,
+      );
+      assert.equal(
+        Storage.matchShortcutKeydown(
+          keydown({ altKey: true, key: 'e' }),
+          'Alt+`',
+        ),
+        false,
+      );
+    });
+
     it('空事件不命中', () => {
       assert.equal(Storage.matchShortcutKeydown(null, 'Alt+X'), false);
       assert.equal(Storage.matchShortcutKeydown(null, 'Ctrl+Shift+X'), false);

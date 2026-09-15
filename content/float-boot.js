@@ -105,7 +105,7 @@ var pickMode = false;
 var lastShortcutToggleAt = 0;
 var SHORTCUT_DEBOUNCE_MS = 300;
 /**
- * 页内兜底监听使用的快捷键组合串（如 'Alt+X' / 'Ctrl+Shift+X' / 'Alt+Shift+E'）。
+ * 页内兜底监听使用的快捷键组合串（如 'Alt+X' / 'Ctrl+Shift+X' / 'Alt+`'）。
  * 由 Popup「快捷键」自定义配置决定，默认统一 Alt+X
  * （Storage.getElementPickerShortcut；初始值取默认兜底 storage 读取失败路径）。
  */

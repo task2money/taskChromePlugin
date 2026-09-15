@@ -8,6 +8,7 @@
     if (k.startsWith('Arrow')) return k.slice(5);
     if (k === ',') return 'Comma';
     if (k === '.') return 'Period';
+    if (k === '`' || e.code === 'Backquote') return 'Backquote';
     return k;
   }
 

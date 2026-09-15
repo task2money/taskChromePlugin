@@ -221,16 +221,16 @@ describe('click-guard anti-replay', () => {
 describe('page-advisor wiring contracts', () => {
   const root = path.join(__dirname, '..');
 
-  it('manifest registers page-optimization-suggest Alt+E and bumps version', () => {
+  it('manifest registers page-optimization-suggest without chrome backtick suggested_key', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
     const cmd = manifest.commands['page-optimization-suggest'];
     assert.ok(cmd);
-    assert.equal(cmd.suggested_key.default, 'Alt+E');
-    assert.equal(cmd.suggested_key.mac, 'Alt+E');
+    assert.equal(cmd.suggested_key, undefined);
+    assert.match(cmd.description, /Alt\+`/);
     const regionCmd = manifest.commands['page-optimization-suggest-region'];
     assert.ok(regionCmd);
-    assert.equal(regionCmd.suggested_key.default, 'Alt+Shift+E');
-    assert.equal(regionCmd.suggested_key.mac, 'Alt+Shift+E');
+    assert.equal(regionCmd.suggested_key, undefined);
+    assert.match(regionCmd.description, /Alt\+Shift\+`/);
     assert.ok(manifest.content_scripts[0].js.includes('lib/page-context.js'));
     assert.ok(manifest.content_scripts[0].js.includes('lib/page-advisor-region.js'));
     assert.ok(manifest.content_scripts[0].js.includes('content/float-page-advisor.js'));
@@ -253,12 +253,12 @@ describe('page-advisor wiring contracts', () => {
     assert.match(swMain, /sw-page-advisor\.js/);
   });
 
-  it('content wires region select and Alt+E/Alt+Shift+E page fallbacks', () => {
+  it('content wires region select and Alt+`/Alt+Shift+` page fallbacks', () => {
     const content = fs.readFileSync(path.join(root, 'content/content.js'), 'utf8');
     assert.match(content, /startPageAdvisorRegionSelect/);
     const pick = fs.readFileSync(path.join(root, 'content/float-pick.js'), 'utf8');
-    assert.match(pick, /Alt\+Shift\+E/);
-    assert.match(pick, /Alt\+E/);
+    assert.match(pick, /PAGE_ADVISOR_REGION_SHORTCUT|Alt\+Shift\+`/);
+    assert.match(pick, /PAGE_ADVISOR_SHORTCUT|Alt\+`/);
     const region = fs.readFileSync(path.join(root, 'content/float-page-advisor-region.js'), 'utf8');
     assert.match(region, /startPageAdvisorRegionSelect/);
     assert.match(region, /pageOptimizationSuggest/);
@@ -267,6 +267,10 @@ describe('page-advisor wiring contracts', () => {
     assert.match(layer, /getPendingPageAdvisorElements/);
     assert.match(layer, /capturePageContextInRect/);
     assert.match(layer, /getPendingPageAdvisorRegion/);
+    const swAdvisor = fs.readFileSync(path.join(root, 'background/sw-page-advisor.js'), 'utf8');
+    assert.match(swAdvisor, /clearLegacyPageAdvisorChromeShortcuts/);
+    const swMain = fs.readFileSync(path.join(root, 'background/service-worker.js'), 'utf8');
+    assert.match(swMain, /clearLegacyPageAdvisorChromeShortcuts/);
   });
 
   it('content confirm path does not call createTask', () => {

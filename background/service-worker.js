@@ -98,6 +98,9 @@ chrome.commands.onCommand.addListener(async (command) => {
     } catch (_) { /* ignore */ }
     // 启动即暖缓存（getCaptureConfigCached），webRequest 热路径零 storage IPC
     const captureCfg = await getCaptureConfigCached();
+    if (typeof clearLegacyPageAdvisorChromeShortcuts === 'function') {
+      await clearLegacyPageAdvisorChromeShortcuts();
+    }
     console.log(
       `[taskChromePlugin] Initialized | baseUrl=${cfg.baseUrl} | ` +
       `hasToken=${!!cfg.token} | captureEnabled=${captureCfg.enabled} | ` +
