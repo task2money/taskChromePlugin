@@ -121,8 +121,35 @@ btn.addEventListener('click', async (e) => {
   if (isOpen) {
     await refreshAuthAndWorkspaces();
     openSnapshot = captureOpenSnapshot();
+    syncFloatPanelFocusTrap();
+  } else {
+    syncFloatPanelFocusTrap();
   }
 });
+
+function syncFloatPanelFocusTrap() {
+  const Trap = typeof DialogFocusTrap !== 'undefined' ? DialogFocusTrap : null;
+  if (!Trap || !panel) return;
+  if (typeof isPageAdvisorLayerVisible === 'function' && isPageAdvisorLayerVisible()) {
+    return;
+  }
+  const guideOpen = document.querySelector('.tcp-guide-body[role="dialog"]:not([hidden])');
+  if (guideOpen) return;
+  if (isOpen) {
+    Trap.activateFocusTrap(panel, {
+      returnFocusEl: btn,
+      onEscape: () => {
+        if (typeof hideFloatPanel === 'function') hideFloatPanel();
+      },
+    });
+  } else if (Trap.isFocusTrapActiveFor(panel)) {
+    Trap.deactivateFocusTrap({ restoreFocus: false });
+  }
+}
+
+if (typeof globalThis !== 'undefined') {
+  globalThis.syncFloatPanelFocusTrap = syncFloatPanelFocusTrap;
+}
 
 // ================================================================
 //  登录 / 工作空间 / 项目（业务 API 一律经 Service Worker，避免页面上下文差异）

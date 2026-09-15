@@ -15,7 +15,6 @@ var pageAdvisorState = {
   jobId: '',
 };
 var pageAdvisorPreviewSession = null;
-var pageAdvisorCardRepos = [];
 var pageAdvisorLayoutRaf = 0;
 
 function getPageAdvisorPreviewSession() {
@@ -96,7 +95,12 @@ function schedulePageAdvisorLayout() {
 }
 
 function closePageAdvisorModal() {
+  stopPageAdvisorDomWatcher();
+  const Trap = typeof DialogFocusTrap !== 'undefined' ? DialogFocusTrap : null;
   const layer = document.getElementById('taskplugin-page-advisor-layer');
+  if (Trap && layer && Trap.isFocusTrapActiveFor(layer)) {
+    Trap.deactivateFocusTrap({ restoreFocus: false });
+  }
   if (layer) layer.hidden = true;
   const session = getPageAdvisorPreviewSession();
   session?.undoAll();
@@ -104,7 +108,6 @@ function closePageAdvisorModal() {
     PageContext.clearDomNids(document);
   }
   pageAdvisorState = { suggestions: [], pageUrl: '', jobId: '' };
-  pageAdvisorCardRepos = [];
   const cards = document.getElementById('taskplugin-page-advisor-cards');
   if (cards) cards.innerHTML = '';
   const err = document.getElementById('taskplugin-page-advisor-error');
@@ -119,6 +122,8 @@ function closePageAdvisorModal() {
     links.innerHTML = '';
   }
   syncPageAdvisorFillButtons();
+  if (typeof btn !== 'undefined' && btn && typeof btn.focus === 'function') btn.focus();
+  if (typeof syncFloatPanelFocusTrap === 'function') syncFloatPanelFocusTrap();
 }
 
 function setPageAdvisorError(msg, traceId) {
@@ -156,7 +161,6 @@ function showPageAdvisorLoading(message) {
   if (cards) {
     cards.innerHTML = `<div class="taskplugin-page-advisor-status-card" role="status" aria-live="polite">${esc(message || '生成中…')}</div>`;
   }
-  pageAdvisorCardRepos = [];
   syncPageAdvisorFillButtons();
   const links = document.getElementById('taskplugin-page-advisor-links');
   if (links) {
@@ -166,6 +170,7 @@ function showPageAdvisorLoading(message) {
   setPageAdvisorError('');
   openFloatPanelForAdvisor();
   layer.hidden = false;
+  showPageAdvisorLayer();
 }
 
 function resolveSuggestionAnchor(suggestion) {
@@ -255,7 +260,6 @@ function showPageAdvisorSuggestions(payload) {
     if (cards) {
       cards.innerHTML = '<div class="taskplugin-page-advisor-status-card">未返回可用建议</div>';
     }
-    pageAdvisorCardRepos = [];
   } else if (cards) {
     cards.innerHTML = suggestions.map((s, idx) => {
       const id = String(s.id != null ? s.id : `s${idx}`);
@@ -287,6 +291,7 @@ function showPageAdvisorSuggestions(payload) {
   layer.hidden = false;
   syncPageAdvisorFillButtons();
   layoutPageAdvisorCards();
+  showPageAdvisorLayer();
 }
 
 function showPageAdvisorResourceError(payload) {
@@ -309,6 +314,7 @@ function showPageAdvisorResourceError(payload) {
   syncPageAdvisorFillButtons();
   openFloatPanelForAdvisor();
   layer.hidden = false;
+  showPageAdvisorLayer();
 }
 
 function collectSelectedSuggestionIds() {
@@ -417,76 +423,5 @@ async function confirmPageAdvisorFill(opts = {}) {
   } finally {
     pageAdvisorBusy = false;
     syncPageAdvisorFillButtons();
-  }
-}
-
-/**
- * Content → SW：采集页面上下文 + 当前浮窗工作空间/租户。
- */
-function getPageAdvisorContextFromFloat() {
-  const Capture = typeof PageContext !== 'undefined' ? PageContext : null;
-  const page = Capture
-    ? Capture.capturePageContext({ stampNids: true })
-    : {
-      url: location.href,
-      title: document.title,
-      pageText: '',
-      pageTextTruncated: false,
-      domOutline: [],
-    };
-
-  const workspaceId = (typeof wsSelect !== 'undefined' && wsSelect?.value)
-    ? String(wsSelect.value).trim()
-    : '';
-  let companyId = '';
-  if (workspaceId && typeof workspacesData !== 'undefined' && Array.isArray(workspacesData)) {
-    const ws = workspacesData.find((w) => String(w.id || w._id) === workspaceId);
-    companyId = String(ws?.company_id || ws?.companyId || '').trim();
-  }
-
-  return {
-    success: true,
-    data: {
-      url: page.url,
-      title: page.title,
-      pageText: page.pageText,
-      pageTextTruncated: page.pageTextTruncated,
-      domOutline: Array.isArray(page.domOutline) ? page.domOutline : [],
-      workspaceId,
-      companyId,
-      tenantId: companyId,
-    },
-  };
-}
-
-function handlePageAdvisorResultMessage(msg) {
-  if (msg.phase === 'loading') {
-    showPageAdvisorLoading(msg.message || '生成中…');
-    return;
-  }
-  if (!msg.ok) {
-    if (msg.errorCode === 'AGENT_RESOURCE_NOT_CONFIGURED' || msg.links) {
-      showPageAdvisorResourceError(msg);
-      return;
-    }
-    ensurePageAdvisorLayer();
-    showPageAdvisorLoading('');
-    const cards = document.getElementById('taskplugin-page-advisor-cards');
-    if (cards) cards.innerHTML = '';
-    const errText = msg.error || '页面优化建议失败';
-    setPageAdvisorError(errText, msg.traceId);
-    openFloatPanelForAdvisor();
-    const layer = document.getElementById('taskplugin-page-advisor-layer');
-    if (layer) layer.hidden = false;
-    syncPageAdvisorFillButtons();
-    const retryBtn = document.getElementById('taskplugin-page-advisor-retry');
-    if (retryBtn) {
-      retryBtn.hidden = false;
-      retryBtn.disabled = false;
-    }
-    return;
-  }
-  if (msg.phase === 'done' || Array.isArray(msg.suggestions)) {
-    showPageAdvisorSuggestions(msg);
   }
 }

@@ -16,11 +16,14 @@ function hideFloatPanel() {
   isOpen = false;
   panel.classList.remove('taskplugin-open');
   btn.classList.remove('taskplugin-active');
+  btn.textContent = '+';
+  if (typeof syncFloatPanelFocusTrap === 'function') syncFloatPanelFocusTrap();
   if (pickMode) setPickMode(false);
   if (adjustModal && !adjustModal.hidden) closeAdjustModal();
   resultDiv.className = 'taskplugin-result';
   resultDiv.textContent = '';
   resultDiv.removeAttribute('data-traceId');
+  if (btn && typeof btn.focus === 'function') btn.focus();
 }
 
 function showPageToast(msg) {
