@@ -221,16 +221,16 @@ describe('click-guard anti-replay', () => {
 describe('page-advisor wiring contracts', () => {
   const root = path.join(__dirname, '..');
 
-  it('manifest registers page-optimization-suggest without chrome backtick suggested_key', () => {
+  it('manifest registers page-optimization-suggest Alt+Z and bumps version', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.json'), 'utf8'));
     const cmd = manifest.commands['page-optimization-suggest'];
     assert.ok(cmd);
-    assert.equal(cmd.suggested_key, undefined);
-    assert.match(cmd.description, /Alt\+`/);
+    assert.equal(cmd.suggested_key.default, 'Alt+Z');
+    assert.equal(cmd.suggested_key.mac, 'Alt+Z');
     const regionCmd = manifest.commands['page-optimization-suggest-region'];
     assert.ok(regionCmd);
-    assert.equal(regionCmd.suggested_key, undefined);
-    assert.match(regionCmd.description, /Alt\+Shift\+`/);
+    assert.equal(regionCmd.suggested_key.default, 'Alt+Shift+Z');
+    assert.equal(regionCmd.suggested_key.mac, 'Alt+Shift+Z');
     assert.ok(manifest.content_scripts[0].js.includes('lib/page-context.js'));
     assert.ok(manifest.content_scripts[0].js.includes('lib/page-advisor-region.js'));
     assert.ok(manifest.content_scripts[0].js.includes('content/float-page-advisor.js'));
@@ -253,12 +253,12 @@ describe('page-advisor wiring contracts', () => {
     assert.match(swMain, /sw-page-advisor\.js/);
   });
 
-  it('content wires region select and Alt+`/Alt+Shift+` page fallbacks', () => {
+  it('content wires region select and Alt+Z/Alt+Shift+Z page fallbacks', () => {
     const content = fs.readFileSync(path.join(root, 'content/content.js'), 'utf8');
     assert.match(content, /startPageAdvisorRegionSelect/);
     const pick = fs.readFileSync(path.join(root, 'content/float-pick.js'), 'utf8');
-    assert.match(pick, /PAGE_ADVISOR_REGION_SHORTCUT|Alt\+Shift\+`/);
-    assert.match(pick, /PAGE_ADVISOR_SHORTCUT|Alt\+`/);
+    assert.match(pick, /PAGE_ADVISOR_REGION_SHORTCUT|Alt\+Shift\+Z/);
+    assert.match(pick, /PAGE_ADVISOR_SHORTCUT|Alt\+Z/);
     const region = fs.readFileSync(path.join(root, 'content/float-page-advisor-region.js'), 'utf8');
     assert.match(region, /startPageAdvisorRegionSelect/);
     assert.match(region, /pageOptimizationSuggest/);

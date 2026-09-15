@@ -1,4 +1,4 @@
-/** Alt+` page-optimization-suggest: auth → page context → suggest job → poll → content UI. */
+/** Alt+Z page-optimization-suggest: auth → page context → suggest job → poll → content UI. */
 
 'use strict';
 
@@ -70,7 +70,7 @@ function agentResourceNotConfiguredMessage(baseUrl, tenantId) {
 }
 
 /**
- * Alt+` 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
+ * Alt+Z 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
  * @param {number} tabId
  */
 async function runPageOptimizationSuggest(tabId) {
@@ -83,7 +83,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (!cfg.token || expired) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: '请先在扩展弹窗中登录后再使用 Alt+` 页面优化建议',
+      error: '请先在扩展弹窗中登录后再使用 Alt+Z 页面优化建议',
     });
     return;
   }
@@ -141,7 +141,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (!workspaceId || !tenantId) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: '请先在扩展弹窗选择 Alt+` 默认工作空间，或打开浮窗选择工作空间后再按 Alt+`',
+      error: '请先在扩展弹窗选择 Alt+Z 默认工作空间，或打开浮窗选择工作空间后再按 Alt+Z',
     });
     return;
   }
@@ -277,7 +277,7 @@ async function handlePageOptimizationSuggestCommand() {
 }
 
 /**
- * Alt+Shift+`：先让 content 进入元素点选，确认后由 content 再发 pageOptimizationSuggest。
+ * Alt+Shift+Z：先让 content 进入元素点选，确认后由 content 再发 pageOptimizationSuggest。
  */
 async function handlePageOptimizationSuggestRegionCommand() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -295,8 +295,10 @@ async function handlePageOptimizationSuggestRegionCommand() {
 }
 
 /**
- * 卸载旧版默认 Alt+E / Alt+Shift+E 的 chrome.commands 绑定（反引号无法注册，改页内兜底）。
- * 仅清除遗留默认值，保留用户在 chrome://extensions/shortcuts 自行改绑的其它组合。
+ * 迁移页面优化建议 chrome.commands：
+ * - 清除遗留 Alt+E / Alt+Shift+E / Alt+`（及 Backquote）绑定
+ * - 若当前无绑定，写入默认 Alt+Z / Alt+Shift+Z（升级自无 suggested_key 的版本）
+ * 保留用户已改绑的其它组合。
  */
 async function clearLegacyPageAdvisorChromeShortcuts() {
   if (
@@ -305,22 +307,34 @@ async function clearLegacyPageAdvisorChromeShortcuts() {
   ) {
     return;
   }
-  const legacy = new Set(['Alt+E', 'Alt+Shift+E']);
-  const names = [
-    'page-optimization-suggest',
-    'page-optimization-suggest-region',
-  ];
+  const legacy = new Set([
+    'Alt+E',
+    'Alt+Shift+E',
+    'Alt+`',
+    'Alt+Shift+`',
+    'Alt+Backquote',
+    'Alt+Shift+Backquote',
+  ]);
+  const defaults = {
+    'page-optimization-suggest': 'Alt+Z',
+    'page-optimization-suggest-region': 'Alt+Shift+Z',
+  };
   try {
     const commands = await chrome.commands.getAll();
-    for (const name of names) {
+    for (const [name, desired] of Object.entries(defaults)) {
       const found = (commands || []).find((c) => c && c.name === name);
       const sc = String(found?.shortcut || '');
-      if (!legacy.has(sc)) continue;
-      await chrome.commands.update({ name, shortcut: '' });
+      if (legacy.has(sc)) {
+        await chrome.commands.update({ name, shortcut: desired });
+        continue;
+      }
+      if (!sc) {
+        await chrome.commands.update({ name, shortcut: desired });
+      }
     }
   } catch (e) {
     console.warn(
-      '[taskChromePlugin] clear legacy page-advisor shortcuts:',
+      '[taskChromePlugin] migrate page-advisor shortcuts:',
       e?.message || e,
     );
   }

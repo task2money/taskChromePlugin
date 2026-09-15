@@ -28,7 +28,7 @@ describe('page-advisor-fill', () => {
       orderSelectedSuggestions(SUGGESTIONS, ['s1', 's2']),
       'https://ex.com',
     );
-    assert.match(block, /^## 页面优化建议（Alt\+`）/);
+    assert.match(block, /^## 页面优化建议（Alt\+Z）/);
     assert.match(block, /- \[对比度\] 提高按钮对比度/);
     assert.match(block, /- \[加载\] 减少首屏 JS/);
     assert.match(block, /来源页: https:\/\/ex\.com/);
@@ -41,7 +41,7 @@ describe('page-advisor-fill', () => {
       ['s2'],
       'https://ex.com/p',
     );
-    assert.ok(next.startsWith('已有描述\n\n## 页面优化建议（Alt+`）'));
+    assert.ok(next.startsWith('已有描述\n\n## 页面优化建议（Alt+Z）'));
     assert.match(next, /- \[加载\] 减少首屏 JS/);
   });
 

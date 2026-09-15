@@ -349,7 +349,7 @@ if (typeof globalThis !== 'undefined') {
   globalThis.triggerPageAdvisorRegionFromShortcut = triggerPageAdvisorRegionFromShortcut;
 }
 
-/** 页内兜底：Alt+` → 全页优化建议（与 chrome.commands 去抖；反引号仅页内） */
+/** 页内兜底：Alt+Z → 全页优化建议（与 chrome.commands 去抖） */
 function triggerPageAdvisorFromShortcut() {
   const now = Date.now();
   if (typeof lastShortcutToggleAt !== 'undefined' && typeof SHORTCUT_DEBOUNCE_MS !== 'undefined') {
@@ -363,7 +363,7 @@ function triggerPageAdvisorFromShortcut() {
   } catch (_) { /* ignore */ }
 }
 
-/** 页内兜底：Alt+Shift+` → 元素点选后创新 */
+/** 页内兜底：Alt+Shift+Z → 元素点选后创新 */
 function triggerPageAdvisorRegionFromShortcut() {
   const now = Date.now();
   if (typeof lastShortcutToggleAt !== 'undefined' && typeof SHORTCUT_DEBOUNCE_MS !== 'undefined') {
