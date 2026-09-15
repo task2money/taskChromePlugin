@@ -142,6 +142,8 @@ function setPageAdvisorError(msg, traceId) {
   }
   if (msg && traceId && typeof setDataTraceId === 'function') {
     setDataTraceId(err, traceId);
+  } else if (msg && traceId) {
+    err.setAttribute('data-traceId', String(traceId));
   } else {
     err.removeAttribute('data-traceId');
   }

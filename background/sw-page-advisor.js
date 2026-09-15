@@ -164,8 +164,10 @@ async function runPageOptimizationSuggest(tabId) {
   };
 
   let created;
+  let createTraceId = '';
   try {
     created = await PageAdvisorAPI.createSuggestJob(tenantId, body, idempotencyKey);
+    createTraceId = String(created?.trace_id || created?.traceId || created?._resolvedTraceId || '').trim();
   } catch (e) {
     if (e?.status === 422 || e?.errorCode === 'AGENT_RESOURCE_NOT_CONFIGURED') {
       await notifyContentPageAdvisor(tabId, {
@@ -189,6 +191,7 @@ async function runPageOptimizationSuggest(tabId) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: '建议任务未返回 job_id',
+      traceId: createTraceId,
     });
     return;
   }
@@ -197,6 +200,7 @@ async function runPageOptimizationSuggest(tabId) {
   try {
     job = await PageAdvisorAPI.pollSuggestJob(tenantId, jobId, {
       maxMs: PAGE_ADVISOR_POLL_MAX_MS,
+      seedTraceId: createTraceId,
     });
   } catch (e) {
     const timedOut = /timeout|超时|timed?\s*out/i.test(String(e?.message || e?.errorCode || ''));
@@ -206,7 +210,7 @@ async function runPageOptimizationSuggest(tabId) {
         ? '生成优化建议超时（15 秒），请重试'
         : (e?.message || '轮询建议结果失败'),
       errorCode: timedOut ? 'PAGE_ADVISOR_TIMEOUT' : (e?.errorCode || ''),
-      traceId: e?.traceId || '',
+      traceId: e?.traceId || createTraceId || '',
     });
     return;
   }

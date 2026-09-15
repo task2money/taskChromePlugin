@@ -92,6 +92,14 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(md, /逐仓基准分支/);
   });
 
+  it('page-optimization-suggest documents timeout data-traceId', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /data-traceId/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /data-traceId/);
+    assert.match(md, /生成优化建议超时/);
+  });
+
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);

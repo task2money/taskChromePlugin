@@ -121,6 +121,70 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
     assert.equal(data.available, true);
     assert.match(seenUrl, /agent-resource-status\/\?workspace_id=w9/);
   });
+  it('pollSuggestJob timeout attaches traceId from job body', async () => {
+    globalThis.fetch = async () => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name) => {
+          if (String(name).toLowerCase() === 'content-type') return 'application/json';
+          if (String(name).toLowerCase() === 'x-trace-id') return 'hdr-poll-tid';
+          return '';
+        },
+      },
+      json: async () => ({
+        job_id: 'j1',
+        status: 'running',
+        trace_id: 'job-create-tid',
+      }),
+      text: async () => '',
+    });
+    await assert.rejects(
+      () => PageAdvisorAPI.pollSuggestJob('t1', 'j1', {
+        session,
+        initialDelayMs: 1,
+        maxDelayMs: 1,
+        maxMs: 5,
+        sleep: async () => {},
+      }),
+      (err) => {
+        assert.equal(err.errorCode, 'SUGGEST_JOB_TIMEOUT');
+        assert.equal(err.traceId, 'job-create-tid');
+        return true;
+      },
+    );
+  });
+
+  it('pollSuggestJob timeout falls back to seedTraceId / client X-Trace-Id', async () => {
+    globalThis.fetch = async (_url, opts) => ({
+      ok: true,
+      status: 200,
+      headers: {
+        get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+      },
+      json: async () => ({ job_id: 'j1', status: 'queued' }),
+      text: async () => '',
+    });
+    // Force deterministic client trace via seeded header path: stamp uses request id when no response header.
+    const origNew = globalThis.APIHttp?.newRequestTraceId;
+    // api-http is required inside PageAdvisorAPI; monkeypatch via crypto.randomUUID if needed.
+    await assert.rejects(
+      () => PageAdvisorAPI.pollSuggestJob('t1', 'j1', {
+        session,
+        seedTraceId: 'seed-from-create',
+        initialDelayMs: 1,
+        maxDelayMs: 1,
+        maxMs: 5,
+        sleep: async () => {},
+      }),
+      (err) => {
+        assert.equal(err.errorCode, 'SUGGEST_JOB_TIMEOUT');
+        assert.equal(err.traceId, 'seed-from-create');
+        return true;
+      },
+    );
+    void origNew;
+  });
 });
 
 describe('click-guard anti-replay', () => {
