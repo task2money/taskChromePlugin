@@ -208,6 +208,21 @@ async function handleMessageRest(message, sender) {
         return { success: true };
       }
 
+    case 'pageOptimizationSuggest':
+      {
+        const tabId = sender?.tab?.id
+          || (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
+        if (!tabId) return { success: false, error: '无活动标签页' };
+        await runPageOptimizationSuggest(tabId);
+        return { success: true };
+      }
+
+    case 'startPageAdvisorRegionSelect':
+      {
+        await handlePageOptimizationSuggestRegionCommand();
+        return { success: true };
+      }
+
     case 'elementPickedInFrame':
       {
         const tabId = sender?.tab?.id;

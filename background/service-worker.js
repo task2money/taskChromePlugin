@@ -64,6 +64,14 @@ chrome.commands.onCommand.addListener(async (command) => {
     }
     return;
   }
+  if (command === 'page-optimization-suggest-region') {
+    try {
+      await handlePageOptimizationSuggestRegionCommand();
+    } catch (e) {
+      console.warn('[taskChromePlugin] page-optimization-suggest-region failed:', e.message || e);
+    }
+    return;
+  }
   if (command !== 'toggle-element-picker') return;
   try {
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });

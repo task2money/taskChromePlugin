@@ -275,3 +275,21 @@ async function handlePageOptimizationSuggestCommand() {
   if (!tabId) return;
   await runPageOptimizationSuggest(tabId);
 }
+
+/**
+ * Alt+Shift+E：先让 content 进入框选，确认后由 content 再发 pageOptimizationSuggest。
+ */
+async function handlePageOptimizationSuggestRegionCommand() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tabId = tabs[0]?.id;
+  if (!tabId) return;
+  try {
+    await chrome.tabs.sendMessage(tabId, { action: 'startPageAdvisorRegionSelect' }, { frameId: 0 });
+  } catch (frame0Err) {
+    console.warn(
+      '[taskChromePlugin] startPageAdvisorRegionSelect frame0 失败，回退整 tab:',
+      frame0Err?.message || frame0Err,
+    );
+    await chrome.tabs.sendMessage(tabId, { action: 'startPageAdvisorRegionSelect' });
+  }
+}

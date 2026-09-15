@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.34",
+  "version": "1.8.35",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -17,6 +17,13 @@
         "mac": "Alt+E"
       },
       "description": "对当前页面生成优化建议并填入任务描述（多选，不自动创建）"
+    },
+    "page-optimization-suggest-region": {
+      "suggested_key": {
+        "default": "Alt+Shift+E",
+        "mac": "Alt+Shift+E"
+      },
+      "description": "先框选页面区域，再对该区域生成优化建议（多选，不自动创建）"
     }
   },
   "permissions": [
@@ -69,6 +76,7 @@
         "lib/visibility-interval.js",
         "lib/auth-refresh-debounce.js",
         "lib/page-context.js",
+        "lib/page-advisor-region.js",
         "lib/page-advisor-fill.js",
         "lib/page-advisor-preview.js",
         "lib/page-advisor-defaults.js",
@@ -83,6 +91,7 @@
         "content/float-aidev.js",
         "content/float-form.js",
         "content/float-snapshot.js",
+        "content/float-page-advisor-region.js",
         "content/float-page-advisor-layer.js",
         "content/float-page-advisor-drag.js",
         "content/float-page-advisor.js",
@@ -91,6 +100,7 @@
       "css": [
         "content/content.css",
         "content/content-form.css",
+        "content/content-region.css",
         "content/content-guide.css"
       ],
       "run_at": "document_end",

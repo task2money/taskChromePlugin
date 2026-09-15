@@ -72,6 +72,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     return true;
   }
+  if (msg.action === 'startPageAdvisorRegionSelect') {
+    try {
+      const resp = (typeof startPageAdvisorRegionSelect === 'function')
+        ? startPageAdvisorRegionSelect()
+        : { success: false, error: 'region select 未就绪' };
+      sendResponse?.(resp);
+    } catch (e) {
+      sendResponse?.({ success: false, error: e?.message || '无法启动区域框选' });
+    }
+    return true;
+  }
   if (msg.action === 'pageAdvisorResult') {
     try {
       if (typeof handlePageAdvisorResultMessage === 'function') {

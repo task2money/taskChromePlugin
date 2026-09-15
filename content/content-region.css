@@ -1,0 +1,38 @@
+/* Alt+Shift+E 区域框选 overlay */
+#taskplugin-region-select-overlay {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483645 !important;
+  cursor: crosshair !important;
+  background: rgba(17, 17, 27, 0.28) !important;
+  pointer-events: auto !important;
+}
+#taskplugin-region-select-overlay[hidden] {
+  display: none !important;
+}
+.taskplugin-region-select-hint {
+  position: fixed !important;
+  top: 16px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2147483646 !important;
+  padding: 8px 14px !important;
+  border-radius: 8px !important;
+  background: #1e1e2e !important;
+  border: 1px solid #45475a !important;
+  color: #cdd6f4 !important;
+  font-size: 12px !important;
+  pointer-events: none !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+}
+.taskplugin-region-select-box {
+  position: fixed !important;
+  box-sizing: border-box !important;
+  border: 2px solid #89b4fa !important;
+  background: rgba(137, 180, 250, 0.15) !important;
+  pointer-events: none !important;
+  z-index: 2147483646 !important;
+}
+.taskplugin-region-select-box[hidden] {
+  display: none !important;
+}

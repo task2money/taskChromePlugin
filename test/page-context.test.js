@@ -9,6 +9,7 @@ const {
   isElementSkipped,
   extractVisibleReadableText,
   capturePageContext,
+  capturePageContextInRect,
 } = require('../lib/page-context.js');
 
 function textNode(value, parent) {
@@ -95,5 +96,29 @@ describe('page-context capturePageContext', () => {
     assert.equal(ctx.title, 'Example');
     assert.equal(ctx.pageText, 'hello world');
     assert.equal(ctx.pageTextTruncated, false);
+  });
+});
+
+describe('page-context capturePageContextInRect', () => {
+  it('only includes text from elements intersecting the region', () => {
+    const left = el('p', { children: [textNode('LEFT')] });
+    const right = el('p', { children: [textNode('RIGHT')] });
+    const root = el('body', { children: [left, right] });
+    const rects = new Map([
+      [left, { left: 0, top: 0, width: 40, height: 20 }],
+      [right, { left: 100, top: 0, width: 40, height: 20 }],
+      [root, { left: 0, top: 0, width: 200, height: 40 }],
+    ]);
+    const ctx = capturePageContextInRect({
+      url: 'https://example.com/r',
+      title: 'Region',
+      root,
+      region: { left: 0, top: 0, width: 50, height: 30 },
+      stampNids: false,
+      getBoundingClientRect: (node) => rects.get(node) || { left: 0, top: 0, width: 0, height: 0 },
+    });
+    assert.equal(ctx.regionScoped, true);
+    assert.match(ctx.pageText, /LEFT/);
+    assert.doesNotMatch(ctx.pageText, /RIGHT/);
   });
 });

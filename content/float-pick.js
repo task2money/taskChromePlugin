@@ -441,9 +441,24 @@ function togglePickModeFromShortcut() {
  * 页内 keydown 兜底：严格匹配用户自定义的组合串（默认 Alt+X）。
  * Storage.matchShortcutKeydown 规则：组合中列出的修饰键必须按下、未列出的不得按下，
  * 与浏览器级键位（chrome.commands.update）行为一致。
+ * Alt+E / Alt+Shift+E（页面/区域优化建议）优先于可配置拾取组合，避免改绑冲突误触。
  */
 function onShortcutKeyDown(e) {
   if (e.repeat) return;
+  if (Storage.matchShortcutKeydown(e, 'Alt+Shift+E')) {
+    e.preventDefault();
+    if (typeof triggerPageAdvisorRegionFromShortcut === 'function') {
+      triggerPageAdvisorRegionFromShortcut();
+    }
+    return;
+  }
+  if (Storage.matchShortcutKeydown(e, 'Alt+E')) {
+    e.preventDefault();
+    if (typeof triggerPageAdvisorFromShortcut === 'function') {
+      triggerPageAdvisorFromShortcut();
+    }
+    return;
+  }
   if (!Storage.matchShortcutKeydown(e, pickShortcutCombo)) return;
   e.preventDefault();
   togglePickModeFromShortcut();

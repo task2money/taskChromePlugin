@@ -73,8 +73,13 @@ function showPageAdvisorLayer() {
  */
 function getPageAdvisorContextFromFloat() {
   const Capture = typeof PageContext !== 'undefined' ? PageContext : null;
+  const pendingRegion = (typeof getPendingPageAdvisorRegion === 'function')
+    ? getPendingPageAdvisorRegion()
+    : null;
   const page = Capture
-    ? Capture.capturePageContext({ stampNids: true })
+    ? (pendingRegion && Capture.capturePageContextInRect
+      ? Capture.capturePageContextInRect({ stampNids: true, region: pendingRegion })
+      : Capture.capturePageContext({ stampNids: true }))
     : {
       url: location.href,
       title: document.title,
@@ -82,6 +87,9 @@ function getPageAdvisorContextFromFloat() {
       pageTextTruncated: false,
       domOutline: [],
     };
+  if (typeof clearPendingPageAdvisorRegion === 'function') {
+    clearPendingPageAdvisorRegion();
+  }
 
   const workspaceId = (typeof wsSelect !== 'undefined' && wsSelect?.value)
     ? String(wsSelect.value).trim()
@@ -103,6 +111,7 @@ function getPageAdvisorContextFromFloat() {
       workspaceId,
       companyId,
       tenantId: companyId,
+      regionScoped: !!page.regionScoped,
     },
   };
 }
