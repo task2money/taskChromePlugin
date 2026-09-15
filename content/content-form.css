@@ -309,34 +309,69 @@ html.taskplugin-picking .taskplugin-el-highlight {
   margin-top: 8px !important;
 }
 
-/* Alt+E 页面优化建议浮层（复用 modal 骨架） */
-#taskplugin-page-advisor-modal.taskplugin-modal {
+/* Alt+E 页面优化建议：无遮罩锚定悬浮卡 + 底栏工具条 */
+#taskplugin-page-advisor-layer {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 2147483647 !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  background: rgba(17, 17, 27, 0.55) !important;
-  pointer-events: auto !important;
-  padding: 16px !important;
-  box-sizing: border-box !important;
+  z-index: 2147483646 !important;
+  pointer-events: none !important;
 }
-#taskplugin-page-advisor-modal[hidden] {
+#taskplugin-page-advisor-layer[hidden] {
   display: none !important;
 }
-#taskplugin-page-advisor-modal .taskplugin-modal-card {
-  width: min(480px, 100%) !important;
-  max-height: min(80vh, 640px) !important;
-  overflow: auto !important;
+.taskplugin-page-advisor-float-card,
+.taskplugin-page-advisor-status-card,
+.taskplugin-page-advisor-toolbar {
+  pointer-events: auto !important;
 }
-.taskplugin-page-advisor-list {
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  max-height: 320px !important;
-  overflow: auto !important;
+.taskplugin-page-advisor-float-card {
+  position: fixed !important;
+  width: 260px !important;
+  max-width: calc(100vw - 16px) !important;
+  z-index: 2147483647 !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background: #1e1e2e !important;
+  border: 1px solid #45475a !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35) !important;
+}
+.taskplugin-page-advisor-status-card {
+  position: fixed !important;
+  right: 16px !important;
+  bottom: 88px !important;
+  width: min(320px, calc(100vw - 32px)) !important;
+  padding: 12px !important;
+  background: #1e1e2e !important;
+  border: 1px solid #45475a !important;
+  border-radius: 10px !important;
+  color: #a6adc8 !important;
+  font-size: 12px !important;
+}
+.taskplugin-page-advisor-toolbar {
+  position: fixed !important;
+  left: 50% !important;
+  bottom: 16px !important;
+  transform: translateX(-50%) !important;
+  width: min(520px, calc(100vw - 24px)) !important;
+  padding: 10px 12px !important;
+  background: rgba(30, 30, 46, 0.96) !important;
+  border: 1px solid #45475a !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4) !important;
+  box-sizing: border-box !important;
+}
+.taskplugin-page-advisor-toolbar-hint {
   margin: 0 0 8px !important;
+  color: #a6adc8 !important;
+  font-size: 11px !important;
+}
+.taskplugin-page-advisor-toolbar-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 8px !important;
+  justify-content: flex-end !important;
 }
 .taskplugin-page-advisor-item {
   display: flex !important;
@@ -344,7 +379,7 @@ html.taskplugin-picking .taskplugin-el-highlight {
   align-items: flex-start !important;
   padding: 8px 10px !important;
   background: #252536 !important;
-  border: 1px solid #313244 !important;
+  border: none !important;
   border-radius: 8px !important;
   cursor: pointer !important;
   color: #cdd6f4 !important;
@@ -371,16 +406,11 @@ html.taskplugin-picking .taskplugin-el-highlight {
   line-height: 1.4 !important;
   word-break: break-word !important;
 }
-.taskplugin-page-advisor-loading {
-  margin: 0 !important;
-  color: #a6adc8 !important;
-  font-size: 12px !important;
-}
 .taskplugin-page-advisor-links {
   display: flex !important;
   flex-direction: column !important;
   gap: 6px !important;
-  margin: 0 0 8px !important;
+  margin: 8px 0 0 !important;
 }
 .taskplugin-page-advisor-link {
   color: #89b4fa !important;
@@ -388,7 +418,7 @@ html.taskplugin-picking .taskplugin-el-highlight {
   text-decoration: underline !important;
   word-break: break-all !important;
 }
-#taskplugin-page-advisor-modal .taskplugin-result {
+#taskplugin-page-advisor-layer .taskplugin-result {
   margin-top: 8px !important;
 }
 
@@ -401,4 +431,111 @@ html.taskplugin-picking .taskplugin-el-highlight {
 #taskplugin-queued-auto-run-error[hidden] {
   display: none !important;
 }
+
+/* 使用说明 a11y：按钮折叠 / 标题 / 目录 / 快捷键表 / kbd */
+.taskplugin-user-guide-host .tcp-guide-root {
+  margin: 0 0 10px !important;
+}
+.taskplugin-user-guide-host .tcp-guide-root-summary,
+.taskplugin-user-guide-host .tcp-guide-close {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+  background: #313244 !important;
+  color: #cdd6f4 !important;
+  border: 1px solid #45475a !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  font-size: 12px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+.taskplugin-user-guide-host .tcp-guide-root-summary:focus,
+.taskplugin-user-guide-host .tcp-guide-close:focus {
+  outline: 2px solid #89b4fa !important;
+  outline-offset: 1px !important;
+}
+.taskplugin-user-guide-host .tcp-guide-body[hidden] {
+  display: none !important;
+}
+.taskplugin-user-guide-host .tcp-guide-body {
+  margin-top: 8px !important;
+  padding: 8px !important;
+  background: #181825 !important;
+  border: 1px solid #313244 !important;
+  border-radius: 8px !important;
+  max-height: 280px !important;
+  overflow: auto !important;
+  pointer-events: auto !important;
+}
+.taskplugin-user-guide-host .tcp-guide-body-toolbar {
+  display: flex !important;
+  justify-content: flex-end !important;
+  margin-bottom: 6px !important;
+}
+.taskplugin-user-guide-host .tcp-guide-heading {
+  margin: 10px 0 4px !important;
+  font-size: 12px !important;
+  color: #cdd6f4 !important;
+}
+.taskplugin-user-guide-host .tcp-guide-steps {
+  margin: 0 0 8px 1.1em !important;
+  padding: 0 !important;
+  color: #a6adc8 !important;
+  font-size: 11px !important;
+}
+.taskplugin-user-guide-host .tcp-guide-toc-list {
+  margin: 0 0 8px 1.1em !important;
+  padding: 0 !important;
+  font-size: 11px !important;
+}
+.taskplugin-user-guide-host .tcp-guide-kbd,
+.taskplugin-user-guide-host kbd.tcp-guide-kbd {
+  display: inline-block !important;
+  background: #45475a !important;
+  color: #cdd6f4 !important;
+  padding: 1px 5px !important;
+  border-radius: 4px !important;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
+  font-size: 10px !important;
+  border-bottom: 2px solid #585b70 !important;
+}
+.taskplugin-user-guide-host .tcp-guide-shortcut-table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: 11px !important;
+  color: #a6adc8 !important;
+  margin-bottom: 8px !important;
+}
+.taskplugin-user-guide-host .tcp-guide-shortcut-table th,
+.taskplugin-user-guide-host .tcp-guide-shortcut-table td {
+  border: 1px solid #313244 !important;
+  padding: 4px 6px !important;
+  text-align: left !important;
+  vertical-align: top !important;
+}
+.taskplugin-fieldset {
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  min-width: 0 !important;
+}
+.taskplugin-fieldset legend {
+  padding: 0 !important;
+  margin: 0 0 4px !important;
+  font-size: 11px !important;
+  color: #a6adc8 !important;
+}
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
 

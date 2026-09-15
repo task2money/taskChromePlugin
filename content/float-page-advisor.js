@@ -1,5 +1,5 @@
 /**
- * Alt+E 页面优化建议 UI：多选列表 + 填入任务描述（不 createTask）。
+ * Alt+E 页面优化建议 UI：锚定悬浮卡 + 可逆 DOM 预览 + 全部/逐条填入。
  * 须在 float-boot / float-form 之后、content.js 之前注入。
  */
 
@@ -14,46 +14,60 @@ var pageAdvisorState = {
   pageUrl: '',
   jobId: '',
 };
+var pageAdvisorPreviewSession = null;
+var pageAdvisorCardRepos = [];
+var pageAdvisorLayoutRaf = 0;
 
-function ensurePageAdvisorModal() {
-  let modal = document.getElementById('taskplugin-page-advisor-modal');
-  if (modal) return modal;
+function getPageAdvisorPreviewSession() {
+  if (pageAdvisorPreviewSession) return pageAdvisorPreviewSession;
+  const Preview = typeof PageAdvisorPreview !== 'undefined' ? PageAdvisorPreview : null;
+  if (!Preview) return null;
+  pageAdvisorPreviewSession = Preview.createPreviewSession({
+    document,
+    resolveNid: (nid) => {
+      const id = String(nid || '').replace(/"/g, '');
+      return document.querySelector(`[data-taskplugin-nid="${id}"]`);
+    },
+  });
+  return pageAdvisorPreviewSession;
+}
 
-  modal = document.createElement('div');
-  modal.id = 'taskplugin-page-advisor-modal';
-  modal.className = 'taskplugin-modal';
-  modal.hidden = true;
-  modal.innerHTML = `
-    <div class="taskplugin-modal-card" role="dialog" aria-modal="true" aria-labelledby="taskplugin-page-advisor-title">
-      <h4 id="taskplugin-page-advisor-title">页面优化建议</h4>
-      <p class="taskplugin-modal-el" id="taskplugin-page-advisor-hint">多选后填入浮窗任务描述（不会自动创建任务）</p>
-      <div id="taskplugin-page-advisor-list" class="taskplugin-page-advisor-list"></div>
-      <div id="taskplugin-page-advisor-links" class="taskplugin-page-advisor-links" hidden></div>
-      <div class="taskplugin-modal-actions">
-        <button type="button" class="taskplugin-btn" id="taskplugin-page-advisor-cancel">取消</button>
+function ensurePageAdvisorLayer() {
+  let layer = document.getElementById('taskplugin-page-advisor-layer');
+  if (layer) return layer;
+
+  layer = document.createElement('div');
+  layer.id = 'taskplugin-page-advisor-layer';
+  layer.hidden = true;
+  layer.innerHTML = `
+    <div id="taskplugin-page-advisor-cards" class="taskplugin-page-advisor-cards"></div>
+    <div id="taskplugin-page-advisor-toolbar" class="taskplugin-page-advisor-toolbar" role="toolbar" aria-label="页面优化建议操作">
+      <p class="taskplugin-page-advisor-toolbar-hint" id="taskplugin-page-advisor-hint">勾选即预览；填入任务描述不会自动创建任务</p>
+      <div class="taskplugin-page-advisor-toolbar-actions">
+        <button type="button" class="taskplugin-btn" id="taskplugin-page-advisor-cancel">关闭并还原</button>
         <button type="button" class="taskplugin-btn" id="taskplugin-page-advisor-retry" hidden>重试</button>
-        <button type="button" class="taskplugin-btn taskplugin-btn-primary taskplugin-btn-modal-primary" id="taskplugin-page-advisor-confirm" aria-busy="false">填入任务描述</button>
+        <button type="button" class="taskplugin-btn" id="taskplugin-page-advisor-fill-one" disabled aria-busy="false">逐条填入</button>
+        <button type="button" class="taskplugin-btn taskplugin-btn-primary" id="taskplugin-page-advisor-fill-all" disabled aria-busy="false">全部填入</button>
       </div>
+      <div id="taskplugin-page-advisor-links" class="taskplugin-page-advisor-links" hidden></div>
       <div id="taskplugin-page-advisor-error" class="taskplugin-result"></div>
     </div>
   `;
-  if (root) {
-    root.appendChild(modal);
-  } else {
-    document.body.appendChild(modal);
-  }
+  if (root) root.appendChild(layer);
+  else document.body.appendChild(layer);
 
   document.getElementById('taskplugin-page-advisor-cancel')?.addEventListener('click', () => {
-    // Anti-Replay-OK: ui-only — 关闭建议浮层，无写接口
+    // Anti-Replay-OK: ui-only — 关闭建议层并还原预览
     closePageAdvisorModal();
   });
-
-  document.getElementById('taskplugin-page-advisor-confirm')?.addEventListener('click', () => {
-    void confirmPageAdvisorFill();
+  document.getElementById('taskplugin-page-advisor-fill-all')?.addEventListener('click', () => {
+    void confirmPageAdvisorFill({ mode: 'all' });
   });
-
+  document.getElementById('taskplugin-page-advisor-fill-one')?.addEventListener('click', () => {
+    void confirmPageAdvisorFill({ mode: 'one' });
+  });
   document.getElementById('taskplugin-page-advisor-retry')?.addEventListener('click', () => {
-    // Anti-Replay-OK: re-triggers Alt+E flow via runtime message (idempotent job create uses new key)
+    // Anti-Replay-OK: re-triggers Alt+E flow via runtime message
     const retryBtn = document.getElementById('taskplugin-page-advisor-retry');
     if (retryBtn) retryBtn.hidden = true;
     setPageAdvisorError('');
@@ -67,14 +81,32 @@ function ensurePageAdvisorModal() {
     }
   });
 
-  return modal;
+  window.addEventListener('scroll', schedulePageAdvisorLayout, true);
+  window.addEventListener('resize', schedulePageAdvisorLayout);
+
+  return layer;
+}
+
+function schedulePageAdvisorLayout() {
+  if (pageAdvisorLayoutRaf) return;
+  pageAdvisorLayoutRaf = requestAnimationFrame(() => {
+    pageAdvisorLayoutRaf = 0;
+    layoutPageAdvisorCards();
+  });
 }
 
 function closePageAdvisorModal() {
-  const modal = document.getElementById('taskplugin-page-advisor-modal');
-  if (!modal) return;
-  modal.hidden = true;
+  const layer = document.getElementById('taskplugin-page-advisor-layer');
+  if (layer) layer.hidden = true;
+  const session = getPageAdvisorPreviewSession();
+  session?.undoAll();
+  if (typeof PageContext !== 'undefined' && PageContext.clearDomNids) {
+    PageContext.clearDomNids(document);
+  }
   pageAdvisorState = { suggestions: [], pageUrl: '', jobId: '' };
+  pageAdvisorCardRepos = [];
+  const cards = document.getElementById('taskplugin-page-advisor-cards');
+  if (cards) cards.innerHTML = '';
   const err = document.getElementById('taskplugin-page-advisor-error');
   if (err) {
     err.className = 'taskplugin-result';
@@ -86,12 +118,7 @@ function closePageAdvisorModal() {
     links.hidden = true;
     links.innerHTML = '';
   }
-  const confirmBtn = document.getElementById('taskplugin-page-advisor-confirm');
-  if (confirmBtn) {
-    confirmBtn.disabled = false;
-    confirmBtn.setAttribute('aria-busy', 'false');
-    confirmBtn.textContent = '填入任务描述';
-  }
+  syncPageAdvisorFillButtons();
 }
 
 function setPageAdvisorError(msg, traceId) {
@@ -117,28 +144,91 @@ function openFloatPanelForAdvisor() {
 }
 
 function showPageAdvisorLoading(message) {
-  const modal = ensurePageAdvisorModal();
-  const list = document.getElementById('taskplugin-page-advisor-list');
-  const confirmBtn = document.getElementById('taskplugin-page-advisor-confirm');
-  const links = document.getElementById('taskplugin-page-advisor-links');
-  if (list) list.innerHTML = `<p class="taskplugin-page-advisor-loading">${esc(message || '生成中…')}</p>`;
-  if (confirmBtn) {
-    confirmBtn.disabled = true;
-    confirmBtn.setAttribute('aria-busy', 'true');
+  const layer = ensurePageAdvisorLayer();
+  const cards = document.getElementById('taskplugin-page-advisor-cards');
+  if (cards) {
+    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card">${esc(message || '生成中…')}</div>`;
   }
+  pageAdvisorCardRepos = [];
+  syncPageAdvisorFillButtons();
+  const links = document.getElementById('taskplugin-page-advisor-links');
   if (links) {
     links.hidden = true;
     links.innerHTML = '';
   }
   setPageAdvisorError('');
   openFloatPanelForAdvisor();
-  modal.hidden = false;
+  layer.hidden = false;
+}
+
+function resolveSuggestionAnchor(suggestion) {
+  const nid = String(suggestion?.target_nid || '').trim();
+  if (nid) {
+    try {
+      const el = document.querySelector(`[data-taskplugin-nid="${nid.replace(/"/g, '')}"]`);
+      if (el) return el;
+    } catch (_) { /* ignore */ }
+  }
+  const anchor = String(suggestion?.anchor_text || '').trim();
+  if (anchor && anchor.length >= 2) {
+    const stamped = document.querySelectorAll('[data-taskplugin-nid]');
+    for (const el of stamped) {
+      const t = String(el.textContent || '').replace(/\s+/g, ' ');
+      if (t.includes(anchor)) return el;
+    }
+  }
+  return null;
+}
+
+function layoutPageAdvisorCards() {
+  const cardsRoot = document.getElementById('taskplugin-page-advisor-cards');
+  if (!cardsRoot) return;
+  const cardEls = cardsRoot.querySelectorAll('.taskplugin-page-advisor-float-card');
+  let cornerIndex = 0;
+  cardEls.forEach((card) => {
+    const idx = Number(card.getAttribute('data-order') || 0);
+    const sug = pageAdvisorState.suggestions[idx];
+    const anchor = sug ? resolveSuggestionAnchor(sug) : null;
+    if (anchor) {
+      const r = anchor.getBoundingClientRect();
+      let top = Math.max(8, Math.min(window.innerHeight - 120, r.top));
+      let left = Math.min(window.innerWidth - 280, r.right + 8);
+      if (left < 8) left = Math.max(8, r.left);
+      card.style.top = `${Math.round(top)}px`;
+      card.style.left = `${Math.round(left)}px`;
+      card.classList.remove('taskplugin-page-advisor-corner');
+    } else {
+      const top = Math.max(8, window.innerHeight - 160 - cornerIndex * 96);
+      const left = Math.max(8, window.innerWidth - 300);
+      card.style.top = `${Math.round(top)}px`;
+      card.style.left = `${Math.round(left)}px`;
+      card.classList.add('taskplugin-page-advisor-corner');
+      cornerIndex += 1;
+    }
+  });
+}
+
+function onPageAdvisorCheckChange(ev) {
+  const input = ev.target;
+  if (!input || !input.classList.contains('taskplugin-page-advisor-check')) return;
+  const id = String(input.value || '');
+  const sug = pageAdvisorState.suggestions.find((s) => String(s.id) === id);
+  const session = getPageAdvisorPreviewSession();
+  if (!sug || !session) {
+    syncPageAdvisorFillButtons();
+    return;
+  }
+  if (input.checked) {
+    session.applySuggestion(sug);
+  } else {
+    session.undoOne(id);
+  }
+  syncPageAdvisorFillButtons();
 }
 
 function showPageAdvisorSuggestions(payload) {
-  const modal = ensurePageAdvisorModal();
-  const list = document.getElementById('taskplugin-page-advisor-list');
-  const confirmBtn = document.getElementById('taskplugin-page-advisor-confirm');
+  const layer = ensurePageAdvisorLayer();
+  const cards = document.getElementById('taskplugin-page-advisor-cards');
   const links = document.getElementById('taskplugin-page-advisor-links');
   const suggestions = Array.isArray(payload?.suggestions) ? payload.suggestions : [];
   pageAdvisorState = {
@@ -147,63 +237,57 @@ function showPageAdvisorSuggestions(payload) {
     jobId: String(payload?.jobId || ''),
   };
 
+  getPageAdvisorPreviewSession()?.undoAll();
+
   if (links) {
     links.hidden = true;
     links.innerHTML = '';
   }
 
   if (!suggestions.length) {
-    if (list) {
-      list.innerHTML = '<p class="taskplugin-page-advisor-loading">未返回可用建议</p>';
+    if (cards) {
+      cards.innerHTML = '<div class="taskplugin-page-advisor-status-card">未返回可用建议</div>';
     }
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.setAttribute('aria-busy', 'false');
-      confirmBtn.title = '暂无建议可填入';
-    }
-    const cancelBtn = document.getElementById('taskplugin-page-advisor-cancel');
-    if (cancelBtn) {
-      cancelBtn.disabled = true;
-      cancelBtn.title = '暂无建议，请关闭浮窗或重试 Alt+E';
-    }
-  } else if (list) {
-    list.innerHTML = suggestions.map((s, idx) => {
+    pageAdvisorCardRepos = [];
+  } else if (cards) {
+    cards.innerHTML = suggestions.map((s, idx) => {
       const id = String(s.id != null ? s.id : `s${idx}`);
       const title = esc(s.title || '建议');
       const summary = esc(s.summary || s.detail || '');
       return `
-        <label class="taskplugin-page-advisor-item">
-          <input type="checkbox" class="taskplugin-page-advisor-check" value="${esc(id)}" data-order="${idx}" checked>
-          <span class="taskplugin-page-advisor-item-body">
-            <strong>${title}</strong>
-            <span class="taskplugin-page-advisor-summary">${summary}</span>
-          </span>
-        </label>
+        <div class="taskplugin-page-advisor-float-card" data-order="${idx}" data-sid="${esc(id)}">
+          <label class="taskplugin-page-advisor-item">
+            <input type="checkbox" class="taskplugin-page-advisor-check" value="${esc(id)}" data-order="${idx}" checked>
+            <span class="taskplugin-page-advisor-item-body">
+              <strong>${title}</strong>
+              <span class="taskplugin-page-advisor-summary">${summary}</span>
+            </span>
+          </label>
+        </div>
       `;
     }).join('');
-    if (confirmBtn) {
-      confirmBtn.disabled = false;
-      confirmBtn.setAttribute('aria-busy', 'false');
-      confirmBtn.textContent = '填入任务描述';
-    }
+    cards.querySelectorAll('.taskplugin-page-advisor-check').forEach((el) => {
+      el.addEventListener('change', onPageAdvisorCheckChange);
+      // 默认勾选 → 立即预览
+      const id = String(el.value || '');
+      const sug = pageAdvisorState.suggestions.find((s) => String(s.id) === id);
+      if (sug) getPageAdvisorPreviewSession()?.applySuggestion(sug);
+    });
   }
 
   setPageAdvisorError('');
   openFloatPanelForAdvisor();
-  modal.hidden = false;
+  layer.hidden = false;
+  syncPageAdvisorFillButtons();
+  layoutPageAdvisorCards();
 }
 
 function showPageAdvisorResourceError(payload) {
-  const modal = ensurePageAdvisorModal();
-  const list = document.getElementById('taskplugin-page-advisor-list');
-  const confirmBtn = document.getElementById('taskplugin-page-advisor-confirm');
+  const layer = ensurePageAdvisorLayer();
+  const cards = document.getElementById('taskplugin-page-advisor-cards');
   const links = document.getElementById('taskplugin-page-advisor-links');
-  if (list) {
-    list.innerHTML = `<p class="taskplugin-page-advisor-loading">${esc(payload?.message || '未配置智能体资源')}</p>`;
-  }
-  if (confirmBtn) {
-    confirmBtn.disabled = true;
-    confirmBtn.setAttribute('aria-busy', 'false');
+  if (cards) {
+    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card">${esc(payload?.message || '未配置智能体资源')}</div>`;
   }
   if (links && Array.isArray(payload?.links)) {
     links.hidden = false;
@@ -215,12 +299,13 @@ function showPageAdvisorResourceError(payload) {
     }).join('');
   }
   setPageAdvisorError(payload?.message || '', payload?.traceId);
+  syncPageAdvisorFillButtons();
   openFloatPanelForAdvisor();
-  modal.hidden = false;
+  layer.hidden = false;
 }
 
 function collectSelectedSuggestionIds() {
-  const checks = document.querySelectorAll('#taskplugin-page-advisor-list .taskplugin-page-advisor-check:checked');
+  const checks = document.querySelectorAll('#taskplugin-page-advisor-cards .taskplugin-page-advisor-check:checked');
   const ordered = Array.from(checks).sort((a, b) => {
     const ao = Number(a.getAttribute('data-order') || 0);
     const bo = Number(b.getAttribute('data-order') || 0);
@@ -229,20 +314,43 @@ function collectSelectedSuggestionIds() {
   return ordered.map((el) => el.value);
 }
 
-async function confirmPageAdvisorFill() {
-  const confirmBtn = document.getElementById('taskplugin-page-advisor-confirm');
+function syncPageAdvisorFillButtons() {
+  const ids = collectSelectedSuggestionIds();
+  const allBtn = document.getElementById('taskplugin-page-advisor-fill-all');
+  const oneBtn = document.getElementById('taskplugin-page-advisor-fill-one');
+  const disabled = ids.length === 0;
+  if (allBtn) {
+    allBtn.disabled = disabled;
+    allBtn.setAttribute('aria-busy', 'false');
+    allBtn.textContent = '全部填入';
+  }
+  if (oneBtn) {
+    oneBtn.disabled = disabled;
+    oneBtn.setAttribute('aria-busy', 'false');
+    oneBtn.textContent = '逐条填入';
+  }
+}
+
+async function confirmPageAdvisorFill(opts = {}) {
+  const mode = opts.mode === 'one' ? 'one' : 'all';
+  const allBtn = document.getElementById('taskplugin-page-advisor-fill-all');
+  const oneBtn = document.getElementById('taskplugin-page-advisor-fill-one');
+  const activeBtn = mode === 'one' ? oneBtn : allBtn;
+
   const runFill = () => {
-    const selectedIds = collectSelectedSuggestionIds();
+    let selectedIds = collectSelectedSuggestionIds();
     if (!selectedIds.length) {
       setPageAdvisorError('请至少勾选一条建议');
       return { filled: false };
+    }
+    if (mode === 'one') {
+      selectedIds = [selectedIds[0]];
     }
     const Fill = typeof PageAdvisorFill !== 'undefined' ? PageAdvisorFill : null;
     if (!Fill) {
       setPageAdvisorError('PageAdvisorFill 未加载');
       return { filled: false };
     }
-    // 断言路径：仅改描述，绝不 createTask
     const next = Fill.appendSuggestionsToDescription(
       descInput ? descInput.value : '',
       pageAdvisorState.suggestions,
@@ -254,44 +362,54 @@ async function confirmPageAdvisorFill() {
       if (typeof syncDescResetButton === 'function') syncDescResetButton();
     }
     openFloatPanelForAdvisor();
-    closePageAdvisorModal();
-    if (typeof showResult === 'function') {
-      showResult('已将优化建议填入任务描述（未自动创建任务）', 'success');
+
+    const session = getPageAdvisorPreviewSession();
+    if (mode === 'all') {
+      session?.undoAll();
+      closePageAdvisorModal();
+      if (typeof showResult === 'function') {
+        showResult('已将优化建议填入任务描述（未自动创建任务）', 'success');
+      }
+    } else {
+      const id = selectedIds[0];
+      session?.undoOne(id);
+      const card = document.querySelector(`.taskplugin-page-advisor-float-card[data-sid="${String(id).replace(/"/g, '')}"]`);
+      card?.remove();
+      pageAdvisorState.suggestions = pageAdvisorState.suggestions.filter((s) => String(s.id) !== id);
+      syncPageAdvisorFillButtons();
+      layoutPageAdvisorCards();
+      if (!pageAdvisorState.suggestions.length) {
+        closePageAdvisorModal();
+      }
+      if (typeof showResult === 'function') {
+        showResult('已填入一条建议（未自动创建任务）', 'success');
+      }
     }
     return { filled: true, createTaskCalled: false };
   };
 
   if (pageAdvisorConfirmGuard) {
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.setAttribute('aria-busy', 'true');
-      confirmBtn.textContent = '填入中…';
+    if (activeBtn) {
+      activeBtn.disabled = true;
+      activeBtn.setAttribute('aria-busy', 'true');
+      activeBtn.textContent = '填入中…';
     }
     try {
       const outcome = await pageAdvisorConfirmGuard.run(async () => runFill());
       if (outcome.skipped) return;
     } finally {
-      if (confirmBtn && document.getElementById('taskplugin-page-advisor-modal')
-          && !document.getElementById('taskplugin-page-advisor-modal').hidden) {
-        confirmBtn.disabled = false;
-        confirmBtn.setAttribute('aria-busy', 'false');
-        confirmBtn.textContent = '填入任务描述';
-      }
+      syncPageAdvisorFillButtons();
     }
     return;
   }
 
-  // fallback busyRef
   if (pageAdvisorBusy) return;
   pageAdvisorBusy = true;
-  if (confirmBtn) {
-    confirmBtn.disabled = true;
-    confirmBtn.setAttribute('aria-busy', 'true');
-  }
   try {
     runFill();
   } finally {
     pageAdvisorBusy = false;
+    syncPageAdvisorFillButtons();
   }
 }
 
@@ -301,12 +419,13 @@ async function confirmPageAdvisorFill() {
 function getPageAdvisorContextFromFloat() {
   const Capture = typeof PageContext !== 'undefined' ? PageContext : null;
   const page = Capture
-    ? Capture.capturePageContext()
+    ? Capture.capturePageContext({ stampNids: true })
     : {
       url: location.href,
       title: document.title,
       pageText: '',
       pageTextTruncated: false,
+      domOutline: [],
     };
 
   const workspaceId = (typeof wsSelect !== 'undefined' && wsSelect?.value)
@@ -325,6 +444,7 @@ function getPageAdvisorContextFromFloat() {
       title: page.title,
       pageText: page.pageText,
       pageTextTruncated: page.pageTextTruncated,
+      domOutline: Array.isArray(page.domOutline) ? page.domOutline : [],
       workspaceId,
       companyId,
       tenantId: companyId,
@@ -342,21 +462,16 @@ function handlePageAdvisorResultMessage(msg) {
       showPageAdvisorResourceError(msg);
       return;
     }
-    ensurePageAdvisorModal();
+    ensurePageAdvisorLayer();
     showPageAdvisorLoading('');
-    const list = document.getElementById('taskplugin-page-advisor-list');
-    if (list) list.innerHTML = '';
+    const cards = document.getElementById('taskplugin-page-advisor-cards');
+    if (cards) cards.innerHTML = '';
     const errText = msg.error || '页面优化建议失败';
     setPageAdvisorError(errText, msg.traceId);
     openFloatPanelForAdvisor();
-    const modal = document.getElementById('taskplugin-page-advisor-modal');
-    if (modal) modal.hidden = false;
-    const confirmBtn = document.getElementById('taskplugin-page-advisor-confirm');
-    if (confirmBtn) {
-      confirmBtn.disabled = true;
-      confirmBtn.setAttribute('aria-busy', 'false');
-      confirmBtn.title = '生成失败，无法填入';
-    }
+    const layer = document.getElementById('taskplugin-page-advisor-layer');
+    if (layer) layer.hidden = false;
+    syncPageAdvisorFillButtons();
     const retryBtn = document.getElementById('taskplugin-page-advisor-retry');
     if (retryBtn) {
       retryBtn.hidden = false;

@@ -160,6 +160,7 @@ async function runPageOptimizationSuggest(tabId) {
     page_title: String(data.title || ''),
     page_text: String(data.pageText || ''),
     screenshot_url: screenshotUrl || '',
+    dom_outline: Array.isArray(data.domOutline) ? data.domOutline : [],
   };
 
   let created;

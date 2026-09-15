@@ -158,16 +158,58 @@ describe('UserGuide sections', () => {
     const ctrlHtml = UserGuide.renderFullGuideHtml({ surface: 'panel' });
     assert.match(ctrlHtml, /Ctrl\+Shift\+X/);
 
-    // 自定义组合 → 实际组合串（首条步骤跟随）
+    // 自定义组合 → 实际组合串（首条步骤跟随；键名在 <kbd> 中）
     UserGuide.setShortcutMode('Alt+Shift+E');
     const customHtml = UserGuide.renderCollapsibleHtml({ surface: 'popup' });
-    assert.match(customHtml, /Alt\+Shift\+E：切换指针选择模式/);
+    assert.match(customHtml, /<kbd[^>]*>Alt\+Shift\+E<\/kbd>/);
+    assert.match(customHtml, /切换指针选择模式/);
+    assert.match(customHtml, /tcp-guide-shortcut-table/);
+    assert.match(customHtml, /快捷键无效/);
 
     // 非法值忽略，回退默认 Alt+X 文案
     UserGuide.setShortcutMode('weird');
     const fallback = UserGuide.renderCollapsibleHtml({ surface: 'float' });
     assert.match(fallback, /Alt\+X/);
     UserGuide.setShortcutMode('');
+  });
+
+  it('使用说明含标题列表、目录、关闭按钮与 ARIA 折叠', () => {
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    assert.match(html, /<h4 class="tcp-guide-heading"[^>]*>插件能做什么<\/h4>/);
+    assert.match(html, /<ul class="tcp-guide-steps">/);
+    assert.match(html, /tcp-guide-toc/);
+    assert.match(html, /aria-label="关闭使用说明"/);
+    assert.match(html, /aria-expanded="false"/);
+    assert.match(html, /data-guide-toggle/);
+    assert.match(html, /\shidden/);
+  });
+
+  it('mount 绑定关闭后焦点回到触发按钮', () => {
+    const { JSDOM } = (() => {
+      try { return require('jsdom'); } catch { return { JSDOM: null }; }
+    })();
+    if (!JSDOM) {
+      // jsdom optional in node:test env — skip structural bind check via source contract
+      const src = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
+      assert.match(src, /bindGuideInteractions/);
+      assert.match(src, /toggle\.focus/);
+      return;
+    }
+    const dom = new JSDOM('<!doctype html><div id="host"></div>');
+    const host = dom.window.document.getElementById('host');
+    UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'float', open: true }));
+    const toggle = host.querySelector('[data-guide-toggle]');
+    const closeBtn = host.querySelector('[data-guide-close]');
+    const panel = host.querySelector('.tcp-guide-body');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(panel.hidden, false);
+    closeBtn.focus = () => {};
+    let focused = false;
+    toggle.focus = () => { focused = true; };
+    closeBtn.click();
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(panel.hidden, true);
+    assert.equal(focused, true);
   });
 });
 
