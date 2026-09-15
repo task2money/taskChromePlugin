@@ -39,6 +39,7 @@
 ## 其它约束（摘要）
 
 - 纯函数优先落 `lib/`，并配 `test/*.test.js`（与 element-picker / create-task-payload 一致）
+- **content script 词法作用域（硬）**：同一 `manifest.json` `content_scripts` 条目内多个 `.js` 共享 isolated world；**禁止**跨文件重复行首 `const`/`let` 绑定名（见仓库元规则第 60 条 / ADR-0077）。改名示例：`PREVIEW_NID_ATTR` vs `NID_ATTR`。验收：`python3 db/scripts/ci/check_chrome_content_script_lexical_scope.py`
 - content script 改动注意 `manifest.json` `content_scripts` 注入顺序
 - 版本号：用户可见行为变更时 bump `manifest.json` `version`
 - 不新增未批准的敏感权限；网络与截图路径保持既有脱敏与直连约定
@@ -48,3 +49,4 @@
 - 功能总览：[`README.md`](./README.md)
 - 使用说明：[`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)
 - 元素选择器设计：`docs/2026-07-13-task-chrome-plugin-element-picker-*.md`、`docs/2026-07-18-task-chrome-plugin-sibling-range-pick-design.md`
+- 词法作用域元规则：仓库 `.ai/01_project_constraints/65_chrome_extension_content_script_lexical_scope.md`
