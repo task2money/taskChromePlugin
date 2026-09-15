@@ -86,7 +86,8 @@
       ],
       "css": [
         "content/content.css",
-        "content/content-form.css"
+        "content/content-form.css",
+        "content/content-guide.css"
       ],
       "run_at": "document_end",
       "all_frames": false

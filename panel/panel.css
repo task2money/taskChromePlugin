@@ -353,6 +353,25 @@ a:hover { color: #74c7ec; }
 .history-item .hi-actions { margin-top: 6px; }
 .history-item .hi-actions .btn { margin-right: 6px; }
 
+/* 使用说明 Tab a11y（UserGuide.renderFullGuideHtml） */
+.tcp-guide-full-title { margin: 0 0 6px; font-size: 14px; color: #cdd6f4; }
+.tcp-guide-heading { margin: 12px 0 4px; font-size: 12px; color: #cdd6f4; }
+.tcp-guide-steps { margin: 0 0 8px 1.1em; padding: 0; font-size: 11px; color: #a6adc8; }
+.tcp-guide-kbd {
+  display: inline-block; background: #45475a; color: #cdd6f4;
+  padding: 1px 5px; border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px;
+  border-bottom: 2px solid #585b70;
+}
+.tcp-guide-shortcut-table {
+  width: 100%; border-collapse: collapse; font-size: 11px; color: #a6adc8; margin-bottom: 8px;
+}
+.tcp-guide-shortcut-table th,
+.tcp-guide-shortcut-table td {
+  border: 1px solid #313244; padding: 4px 6px; text-align: left; vertical-align: top;
+}
+.tcp-guide-toc-list { margin: 0 0 8px 1.1em; padding: 0; font-size: 11px; }
+
 /* === Retry Badge === */
 .retry-badge {
   display: inline-block; padding: 0 4px; border-radius: 3px;

@@ -369,6 +369,44 @@ body {
 #pickShortcutResult.ok { color: #a6e3a1; }
 #pickShortcutResult.err { color: #f38ba8; }
 
+/* 使用说明 a11y（popup 挂载 UserGuide） */
+#popup-user-guide .tcp-guide-root-summary,
+#popup-user-guide .tcp-guide-close {
+  display: inline-flex; align-items: center;
+  background: #313244; color: #cdd6f4;
+  border: 1px solid #45475a; border-radius: 6px;
+  padding: 6px 10px; font-size: 12px; cursor: pointer;
+}
+#popup-user-guide .tcp-guide-root-summary:focus,
+#popup-user-guide .tcp-guide-close:focus {
+  outline: 2px solid #89b4fa; outline-offset: 1px;
+}
+#popup-user-guide .tcp-guide-body[hidden] { display: none; }
+#popup-user-guide .tcp-guide-body {
+  margin-top: 8px; padding: 8px;
+  background: #181825; border: 1px solid #313244; border-radius: 8px;
+  max-height: 320px; overflow: auto;
+}
+#popup-user-guide .tcp-guide-heading { margin: 10px 0 4px; font-size: 12px; color: #cdd6f4; }
+#popup-user-guide .tcp-guide-steps { margin: 0 0 8px 1.1em; padding: 0; font-size: 11px; color: #a6adc8; }
+#popup-user-guide .tcp-guide-kbd {
+  display: inline-block; background: #45475a; color: #cdd6f4;
+  padding: 1px 5px; border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px;
+  border-bottom: 2px solid #585b70;
+}
+#popup-user-guide .tcp-guide-shortcut-table {
+  width: 100%; border-collapse: collapse; font-size: 11px; color: #a6adc8; margin-bottom: 8px;
+}
+#popup-user-guide .tcp-guide-shortcut-table th,
+#popup-user-guide .tcp-guide-shortcut-table td {
+  border: 1px solid #313244; padding: 4px 6px; text-align: left; vertical-align: top;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
 /* Dark popup: default browser link blue/purple is unreadable on #1e1e2e */
 a { color: #89b4fa; }
 a:hover { color: #74c7ec; }

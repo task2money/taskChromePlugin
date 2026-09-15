@@ -134,6 +134,10 @@ describe('plugin surfaces wire queued auto-run', () => {
     assert.match(markup, /id="taskplugin-queued-auto-run"/);
     assert.match(markup, /加入自动调度队列/);
     assert.match(markup, /id="taskplugin-queued-auto-run-error"/);
+    assert.match(markup, /aria-describedby="taskplugin-queued-auto-run-hint"/);
+    assert.match(markup, /for="taskplugin-title"/);
+    assert.match(markup, /<fieldset class="taskplugin-form-group taskplugin-fieldset">/);
+    assert.match(markup, /role="status" aria-live="polite"/);
   });
 
   it('content.js loads schedule via getQueueSchedule and payload includes queued_auto_run', () => {

@@ -6,10 +6,16 @@ function setAidevStatus(text, visible = true) {
   if (!visible || !text) {
     aidevStatusEl.hidden = true;
     aidevStatusEl.textContent = '';
+    aidevStatusEl.removeAttribute('role');
+    aidevStatusEl.setAttribute('aria-live', 'polite');
     return;
   }
   aidevStatusEl.textContent = text;
   aidevStatusEl.hidden = false;
+  // Mismatch / failure: assertive alert. Success match: polite status.
+  const isAlert = /未匹配|失败|错误/.test(text);
+  aidevStatusEl.setAttribute('role', isAlert ? 'alert' : 'status');
+  aidevStatusEl.setAttribute('aria-live', isAlert ? 'assertive' : 'polite');
 }
 
 function checkAidevMatchingProjects(wsId) {

@@ -128,6 +128,13 @@ function setPageAdvisorError(msg, traceId) {
   err.className = msg
     ? 'taskplugin-result taskplugin-show taskplugin-result-error'
     : 'taskplugin-result';
+  if (msg) {
+    err.setAttribute('role', 'alert');
+    err.setAttribute('aria-live', 'assertive');
+  } else {
+    err.removeAttribute('role');
+    err.removeAttribute('aria-live');
+  }
   if (msg && traceId && typeof setDataTraceId === 'function') {
     setDataTraceId(err, traceId);
   } else {
@@ -147,7 +154,7 @@ function showPageAdvisorLoading(message) {
   const layer = ensurePageAdvisorLayer();
   const cards = document.getElementById('taskplugin-page-advisor-cards');
   if (cards) {
-    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card">${esc(message || '生成中…')}</div>`;
+    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card" role="status" aria-live="polite">${esc(message || '生成中…')}</div>`;
   }
   pageAdvisorCardRepos = [];
   syncPageAdvisorFillButtons();
