@@ -258,6 +258,9 @@ function bindPageAdvisorCardDismiss(root) {
   root.querySelectorAll(".taskplugin-page-advisor-dismiss").forEach((btnEl) => {
     if (btnEl.getAttribute("data-dismiss-bound") === "1") return;
     btnEl.setAttribute("data-dismiss-bound", "1");
+    btnEl.addEventListener("mousedown", (ev) => {
+      ev.stopPropagation();
+    });
     btnEl.addEventListener("click", (ev) => {
       ev.preventDefault();
       ev.stopPropagation();

@@ -95,6 +95,28 @@ describe('page-advisor card layout wiring', () => {
     assert.match(src, /clearAllPageAdvisorPins/);
     assert.match(ui, /dismissPageAdvisorSuggestion/);
     assert.match(ui, /taskplugin-page-advisor-dismiss/);
+    assert.match(ui, /aria-label="关闭此建议"/);
+    assert.match(ui, /pageAdvisorDismissGuard/);
+    assert.match(ui, /mousedown[\s\S]*stopPropagation/);
+  });
+
+  it('page-advisor.css raises z-index on hover/focus-within above base', () => {
+    const css = fs.readFileSync(
+      path.join(__dirname, '../content/page-advisor.css'),
+      'utf8',
+    );
+    const base = css.match(
+      /\.taskplugin-page-advisor-float-card\s*\{[^}]*z-index:\s*(\d+)/s,
+    );
+    const raised = css.match(
+      /\.taskplugin-page-advisor-float-card:hover[\s\S]*?z-index:\s*(\d+)/,
+    );
+    assert.ok(base, 'base float-card z-index');
+    assert.ok(raised, 'hover/focus z-index');
+    assert.ok(
+      Number(raised[1]) > Number(base[1]),
+      `hover z-index ${raised[1]} must exceed base ${base[1]}`,
+    );
   });
 });
 

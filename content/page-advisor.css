@@ -17,7 +17,8 @@
   position: fixed !important;
   width: 260px !important;
   max-width: calc(100vw - 16px) !important;
-  z-index: 2147483647 !important;
+  /* Base below hover/focus so overlapped cards can rise when read */
+  z-index: 2147483645 !important;
   box-sizing: border-box !important;
   padding: 0 !important;
   margin: 0 !important;

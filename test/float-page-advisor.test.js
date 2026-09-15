@@ -133,3 +133,19 @@ describe('page-advisor error data-traceId', () => {
     assert.equal(errorEl.getAttribute('data-traceId'), null);
   });
 });
+
+describe('float-page-advisor dismiss wiring', () => {
+  it('binds dismiss with ClickGuard and mousedown stopPropagation', () => {
+    const ui = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor.js'),
+      'utf8',
+    );
+    assert.match(ui, /function dismissPageAdvisorSuggestion/);
+    assert.match(ui, /pageAdvisorDismissGuard/);
+    assert.match(ui, /aria-label="关闭此建议"/);
+    assert.match(
+      ui,
+      /taskplugin-page-advisor-dismiss[\s\S]*?addEventListener\("mousedown"[\s\S]*?stopPropagation/,
+    );
+  });
+});
