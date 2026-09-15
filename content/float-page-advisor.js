@@ -156,14 +156,6 @@ function setPageAdvisorError(msg, traceId) {
   }
 }
 
-function openFloatPanelForAdvisor() {
-  if (typeof isOpen !== "undefined" && !isOpen && panel && btn) {
-    isOpen = true;
-    panel.classList.add("taskplugin-open");
-    btn.classList.add("taskplugin-active");
-  }
-}
-
 function setPageAdvisorLiveStatus(message) {
   const live = document.getElementById("taskplugin-page-advisor-live");
   if (live) live.textContent = message || "";
@@ -186,7 +178,7 @@ function showPageAdvisorLoading(message) {
     links.innerHTML = "";
   }
   setPageAdvisorError("");
-  openFloatPanelForAdvisor();
+  collapseFloatPanelDuringAdvisor();
   layer.hidden = false;
   showPageAdvisorLayer();
 }
@@ -352,7 +344,7 @@ function showPageAdvisorSuggestions(payload) {
   }
 
   setPageAdvisorError("");
-  openFloatPanelForAdvisor();
+  collapseFloatPanelDuringAdvisor();
   layer.hidden = false;
   syncPageAdvisorFillButtons();
   layoutPageAdvisorCards();
@@ -379,7 +371,7 @@ function showPageAdvisorResourceError(payload) {
   }
   setPageAdvisorError(payload?.message || "", payload?.traceId);
   syncPageAdvisorFillButtons();
-  openFloatPanelForAdvisor();
+  collapseFloatPanelDuringAdvisor();
   layer.hidden = false;
   showPageAdvisorLayer();
 }

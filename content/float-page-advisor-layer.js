@@ -137,6 +137,35 @@ function syncFloatPanelPrimaryHeading() {
   floatTitle.replaceWith(replacement);
 }
 
+/**
+ * 自动创新进行中：收起「快速创建任务」浮窗，仅展示建议卡/底栏。
+ * 填入任务描述后再由 openFloatPanelForAdvisor 打开建任务面板。
+ */
+function collapseFloatPanelDuringAdvisor() {
+  if (typeof panel !== "undefined" && panel) {
+    panel.classList.remove("taskplugin-open");
+  }
+  if (typeof btn !== "undefined" && btn) {
+    btn.classList.remove("taskplugin-active");
+    if (typeof pickMode === "undefined" || !pickMode) {
+      btn.textContent = "+";
+    }
+  }
+  if (typeof isOpen !== "undefined") {
+    isOpen = false;
+  }
+}
+
+/** 全部/逐条填入任务描述后打开「快速创建任务」浮窗。 */
+function openFloatPanelForAdvisor() {
+  if (typeof isOpen !== "undefined" && !isOpen && panel && btn) {
+    isOpen = true;
+    panel.classList.add("taskplugin-open");
+    btn.classList.add("taskplugin-active");
+    btn.textContent = "×";
+  }
+}
+
 function showPageAdvisorLayer() {
   applyPageAdvisorDocumentTitle();
   syncFloatPanelPrimaryHeading();
@@ -449,7 +478,7 @@ function handlePageAdvisorResultMessage(msg) {
     if (cards) cards.innerHTML = "";
     const errText = msg.error || "页面优化建议失败";
     setPageAdvisorError(errText, msg.traceId);
-    openFloatPanelForAdvisor();
+    collapseFloatPanelDuringAdvisor();
     const layer = document.getElementById("taskplugin-page-advisor-layer");
     if (layer) layer.hidden = false;
     syncPageAdvisorFillButtons();

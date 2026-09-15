@@ -110,6 +110,16 @@ describe('UserGuide sections', () => {
     assert.match(md, /75\s*秒/);
   });
 
+  it('page-optimization-suggest: 快速创建任务仅在填入后打开', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
+    assert.ok(section);
+    const steps = (section.steps || []).join('\n');
+    assert.match(steps, /不打开「快速创建任务」/);
+    assert.match(steps, /填入.*后.*打开「快速创建任务」|点击上述填入按钮后才会打开「快速创建任务」/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /仅在点击上述任一填入按钮后/);
+  });
+
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);

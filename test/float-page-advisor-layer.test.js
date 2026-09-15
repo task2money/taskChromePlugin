@@ -87,6 +87,19 @@ describe('page-advisor card region hover highlight', () => {
     assert.ok(clearIdx > closeIdx, 'close must clear region highlight');
   });
 
+  it('layer owns collapse/open float helpers for advisor fill gate', () => {
+    const layer = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-layer.js'),
+      'utf8',
+    );
+    assert.match(layer, /function collapseFloatPanelDuringAdvisor/);
+    assert.match(layer, /function openFloatPanelForAdvisor/);
+    const errBodyStart = layer.indexOf('function handlePageAdvisorResultMessage');
+    const errSlice = layer.slice(errBodyStart, errBodyStart + 800);
+    assert.match(errSlice, /collapseFloatPanelDuringAdvisor/);
+    assert.doesNotMatch(errSlice, /openFloatPanelForAdvisor\s*\(/);
+  });
+
   it('user guide mentions hover card highlights page region', () => {
     const guide = fs.readFileSync(
       path.join(__dirname, '../docs/USER_GUIDE.md'),
