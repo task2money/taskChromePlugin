@@ -6,7 +6,8 @@
     "test": "node --test test/*.test.js",
     "test:e2e": "bash e2e/real-extension-messaging.playwright.test.js.sh",
     "test:e2e:popup-login": "bash e2e/oauth-pkce-login.playwright.test.js.sh",
-    "test:e2e:advisor-region-highlight": "bash e2e/page-advisor-region-highlight.playwright.test.js.sh"
+    "test:e2e:advisor-region-highlight": "bash e2e/page-advisor-region-highlight.playwright.test.js.sh",
+    "test:e2e:advisor-fill-panel": "bash e2e/page-advisor-fill-panel.playwright.test.js.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1"
