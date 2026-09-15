@@ -2,8 +2,12 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
 const PageAdvisorPreview = require('../lib/page-advisor-preview.js');
+const PageContext = require('../lib/page-context.js');
 
 function makeButton(text, nid = 'n1') {
   const attrs = {};
@@ -162,5 +166,29 @@ describe('page-advisor-preview apply/undo', () => {
     });
     assert.equal(outcome, 'stale');
     assert.equal(session.has('s2'), false);
+  });
+});
+
+describe('page-advisor-preview content-script shared scope', () => {
+  it('loads page-context then page-advisor-preview without NID_ATTR redeclaration', () => {
+    const root = path.join(__dirname, '..');
+    const contextSrc = fs.readFileSync(path.join(root, 'lib/page-context.js'), 'utf8');
+    const previewSrc = fs.readFileSync(path.join(root, 'lib/page-advisor-preview.js'), 'utf8');
+    // Chrome content_scripts share one lexical scope — concatenate like one injection world.
+    const combined = `${contextSrc}\n;\n${previewSrc}\n`;
+    const sandbox = { console };
+    sandbox.globalThis = sandbox;
+    const ctx = vm.createContext(sandbox);
+    assert.doesNotThrow(() => {
+      vm.runInContext(combined, ctx, { filename: 'content-scripts-combined.js' });
+    });
+    assert.equal(ctx.PageContext.NID_ATTR, 'data-taskplugin-nid');
+    assert.equal(ctx.PageAdvisorPreview.NID_ATTR, 'data-taskplugin-nid');
+    assert.equal(ctx.PageContext.NID_ATTR, ctx.PageAdvisorPreview.NID_ATTR);
+  });
+
+  it('exports same NID_ATTR string as PageContext (module require)', () => {
+    assert.equal(PageAdvisorPreview.NID_ATTR, PageContext.NID_ATTR);
+    assert.equal(PageAdvisorPreview.NID_ATTR, 'data-taskplugin-nid');
   });
 });
