@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.37",
+  "version": "1.8.38",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "commands": {
     "toggle-element-picker": {
@@ -23,7 +23,7 @@
         "default": "Alt+Shift+E",
         "mac": "Alt+Shift+E"
       },
-      "description": "先框选页面区域，再对该区域生成优化建议（多选，不自动创建）"
+      "description": "先点选页面元素，再对该元素生成优化建议（多选，不自动创建）"
     }
   },
   "permissions": [

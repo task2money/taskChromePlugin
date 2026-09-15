@@ -10,6 +10,7 @@ const {
   extractVisibleReadableText,
   capturePageContext,
   capturePageContextInRect,
+  capturePageContextForElements,
 } = require('../lib/page-context.js');
 
 function textNode(value, parent) {
@@ -170,5 +171,22 @@ describe('page-context extractVisibleReadableText skips plugin chrome', () => {
     const text = extractVisibleReadableText(root);
     assert.match(text, /PAGE_OK/);
     assert.doesNotMatch(text, /FLOAT_NO/);
+  });
+});
+
+describe('page-context capturePageContextForElements', () => {
+  it('only includes text from selected element subtrees', () => {
+    const keep = el('div', { children: [el('p', { children: [textNode('KEEP')] })] });
+    const drop = el('div', { children: [el('p', { children: [textNode('DROP')] })] });
+    const ctx = capturePageContextForElements({
+      url: 'https://example.com/el',
+      title: 'Els',
+      roots: [keep],
+      stampNids: false,
+    });
+    assert.equal(ctx.regionScoped, true);
+    assert.match(ctx.pageText, /KEEP/);
+    assert.doesNotMatch(ctx.pageText, /DROP/);
+    void drop;
   });
 });

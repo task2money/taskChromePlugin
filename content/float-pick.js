@@ -132,6 +132,10 @@ function resolvePickTarget(e) {
 }
 
 function setPickMode(on, source) {
+  if (on && typeof isPageAdvisorRegionMode === 'function' && isPageAdvisorRegionMode()
+    && typeof stopPageAdvisorRegionSelect === 'function') {
+    stopPageAdvisorRegionSelect({ remove: false });
+  }
   pickMode = !!on;
   if (on && source) pickSource = source;
   if (!on) {

@@ -213,24 +213,40 @@ function layoutPageAdvisorCards() {
  */
 function getPageAdvisorContextFromFloat() {
   const Capture = typeof PageContext !== "undefined" ? PageContext : null;
+  const pendingEls =
+    typeof getPendingPageAdvisorElements === "function"
+      ? getPendingPageAdvisorElements()
+      : null;
   const pendingRegion =
     typeof getPendingPageAdvisorRegion === "function"
       ? getPendingPageAdvisorRegion()
       : null;
-  const page = Capture
-    ? pendingRegion && Capture.capturePageContextInRect
-      ? Capture.capturePageContextInRect({
-          stampNids: true,
-          region: pendingRegion,
-        })
-      : Capture.capturePageContext({ stampNids: true })
-    : {
-        url: location.href,
-        title: document.title,
-        pageText: "",
-        pageTextTruncated: false,
-        domOutline: [],
-      };
+  let page;
+  if (Capture && Array.isArray(pendingEls) && pendingEls.length
+    && Capture.capturePageContextForElements) {
+    page = Capture.capturePageContextForElements({
+      stampNids: true,
+      roots: pendingEls,
+    });
+  } else if (Capture && pendingRegion && Capture.capturePageContextInRect) {
+    page = Capture.capturePageContextInRect({
+      stampNids: true,
+      region: pendingRegion,
+    });
+  } else if (Capture) {
+    page = Capture.capturePageContext({ stampNids: true });
+  } else {
+    page = {
+      url: location.href,
+      title: document.title,
+      pageText: "",
+      pageTextTruncated: false,
+      domOutline: [],
+    };
+  }
+  if (typeof clearPendingPageAdvisorElements === "function") {
+    clearPendingPageAdvisorElements();
+  }
   if (typeof clearPendingPageAdvisorRegion === "function") {
     clearPendingPageAdvisorRegion();
   }

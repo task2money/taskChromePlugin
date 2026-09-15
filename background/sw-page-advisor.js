@@ -277,7 +277,7 @@ async function handlePageOptimizationSuggestCommand() {
 }
 
 /**
- * Alt+Shift+E：先让 content 进入框选，确认后由 content 再发 pageOptimizationSuggest。
+ * Alt+Shift+E：先让 content 进入元素点选，确认后由 content 再发 pageOptimizationSuggest。
  */
 async function handlePageOptimizationSuggestRegionCommand() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });

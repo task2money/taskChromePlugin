@@ -263,6 +263,8 @@ describe('page-advisor wiring contracts', () => {
     assert.match(region, /startPageAdvisorRegionSelect/);
     assert.match(region, /pageOptimizationSuggest/);
     const layer = fs.readFileSync(path.join(root, 'content/float-page-advisor-layer.js'), 'utf8');
+    assert.match(layer, /capturePageContextForElements/);
+    assert.match(layer, /getPendingPageAdvisorElements/);
     assert.match(layer, /capturePageContextInRect/);
     assert.match(layer, /getPendingPageAdvisorRegion/);
   });

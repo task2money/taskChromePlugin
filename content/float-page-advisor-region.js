@@ -1,13 +1,15 @@
 /**
- * Alt+Shift+E 区域框选 overlay（须在 float-page-advisor 之前/附近注入）。
- * 顶层绑定挂 globalThis，避免 content_scripts 词法冲突。
+ * Alt+Shift+E：元素点选后自动创新（交互对齐 Alt+X，非拖拽矩形）。
+ * 须在 float-pick / float-page-advisor 附近注入；顶层绑定挂 globalThis。
  */
 
 'use strict';
 
 var pendingPageAdvisorRegion = null;
+var pendingPageAdvisorElements = null;
 var pageAdvisorRegionMode = false;
-var pageAdvisorRegionDrag = null;
+var pageAdvisorPickSelection = [];
+var pageAdvisorPickFrame = null;
 
 function getPendingPageAdvisorRegion() {
   return pendingPageAdvisorRegion;
@@ -21,51 +23,52 @@ function setPendingPageAdvisorRegion(region) {
   pendingPageAdvisorRegion = region || null;
 }
 
+function getPendingPageAdvisorElements() {
+  return pendingPageAdvisorElements;
+}
+
+function clearPendingPageAdvisorElements() {
+  pendingPageAdvisorElements = null;
+}
+
+function setPendingPageAdvisorElements(els) {
+  pendingPageAdvisorElements = Array.isArray(els) ? els.filter((el) => el && el.nodeType === 1) : null;
+}
+
 function isPageAdvisorRegionMode() {
   return pageAdvisorRegionMode === true;
 }
 
-function ensureRegionSelectOverlay() {
-  let overlay = document.getElementById('taskplugin-region-select-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'taskplugin-region-select-overlay';
-    overlay.setAttribute('role', 'dialog');
-    overlay.setAttribute('aria-label', '框选页面区域以生成优化建议');
-    overlay.innerHTML = `
-    <div class="taskplugin-region-select-hint" id="taskplugin-region-select-hint">
-      拖拽框选区域后自动创新 · Esc 取消
-    </div>
-    <div class="taskplugin-region-select-box" id="taskplugin-region-select-box" hidden></div>
-  `;
-  }
-  // 必须挂 body/documentElement：禁止挂 #taskplugin-float-root（与面板同栈且 z-index 更低时会挡住宿主页框选）
+function ensureRegionSelectHint() {
+  let hint = document.getElementById('taskplugin-region-select-hint');
+  if (hint) return hint;
+  hint = document.createElement('div');
+  hint.id = 'taskplugin-region-select-hint';
+  hint.className = 'taskplugin-region-select-hint';
+  hint.setAttribute('role', 'status');
+  hint.textContent = '点击页面元素后自动创新 · ⌘/Ctrl 多选后 Enter · Esc 取消';
   const host = document.body || document.documentElement;
-  if (host && overlay.parentNode !== host) {
-    host.appendChild(overlay);
-  }
-  return overlay;
+  if (host) host.appendChild(hint);
+  return hint;
 }
 
-function updateRegionSelectBox(rect) {
-  const box = document.getElementById('taskplugin-region-select-box');
-  if (!box || !rect) return;
-  box.hidden = false;
-  box.style.left = `${rect.left}px`;
-  box.style.top = `${rect.top}px`;
-  box.style.width = `${Math.max(0, rect.width)}px`;
-  box.style.height = `${Math.max(0, rect.height)}px`;
+function setRegionSelectHintText(text) {
+  const hint = ensureRegionSelectHint();
+  if (hint) hint.textContent = text;
+}
+
+function clearAdvisorPickSelection() {
+  pageAdvisorPickSelection = [];
+  pageAdvisorPickFrame = null;
 }
 
 function detachRegionSelectListeners() {
-  document.removeEventListener('mousedown', onRegionSelectMouseDown, true);
-  document.removeEventListener('mousemove', onRegionSelectMouseMove, true);
-  document.removeEventListener('mouseup', onRegionSelectMouseUp, true);
+  document.removeEventListener('mouseover', onRegionSelectMouseOver, true);
+  document.removeEventListener('click', onRegionSelectClick, true);
   document.removeEventListener('keydown', onRegionSelectKeyDown, true);
 }
 
 function closeFloatPanelForRegionSelect() {
-  // 与指针选择 setPickMode(true) 一致：收起浮窗，避免面板盖住框选层
   if (typeof panel !== 'undefined' && panel) {
     panel.classList.remove('taskplugin-open');
   }
@@ -79,15 +82,24 @@ function closeFloatPanelForRegionSelect() {
 
 function stopPageAdvisorRegionSelect(opts = {}) {
   pageAdvisorRegionMode = false;
-  pageAdvisorRegionDrag = null;
+  clearAdvisorPickSelection();
   detachRegionSelectListeners();
   try {
     document.documentElement.classList.remove('taskplugin-region-selecting');
   } catch (_) { /* ignore */ }
+  if (typeof clearHighlight === 'function') clearHighlight();
+  const hint = document.getElementById('taskplugin-region-select-hint');
+  if (hint) {
+    if (opts.remove) hint.remove();
+    else hint.hidden = true;
+  }
+  // 清理遗留矩形 overlay（旧版）
   const overlay = document.getElementById('taskplugin-region-select-overlay');
-  if (overlay) {
-    if (opts.remove) overlay.remove();
-    else overlay.hidden = true;
+  if (overlay) overlay.remove();
+  if (typeof btn !== 'undefined' && btn && typeof pickMode !== 'undefined' && !pickMode) {
+    btn.textContent = '+';
+    btn.classList.remove('taskplugin-picking-fab');
+    if (typeof renderShortcutHints === 'function') renderShortcutHints();
   }
 }
 
@@ -100,109 +112,165 @@ function startPageAdvisorRegionSelect() {
     setPickMode(false);
   }
   clearPendingPageAdvisorRegion();
+  clearPendingPageAdvisorElements();
+  clearAdvisorPickSelection();
   closeFloatPanelForRegionSelect();
   pageAdvisorRegionMode = true;
   try {
     document.documentElement.classList.add('taskplugin-region-selecting');
   } catch (_) { /* ignore */ }
-  const overlay = ensureRegionSelectOverlay();
-  overlay.hidden = false;
-  const box = document.getElementById('taskplugin-region-select-box');
-  if (box) box.hidden = true;
-  const hint = document.getElementById('taskplugin-region-select-hint');
-  if (hint) hint.textContent = '拖拽框选区域后自动创新 · Esc 取消';
-  document.addEventListener('mousedown', onRegionSelectMouseDown, true);
-  document.addEventListener('mousemove', onRegionSelectMouseMove, true);
-  document.addEventListener('mouseup', onRegionSelectMouseUp, true);
+  const hint = ensureRegionSelectHint();
+  hint.hidden = false;
+  setRegionSelectHintText('点击页面元素后自动创新 · ⌘/Ctrl 多选后 Enter · Esc 取消');
+  if (typeof btn !== 'undefined' && btn) {
+    btn.textContent = '✕';
+    btn.classList.add('taskplugin-picking-fab');
+    btn.title = '退出元素选择（或按 Esc）';
+  }
+  if (typeof ensureHighlightStyle === 'function') ensureHighlightStyle(document);
+  document.addEventListener('mouseover', onRegionSelectMouseOver, true);
+  document.addEventListener('click', onRegionSelectClick, true);
   document.addEventListener('keydown', onRegionSelectKeyDown, true);
   if (typeof showPageToast === 'function') {
-    showPageToast('请拖拽框选要创新的区域（Esc 取消）');
+    showPageToast('请点击要创新的页面元素（Esc 取消）');
   }
   return { success: true, active: true };
 }
 
-function onRegionSelectKeyDown(e) {
+function onRegionSelectMouseOver(e) {
   if (!pageAdvisorRegionMode) return;
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    e.stopPropagation();
-    stopPageAdvisorRegionSelect();
-    if (typeof showPageToast === 'function') showPageToast('已取消区域框选');
-  }
-}
-
-function onRegionSelectMouseDown(e) {
-  if (!pageAdvisorRegionMode) return;
-  if (e.button !== 0) return;
-  const t = e.target;
-  if (t && typeof t.closest === 'function' && t.closest('#taskplugin-float-btn')) return;
-  e.preventDefault();
-  e.stopPropagation();
-  pageAdvisorRegionDrag = { x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY };
-  const Region = typeof PageAdvisorRegion !== 'undefined' ? PageAdvisorRegion : null;
-  const rect = Region
-    ? Region.normalizeRect(pageAdvisorRegionDrag)
-    : { left: e.clientX, top: e.clientY, width: 0, height: 0 };
-  updateRegionSelectBox(rect);
-}
-
-function onRegionSelectMouseMove(e) {
-  if (!pageAdvisorRegionMode || !pageAdvisorRegionDrag) return;
-  e.preventDefault();
-  pageAdvisorRegionDrag.x2 = e.clientX;
-  pageAdvisorRegionDrag.y2 = e.clientY;
-  const Region = typeof PageAdvisorRegion !== 'undefined' ? PageAdvisorRegion : null;
-  const rect = Region
-    ? Region.normalizeRect(pageAdvisorRegionDrag)
-    : {
-      left: Math.min(pageAdvisorRegionDrag.x1, pageAdvisorRegionDrag.x2),
-      top: Math.min(pageAdvisorRegionDrag.y1, pageAdvisorRegionDrag.y2),
-      width: Math.abs(pageAdvisorRegionDrag.x2 - pageAdvisorRegionDrag.x1),
-      height: Math.abs(pageAdvisorRegionDrag.y2 - pageAdvisorRegionDrag.y1),
-    };
-  updateRegionSelectBox(rect);
-}
-
-function onRegionSelectMouseUp(e) {
-  if (!pageAdvisorRegionMode || !pageAdvisorRegionDrag) return;
-  e.preventDefault();
-  e.stopPropagation();
-  const Region = typeof PageAdvisorRegion !== 'undefined' ? PageAdvisorRegion : null;
-  const corners = pageAdvisorRegionDrag;
-  pageAdvisorRegionDrag = null;
-  const rect = Region
-    ? Region.normalizeRect(corners)
-    : {
-      left: Math.min(corners.x1, corners.x2),
-      top: Math.min(corners.y1, corners.y2),
-      width: Math.abs(corners.x2 - corners.x1),
-      height: Math.abs(corners.y2 - corners.y1),
-    };
-  if (!Region || !Region.isValidRegion(rect)) {
-    const hint = document.getElementById('taskplugin-region-select-hint');
-    if (hint) hint.textContent = '选区过小，请重新拖拽 · Esc 取消';
-    if (typeof showPageToast === 'function') showPageToast('选区过小，请重新框选');
-    const box = document.getElementById('taskplugin-region-select-box');
-    if (box) box.hidden = true;
+  if (typeof resolvePickTarget !== 'function' || typeof applyHighlightMany !== 'function') return;
+  const { el, crossOrigin } = resolvePickTarget(e);
+  if (crossOrigin || !el || (typeof isPluginDom === 'function' && isPluginDom(el))) {
+    if (pageAdvisorPickSelection.length) {
+      applyHighlightMany(pageAdvisorPickSelection, pageAdvisorPickSelection[0].ownerDocument);
+    } else if (typeof clearHighlight === 'function') {
+      clearHighlight();
+    }
     return;
   }
-  setPendingPageAdvisorRegion(rect);
+  const hoverSet = pageAdvisorPickSelection.includes(el)
+    ? pageAdvisorPickSelection
+    : pageAdvisorPickSelection.concat([el]);
+  applyHighlightMany(hoverSet, el.ownerDocument);
+}
+
+function confirmAdvisorElements(els) {
+  const list = (Array.isArray(els) ? els : [els]).filter((el) => el && el.nodeType === 1);
+  if (!list.length) return;
+  setPendingPageAdvisorElements(list);
+  clearPendingPageAdvisorRegion();
   stopPageAdvisorRegionSelect();
   try {
     chrome.runtime.sendMessage({ action: 'pageOptimizationSuggest' }, () => {
       void chrome.runtime.lastError;
     });
   } catch (err) {
-    clearPendingPageAdvisorRegion();
+    clearPendingPageAdvisorElements();
     if (typeof showPageToast === 'function') {
       showPageToast(err?.message || '启动区域创新失败');
     }
   }
 }
 
+function onRegionSelectClick(e) {
+  if (!pageAdvisorRegionMode) return;
+  if (e.button !== 0) return;
+  const t = e.target;
+  if (t && typeof t.closest === 'function' && t.closest('#taskplugin-float-btn')) {
+    e.preventDefault();
+    e.stopPropagation();
+    stopPageAdvisorRegionSelect();
+    if (typeof showPageToast === 'function') showPageToast('已取消元素选择');
+    return;
+  }
+  if (typeof resolvePickTarget !== 'function') return;
+  const { el, frameElement, crossOrigin } = resolvePickTarget(e);
+  if (crossOrigin) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof showPageToast === 'function') {
+      showPageToast('跨域 iframe 请在顶层页面选择元素');
+    }
+    return;
+  }
+  if (!el || (typeof isPluginDom === 'function' && isPluginDom(el))) return;
+
+  e.preventDefault();
+  e.stopPropagation();
+  if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+
+  const meta = !!(e.metaKey || e.ctrlKey);
+  if (meta) {
+    if (
+      pageAdvisorPickSelection.length > 0
+      && pageAdvisorPickFrame !== (frameElement || null)
+    ) {
+      if (typeof showPageToast === 'function') {
+        showPageToast('多选仅限同一 frame');
+      }
+      return;
+    }
+    if (pageAdvisorPickSelection.length === 0) {
+      pageAdvisorPickFrame = frameElement || null;
+    }
+    if (typeof ElementPicker !== 'undefined' && ElementPicker.toggleDisjointSelection) {
+      pageAdvisorPickSelection = ElementPicker.toggleDisjointSelection(
+        pageAdvisorPickSelection,
+        el,
+      );
+    } else if (pageAdvisorPickSelection.includes(el)) {
+      pageAdvisorPickSelection = pageAdvisorPickSelection.filter((x) => x !== el);
+    } else {
+      pageAdvisorPickSelection = pageAdvisorPickSelection.concat([el]);
+    }
+    if (pageAdvisorPickSelection.length === 0) pageAdvisorPickFrame = null;
+    if (typeof applyHighlightMany === 'function') {
+      applyHighlightMany(
+        pageAdvisorPickSelection.length ? pageAdvisorPickSelection : [el],
+        el.ownerDocument,
+      );
+    }
+    const n = pageAdvisorPickSelection.length;
+    setRegionSelectHintText(
+      n
+        ? `已选 ${n} 个：Enter 确认；⌘/Ctrl+点击继续 · Esc 清空`
+        : '已清空：⌘/Ctrl+点击添加，或普通点击单选',
+    );
+    return;
+  }
+
+  clearAdvisorPickSelection();
+  confirmAdvisorElements([el]);
+}
+
+function onRegionSelectKeyDown(e) {
+  if (!pageAdvisorRegionMode) return;
+  if (e.key === 'Enter') {
+    if (pageAdvisorPickSelection.length === 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    confirmAdvisorElements(pageAdvisorPickSelection.slice());
+    return;
+  }
+  if (e.key !== 'Escape') return;
+  e.preventDefault();
+  e.stopPropagation();
+  if (pageAdvisorPickSelection.length > 0) {
+    clearAdvisorPickSelection();
+    if (typeof clearHighlight === 'function') clearHighlight();
+    setRegionSelectHintText('已清空多选；再按 Esc 退出 · 或点击元素');
+    return;
+  }
+  stopPageAdvisorRegionSelect();
+  if (typeof showPageToast === 'function') showPageToast('已取消元素选择');
+}
+
 if (typeof globalThis !== 'undefined') {
   globalThis.getPendingPageAdvisorRegion = getPendingPageAdvisorRegion;
   globalThis.clearPendingPageAdvisorRegion = clearPendingPageAdvisorRegion;
+  globalThis.getPendingPageAdvisorElements = getPendingPageAdvisorElements;
+  globalThis.clearPendingPageAdvisorElements = clearPendingPageAdvisorElements;
   globalThis.startPageAdvisorRegionSelect = startPageAdvisorRegionSelect;
   globalThis.stopPageAdvisorRegionSelect = stopPageAdvisorRegionSelect;
   globalThis.isPageAdvisorRegionMode = isPageAdvisorRegionMode;
@@ -224,7 +292,7 @@ function triggerPageAdvisorFromShortcut() {
   } catch (_) { /* ignore */ }
 }
 
-/** 页内兜底：Alt+Shift+E → 区域框选后创新 */
+/** 页内兜底：Alt+Shift+E → 元素点选后创新 */
 function triggerPageAdvisorRegionFromShortcut() {
   const now = Date.now();
   if (typeof lastShortcutToggleAt !== 'undefined' && typeof SHORTCUT_DEBOUNCE_MS !== 'undefined') {

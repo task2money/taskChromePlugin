@@ -1,15 +1,20 @@
-/* Alt+Shift+E 区域框选 overlay — 挂在 body 上，须盖过浮窗面板 */
-#taskplugin-region-select-overlay {
-  position: fixed !important;
-  inset: 0 !important;
-  z-index: 2147483646 !important;
+/* Alt+Shift+E 元素点选：顶栏提示（不挡鼠标）；高亮复用 pick 样式 */
+
+html.taskplugin-region-selecting,
+html.taskplugin-region-selecting * {
   cursor: crosshair !important;
-  background: rgba(17, 17, 27, 0.28) !important;
-  pointer-events: auto !important;
 }
-#taskplugin-region-select-overlay[hidden] {
-  display: none !important;
+html.taskplugin-region-selecting #taskplugin-float-root,
+html.taskplugin-region-selecting #taskplugin-float-root * {
+  cursor: pointer !important;
 }
+
+html.taskplugin-region-selecting .taskplugin-el-highlight {
+  outline: 2px solid #89b4fa !important;
+  outline-offset: 2px !important;
+  box-shadow: 0 0 0 4px rgba(137, 180, 250, 0.35) !important;
+}
+
 .taskplugin-region-select-hint {
   position: fixed !important;
   top: 16px !important;
@@ -24,20 +29,14 @@
   font-size: 12px !important;
   pointer-events: none !important;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
+  max-width: min(520px, calc(100vw - 32px)) !important;
+  text-align: center !important;
 }
-.taskplugin-region-select-box {
-  position: fixed !important;
-  box-sizing: border-box !important;
-  border: 2px solid #89b4fa !important;
-  background: rgba(137, 180, 250, 0.15) !important;
-  pointer-events: none !important;
-  z-index: 2147483647 !important;
-}
-.taskplugin-region-select-box[hidden] {
+.taskplugin-region-select-hint[hidden] {
   display: none !important;
 }
 
-/* 框选中：浮窗面板不可点（悬浮球仍可点，便于退出） */
+/* 选择中：浮窗面板不可点（悬浮球可点退出） */
 html.taskplugin-region-selecting #taskplugin-float-panel,
 html.taskplugin-region-selecting #taskplugin-float-panel * {
   pointer-events: none !important;

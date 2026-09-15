@@ -21,14 +21,16 @@ const REQUIRED_IDS = [
 ];
 
 describe('UserGuide sections', () => {
-  it('page-optimization-suggest-region 说明框选时收起浮窗且不采浮窗文案', () => {
+  it('page-optimization-suggest-region 说明元素点选（非拖拽框）', () => {
     const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest-region');
     assert.ok(section, 'missing region section');
     const blob = (section.steps || []).join('\n');
-    assert.match(blob, /收起.*浮窗|浮窗面板/);
-    assert.match(blob, /不采集浮窗|宿主页面/);
+    assert.match(blob, /单击|点击.*元素/);
+    assert.match(blob, /悬停|Alt\+X/);
+    assert.doesNotMatch(blob, /拖拽画出矩形|拖拽框选/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
-    assert.match(md, /暂时收起.*浮窗|收起.*浮窗面板/);
+    assert.match(md, /单击.*元素|点击.*元素/);
+    assert.doesNotMatch(md, /拖拽画出矩形/);
   });
 
   it('exposes required section ids', () => {
