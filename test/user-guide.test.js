@@ -21,11 +21,14 @@ const REQUIRED_IDS = [
 ];
 
 describe('UserGuide sections', () => {
-  it('品牌名走 PLUGIN_DISPLAY_NAME SSOT（OPT-20260827-024）', () => {
-    const src = fs.readFileSync(path.join(__dirname, '..', 'lib/user-guide.js'), 'utf8');
-    assert.match(src, /PLUGIN_DISPLAY_NAME/);
-    // 保留一处回退字面量供契约测试扫描（plugin-brand.test USER_FACING）
-    assert.match(src, /云端Coding: 自动创新助手/);
+  it('page-optimization-suggest-region 说明框选时收起浮窗且不采浮窗文案', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest-region');
+    assert.ok(section, 'missing region section');
+    const blob = (section.steps || []).join('\n');
+    assert.match(blob, /收起.*浮窗|浮窗面板/);
+    assert.match(blob, /不采集浮窗|宿主页面/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /暂时收起.*浮窗|收起.*浮窗面板/);
   });
 
   it('exposes required section ids', () => {

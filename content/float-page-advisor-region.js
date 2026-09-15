@@ -27,19 +27,23 @@ function isPageAdvisorRegionMode() {
 
 function ensureRegionSelectOverlay() {
   let overlay = document.getElementById('taskplugin-region-select-overlay');
-  if (overlay) return overlay;
-  overlay = document.createElement('div');
-  overlay.id = 'taskplugin-region-select-overlay';
-  overlay.setAttribute('role', 'dialog');
-  overlay.setAttribute('aria-label', '框选页面区域以生成优化建议');
-  overlay.innerHTML = `
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'taskplugin-region-select-overlay';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-label', '框选页面区域以生成优化建议');
+    overlay.innerHTML = `
     <div class="taskplugin-region-select-hint" id="taskplugin-region-select-hint">
       拖拽框选区域后自动创新 · Esc 取消
     </div>
     <div class="taskplugin-region-select-box" id="taskplugin-region-select-box" hidden></div>
   `;
-  const host = (typeof root !== 'undefined' && root) ? root : document.documentElement;
-  host.appendChild(overlay);
+  }
+  // 必须挂 body/documentElement：禁止挂 #taskplugin-float-root（与面板同栈且 z-index 更低时会挡住宿主页框选）
+  const host = document.body || document.documentElement;
+  if (host && overlay.parentNode !== host) {
+    host.appendChild(overlay);
+  }
   return overlay;
 }
 
@@ -60,10 +64,26 @@ function detachRegionSelectListeners() {
   document.removeEventListener('keydown', onRegionSelectKeyDown, true);
 }
 
+function closeFloatPanelForRegionSelect() {
+  // 与指针选择 setPickMode(true) 一致：收起浮窗，避免面板盖住框选层
+  if (typeof panel !== 'undefined' && panel) {
+    panel.classList.remove('taskplugin-open');
+  }
+  if (typeof btn !== 'undefined' && btn) {
+    btn.classList.remove('taskplugin-active');
+  }
+  if (typeof isOpen !== 'undefined') {
+    isOpen = false;
+  }
+}
+
 function stopPageAdvisorRegionSelect(opts = {}) {
   pageAdvisorRegionMode = false;
   pageAdvisorRegionDrag = null;
   detachRegionSelectListeners();
+  try {
+    document.documentElement.classList.remove('taskplugin-region-selecting');
+  } catch (_) { /* ignore */ }
   const overlay = document.getElementById('taskplugin-region-select-overlay');
   if (overlay) {
     if (opts.remove) overlay.remove();
@@ -80,7 +100,11 @@ function startPageAdvisorRegionSelect() {
     setPickMode(false);
   }
   clearPendingPageAdvisorRegion();
+  closeFloatPanelForRegionSelect();
   pageAdvisorRegionMode = true;
+  try {
+    document.documentElement.classList.add('taskplugin-region-selecting');
+  } catch (_) { /* ignore */ }
   const overlay = ensureRegionSelectOverlay();
   overlay.hidden = false;
   const box = document.getElementById('taskplugin-region-select-box');

@@ -16,16 +16,28 @@ function textNode(value, parent) {
   return { nodeType: 3, nodeValue: value, parentElement: parent, childNodes: [] };
 }
 
-function el(tag, { attrs = {}, style = {}, children = [], hidden = false } = {}) {
+function el(tag, { attrs = {}, style = {}, children = [], hidden = false, id = '' } = {}) {
   const node = {
     nodeType: 1,
     tagName: String(tag).toUpperCase(),
+    id: id || (attrs.id != null ? String(attrs.id) : ''),
     hidden,
     style,
     childNodes: [],
     parentElement: null,
     getAttribute(name) {
       return attrs[name] != null ? String(attrs[name]) : null;
+    },
+    closest(selector) {
+      const want = String(selector || '').startsWith('#')
+        ? String(selector).slice(1)
+        : null;
+      let cur = node;
+      while (cur) {
+        if (want && cur.id === want) return cur;
+        cur = cur.parentElement;
+      }
+      return null;
     },
   };
   for (const c of children) {
@@ -120,5 +132,43 @@ describe('page-context capturePageContextInRect', () => {
     assert.equal(ctx.regionScoped, true);
     assert.match(ctx.pageText, /LEFT/);
     assert.doesNotMatch(ctx.pageText, /RIGHT/);
+  });
+
+  it('excludes #taskplugin-float-root so region suggest never optimizes the float panel', () => {
+    const page = el('p', { children: [textNode('HOST_PAGE')] });
+    const floatLabel = el('label', { children: [textNode('工作空间')] });
+    const floatRoot = el('div', {
+      id: 'taskplugin-float-root',
+      children: [floatLabel],
+    });
+    const root = el('body', { children: [page, floatRoot] });
+    const rects = new Map([
+      [page, { left: 0, top: 0, width: 100, height: 40 }],
+      [floatLabel, { left: 10, top: 10, width: 80, height: 20 }],
+      [floatRoot, { left: 0, top: 0, width: 200, height: 200 }],
+      [root, { left: 0, top: 0, width: 400, height: 400 }],
+    ]);
+    const ctx = capturePageContextInRect({
+      url: 'https://example.com/host',
+      title: 'Host',
+      root,
+      region: { left: 0, top: 0, width: 200, height: 200 },
+      stampNids: false,
+      getBoundingClientRect: (node) => rects.get(node) || { left: 0, top: 0, width: 0, height: 0 },
+    });
+    assert.match(ctx.pageText, /HOST_PAGE/);
+    assert.doesNotMatch(ctx.pageText, /工作空间/);
+  });
+});
+
+describe('page-context extractVisibleReadableText skips plugin chrome', () => {
+  it('skips float-root subtree for full-page Alt+E capture', () => {
+    const page = el('p', { children: [textNode('PAGE_OK')] });
+    const floatInner = el('span', { children: [textNode('FLOAT_NO')] });
+    const floatRoot = el('div', { id: 'taskplugin-float-root', children: [floatInner] });
+    const root = el('body', { children: [page, floatRoot] });
+    const text = extractVisibleReadableText(root);
+    assert.match(text, /PAGE_OK/);
+    assert.doesNotMatch(text, /FLOAT_NO/);
   });
 });

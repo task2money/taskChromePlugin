@@ -1,8 +1,8 @@
-/* Alt+Shift+E 区域框选 overlay */
+/* Alt+Shift+E 区域框选 overlay — 挂在 body 上，须盖过浮窗面板 */
 #taskplugin-region-select-overlay {
   position: fixed !important;
   inset: 0 !important;
-  z-index: 2147483645 !important;
+  z-index: 2147483646 !important;
   cursor: crosshair !important;
   background: rgba(17, 17, 27, 0.28) !important;
   pointer-events: auto !important;
@@ -15,7 +15,7 @@
   top: 16px !important;
   left: 50% !important;
   transform: translateX(-50%) !important;
-  z-index: 2147483646 !important;
+  z-index: 2147483647 !important;
   padding: 8px 14px !important;
   border-radius: 8px !important;
   background: #1e1e2e !important;
@@ -31,8 +31,14 @@
   border: 2px solid #89b4fa !important;
   background: rgba(137, 180, 250, 0.15) !important;
   pointer-events: none !important;
-  z-index: 2147483646 !important;
+  z-index: 2147483647 !important;
 }
 .taskplugin-region-select-box[hidden] {
   display: none !important;
+}
+
+/* 框选中：浮窗面板不可点（悬浮球仍可点，便于退出） */
+html.taskplugin-region-selecting #taskplugin-float-panel,
+html.taskplugin-region-selecting #taskplugin-float-panel * {
+  pointer-events: none !important;
 }
