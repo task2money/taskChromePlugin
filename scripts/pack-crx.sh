@@ -8,9 +8,9 @@ cd "$ROOT"
 usage() {
   cat <<'EOF'
 用法:
-  ChromeExtPos=/path/to/key.pem bash scripts/pack-crx.sh          # 仅 crx（默认）
+  ChromeExtPos=/path/to/key.pem bash scripts/pack-crx.sh          # 同时生成 crx + zip（默认）
   bash scripts/pack-crx.sh zip                                    # 仅 zip（上传 Chrome 插件中心）
-  ChromeExtPos=/path/to/key.pem bash scripts/pack-crx.sh both     # 同时生成 crx + zip
+  ChromeExtPos=/path/to/key.pem bash scripts/pack-crx.sh crx      # 仅 crx
 
 可选:
   CHROME_BIN=/path/to/chrome  指定 Chrome 可执行文件（默认自动查找）
@@ -18,7 +18,7 @@ usage() {
 EOF
 }
 
-FORMAT="${1:-${FORMAT:-crx}}"
+FORMAT="${1:-${FORMAT:-both}}"
 case "$FORMAT" in
   crx|zip|both) ;;
   -h|--help)
