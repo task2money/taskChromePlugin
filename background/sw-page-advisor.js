@@ -69,6 +69,21 @@ function agentResourceNotConfiguredMessage(baseUrl, tenantId) {
   };
 }
 
+function autoInnovateQuotaExceededMessage(baseUrl, tenantId) {
+  const origin = String(baseUrl || '').replace(/\/+$/, '');
+  const orderPath = tenantId
+    ? `${origin}/tenant/${encodeURIComponent(tenantId)}/billing/orders/create/`
+    : `${origin}/pricing/`;
+  return {
+    errorCode: 'AUTO_INNOVATE_QUOTA_EXCEEDED',
+    message: '自动创新次数已用尽。新公司赠送 100 次；续购 ¥1 = 100 次（成功出建议才扣费）。',
+    links: [
+      { label: '购买自动创新次数', href: orderPath },
+      { label: '查看收费标准', href: `${origin}/pricing/` },
+    ],
+  };
+}
+
 /**
  * Alt+Z 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
  * @param {number} tabId
@@ -176,6 +191,14 @@ async function runPageOptimizationSuggest(tabId) {
       await notifyContentPageAdvisor(tabId, {
         ok: false,
         ...agentResourceNotConfiguredMessage(cfg.baseUrl, tenantId),
+        traceId: e.traceId || '',
+      });
+      return;
+    }
+    if (e?.status === 402 || e?.errorCode === 'AUTO_INNOVATE_QUOTA_EXCEEDED') {
+      await notifyContentPageAdvisor(tabId, {
+        ok: false,
+        ...autoInnovateQuotaExceededMessage(cfg.baseUrl, tenantId),
         traceId: e.traceId || '',
       });
       return;
