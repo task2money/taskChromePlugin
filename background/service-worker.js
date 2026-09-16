@@ -34,7 +34,6 @@ importScripts(
   './sw-messages-task.js',
   './sw-pick.js',
   './sw-page-advisor.js',
-  './sw-expiry.js',
 );
 
 
@@ -109,7 +108,4 @@ chrome.commands.onCommand.addListener(async (command) => {
   } catch (e) {
     console.error('[taskChromePlugin] Service Worker 初始化失败:', e);
   }
-
-  // 启动账号过期定期检查（每 30 分钟）
-  startAccountExpiryCheck();
 })();

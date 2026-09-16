@@ -3,7 +3,7 @@
 /**
  * Manifest permissions 允许列表回归（权限瘦身 2026-09-16）。
  *
- * 禁止回潮：cookies（OAuth 后无生产调用）、activeTab（已被 tabs + <all_urls> 覆盖）。
+ * 禁止回潮：cookies / activeTab / alarms（定时过期扫已删，仅用时校验）。
  * 设计：docs/superpowers/specs/2026-09-16-task-chrome-plugin-manifest-permission-cleanup-design.md
  */
 
@@ -19,12 +19,12 @@ const REQUIRED_PERMISSIONS = [
   'webRequest',
   'tabs',
   'webNavigation',
-  'alarms',
 ];
 
 const FORBIDDEN_PERMISSIONS = [
   'cookies',
   'activeTab',
+  'alarms',
   'debugger',
   'scripting',
   'history',
@@ -53,9 +53,5 @@ describe('manifest.json permissions allowlist', () => {
 
   it('keeps host_permissions <all_urls> (product: capture any site)', () => {
     assert.deepEqual(manifest.host_permissions, ['<all_urls>']);
-  });
-
-  it('alarms remains (SW expiry path)', () => {
-    assert.ok((manifest.permissions || []).includes('alarms'));
   });
 });

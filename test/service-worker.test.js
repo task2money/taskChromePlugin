@@ -1,20 +1,10 @@
 'use strict';
 
 /**
- * service-worker.js 回归单测：chrome.alarms 权限缺失时 SW 不得启动失败。
+ * service-worker.js 回归：正式包不再声明 alarms，SW 不得依赖 chrome.alarms。
  *
- * 缺陷背景（2026-08-07）：manifest 缺 "alarms" 权限时 chrome.alarms 为 undefined，
- * 修复前 SW 顶层 `chrome.alarms.onAlarm.addListener(...)` 直接抛 TypeError →
- * SW 启动失败 → 扩展 runtime 消息通道双向全断（所有 sendMessage 超时）。
- * 修复：manifest 增加 "alarms" 权限 + SW 对 chrome.alarms 做 typeof 守卫。
- *
- * 本测试通过 vm 沙箱执行真实 service-worker.js 源码（拼接 importScripts 的 lib），
- * 断言：
- * 1. alarms 缺失（权限被移除的回归场景）→ SW 顶层执行不抛错，降级跳过
- * 2. alarms 可用 → SW 顶层执行不抛错，账号过期检测 alarm 正常创建
- *
- * 修复前该测试在场景 1 抛 `TypeError: Cannot read properties of undefined`，
- * 属 Red→Green 回归用例。
+ * 历史（2026-08-07）：曾在顶层无守卫调用 chrome.alarms → TypeError → SW 挂死。
+ * 现策略（2026-09-16）：删除后台定时过期扫描，仅用时校验；importScripts 不再含 sw-expiry。
  */
 
 const vm = require('node:vm');
@@ -23,7 +13,6 @@ const assert = require('node:assert');
 
 const { buildSWScript } = require('./helpers/swBundle.js');
 
-/** 构造 chrome mock。withAlarms=false 模拟 manifest 缺 "alarms" 权限（chrome.alarms 为 undefined）。 */
 function makeChromeMock({ withAlarms }) {
   const alarmsCreateCalls = [];
   const listenerAdder = () => ({ addListener: () => {} });
@@ -56,7 +45,6 @@ function makeChromeMock({ withAlarms }) {
   };
 }
 
-/** 在 vm 沙箱中执行真实 SW 源码（同步顶层部分 + 微任务），返回捕获的顶层错误。 */
 function loadSW({ withAlarms }) {
   const chrome = makeChromeMock({ withAlarms });
   const consoleLogs = [];
@@ -81,7 +69,6 @@ function loadSW({ withAlarms }) {
   sandbox.self = sandbox;
   vm.createContext(sandbox);
 
-  // 顶层执行错误（同步抛出）：
   let topLevelError = null;
   try {
     vm.runInContext(buildSWScript(), sandbox, { filename: 'service-worker.js' });
@@ -89,37 +76,26 @@ function loadSW({ withAlarms }) {
     topLevelError = e;
   }
 
-  // 让 init IIFE 的微任务（storage 调用 + startAccountExpiryCheck）跑完
   return new Promise((resolve) => {
     setTimeout(() => resolve({ chrome, sandbox, consoleLogs, topLevelError }), 20);
   });
 }
 
-test('chrome.alarms 权限缺失时 SW 顶层执行不抛错（回归：修复前抛 TypeError → SW 启动失败）', async () => {
-  const { topLevelError, consoleLogs } = await loadSW({ withAlarms: false });
-  assert.equal(topLevelError, null, `权限缺失时顶层不得抛错，实际: ${topLevelError}`);
-  assert.ok(
-    consoleLogs.some((l) => l.includes('chrome.alarms 不可用')),
-    '权限缺失时应输出降级告警日志'
-  );
+test('chrome.alarms 不可用时 SW 顶层执行不抛错', async () => {
+  const { topLevelError } = await loadSW({ withAlarms: false });
+  assert.equal(topLevelError, null, `顶层不得抛错，实际: ${topLevelError}`);
 });
 
-test('chrome.alarms 权限正常时 SW 顶层执行不抛错且创建账号过期检测 alarm', async () => {
+test('即使 chrome.alarms 可用也不创建账号过期 alarm（已删除定时扫）', async () => {
   const { topLevelError, chrome, consoleLogs } = await loadSW({ withAlarms: true });
-  assert.equal(topLevelError, null, `权限正常时顶层不得抛错，实际: ${topLevelError}`);
-  assert.ok(
-    chrome.__alarmsCreateCalls.some((c) => c.name === 'accountExpiryCheck'),
-    '账号过期检测 alarm 应被创建'
+  assert.equal(topLevelError, null, `顶层不得抛错，实际: ${topLevelError}`);
+  assert.equal(
+    chrome.__alarmsCreateCalls.length,
+    0,
+    '不得创建任何 chrome.alarms',
   );
   assert.ok(
-    consoleLogs.some((l) => l.includes('账号过期检测已启动')),
-    '应输出账号过期检测启动日志'
+    !consoleLogs.some((l) => l.includes('账号过期检测已启动')),
+    '不得输出账号过期检测启动日志',
   );
-});
-
-test('账号过期探测 fetch 省略网页 Cookie', () => {
-  const fs = require('node:fs');
-  const path = require('node:path');
-  const src = fs.readFileSync(path.join(__dirname, '..', 'background', 'sw-expiry.js'), 'utf8');
-  assert.match(src, /credentials:\s*['"]omit['"]/, 'checkAllAccountsForExpiry 不得带上网页 Cookie');
 });
