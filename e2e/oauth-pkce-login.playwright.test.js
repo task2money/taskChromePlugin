@@ -25,17 +25,22 @@ function loadPlaywrightTest() {
 
 const { test, expect } = loadPlaywrightTest();
 
+const { webLoginWithLegalAccept } = require('./helpers/webLoginWithLegalAccept');
+
 const ROOT = path.resolve(__dirname, '..');
 const EXT_PATH = ROOT;
 const T = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const BASE_URL = process.env.OAUTH_E2E_BASE_URL || 'https://www.aidevpush.com';
-const EMAIL = process.env.OAUTH_E2E_EMAIL || 'ljy124818167@qq.com';
-const PASSWORD = process.env.OAUTH_E2E_PASSWORD || 'rgNodkdq8677!ci';
+const BASE_URL = process.env.OAUTH_E2E_BASE_URL || process.env.PLAYWRIGHT_SITE_ORIGIN || 'https://www.aidevpush.com';
+// Secrets: env only — never hardcode (meta rule 62 / ADR-0046).
+const EMAIL = process.env.OAUTH_E2E_EMAIL || process.env.PLAYWRIGHT_TEST_EMAIL || '';
+const PASSWORD = process.env.OAUTH_E2E_PASSWORD || process.env.PLAYWRIGHT_TEST_PASSWORD || '';
 
 test.describe('OAuth2+PKCE 登录全链路', () => {
   test('popup 发起授权 → 网页登录 → 回跳回调 → Bearer 调用 200 → logout', async () => {
     test.setTimeout(180_000);
+    test.skip(!EMAIL || !PASSWORD, 'Set OAUTH_E2E_EMAIL/PASSWORD or PLAYWRIGHT_TEST_EMAIL/PASSWORD');
+
 
     const manifest = JSON.parse(fs.readFileSync(path.join(EXT_PATH, 'manifest.json'), 'utf8'));
     expect(manifest.web_accessible_resources.some((w) => w.resources.includes('oauth-callback.html')),
@@ -58,18 +63,7 @@ test.describe('OAuth2+PKCE 登录全链路', () => {
       // 这样 authorize 请求已登录 → 直接 302 code 回跳，不依赖 taskAuth 未登录
       // next 同域修复（OPT-20260808-024 taskAuth 侧 ba21f96，部署验证见 OPT-029）。
       const web = await context.newPage();
-      await web.goto(`${BASE_URL}/auth/login/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await web.getByPlaceholder('邮箱').first().waitFor({ timeout: 30000 }).catch(async () => {
-        await web.goto(`${BASE_URL}/auth/login/`, { waitUntil: 'domcontentloaded' }).catch(() => {});
-      });
-      await web.getByPlaceholder('邮箱').first().fill(EMAIL);
-      await web.getByPlaceholder('密码').first().fill(PASSWORD);
-      for (const tid of ['login-privacy-accept', 'login-license-accept']) {
-        const cb = web.locator(`[data-testid="${tid}"]`);
-        if (await cb.count()) { try { await cb.check(); } catch (_) { /* 已勾选 */ } }
-      }
-      await web.getByRole('button', { name: '登录', exact: true }).click();
-      await web.waitForURL((u) => !u.toString().includes('/auth/login/'), { timeout: 60000 });
+      await webLoginWithLegalAccept(web, { email: EMAIL, password: PASSWORD, baseURL: BASE_URL });
 
       // ---- 1. SW 启动 ----
       let sw = null;
