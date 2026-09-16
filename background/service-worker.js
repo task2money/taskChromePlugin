@@ -27,6 +27,7 @@ importScripts(
   '../lib/hot-path-guards.js',
   '../lib/click-guard.js',
   '../lib/page-advisor-api.js',
+  '../lib/page-advisor-fail-trace-id.js',
   '../lib/page-advisor-defaults.js',
   './sw-capture.js',
   './sw-auth.js',

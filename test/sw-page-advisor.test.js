@@ -1,44 +1,151 @@
 'use strict';
 
 /**
- * Regression: Alt+E SW timeout path must forward traceId (constraint 24).
+ * sw-page-advisor.js 行为：失败 job 须经 lib 解析非空 traceId（约束 24），不测源码正则。
  */
 
+const path = require('node:path');
+const vm = require('node:vm');
+const fs = require('node:fs');
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
-const path = require('node:path');
 
-describe('sw-page-advisor timeout traceId', () => {
-  const swPath = path.join(__dirname, '../background/sw-page-advisor.js');
-  const src = fs.readFileSync(swPath, 'utf8');
+const ROOT = path.join(__dirname, '..');
 
-  it('polls beyond typical LLM latency and always notifies timeout with non-empty traceId', () => {
-    assert.match(src, /PAGE_ADVISOR_POLL_MAX_MS\s*=\s*75000/);
-    assert.match(src, /seedTraceId:\s*createTraceId/);
-    assert.match(src, /生成优化建议超时（\$\{PAGE_ADVISOR_POLL_MAX_SEC\} 秒），请重试/);
-    assert.match(src, /PAGE_ADVISOR_TIMEOUT/);
-    assert.match(src, /timeoutTraceId/);
-    // Must not regress to the 15s false-timeout window that races real LLM (~17–27s).
-    assert.doesNotMatch(src, /PAGE_ADVISOR_POLL_MAX_MS\s*=\s*15000/);
-    assert.doesNotMatch(src, /生成优化建议超时（15 秒）/);
-  });
-});
+function loadSwPageAdvisorStack(extraSandbox = {}) {
+  const sandbox = {
+    console,
+    chrome: {
+      tabs: {
+        query: async () => [{ id: 1 }],
+        sendMessage: async () => ({ success: true, data: {} }),
+      },
+      commands: { getAll: async () => [], update: async () => {} },
+    },
+    Storage: {
+      migrateStaleTokenExpiryOnce: async () => {},
+      getApiConfig: async () => ({ token: 't', baseUrl: 'https://example.test' }),
+      getEndpointMapping: async () => ({}),
+      getCredentials: async () => ({}),
+      isTokenExpired: async () => false,
+      getLastWorkspace: async () => '',
+    },
+    API: {
+      init: () => {},
+      setOwner: () => {},
+      getWorkspaces: async () => [],
+      getBaseUrl: () => 'https://example.test',
+      getToken: () => 't',
+    },
+    PageAdvisorDefaults: {
+      resolvePageAdvisorWorkspace: () => ({ workspaceId: 'ws1', companyId: 'ten1', source: 'test' }),
+    },
+    ClickGuard: { newIdempotencyKey: () => 'idem-key' },
+    ...extraSandbox,
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
 
-describe('sw-page-advisor LLM failed / expired traceId', () => {
-  const swPath = path.join(__dirname, '../background/sw-page-advisor.js');
-  const src = fs.readFileSync(swPath, 'utf8');
-
-  it('failed|expired notify uses resolvePageAdvisorFailTraceId (not bare job.trace_id only)', () => {
-    // LLM 402 Insufficient Balance surfaces as job status=failed + error_message;
-    // constraint 24 requires data-traceId — must fall back to createTraceId / mint.
-    assert.match(src, /function resolvePageAdvisorFailTraceId\s*\(/);
-    assert.match(src, /resolvePageAdvisorFailTraceId\s*\(\s*job\s*,\s*createTraceId\s*\)/);
-    assert.match(src, /pickJobTraceId/);
-    // Forbid the regression that dropped createTraceId on the failed path.
-    assert.doesNotMatch(
-      src,
-      /status === 'failed'[\s\S]{0,400}traceId:\s*job\?\.trace_id\s*\|\|\s*''/,
+  for (const rel of [
+    'lib/api-http.js',
+    'lib/page-advisor-api.js',
+    'lib/page-advisor-fail-trace-id.js',
+    'background/sw-page-advisor.js',
+  ]) {
+    vm.runInContext(
+      fs.readFileSync(path.join(ROOT, rel), 'utf8'),
+      sandbox,
+      { filename: path.basename(rel) },
     );
+  }
+  return sandbox;
+}
+
+function jobWithResolvedTrace(resolvedId, body = {}) {
+  const job = { status: 'failed', error_message: 'Insufficient Balance', ...body };
+  Object.defineProperty(job, '_resolvedTraceId', {
+    value: resolvedId,
+    enumerable: false,
+    configurable: true,
+  });
+  return job;
+}
+
+describe('sw-page-advisor failed job traceId (lib wiring)', () => {
+  it('notifyContentPageAdvisor receives traceId from PageAdvisorFailTraceId on failed poll', async () => {
+    const payloads = [];
+    const sandbox = loadSwPageAdvisorStack();
+
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            domOutline: [],
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      if (msg.action === 'pageAdvisorResult') {
+        payloads.push(msg);
+      }
+      return undefined;
+    };
+
+    const failedJob = jobWithResolvedTrace('llm-402-trace', { error_code: 'PAYMENT_REQUIRED' });
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({
+      job_id: 'job-1',
+      trace_id: 'create-trace',
+    });
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => failedJob;
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    const failPayload = payloads.find(
+      (p) => p.ok === false && String(p.error || '').includes('Insufficient Balance'),
+    );
+    assert.ok(failPayload, `expected failed job notification, got: ${JSON.stringify(payloads)}`);
+    assert.equal(failPayload.traceId, 'create-trace');
+    assert.equal(failPayload.errorCode, 'PAYMENT_REQUIRED');
+  });
+
+  it('failed job uses job _resolvedTraceId when create seed is empty', async () => {
+    const payloads = [];
+    const sandbox = loadSwPageAdvisorStack();
+    sandbox.APIHttp.newRequestTraceId = () => '';
+
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            domOutline: [],
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      if (msg.action === 'pageAdvisorResult') {
+        payloads.push(msg);
+      }
+      return undefined;
+    };
+
+    const failedJob = jobWithResolvedTrace('resolved-fail-trace');
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({ job_id: 'job-2' });
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => failedJob;
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    const failPayload = payloads.find((p) => p.ok === false && p.traceId);
+    assert.ok(failPayload, `expected fail payload, got: ${JSON.stringify(payloads)}`);
+    assert.equal(failPayload.traceId, 'resolved-fail-trace');
   });
 });

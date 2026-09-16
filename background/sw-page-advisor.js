@@ -70,29 +70,6 @@ function agentResourceNotConfiguredMessage(baseUrl, tenantId) {
 }
 
 /**
- * Resolve a non-empty traceId for failed|expired suggest jobs (constraint 24).
- * Prefer job body / poll stamp, then create-time seed, then mint — never ''.
- * @param {object|null|undefined} job
- * @param {string} seedTraceId
- * @returns {string}
- */
-function resolvePageAdvisorFailTraceId(job, seedTraceId) {
-  let tid = '';
-  if (typeof PageAdvisorAPI !== 'undefined' && PageAdvisorAPI.pickJobTraceId) {
-    tid = String(PageAdvisorAPI.pickJobTraceId(job, seedTraceId) || '').trim();
-  } else {
-    tid = String(
-      job?.trace_id || job?.traceId || job?._resolvedTraceId || seedTraceId || '',
-    ).trim();
-  }
-  if (tid) return tid;
-  if (typeof APIHttp !== 'undefined' && APIHttp.newRequestTraceId) {
-    tid = String(APIHttp.newRequestTraceId() || '').trim();
-  }
-  return tid || `page-advisor-failed-${Date.now()}`;
-}
-
-/**
  * Alt+Z 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
  * @param {number} tabId
  */
@@ -254,7 +231,7 @@ async function runPageOptimizationSuggest(tabId) {
   const status = String(job?.status || '').toLowerCase();
   if (status === 'failed' || status === 'expired') {
     // LLM 402 Insufficient Balance 等失败也须带 data-traceId（约束 24）。
-    const failTraceId = resolvePageAdvisorFailTraceId(job, createTraceId);
+    const failTraceId = PageAdvisorFailTraceId.resolvePageAdvisorFailTraceId(job, createTraceId);
     if (job?.error_code === 'AGENT_RESOURCE_NOT_CONFIGURED') {
       await notifyContentPageAdvisor(tabId, {
         ok: false,
