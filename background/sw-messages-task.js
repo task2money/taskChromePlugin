@@ -217,6 +217,15 @@ async function handleMessageRest(message, sender) {
         return { success: true };
       }
 
+    case 'fetchSitePendingForPage':
+      return handleFetchSitePendingForPage(message, sender);
+
+    case 'confirmSitePendingSuggestion':
+      return handleConfirmSitePendingSuggestion(message);
+
+    case 'dismissSitePendingSuggestion':
+      return handleDismissSitePendingSuggestion(message);
+
     case 'startPageAdvisorRegionSelect':
       {
         await handlePageOptimizationSuggestRegionCommand();

@@ -1,6 +1,7 @@
 {
   "name": "task-chrome-plugin",
   "private": true,
+  "license": "AGPL-3.0-only",
   "description": "云端Coding: 自动创新助手 — DevTools network capture extension",
   "scripts": {
     "test": "node --test test/*.test.js",

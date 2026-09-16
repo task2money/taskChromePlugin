@@ -29,12 +29,14 @@ importScripts(
   '../lib/page-advisor-api.js',
   '../lib/page-advisor-fail-trace-id.js',
   '../lib/page-advisor-defaults.js',
+  '../lib/page-advisor-site-pending.js',
   './sw-capture.js',
   './sw-auth.js',
   './sw-messages-session.js',
   './sw-messages-task.js',
   './sw-pick.js',
   './sw-page-advisor.js',
+  './sw-page-advisor-pending.js',
 );
 
 
@@ -100,6 +102,9 @@ chrome.commands.onCommand.addListener(async (command) => {
     const captureCfg = await getCaptureConfigCached();
     if (typeof clearLegacyPageAdvisorChromeShortcuts === 'function') {
       await clearLegacyPageAdvisorChromeShortcuts();
+    }
+    if (typeof registerPageAdvisorSitePendingHooks === 'function') {
+      registerPageAdvisorSitePendingHooks();
     }
     console.log(
       `[taskChromePlugin] Initialized | baseUrl=${cfg.baseUrl} | ` +

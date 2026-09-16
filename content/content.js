@@ -94,6 +94,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     return true;
   }
+  if (msg.action === 'pageAdvisorSitePending') {
+    try {
+      if (typeof handlePageAdvisorSitePendingMessage === 'function') {
+        handlePageAdvisorSitePendingMessage(msg);
+      }
+      sendResponse?.({ success: true });
+    } catch (e) {
+      sendResponse?.({ success: false, error: e?.message || '展示待确认建议失败' });
+    }
+    return true;
+  }
   if (msg.action === 'toggleElementPick') {
     console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');
     // 与页内 keydown 兜底监听共享去抖时间戳：
@@ -264,6 +275,10 @@ if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
     if (urlEl) urlEl.textContent = `📍 ${window.location.href}`;
 
     await refreshAuthAndWorkspaces();
+
+    if (typeof requestSitePendingRefresh === 'function') {
+      requestSitePendingRefresh();
+    }
 
     startAuthBadgeTimer();
   } catch (err) {

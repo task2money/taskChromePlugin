@@ -127,6 +127,9 @@ function closePageAdvisorModal() {
   }
   syncPageAdvisorFillButtons();
   if (typeof clearPageAdvisorLastRegion === "function") clearPageAdvisorLastRegion();
+  if (typeof flushDeferredSitePendingIfAny === "function") {
+    flushDeferredSitePendingIfAny();
+  }
   if (typeof syncFloatPanelPrimaryHeading === "function") syncFloatPanelPrimaryHeading();
   if (typeof descInput !== "undefined" && descInput?.focus) descInput.focus();
   else if (typeof btn !== "undefined" && btn?.focus) btn.focus();
