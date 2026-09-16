@@ -177,7 +177,7 @@ bash scripts/hooks/install.sh
 
 ## 技术栈
 
-- Manifest V3
+- Manifest V3（权限最小化：`storage` / `webRequest` / `tabs` / `webNavigation` / `alarms` + `host_permissions: <all_urls>`；无 `cookies` / `activeTab`）
 - Vanilla JavaScript (无框架依赖)
 - chrome.devtools.network (HAR API)
 - chrome.webRequest (网络拦截)

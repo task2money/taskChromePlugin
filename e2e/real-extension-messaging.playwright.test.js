@@ -33,10 +33,14 @@ test.describe('真实扩展：SW 消息通道与 panel 消息管道', () => {
   test('manifest alarms 权限 + 双向消息往返 + panel 无 CSP 拦截 + 请求列表渲染', async () => {
     test.setTimeout(120_000);
 
-    // ---- 0. manifest 静态断言：alarms 权限必须存在 ----
+    // ---- 0. manifest 静态断言：alarms 必需；cookies/activeTab 已瘦身禁止回潮 ----
     const manifest = JSON.parse(fs.readFileSync(path.join(EXT_PATH, 'manifest.json'), 'utf8'));
     expect(manifest.permissions, 'manifest 必须声明 alarms 权限（缺权限 → SW 顶层 TypeError → 消息通道全断）')
       .toContain('alarms');
+    expect(manifest.permissions, '正式包不得声明 cookies（OAuth 后无生产调用）')
+      .not.toContain('cookies');
+    expect(manifest.permissions, '正式包不得声明 activeTab（tabs + <all_urls> 已覆盖）')
+      .not.toContain('activeTab');
 
     const { chromium } = loadPlaywrightTest();
     const context = await chromium.launchPersistentContext('', {

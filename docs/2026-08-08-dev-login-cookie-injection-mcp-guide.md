@@ -3,6 +3,20 @@
 > OPT-20260808-022 交付物。解决「Chrome 拒绝 localhost 域 Set-Cookie → 浏览器 MCP 无法在
 > localhost:4000 完成登录」问题。2026-08-08 全链路验证通过。
 
+## 0. 正式包权限说明（2026-09-16）
+
+正式跟踪的 `manifest.json` **不再**声明 `cookies`（OAuth 登录后生产路径无
+`chrome.cookies.*`；见权限瘦身设计
+`docs/superpowers/specs/2026-09-16-task-chrome-plugin-manifest-permission-cleanup-design.md`）。
+
+本手册中的 `chrome.cookies.set` / `getAll` / `remove` **仅适用于本地临时调试**：
+
+1. 复制或直接改本地 unpacked 的 `manifest.json`，在 `permissions` 中**临时**加入 `"cookies"`
+2. 在 `chrome://extensions` 重新加载扩展后执行下文注入流程
+3. **勿**把含 `cookies` 的 manifest 提交回仓库（`test/manifest-permissions.test.js` 会阻断）
+
+若只需测扩展自身登录态，优先写 `chrome.storage.local` 插件会话，不必注入 www Cookie。
+
 ## 1. 问题根因
 
 Chrome（含 HeadlessChrome/149）**拒绝接受 Set-Cookie 响应头**作用于 localhost 域：
