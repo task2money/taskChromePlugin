@@ -185,4 +185,4 @@ bash scripts/hooks/install.sh
 
 ## License
 
-本仓库以 GNU Affero General Public License v3.0 授权，见 [LICENSE](./LICENSE)。不附带 AGPL 义务的专有许可见 [COMMERCIAL.md](./COMMERCIAL.md)。
+本仓库仅以 [GNU Affero General Public License v3.0](./LICENSE) 授权；不提供商业专有许可。
