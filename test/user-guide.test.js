@@ -104,9 +104,11 @@ describe('UserGuide sections', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
     assert.match(html, /data-traceId/);
     assert.match(html, /75\s*秒/);
+    assert.match(html, /llm http 402|余额不足/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /data-traceId/);
     assert.match(md, /生成优化建议超时/);
+    assert.match(md, /llm http 402|余额不足/);
     assert.match(md, /75\s*秒/);
   });
 

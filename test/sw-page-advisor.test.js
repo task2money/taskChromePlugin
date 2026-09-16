@@ -24,3 +24,21 @@ describe('sw-page-advisor timeout traceId', () => {
     assert.doesNotMatch(src, /生成优化建议超时（15 秒）/);
   });
 });
+
+describe('sw-page-advisor LLM failed / expired traceId', () => {
+  const swPath = path.join(__dirname, '../background/sw-page-advisor.js');
+  const src = fs.readFileSync(swPath, 'utf8');
+
+  it('failed|expired notify uses resolvePageAdvisorFailTraceId (not bare job.trace_id only)', () => {
+    // LLM 402 Insufficient Balance surfaces as job status=failed + error_message;
+    // constraint 24 requires data-traceId — must fall back to createTraceId / mint.
+    assert.match(src, /function resolvePageAdvisorFailTraceId\s*\(/);
+    assert.match(src, /resolvePageAdvisorFailTraceId\s*\(\s*job\s*,\s*createTraceId\s*\)/);
+    assert.match(src, /pickJobTraceId/);
+    // Forbid the regression that dropped createTraceId on the failed path.
+    assert.doesNotMatch(
+      src,
+      /status === 'failed'[\s\S]{0,400}traceId:\s*job\?\.trace_id\s*\|\|\s*''/,
+    );
+  });
+});

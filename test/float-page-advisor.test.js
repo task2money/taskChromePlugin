@@ -123,6 +123,19 @@ describe('page-advisor error data-traceId', () => {
     assert.equal(errorEl.getAttribute('data-traceId'), 'timeout-trace-xyz');
   });
 
+  it('LLM 402 / LLM_FAILED error mounts data-traceId on #taskplugin-page-advisor-error', () => {
+    const msg =
+      'llm http 402: {"error":{"message":"Insufficient Balance","type":"unknown_error","param":null,"code":"invalid_request_error"}}';
+    sandbox.handlePageAdvisorResultMessage({
+      ok: false,
+      error: msg,
+      errorCode: 'LLM_FAILED',
+      traceId: 'llm-fail-trace-abc',
+    });
+    assert.equal(errorEl.textContent, msg);
+    assert.equal(errorEl.getAttribute('data-traceId'), 'llm-fail-trace-abc');
+  });
+
   it('error without traceId omits data-traceId attribute', () => {
     sandbox.handlePageAdvisorResultMessage({
       ok: false,
