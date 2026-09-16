@@ -20,7 +20,19 @@ function loadPlaywrightTest() {
 
 const { test, expect } = loadPlaywrightTest();
 
-const ROOT = path.resolve(__dirname, '..');
+const { startStaticServer } = require('./helpers/staticServer');
+
+// 经 http 同源提供 devtools 页与 panel 页：file:// 下两个不透明源无法互相
+// 校验同源（详见 helpers/staticServer.js 头部），面板列表会恒为空。
+let server;
+
+test.beforeAll(async () => {
+  server = await startStaticServer();
+});
+
+test.afterAll(async () => {
+  await server.close();
+});
 
 /** chrome API stubs：devtools 页（请求监听 + 面板创建）与 panel iframe 共用 */
 function installChromeStubs() {
@@ -132,7 +144,7 @@ function installChromeStubs() {
 test.describe('DevTools 面板请求列表刷新链路', () => {
   test('实时推送 + 刷新按钮从 SW 拉取最新请求', async ({ page }) => {
     await page.addInitScript(installChromeStubs());
-    await page.goto('file://' + path.join(ROOT, 'devtools/devtools.html'));
+    await page.goto(server.baseURL + '/devtools/devtools.html');
 
     // 等待 devtools.js 初始化完成（panels.create 已调用，iframe 挂载）
     await page.waitForSelector('#tcp-panel-frame');

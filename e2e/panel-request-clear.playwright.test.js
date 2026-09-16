@@ -18,8 +18,19 @@ function loadPlaywrightTest() {
 }
 
 const { test, expect } = loadPlaywrightTest();
+const { startStaticServer } = require('./helpers/staticServer');
 
-const ROOT = path.resolve(__dirname, '..');
+// 经 http 同源提供 devtools 页与 panel 页：file:// 下两个不透明源无法互相
+// 校验同源（详见 helpers/staticServer.js 头部），面板列表会恒为空。
+let server;
+
+test.beforeAll(async () => {
+  server = await startStaticServer();
+});
+
+test.afterAll(async () => {
+  await server.close();
+});
 
 function installChromeStubs() {
   return `
@@ -143,7 +154,7 @@ function installChromeStubs() {
 test.describe('DevTools 面板请求列表清空链路', () => {
   test('清空列表按钮清空 UI 且刷新不再拉回', async ({ page }) => {
     await page.addInitScript(installChromeStubs());
-    await page.goto('file://' + path.join(ROOT, 'devtools/devtools.html'));
+    await page.goto(server.baseURL + '/devtools/devtools.html');
 
     await page.waitForSelector('#tcp-panel-frame');
     await page.waitForFunction(() => window.__reqListeners.length === 1);
