@@ -46,7 +46,7 @@ async function handleMessage(message, sender) {
             },
           };
         } catch (e) {
-          return { success: false, error: e?.message || 'OAuth 刷新失败' };
+          return { success: false, error: e?.message || tx('swOauthRefreshFailed') };
         }
       }
 
@@ -143,7 +143,7 @@ async function handleMessage(message, sender) {
     case 'oauthStart':
       {
         const baseUrl = String(message.baseUrl || '').trim();
-        if (!baseUrl) return { success: false, error: '缺少服务器地址' };
+        if (!baseUrl) return { success: false, error: tx('swMissingServerUrl') };
         try {
           const verifier = OAuthPKCE.generateCodeVerifier();
           const codeChallenge = await OAuthPKCE.generateCodeChallenge(verifier);
@@ -165,7 +165,7 @@ async function handleMessage(message, sender) {
           return { success: true };
         } catch (e) {
           console.warn('[taskChromePlugin] oauthStart 失败:', e?.message || e);
-          return { success: false, error: e?.message || '无法打开授权页' };
+          return { success: false, error: e?.message || tx('swCannotOpenAuthPage') };
         }
       }
 
@@ -177,10 +177,10 @@ async function handleMessage(message, sender) {
           const session = stored && stored.oauthPkceSession;
           // state 校验（防 CSRF）与 TTL（5 分钟）——与 lib/oauth-callback.js 同规则
           if (!session || session.state !== state) {
-            return { success: false, error: 'state 校验失败，请重新登录' };
+            return { success: false, error: tx('swStateCheckFailed') };
           }
           if (session.createdAt && Date.now() - session.createdAt > 5 * 60 * 1000) {
-            return { success: false, error: '登录会话已过期，请重新登录' };
+            return { success: false, error: tx('swSessionExpired') };
           }
 
           const redirectUri = `chrome-extension://${chrome.runtime.id}${OAuthPKCE.REDIRECT_PATH}`;
@@ -191,7 +191,7 @@ async function handleMessage(message, sender) {
             codeVerifier: session.verifier,
           });
           const accessToken = tokenRes.access_token;
-          if (!accessToken) return { success: false, error: 'OAuth token 交换未返回 access_token' };
+          if (!accessToken) return { success: false, error: tx('swOauthExchangeNoToken') };
 
           const userInfo = await OAuthPKCE.fetchUserInfo(session.baseUrl, accessToken);
           const username = userInfo.preferred_username || userInfo.name || userInfo.email || userInfo.sub || '';
@@ -220,7 +220,7 @@ async function handleMessage(message, sender) {
           return result;
         } catch (e) {
           console.warn('[taskChromePlugin] oauthCallback 失败:', e?.message || e);
-          return { success: false, error: e?.message || 'OAuth 登录处理失败', traceId: e?.traceId || '' };
+          return { success: false, error: e?.message || tx('swOauthLoginFailed'), traceId: e?.traceId || '' };
         }
       }
 
@@ -313,7 +313,7 @@ async function handleMessage(message, sender) {
         await initApiFromMessage(message);
         const companyId = String(message.companyId || '').trim();
         const workspaceId = String(message.workspaceId || '').trim();
-        if (!companyId || !workspaceId) throw new Error('缺少 companyId 或 workspaceId');
+        if (!companyId || !workspaceId) throw new Error(tx('swMissingCompanyOrWorkspaceId'));
         const path = `/api/tenant/${encodeURIComponent(companyId)}/workspace/${encodeURIComponent(workspaceId)}/queue-schedule/`;
         const data = await API.request('GET', path);
         return { success: true, data };
@@ -325,7 +325,7 @@ async function handleMessage(message, sender) {
       try {
         await initApiFromMessage(message);
         const uid = API.getUserId();
-        if (!uid) throw new Error('缺少 userId');
+        if (!uid) throw new Error(tx('swMissingUserId'));
         const path = CreateTaskGitIdentity.gitIdentitiesRequestPath(uid, message.companyId);
         const data = await API.request('GET', path);
         return { success: true, data };

@@ -67,7 +67,7 @@ async function collectAncestorIframeRects(tabId, framePath) {
  */
 async function cropCaptureToElement(dataUrl, rect, dpr, maxWidth) {
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) {
-    throw new Error('无效的元素矩形');
+    throw new Error(tx('swInvalidElementRect'));
   }
   const resp = await fetch(dataUrl);
   const blob = await resp.blob();
@@ -80,14 +80,14 @@ async function cropCaptureToElement(dataUrl, rect, dpr, maxWidth) {
   const clampedH = Math.min(sh, bitmap.height - sy);
   if (clampedW <= 0 || clampedH <= 0) {
     bitmap.close?.();
-    throw new Error('元素矩形超出截图范围');
+    throw new Error(tx('swElementRectOutOfBounds'));
   }
   const scale = clampedW > maxWidth ? maxWidth / clampedW : 1;
   const outW = Math.max(1, Math.round(clampedW * scale));
   const outH = Math.max(1, Math.round(clampedH * scale));
   const canvas = new OffscreenCanvas(outW, outH);
   const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('OffscreenCanvas 不可用');
+  if (!ctx) throw new Error(tx('swOffscreenCanvasUnavailable'));
   ctx.drawImage(bitmap, sx, sy, clampedW, clampedH, 0, 0, outW, outH);
   bitmap.close?.();
   const outBlob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.65 });
@@ -113,16 +113,11 @@ async function toggleElementPickInTab(tabId) {
   } catch (frame0Err) {
     // 顶层 frame 尚未注入 content script（受限页/刷新竞态）时，
     // 回退为整 tab 广播，保证快捷键在内容脚本注入后立即可用
-    console.warn(
-      '[taskChromePlugin] toggleElementPick frame0 失败，回退整 tab 广播:',
-      frame0Err?.message || frame0Err,
-    );
+    // 单行：i18n 门禁按行扫描，多行 console 调用的续行会被误判为界面文案。
+    console.warn('[taskChromePlugin] toggleElementPick frame0 失败，回退整 tab 广播:', frame0Err?.message || frame0Err);
     resp = await chrome.tabs.sendMessage(tabId, { action: 'toggleElementPick' });
   }
-  console.log(
-    '[taskChromePlugin] toggleElementPick via shortcut:',
-    resp?.success ? 'ok' : 'content script 未响应',
-  );
+  console.log('[taskChromePlugin] toggleElementPick via shortcut:', resp?.success ? 'ok' : 'content script 未响应');
 }
 
 // ---- 元素拾取快捷键动态改绑（chrome.commands.update，Chrome 110+）----
@@ -138,7 +133,7 @@ async function toggleElementPickInTab(tabId) {
 async function applyElementPickerShortcut(shortcut) {
   const normalized = Storage.normalizeShortcut(shortcut);
   if (!normalized) {
-    return { success: false, error: `非法快捷键组合: ${String(shortcut)}` };
+    return { success: false, error: tx('swShortcutInvalid', { shortcut: String(shortcut) }) };
   }
   const binding = Storage.shortcutToPlatformBinding(normalized, Storage.isMacPlatform());
   if (typeof chrome.commands?.update === 'function') {
@@ -146,7 +141,7 @@ async function applyElementPickerShortcut(shortcut) {
       await chrome.commands.update({ name: 'toggle-element-picker', shortcut: binding });
     } catch (e) {
       // 常见原因：与其他扩展/浏览器命令冲突（"already in use by another extension"）
-      const msg = e?.message || '快捷键绑定失败';
+      const msg = e?.message || tx('swShortcutBindFailed');
       console.warn('[taskChromePlugin] commands.update 失败:', msg);
       return { success: false, error: msg, shortcut: normalized };
     }

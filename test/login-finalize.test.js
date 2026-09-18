@@ -2,6 +2,8 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const { withTimeout } = require('../lib/async-timeout.js');
 const {
   scheduleAuthBroadcast,

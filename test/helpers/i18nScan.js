@@ -29,6 +29,8 @@ const MATCHER_LITERALS = [
   // lib/float-workspace-select.js 的 isUnauthedWorkspacePlaceholder：
   // 整条 alternation 匹配服务端/既有 DOM 的占位文案，取词不适用于正则体。
   '请先登录|会话过期|请刷新页面|请在扩展中重新登录|加载失败',
+  // background/sw-page-advisor.js 的超时识别正则：匹配服务端/上游返回的文案。
+  'timeout|超时|timed?\\s*out',
 ];
 
 /** 载入插件消息表（基础表 + panel/float 的 ui 表）。 */

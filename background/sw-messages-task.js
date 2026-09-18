@@ -8,7 +8,7 @@ async function handleMessageRest(message, sender) {
         const data = await API.createTask(taskData);
         await Storage.addTaskHistory({
           type: 'single',
-          title: taskData?.title || '(无标题)',
+          title: taskData?.title || tx('taskUntitled'),
           workspaceId: taskData?.workspaceId || taskData?.workspace_id,
           projectIds: taskData?.projectIds || taskData?.projects,
           status: 'success',
@@ -20,7 +20,7 @@ async function handleMessageRest(message, sender) {
       } catch (e) {
         await Storage.addTaskHistory({
           type: 'single',
-          title: message.taskData?.title || '(无标题)',
+          title: message.taskData?.title || tx('taskUntitled'),
           workspaceId: message.taskData?.workspaceId,
           projectIds: message.taskData?.projectIds,
           status: 'failed',
@@ -42,7 +42,7 @@ async function handleMessageRest(message, sender) {
         const hasErrors = data.errors && data.errors.length > 0;
         await Storage.addTaskHistory({
           type: 'batch',
-          title: `批量创建 ${data.total} 个任务`,
+          title: tx('taskBatchCreateTitle', { count: data.total }),
           workspaceId: tasksArr[0]?.workspaceId || tasksArr[0]?.workspace_id,
           projectIds: tasksArr[0]?.projectIds || tasksArr[0]?.projects,
           count: data.total,
@@ -58,7 +58,7 @@ async function handleMessageRest(message, sender) {
         const tasksArr = Array.isArray(message.tasksData) ? message.tasksData : [];
         await Storage.addTaskHistory({
           type: 'batch',
-          title: `批量创建 ${tasksArr.length} 个任务`,
+          title: tx('taskBatchCreateTitle', { count: tasksArr.length }),
           workspaceId: tasksArr[0]?.workspaceId || tasksArr[0]?.workspace_id,
           projectIds: tasksArr[0]?.projectIds || tasksArr[0]?.projects,
           count: tasksArr.length,
@@ -167,7 +167,7 @@ async function handleMessageRest(message, sender) {
     case 'startElementPick':
       {
         const tabId = message.tabId || sender?.tab?.id;
-        if (!tabId) return { success: false, error: '缺少 tabId，无法启动元素选择' };
+        if (!tabId) return { success: false, error: tx('swMissingTabIdPick') };
         try {
           const resp = await chrome.tabs.sendMessage(tabId, {
             action: 'startElementPick',
@@ -175,16 +175,18 @@ async function handleMessageRest(message, sender) {
           }, { frameId: 0 });
           await broadcastPickToChildFrames(tabId, 'startElementPick', message.source || 'float');
           console.log('[taskChromePlugin] startElementPick forwarded to tab', tabId);
-          return resp?.success ? { success: true } : { success: false, error: resp?.error || 'content script 未响应' };
+          return resp?.success
+            ? { success: true }
+            : { success: false, error: resp?.error || tx('swContentScriptNoResponse') };
         } catch (e) {
-          return { success: false, error: e.message || '无法联系页面 content script（请刷新页面）' };
+          return { success: false, error: e.message || tx('swContentScriptUnreachable') };
         }
       }
 
     case 'broadcastStartElementPick':
       {
         const tabId = sender?.tab?.id;
-        if (!tabId) return { success: false, error: '缺少 tabId' };
+        if (!tabId) return { success: false, error: tx('swMissingTabId') };
         await broadcastPickToChildFrames(tabId, 'startElementPick', message.source || 'float');
         return { success: true };
       }
@@ -203,7 +205,7 @@ async function handleMessageRest(message, sender) {
     case 'toggleElementPickShortcut':
       {
         const tabId = sender?.tab?.id;
-        if (!tabId) return { success: false, error: '缺少 tabId' };
+        if (!tabId) return { success: false, error: tx('swMissingTabId') };
         await toggleElementPickInTab(tabId);
         return { success: true };
       }
@@ -212,7 +214,7 @@ async function handleMessageRest(message, sender) {
       {
         const tabId = sender?.tab?.id
           || (await chrome.tabs.query({ active: true, currentWindow: true }))[0]?.id;
-        if (!tabId) return { success: false, error: '无活动标签页' };
+        if (!tabId) return { success: false, error: tx('swNoActiveTab') };
         await runPageOptimizationSuggest(tabId);
         return { success: true };
       }
@@ -235,7 +237,7 @@ async function handleMessageRest(message, sender) {
     case 'elementPickedInFrame':
       {
         const tabId = sender?.tab?.id;
-        if (!tabId) return { success: false, error: '缺少 tab' };
+        if (!tabId) return { success: false, error: tx('swMissingTab') };
         try {
           const leafFrameId = sender.frameId != null ? sender.frameId : 0;
           let frames = [];
@@ -263,7 +265,7 @@ async function handleMessageRest(message, sender) {
           );
           return { success: true };
         } catch (e) {
-          return { success: false, error: e.message || '转发到顶层失败' };
+          return { success: false, error: e.message || tx('swForwardToTopFailed') };
         }
       }
 
@@ -271,7 +273,7 @@ async function handleMessageRest(message, sender) {
       {
         try {
           const tabId = sender?.tab?.id;
-          if (tabId == null) return { success: false, error: '截图需要来自页面的请求' };
+          if (tabId == null) return { success: false, error: tx('swScreenshotNeedsPageRequest') };
           const dataUrl = await chrome.tabs.captureVisibleTab(sender.tab.windowId, {
             format: 'jpeg',
             quality: 72,
@@ -285,27 +287,27 @@ async function handleMessageRest(message, sender) {
           return { success: true, dataUrl: cropped };
         } catch (e) {
           console.error('[taskChromePlugin] captureElementScreenshot failed:', e);
-          return { success: false, error: e.message || '截图失败', traceId: e.traceId || '' };
+          return { success: false, error: e.message || tx('swScreenshotFailed'), traceId: e.traceId || '' };
         }
       }
 
     case 'uploadPluginScreenshot':
       {
         try {
-          if (!message.dataUrl) return { success: false, error: '缺少截图 dataUrl' };
+          if (!message.dataUrl) return { success: false, error: tx('swMissingScreenshotDataUrl') };
           const cfg = await Storage.getApiConfig();
           const mapping = await Storage.getEndpointMapping();
           const cred = await Storage.getCredentials();
-          if (!cfg.token) return { success: false, error: '请先登录后再上传截图' };
+          if (!cfg.token) return { success: false, error: tx('swLoginBeforeUploadScreenshot') };
           API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
           const data = await API.uploadPluginScreenshot(message.dataUrl);
           const url = data?.url || data?.absolute_url;
-          if (!url) throw new Error('上传响应缺少 url');
+          if (!url) throw new Error(tx('swUploadResponseNoUrl'));
           console.log('[taskChromePlugin] uploadPluginScreenshot ok');
           return { success: true, url, data };
         } catch (e) {
           console.error('[taskChromePlugin] uploadPluginScreenshot failed:', e);
-          return { success: false, error: e.message || '上传失败', traceId: e.traceId || '' };
+          return { success: false, error: e.message || tx('swUploadFailed'), traceId: e.traceId || '' };
         }
       }
 

@@ -76,7 +76,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .then(sendResponse)
     .catch((err) => {
       console.error('[taskChromePlugin] handleMessage 异常:', err);
-      sendResponse({ success: false, error: err?.message || '内部错误' });
+      sendResponse({ success: false, error: err?.message || tx('swInternalError') });
     });
   return true;
 });

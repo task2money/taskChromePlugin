@@ -30,10 +30,8 @@ async function askContentPageAdvisorContext(tabId) {
       { frameId: 0 },
     );
   } catch (frame0Err) {
-    console.warn(
-      '[taskChromePlugin] getPageAdvisorContext frame0 失败，回退整 tab 广播:',
-      frame0Err?.message || frame0Err,
-    );
+    // 单行：i18n 门禁按行扫描，多行 console 调用的续行会被误判为界面文案。
+    console.warn('[taskChromePlugin] getPageAdvisorContext frame0 失败，回退整 tab 广播:', frame0Err?.message || frame0Err);
     resp = await chrome.tabs.sendMessage(tabId, { action: 'getPageAdvisorContext' });
   }
   return resp;
@@ -60,11 +58,10 @@ function agentResourceNotConfiguredMessage(baseUrl, tenantId) {
   const personalPath = `${origin}/profile/feature-params/`;
   return {
     errorCode: 'AGENT_RESOURCE_NOT_CONFIGURED',
-    message:
-      '当前租户与个人均未配置可用智能体资源，请先配置后再试。',
+    message: tx('paNoAgentResource'),
     links: [
-      { label: '租户设置 → 智能体/环境参数', href: tenantPath },
-      { label: '个人中心 → 个人智能体配置', href: personalPath },
+      { label: tx('paTenantSettingsLabel'), href: tenantPath },
+      { label: tx('paPersonalCenterLabel'), href: personalPath },
     ],
   };
 }
@@ -76,10 +73,10 @@ function autoInnovateQuotaExceededMessage(baseUrl, tenantId) {
     : `${origin}/pricing/`;
   return {
     errorCode: 'AUTO_INNOVATE_QUOTA_EXCEEDED',
-    message: '自动创新次数已用尽。新公司赠送 100 次；续购 ¥1 = 100 次（成功出建议才扣费）。',
+    message: tx('paQuotaExhausted'),
     links: [
-      { label: '购买自动创新次数', href: orderPath },
-      { label: '查看收费标准', href: `${origin}/pricing/` },
+      { label: tx('paBuyCredits'), href: orderPath },
+      { label: tx('paViewPricing'), href: `${origin}/pricing/` },
     ],
   };
 }
@@ -98,7 +95,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (!cfg.token || expired) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: '请先在扩展弹窗中登录后再使用 Alt+Z 页面优化建议',
+      error: tx('paLoginFirstAltZ'),
     });
     return;
   }
@@ -106,7 +103,7 @@ async function runPageOptimizationSuggest(tabId) {
   API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
   if (mapping.owner) API.setOwner(mapping.owner);
 
-  await notifyContentPageAdvisor(tabId, { ok: true, phase: 'loading', message: '正在采集页面并生成优化建议…' });
+  await notifyContentPageAdvisor(tabId, { ok: true, phase: 'loading', message: tx('paCollecting') });
 
   let ctxResp;
   try {
@@ -114,7 +111,7 @@ async function runPageOptimizationSuggest(tabId) {
   } catch (e) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: e?.message || '无法读取页面上下文（请刷新页面后重试）',
+      error: e?.message || tx('paContextReadFailed'),
     });
     return;
   }
@@ -122,7 +119,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (!ctxResp?.success || !ctxResp.data) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: ctxResp?.error || '无法读取页面上下文',
+      error: ctxResp?.error || tx('paContextUnavailable'),
     });
     return;
   }
@@ -156,7 +153,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (!workspaceId || !tenantId) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: '请先在扩展弹窗选择 Alt+Z 默认工作空间，或打开浮窗选择工作空间后再按 Alt+Z',
+      error: tx('paSelectWorkspaceAltZ'),
     });
     return;
   }
@@ -205,7 +202,7 @@ async function runPageOptimizationSuggest(tabId) {
     }
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: e?.message || '创建建议任务失败',
+      error: e?.message || tx('paCreateTaskFailed'),
       traceId: e?.traceId || '',
       errorCode: e?.errorCode || '',
     });
@@ -220,7 +217,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (!jobId) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: '建议任务未返回 job_id',
+      error: tx('paNoJobId'),
       traceId: createTraceId,
     });
     return;
@@ -242,8 +239,8 @@ async function runPageOptimizationSuggest(tabId) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: timedOut
-        ? `生成优化建议超时（${PAGE_ADVISOR_POLL_MAX_SEC} 秒），请重试`
-        : (e?.message || '轮询建议结果失败'),
+        ? tx('paPollTimeout', { sec: PAGE_ADVISOR_POLL_MAX_SEC })
+        : (e?.message || tx('paPollFailed')),
       errorCode: timedOut ? 'PAGE_ADVISOR_TIMEOUT' : (e?.errorCode || ''),
       // 请求失败 UI 必须带 data-traceId（约束 24）；超时路径禁止空串。
       traceId: timeoutTraceId,
@@ -265,7 +262,7 @@ async function runPageOptimizationSuggest(tabId) {
     }
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: job?.error_message || '生成优化建议失败',
+      error: job?.error_message || tx('paGenerateFailed'),
       errorCode: job?.error_code || '',
       traceId: failTraceId,
     });
@@ -311,10 +308,7 @@ async function handlePageOptimizationSuggestRegionCommand() {
   try {
     await chrome.tabs.sendMessage(tabId, { action: 'startPageAdvisorRegionSelect' }, { frameId: 0 });
   } catch (frame0Err) {
-    console.warn(
-      '[taskChromePlugin] startPageAdvisorRegionSelect frame0 失败，回退整 tab:',
-      frame0Err?.message || frame0Err,
-    );
+    console.warn('[taskChromePlugin] startPageAdvisorRegionSelect frame0 失败，回退整 tab:', frame0Err?.message || frame0Err);
     await chrome.tabs.sendMessage(tabId, { action: 'startPageAdvisorRegionSelect' });
   }
 }

@@ -4,6 +4,8 @@ const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const OAuthPKCE = require('../lib/oauth-pkce.js');
 
 describe('generateCodeVerifier', () => {

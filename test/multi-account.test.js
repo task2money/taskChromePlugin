@@ -36,6 +36,8 @@ const mockChromeStorage = {
 globalThis.chrome = { storage: mockChromeStorage };
 
 // Load the module
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const MultiAccount = require('../lib/multi-account.js');
 
 describe('MultiAccount', () => {

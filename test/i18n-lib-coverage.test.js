@@ -1,15 +1,16 @@
 'use strict';
 
 /**
- * 静态门禁：lib/ 层用户可见文案必须可直接切 en（ADR-0089，OPT-20260919-009）。
+ * 静态门禁：lib/ 与 background/ 层用户可见文案必须可直接切 en（ADR-0089，OPT-20260919-009）。
  *
- * lib/ 文件被多处加载（content_scripts 主组 / popup / panel / devtools / oauth 回调页 /
+ * 这些文件被多处加载（content_scripts 主组 / popup / panel / devtools / oauth 回调页 /
  * service worker）。取词方式取决于**全部**加载它的上下文：
  *
- *  - content_scripts 主组与各扩展页都在 HTML/manifest 里先加载 `lib/i18n-tx.js`，
- *    因此能直接裸写 `tx('key')`；
- *  - service worker（importScripts）与 all_frames 组**不加载任何 i18n**，
- *    被它们加载的文件只能退回 content 层兜底或改由调用方取词。
+ *  - content_scripts 主组、各扩展页与 service worker 都先加载 `lib/i18n-tx.js`
+ *    （SW 自 OPT-20260919-009 第 7 批起在 importScripts 顶部装载），因此可直接裸写 `tx('key')`；
+ *  - 仅 all_frames 组（cs1）不加载任何 i18n，被它加载的文件只能退回 content 层兜底
+ *    或改由调用方取词——那类文件（`lib/element-picker.js` / `content/pick-frame.js`）
+ *    不属本清单，见 test/i18n-frames-coverage.test.js。
  *
  * 本门禁因此先证明「MIGRATED 的每个文件在所有加载它的上下文里 tx() 都存在」，
  * 再复用 content/扩展页门禁的判据（键双表齐备 / CJK 与取词配对 / 禁止兜底），
@@ -44,6 +45,20 @@ const MIGRATED = [
   // oauth-callback.html（回调页 boot 前已加载 i18n-tx.js）
   'lib/oauth-callback.js',
   'lib/oauth-callback-boot.js',
+  // 第 7~8 批：service worker 装载 i18n 后解锁的 SW 层与双上下文文件
+  'background/service-worker.js',
+  'background/sw-auth.js',
+  'background/sw-pick.js',
+  'background/sw-page-advisor.js',
+  'background/sw-page-advisor-pending.js',
+  'background/sw-messages-task.js',
+  'background/sw-messages-session.js',
+  'lib/oauth-pkce.js',
+  'lib/page-advisor-api.js',
+  'lib/multi-account.js',
+  'lib/captured-buffer.js',
+  'lib/login-finalize.js',
+  'lib/async-timeout.js',
 ];
 
 /** 取词器全局名所在的脚本；它在某上下文中的位置之前加载即代表 tx() 可用。 */
@@ -68,8 +83,14 @@ function loadContexts() {
 
   const swRel = path.join(ROOT, 'background/service-worker.js');
   const swSrc = fs.readFileSync(swRel, 'utf8');
-  contexts['background/service-worker.js'] = [...swSrc.matchAll(/importScripts\(([^)]*)\)/g)]
-    .flatMap((m) => [...m[1].matchAll(/["']([^"']+)["']/g)].map((s) => path.posix.normalize(path.posix.join('background', s[1]))));
+  // SW 入口自身也是该上下文的脚本：importScripts 先执行，入口正文在后，
+  // 故把它排在序列末尾（否则「入口文件未被任何上下文加载」）。
+  contexts['background/service-worker.js'] = [
+    ...swSrc.matchAll(/importScripts\(([^)]*)\)/g)
+      .flatMap((m) => [...m[1].matchAll(/["']([^"']+)["']/g)]
+        .map((s) => path.posix.normalize(path.posix.join('background', s[1])))),
+    'background/service-worker.js',
+  ];
 
   return contexts;
 }

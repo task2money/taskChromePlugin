@@ -3,6 +3,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const { withTimeout, startWatchdog } = require('../lib/async-timeout.js');
 
 describe('async-timeout helpers', () => {

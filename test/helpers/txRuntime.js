@@ -29,4 +29,32 @@ function installTxRuntime(locale = 'zh-CN') {
   return { i18n, tx };
 }
 
-module.exports = { installTxRuntime };
+/** 运行时同构的 i18n 装载序列（SW importScripts 与各扩展页 HTML 均为此前缀）。 */
+const I18N_SCRIPT_RELS = [
+  'lib/i18n.js',
+  'lib/i18n-messages.js',
+  'lib/i18n-ui-messages.js',
+  'lib/i18n-tx.js',
+];
+
+/**
+ * 在 vm 沙箱中按运行时顺序装载 i18n，使沙箱内的裸写 `tx('key')` 可解析。
+ * 必须在业务脚本之前调用（真实上下文里 importScripts / HTML 也是先加载它们）。
+ * @param {object} sandbox 已 createContext 的沙箱
+ */
+function installTxInSandbox(sandbox) {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const vm = require('node:vm');
+  const ROOT = path.join(__dirname, '..', '..');
+  for (const rel of I18N_SCRIPT_RELS) {
+    vm.runInContext(
+      fs.readFileSync(path.join(ROOT, rel), 'utf8'),
+      sandbox,
+      { filename: path.basename(rel) },
+    );
+  }
+  return sandbox;
+}
+
+module.exports = { installTxRuntime, installTxInSandbox, I18N_SCRIPT_RELS };

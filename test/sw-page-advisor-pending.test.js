@@ -53,6 +53,8 @@ function loadPendingStack(extraSandbox = {}) {
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
+  // 与真实 SW 同构：i18n 先于业务脚本装载（OPT-20260919-009 第 7 批）。
+  require('./helpers/txRuntime.js').installTxInSandbox(sandbox);
 
   for (const rel of [
     'lib/page-advisor-site-pending.js',

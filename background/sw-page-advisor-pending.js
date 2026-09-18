@@ -91,7 +91,7 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
     listPayload = await PageAdvisorAPI.listPendingSuggestions(tenant.tenantId, url);
   } catch (e) {
     console.warn('[taskChromePlugin] listPendingSuggestions failed:', e?.message || e);
-    return { ok: false, error: e?.message || '拉取待确认建议失败', traceId: e?.traceId || '' };
+    return { ok: false, error: e?.message || tx('swPendingFetchFailed'), traceId: e?.traceId || '' };
   }
 
   const raw = Pending?.parseSitePendingItems
@@ -112,9 +112,9 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
 
 async function handleFetchSitePendingForPage(message, sender) {
   const tabId = sender?.tab?.id;
-  if (!tabId) return { success: false, error: '缺少 tabId' };
+  if (!tabId) return { success: false, error: tx('swMissingTabId') };
   const pageUrl = String(message.pageUrl || '').trim();
-  if (!pageUrl) return { success: false, error: '缺少 pageUrl' };
+  if (!pageUrl) return { success: false, error: tx('swMissingPageUrl') };
   const result = await refreshSitePendingForTab(tabId, pageUrl, { force: !!message.force });
   return { success: true, ...result };
 }
@@ -124,14 +124,14 @@ async function handleConfirmSitePendingSuggestion(message) {
   const suggestionId = String(message.suggestionId || '').trim();
   const idempotencyKey = String(message.idempotencyKey || '').trim();
   if (!tenantId || !suggestionId) {
-    return { success: false, error: '缺少 tenantId 或 suggestionId' };
+    return { success: false, error: tx('swMissingTenantOrSuggestionId') };
   }
   if (!idempotencyKey) {
-    return { success: false, error: '缺少 Idempotency-Key' };
+    return { success: false, error: tx('swMissingIdempotencyKey') };
   }
   const tenant = await resolveTenantIdForSitePending();
   if (!tenant.ok) {
-    return { success: false, error: '请先登录后再确认建议' };
+    return { success: false, error: tx('swLoginBeforeConfirm') };
   }
   try {
     const data = await PageAdvisorAPI.confirmSuggestion(
@@ -143,7 +143,7 @@ async function handleConfirmSitePendingSuggestion(message) {
   } catch (e) {
     return {
       success: false,
-      error: e?.message || '确认建议失败',
+      error: e?.message || tx('swConfirmSuggestionFailed'),
       traceId: e?.traceId || '',
       errorCode: e?.errorCode || '',
     };
@@ -155,14 +155,14 @@ async function handleDismissSitePendingSuggestion(message) {
   const suggestionId = String(message.suggestionId || '').trim();
   const idempotencyKey = String(message.idempotencyKey || '').trim();
   if (!tenantId || !suggestionId) {
-    return { success: false, error: '缺少 tenantId 或 suggestionId' };
+    return { success: false, error: tx('swMissingTenantOrSuggestionId') };
   }
   if (!idempotencyKey) {
-    return { success: false, error: '缺少 Idempotency-Key' };
+    return { success: false, error: tx('swMissingIdempotencyKey') };
   }
   const tenant = await resolveTenantIdForSitePending();
   if (!tenant.ok) {
-    return { success: false, error: '请先登录后再拒绝建议' };
+    return { success: false, error: tx('swLoginBeforeDismiss') };
   }
   try {
     const data = await PageAdvisorAPI.dismissSuggestion(
@@ -174,7 +174,7 @@ async function handleDismissSitePendingSuggestion(message) {
   } catch (e) {
     return {
       success: false,
-      error: e?.message || '拒绝建议失败',
+      error: e?.message || tx('swDismissSuggestionFailed'),
       traceId: e?.traceId || '',
       errorCode: e?.errorCode || '',
     };

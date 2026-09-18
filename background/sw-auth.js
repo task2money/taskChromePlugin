@@ -99,7 +99,7 @@ async function silentRefreshToken() {
     });
     const newToken = tokenRes.access_token;
     if (!newToken) {
-      throw new Error('OAuth 刷新未返回 access_token');
+      throw new Error(tx('swOauthRefreshNoToken'));
     }
     // 轮换制：服务端已撤销旧 refresh token，必须持久化新值
     await Storage.saveApiConfig(
