@@ -63,6 +63,7 @@
       P.$(`#${ids.inputId}`),
       P.$(`#${ids.hintId}`),
       st,
+      { t: P.t },
     );
     P.syncContainerImageAppearance(containerId, project);
     P.syncContainerQueuedAutoRun(containerId);

@@ -157,7 +157,7 @@ describe('resolveAutoRunControlState', () => {
     const st = resolveAutoRunControlState({ selectedProject: null, checkedPreference: true });
     assert.equal(st.enabled, false);
     assert.equal(st.checked, false);
-    assert.match(st.hint, /请先选择项目/);
+    assert.equal(st.hintKey, 'panelAutoRunHintPickProject');
   });
 
   it('T11 disables and unchecks when project does not allow auto-run', () => {
@@ -167,7 +167,7 @@ describe('resolveAutoRunControlState', () => {
     });
     assert.equal(st.enabled, false);
     assert.equal(st.checked, false);
-    assert.match(st.hint, /未允许自动运行/);
+    assert.equal(st.hintKey, 'panelAutoRunHintNotAllowed');
   });
 
   it('T12 enables and checks when allowed, image selected, and preference true', () => {
@@ -178,7 +178,7 @@ describe('resolveAutoRunControlState', () => {
     });
     assert.equal(st.enabled, true);
     assert.equal(st.checked, true);
-    assert.match(st.hint, /运行模版/);
+    assert.equal(st.hintKey, 'panelAutoRunHintReady');
   });
 
   it('T13 enables but leaves unchecked when allowed, image selected, and preference false', () => {
@@ -208,7 +208,7 @@ describe('resolveAutoRunControlState', () => {
       hasInstalledImage: true,
     });
     assert.equal(st.enabled, false);
-    assert.match(st.hint, /未允许自动运行/);
+    assert.equal(st.hintKey, 'panelAutoRunHintNotAllowed');
   });
 });
 
@@ -251,15 +251,22 @@ describe('applyAutoRunControlToElements', () => {
       setAttribute(k, v) { attrs[k] = String(v); },
     };
     const hint = { textContent: '' };
-    applyAutoRunControlToElements(input, hint, {
-      enabled: false,
-      checked: false,
-      hint: '请先选择项目',
-    });
+    applyAutoRunControlToElements(
+      input,
+      hint,
+      { enabled: false, checked: false, hintKey: 'panelAutoRunHintPickProject' },
+      { t: (key) => ({ panelAutoRunHintPickProject: '请先选择项目' })[key] || key },
+    );
     assert.equal(input.disabled, true);
     assert.equal(input.checked, false);
     assert.equal(attrs['aria-disabled'], 'true');
     assert.equal(hint.textContent, '请先选择项目');
+  });
+
+  it('T15b 无取词函数时回退为消息键本身', () => {
+    const hint = { textContent: '' };
+    applyAutoRunControlToElements(null, hint, { hintKey: 'panelAutoRunHintPickImage' });
+    assert.equal(hint.textContent, 'panelAutoRunHintPickImage');
   });
 });
 
@@ -299,7 +306,7 @@ describe('resolveAutoRunControlState image gate', () => {
     });
     assert.equal(st.enabled, false);
     assert.equal(st.checked, false);
-    assert.match(st.hint, /请先选择已安装镜像/);
+    assert.equal(st.hintKey, 'panelAutoRunHintPickImage');
   });
 
   it('T-image-2 no project still wins over missing image', () => {
@@ -309,7 +316,7 @@ describe('resolveAutoRunControlState image gate', () => {
       hasInstalledImage: true,
     });
     assert.equal(st.enabled, false);
-    assert.match(st.hint, /请先选择项目/);
+    assert.equal(st.hintKey, 'panelAutoRunHintPickProject');
   });
 
   it('T-image-3 project not allowed still wins over selected image', () => {
@@ -319,7 +326,7 @@ describe('resolveAutoRunControlState image gate', () => {
       hasInstalledImage: true,
     });
     assert.equal(st.enabled, false);
-    assert.match(st.hint, /未允许自动运行/);
+    assert.equal(st.hintKey, 'panelAutoRunHintNotAllowed');
   });
 
   it('omitted hasInstalledImage is treated as missing (fail-safe)', () => {
@@ -328,7 +335,7 @@ describe('resolveAutoRunControlState image gate', () => {
       checkedPreference: true,
     });
     assert.equal(st.enabled, false);
-    assert.match(st.hint, /请先选择已安装镜像/);
+    assert.equal(st.hintKey, 'panelAutoRunHintPickImage');
   });
 });
 
