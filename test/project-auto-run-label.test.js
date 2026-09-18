@@ -5,6 +5,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const {
   projectDisplayName,
   projectAllowsAutoRun,

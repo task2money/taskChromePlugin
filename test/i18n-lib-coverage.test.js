@@ -67,6 +67,7 @@ const MIGRATED = [
   'lib/create-task-payload.js',
   'lib/create-task-git-identity.js',
   'lib/page-advisor-site-pending.js',
+  'lib/project-auto-run-label.js',
 ];
 
 /**
