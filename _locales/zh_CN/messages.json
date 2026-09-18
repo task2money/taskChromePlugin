@@ -1,0 +1,53 @@
+{
+  "extName": {
+    "message": "云端Coding: 自动创新助手"
+  },
+  "extTitle": {
+    "message": "云端Coding: 自动创新助手"
+  },
+  "statusLoading": {
+    "message": "加载中..."
+  },
+  "showFloatBall": {
+    "message": "显示悬浮球"
+  },
+  "floatBallHint": {
+    "message": "关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。"
+  },
+  "altZDefaults": {
+    "message": "Alt+Z 默认上下文"
+  },
+  "altZHint": {
+    "message": "未打开浮窗时，Alt+Z 使用此处的默认工作空间；填入任务描述后也会预选默认项目。"
+  },
+  "defaultWorkspace": {
+    "message": "默认工作空间"
+  },
+  "defaultProject": {
+    "message": "默认项目"
+  },
+  "pickWorkspaceFirst": {
+    "message": "请先选择工作空间"
+  },
+  "checkingLogin": {
+    "message": "正在检查登录状态..."
+  },
+  "retry": {
+    "message": "重试"
+  },
+  "login": {
+    "message": "登录"
+  },
+  "logout": {
+    "message": "退出"
+  },
+  "cancel": {
+    "message": "取消"
+  },
+  "save": {
+    "message": "保存"
+  },
+  "loading": {
+    "message": "加载中..."
+  }
+}

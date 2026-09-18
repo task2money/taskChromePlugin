@@ -1,0 +1,53 @@
+{
+  "extName": {
+    "message": "Cloud Coding: Auto Innovate"
+  },
+  "extTitle": {
+    "message": "Cloud Coding: Auto Innovate"
+  },
+  "statusLoading": {
+    "message": "Loading..."
+  },
+  "showFloatBall": {
+    "message": "Show floating ball"
+  },
+  "floatBallHint": {
+    "message": "When off, hides the in-page floating ball. The panel × only collapses the panel; it does not turn off the ball."
+  },
+  "altZDefaults": {
+    "message": "Alt+Z default context"
+  },
+  "altZHint": {
+    "message": "When the float panel is closed, Alt+Z uses this default workspace; task description fill also preselects the default project."
+  },
+  "defaultWorkspace": {
+    "message": "Default workspace"
+  },
+  "defaultProject": {
+    "message": "Default project"
+  },
+  "pickWorkspaceFirst": {
+    "message": "Select a workspace first"
+  },
+  "checkingLogin": {
+    "message": "Checking login…"
+  },
+  "retry": {
+    "message": "Retry"
+  },
+  "login": {
+    "message": "Log in"
+  },
+  "logout": {
+    "message": "Log out"
+  },
+  "cancel": {
+    "message": "Cancel"
+  },
+  "save": {
+    "message": "Save"
+  },
+  "loading": {
+    "message": "Loading..."
+  }
+}
