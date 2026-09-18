@@ -7,6 +7,12 @@
  */
 
 importScripts(
+  // i18n 必须最先加载：SW 侧取词依赖 lib/i18n-tx.js 先于所有业务脚本建立全局取词器。
+  // 注意：本注释内不得出现右圆括号，swBundle.js 以 importScripts 的首个右圆括号定界。
+  '../lib/i18n.js',
+  '../lib/i18n-messages.js',
+  '../lib/i18n-ui-messages.js',
+  '../lib/i18n-tx.js',
   '../lib/storage.js',
   '../lib/create-task-git-identity.js',
   '../lib/branch-datalist.js',
@@ -40,6 +46,23 @@ importScripts(
 );
 
 
+/**
+ * i18n 就绪门（ADR-0089）。
+ * importScripts 是同步的，但 hydrateFromStorage 读 chrome.storage 是异步的：
+ * 冷启动后首批消息若不等它，会按 zh-CN 默认值取词（切 en 无效）。
+ * 故所有对外入口先 await 本 Promise；hydrate 失败不阻断业务，仅回落默认语言。
+ */
+const i18nReady = Promise.resolve()
+  .then(() => globalThis.AidevpushI18n.hydrateFromStorage())
+  .catch((e) => {
+    console.warn('[taskChromePlugin] i18n hydrate 失败，回落默认语言:', e?.message || e);
+  });
+
+function whenI18nReady() {
+  return i18nReady;
+}
+
+
 // ---- 内存中的请求缓存 (DevTools 转发) ----
 
 let devToolsRequests = [];
@@ -48,7 +71,8 @@ const MAX_DEVTOOLS_REQUESTS = 500;
 // ---- 消息处理 ----
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  handleMessage(message, sender)
+  whenI18nReady()
+    .then(() => handleMessage(message, sender))
     .then(sendResponse)
     .catch((err) => {
       console.error('[taskChromePlugin] handleMessage 异常:', err);
@@ -58,6 +82,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
+  await whenI18nReady();
   if (command === 'page-optimization-suggest') {
     try {
       await handlePageOptimizationSuggestCommand();
@@ -88,6 +113,7 @@ chrome.commands.onCommand.addListener(async (command) => {
 // ---- 启动时恢复配置 ----
 (async function init() {
   try {
+    await whenI18nReady();
     await Storage.migrateStaleTokenExpiryOnce();
     const cfg = await Storage.getApiConfig();
     const mapping = await Storage.getEndpointMapping();
