@@ -84,6 +84,15 @@
    * 一旦 chrome.storage 挂起，UI 永远停在「正在检查登录状态...」。
    */
   async function init() {
+    try {
+      if (globalThis.AidevpushI18n) {
+        await globalThis.AidevpushI18n.hydrateFromStorage();
+        globalThis.AidevpushI18n.applyDom(document);
+        const loc = globalThis.AidevpushI18n.getLocale();
+        document.documentElement.lang = loc === 'en' ? 'en' : 'zh-CN';
+      }
+    } catch (_) { /* ignore */ }
+
     const watchdog = (typeof startWatchdog === 'function')
       ? startWatchdog(STATE_CHECK_TIMEOUT + 800, () => {
         console.error('[TaskPlugin] init watchdog: 强制结束加载态');

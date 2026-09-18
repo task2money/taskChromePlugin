@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="trae-service" content="taskChromePlugin" />
-  <title>云端Coding: 自动创新助手</title>
+  <title data-i18n="extTitle">云端Coding: 自动创新助手</title>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
   <div class="popup-container">
     <header class="popup-header">
-      <h1>🔧 云端Coding: 自动创新助手</h1>
+      <h1>🔧 <span data-i18n="extTitle">云端Coding: 自动创新助手</span></h1>
       <div id="headerUserArea" style="display:none">
         <span id="headerUser" class="header-user"></span>
         <button id="btnLogout" class="btn btn-sm btn-danger">🚪</button>
       </div>
-      <span id="popupStatus" class="badge badge-disconnected">加载中...</span>
+      <span id="popupStatus" class="badge badge-disconnected" data-i18n="statusLoading">加载中...</span>
     </header>
 
     <!-- 悬浮球开关：登录与未登录均可见，便于浮窗 × 关闭后重新打开 -->
@@ -24,25 +24,25 @@
           <input type="checkbox" id="floatBallToggle" checked>
           <span class="toggle-slider"></span>
         </label>
-        <span class="float-ball-label">显示悬浮球</span>
+        <span class="float-ball-label" data-i18n="showFloatBall">显示悬浮球</span>
       </div>
-      <p class="float-ball-hint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
+      <p class="float-ball-hint" data-i18n="floatBallHint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
     </section>
 
     <!-- Alt+Z 默认工作空间 / 项目（登录后可见） -->
     <section id="pageAdvisorDefaultsSection" class="section" style="display:none">
-      <h3>⌨️ Alt+Z 默认上下文</h3>
-      <p class="float-ball-hint">未打开浮窗时，Alt+Z 使用此处的默认工作空间；填入任务描述后也会预选默认项目。</p>
+      <h3>⌨️ <span data-i18n="altZDefaults">Alt+Z 默认上下文</span></h3>
+      <p class="float-ball-hint" data-i18n="altZHint">未打开浮窗时，Alt+Z 使用此处的默认工作空间；填入任务描述后也会预选默认项目。</p>
       <div class="form-row">
-        <label for="popupDefaultWorkspace">默认工作空间</label>
-        <select id="popupDefaultWorkspace" class="form-select" aria-label="Alt+Z 默认工作空间">
-          <option value="">加载中...</option>
+        <label for="popupDefaultWorkspace" data-i18n="defaultWorkspace">默认工作空间</label>
+        <select id="popupDefaultWorkspace" class="form-select" data-i18n-aria-label="defaultWorkspace">
+          <option value="" data-i18n="statusLoading">加载中...</option>
         </select>
       </div>
       <div class="form-row">
-        <label>默认项目</label>
-        <div id="popupDefaultProjects" class="popup-project-list" role="radiogroup" aria-label="Alt+Z 默认项目">
-          <span class="hint">请先选择工作空间</span>
+        <label data-i18n="defaultProject">默认项目</label>
+        <div id="popupDefaultProjects" class="popup-project-list" role="radiogroup" data-i18n-aria-label="defaultProject">
+          <span class="hint" data-i18n="pickWorkspaceFirst">请先选择工作空间</span>
         </div>
       </div>
       <p id="popupDefaultsStatus" class="hint" aria-live="polite"></p>
@@ -51,19 +51,19 @@
     <!-- 加载中 -->
     <div id="loadingSpinner" class="loading-section">
       <div class="spinner"></div>
-      <p id="loadingText">正在检查登录状态...</p>
-      <button id="btnRetryInit" class="btn btn-sm" style="display:none;margin-top:8px;">🔄 重试</button>
+      <p id="loadingText" data-i18n="checkingLogin">正在检查登录状态...</p>
+      <button id="btnRetryInit" class="btn btn-sm" style="display:none;margin-top:8px;">🔄 <span data-i18n="retry">重试</span></button>
     </div>
 
     <!-- 登录区域 — OAuth2+PKCE（OPT-20260808-024）-->
     <section id="loginSection" class="section" style="display:none">
-      <h3>🔐 登录</h3>
-      <p id="loginHint" class="hint" style="margin-bottom:12px">通过网页端授权登录（OAuth2+PKCE）。</p>
+      <h3>🔐 <span data-i18n="login">登录</span></h3>
+      <p id="loginHint" class="hint" style="margin-bottom:12px" data-i18n="loginHint">通过网页端授权登录（OAuth2+PKCE）。</p>
       <div class="form-row">
-        <label>服务器地址</label>
+        <label data-i18n="serverUrl">服务器地址</label>
         <input type="text" id="baseUrl" class="form-input" placeholder="https://aidevpush.com" autocomplete="url">
       </div>
-      <button id="btnLogin" class="btn btn-primary btn-full">🔓 OAuth 登录</button>
+      <button id="btnLogin" class="btn btn-primary btn-full">🔓 <span data-i18n="oauthLogin">OAuth 登录</span></button>
       <div id="loginResult" class="result"></div>
     </section>
 
@@ -172,6 +172,8 @@
     </section>
   </div>
 
+  <script src="../lib/i18n.js"></script>
+  <script src="../lib/i18n-messages.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/dom-trace.js"></script>
   <script src="../lib/api-http.js"></script>
