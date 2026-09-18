@@ -5,6 +5,9 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+// 模块用全局 tx() 取词（panel.html 先加载 lib/i18n-tx.js）。
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const PanelCreateSuccess = require('../lib/panel-create-success.js');
 
 function field(value) {

@@ -3,6 +3,10 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+// 模块用全局 tx() 取词（content_scripts 主组先加载 lib/i18n-tx.js）；
+// Node 单测须先安装同构取词运行时，默认 zh-CN，断言沿用迁移前文案。
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const {
   normalizeOpenSnapshot,
   formatFloatCreateSuccessToast,

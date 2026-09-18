@@ -24,7 +24,12 @@ const CJK = /[㐀-䶿一-鿿　-〿！-～]/;
 const SEPARATOR_LITERALS = ["'、'", '"、"', '`、`'];
 
 /** 正则字面量中的服务端错误匹配片段（用于识别后端返回的既有文案，非本端拷贝）。 */
-const MATCHER_LITERALS = ['已.*占用'];
+const MATCHER_LITERALS = [
+  '已.*占用',
+  // lib/float-workspace-select.js 的 isUnauthedWorkspacePlaceholder：
+  // 整条 alternation 匹配服务端/既有 DOM 的占位文案，取词不适用于正则体。
+  '请先登录|会话过期|请刷新页面|请在扩展中重新登录|加载失败',
+];
 
 /** 载入插件消息表（基础表 + panel/float 的 ui 表）。 */
 function loadMessageTables() {
