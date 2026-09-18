@@ -87,7 +87,7 @@ function retryPageAdvisorSuggestFromToolbar() {
   const retryBtn = document.getElementById("taskplugin-page-advisor-retry");
   if (retryBtn) retryBtn.hidden = true;
   setPageAdvisorError("");
-  showPageAdvisorLoading("正在采集页面并生成优化建议…");
+  showPageAdvisorLoading(typeof tx === "function" ? tx("paLoading") : "正在采集页面并生成优化建议…");
   if (typeof restorePageAdvisorLastCaptureForRetry === "function") {
     restorePageAdvisorLastCaptureForRetry();
   }
@@ -96,7 +96,7 @@ function retryPageAdvisorSuggestFromToolbar() {
       void chrome.runtime.lastError;
     });
   } catch (e) {
-    setPageAdvisorError(e?.message || "重试失败");
+    setPageAdvisorError(e?.message || (typeof tx === "function" ? tx("paRetryFailed") : "重试失败"));
   }
 }
 
@@ -133,7 +133,7 @@ function syncFloatPanelPrimaryHeading() {
   const replacement = document.createElement(wantTag);
   replacement.id = "taskplugin-float-title";
   replacement.className = floatTitle.className || "taskplugin-float-heading";
-  replacement.textContent = floatTitle.textContent || "快速创建任务";
+  replacement.textContent = floatTitle.textContent || (typeof tx === "function" ? tx("floatQuickCreate") : "快速创建任务");
   floatTitle.replaceWith(replacement);
 }
 
@@ -464,7 +464,7 @@ function getPageAdvisorContextFromFloat() {
 
 function handlePageAdvisorResultMessage(msg) {
   if (msg.phase === "loading") {
-    showPageAdvisorLoading(msg.message || "生成中…");
+    showPageAdvisorLoading(msg.message || (typeof tx === "function" ? tx("paGenerating") : "生成中…"));
     return;
   }
   if (!msg.ok) {
@@ -476,7 +476,7 @@ function handlePageAdvisorResultMessage(msg) {
     showPageAdvisorLoading("");
     const cards = document.getElementById("taskplugin-page-advisor-cards");
     if (cards) cards.innerHTML = "";
-    const errText = msg.error || "页面优化建议失败";
+    const errText = msg.error || (typeof tx === "function" ? tx("paFailed") : "页面优化建议失败");
     setPageAdvisorError(errText, msg.traceId);
     collapseFloatPanelDuringAdvisor();
     const layer = document.getElementById("taskplugin-page-advisor-layer");

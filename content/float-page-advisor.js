@@ -6,6 +6,7 @@
 "use strict";
 
 var pageAdvisorBusy = false;
+
 var pageAdvisorConfirmGuard =
   typeof ClickGuard !== "undefined" && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
@@ -48,7 +49,7 @@ function ensurePageAdvisorLayer() {
   layer.innerHTML =
     A11y && A11y.buildLayerHtml
       ? A11y.buildLayerHtml(esc)
-      : '<div id="taskplugin-page-advisor-cards"></div><div id="taskplugin-page-advisor-toolbar" role="toolbar" aria-label="优化建议操作栏" aria-describedby="taskplugin-page-advisor-hint"><p class="taskplugin-page-advisor-toolbar-hint taskplugin-page-advisor-safety-hint" id="taskplugin-page-advisor-hint">填入仅写入任务描述，不会自动创建任务</p></div>';
+      : `<div id="taskplugin-page-advisor-cards"></div><div id="taskplugin-page-advisor-toolbar" role="toolbar" aria-label="${esc((typeof tx === "function" ? tx("paToolbarLabel") : "优化建议操作栏"))}" aria-describedby="taskplugin-page-advisor-hint"><p class="taskplugin-page-advisor-toolbar-hint taskplugin-page-advisor-safety-hint" id="taskplugin-page-advisor-hint">${esc((typeof tx === "function" ? tx("paSafetyHint") : "填入仅写入任务描述，不会自动创建任务"))}</p></div>`;
   if (root) root.appendChild(layer);
   else document.body.appendChild(layer);
 
@@ -168,7 +169,7 @@ function showPageAdvisorLoading(message) {
   const layer = ensurePageAdvisorLayer();
   const A11y = typeof PageAdvisorA11y !== "undefined" ? PageAdvisorA11y : null;
   const text =
-    message || (A11y ? A11y.loadingDefault : "正在采集页面并生成优化建议…");
+    message || (A11y ? A11y.loadingDefault : (typeof tx === "function" ? tx("paLoading") : "正在采集页面并生成优化建议…"));
   const cards = document.getElementById("taskplugin-page-advisor-cards");
   if (cards) {
     cards.innerHTML = `<div class="taskplugin-page-advisor-status-card" role="status" aria-live="polite" aria-atomic="true">${esc(text)}</div>`;
@@ -297,8 +298,8 @@ function showPageAdvisorSuggestions(payload) {
     A11y && A11y.formatReadyStatus
       ? A11y.formatReadyStatus(suggestions.length)
       : suggestions.length
-        ? `已生成 ${suggestions.length} 条优化建议`
-        : "未返回可用建议";
+        ? (typeof tx === "function" ? tx("paReadyCount", { count: suggestions.length }) : `已生成 ${suggestions.length} 条优化建议`)
+        : (typeof tx === "function" ? tx("paEmpty") : "未返回可用建议");
   setPageAdvisorLiveStatus(readyMsg);
 
   if (!suggestions.length) {
@@ -309,15 +310,15 @@ function showPageAdvisorSuggestions(payload) {
     cards.innerHTML = suggestions
       .map((s, idx) => {
         const id = String(s.id != null ? s.id : `s${idx}`);
-        const title = esc(s.title || "建议");
+        const title = esc(s.title || (typeof tx === "function" ? tx("paSuggestionDefault") : "建议"));
         const summary = esc(s.summary || s.detail || "");
         return `
         <div class="taskplugin-page-advisor-float-card" data-order="${idx}" data-sid="${esc(id)}">
           <div class="taskplugin-page-advisor-card-chrome">
             <div class="taskplugin-page-advisor-drag-handle" role="button" tabindex="0"
-              aria-label="拖动建议卡，双击复位" title="拖动移动；双击把手复位">⋮⋮</div>
+              aria-label="${esc((typeof tx === "function" ? tx("paDragHandle") : "拖动建议卡，双击复位"))}" title="${esc((typeof tx === "function" ? tx("paDragTitle") : "拖动移动；双击把手复位"))}">⋮⋮</div>
             <button type="button" class="taskplugin-page-advisor-dismiss" data-sid="${esc(id)}"
-              aria-label="关闭此建议" title="关闭并还原此条预览">×</button>
+              aria-label="${esc((typeof tx === "function" ? tx("paCloseSuggestion") : "关闭此建议"))}" title="${esc((typeof tx === "function" ? tx("paCloseSuggestionTitle") : "关闭并还原此条预览"))}">×</button>
           </div>
           <label class="taskplugin-page-advisor-item">
             <input type="checkbox" class="taskplugin-page-advisor-check" value="${esc(id)}" data-order="${idx}" checked>
@@ -359,7 +360,7 @@ function showPageAdvisorResourceError(payload) {
   const cards = document.getElementById("taskplugin-page-advisor-cards");
   const links = document.getElementById("taskplugin-page-advisor-links");
   if (cards) {
-    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card">${esc(payload?.message || "未配置智能体资源")}</div>`;
+    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card">${esc(payload?.message || (typeof tx === "function" ? tx("paNoAgentConfig") : "未配置智能体资源"))}</div>`;
   }
   if (links && Array.isArray(payload?.links)) {
     links.hidden = false;
@@ -400,12 +401,12 @@ function syncPageAdvisorFillButtons() {
   if (allBtn) {
     allBtn.disabled = disabled;
     allBtn.setAttribute("aria-busy", "false");
-    allBtn.textContent = A11y ? A11y.fillAllLabel : "全部填入任务描述";
+    allBtn.textContent = A11y ? A11y.fillAllLabel : (typeof tx === "function" ? tx("paFillAll") : "全部填入任务描述");
   }
   if (oneBtn) {
     oneBtn.disabled = disabled;
     oneBtn.setAttribute("aria-busy", "false");
-    oneBtn.textContent = A11y ? A11y.fillOneLabel : "逐条填入任务描述";
+    oneBtn.textContent = A11y ? A11y.fillOneLabel : (typeof tx === "function" ? tx("paFillOne") : "逐条填入任务描述");
   }
 }
 
@@ -418,7 +419,7 @@ async function confirmPageAdvisorFill(opts = {}) {
   const runFill = () => {
     let selectedIds = collectSelectedSuggestionIds();
     if (!selectedIds.length) {
-      setPageAdvisorError("请至少勾选一条建议");
+      setPageAdvisorError((typeof tx === "function" ? tx("paPickOne") : "请至少勾选一条建议"));
       return { filled: false };
     }
     if (mode === "one") {
@@ -427,7 +428,7 @@ async function confirmPageAdvisorFill(opts = {}) {
     const Fill =
       typeof PageAdvisorFill !== "undefined" ? PageAdvisorFill : null;
     if (!Fill) {
-      setPageAdvisorError("PageAdvisorFill 未加载");
+      setPageAdvisorError((typeof tx === "function" ? tx("paFillModuleMissing") : "PageAdvisorFill 未加载"));
       return { filled: false };
     }
     const next = Fill.appendSuggestionsToDescription(
@@ -447,13 +448,13 @@ async function confirmPageAdvisorFill(opts = {}) {
       session?.undoAll();
       closePageAdvisorModal();
       if (typeof showResult === "function") {
-        showResult("已将优化建议填入任务描述（未自动创建任务）", "success");
+        showResult((typeof tx === "function" ? tx("paFillAllSuccess") : "已将优化建议填入任务描述（未自动创建任务）"), "success");
       }
     } else {
       const id = selectedIds[0];
       dismissPageAdvisorSuggestion(id);
       if (typeof showResult === "function") {
-        showResult("已填入一条建议（未自动创建任务）", "success");
+        showResult((typeof tx === "function" ? tx("paFillOneSuccess") : "已填入一条建议（未自动创建任务）"), "success");
       }
     }
     return { filled: true, createTaskCalled: false };
@@ -463,7 +464,7 @@ async function confirmPageAdvisorFill(opts = {}) {
     if (activeBtn) {
       activeBtn.disabled = true;
       activeBtn.setAttribute("aria-busy", "true");
-      activeBtn.textContent = "填入中…";
+      activeBtn.textContent = (typeof tx === "function" ? tx("paFilling") : "填入中…");
     }
     try {
       const outcome = await pageAdvisorConfirmGuard.run(async () => runFill());

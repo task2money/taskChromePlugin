@@ -112,7 +112,7 @@ function ensureRegionSelectHint() {
   hint.id = 'taskplugin-region-select-hint';
   hint.className = 'taskplugin-region-select-hint';
   hint.setAttribute('role', 'status');
-  hint.textContent = '点击页面元素后自动创新 · ⌘/Ctrl 多选后 Enter · Esc 取消';
+  hint.textContent = typeof tx === 'function' ? tx('paRegionHint') : '点击页面元素后自动创新 · ⌘/Ctrl 多选后 Enter · Esc 取消';
   const host = document.body || document.documentElement;
   if (host) host.appendChild(hint);
   return hint;
@@ -184,18 +184,18 @@ function startPageAdvisorRegionSelect() {
   } catch (_) { /* ignore */ }
   const hint = ensureRegionSelectHint();
   hint.hidden = false;
-  setRegionSelectHintText('点击页面元素后自动创新 · ⌘/Ctrl 多选后 Enter · Esc 取消');
+  setRegionSelectHintText(typeof tx === 'function' ? tx('paRegionHint') : '点击页面元素后自动创新 · ⌘/Ctrl 多选后 Enter · Esc 取消');
   if (typeof btn !== 'undefined' && btn) {
     btn.textContent = '✕';
     btn.classList.add('taskplugin-picking-fab');
-    btn.title = '退出元素选择（或按 Esc）';
+    btn.title = typeof tx === 'function' ? tx('paRegionExitTitle') : '退出元素选择（或按 Esc）';
   }
   if (typeof ensureHighlightStyle === 'function') ensureHighlightStyle(document);
   document.addEventListener('mouseover', onRegionSelectMouseOver, true);
   document.addEventListener('click', onRegionSelectClick, true);
   document.addEventListener('keydown', onRegionSelectKeyDown, true);
   if (typeof showPageToast === 'function') {
-    showPageToast('请点击要创新的页面元素（Esc 取消）');
+    showPageToast(typeof tx === 'function' ? tx('paRegionStartToast') : '请点击要创新的页面元素（Esc 取消）');
   }
   return { success: true, active: true };
 }
@@ -233,7 +233,7 @@ function confirmAdvisorElements(els) {
   } catch (err) {
     clearPendingPageAdvisorElements();
     if (typeof showPageToast === 'function') {
-      showPageToast(err?.message || '启动区域创新失败');
+      showPageToast(err?.message || (typeof tx === 'function' ? tx('paRegionStartFailed') : '启动区域创新失败'));
     }
   }
 }
@@ -246,7 +246,7 @@ function onRegionSelectClick(e) {
     e.preventDefault();
     e.stopPropagation();
     stopPageAdvisorRegionSelect();
-    if (typeof showPageToast === 'function') showPageToast('已取消元素选择');
+    if (typeof showPageToast === 'function') showPageToast(typeof tx === 'function' ? tx('paRegionCancelled') : '已取消元素选择');
     return;
   }
   if (typeof resolvePickTarget !== 'function') return;
@@ -255,7 +255,7 @@ function onRegionSelectClick(e) {
     e.preventDefault();
     e.stopPropagation();
     if (typeof showPageToast === 'function') {
-      showPageToast('跨域 iframe 请在顶层页面选择元素');
+      showPageToast(typeof tx === 'function' ? tx('paRegionCrossOrigin') : '跨域 iframe 请在顶层页面选择元素');
     }
     return;
   }
@@ -272,7 +272,7 @@ function onRegionSelectClick(e) {
       && pageAdvisorPickFrame !== (frameElement || null)
     ) {
       if (typeof showPageToast === 'function') {
-        showPageToast('多选仅限同一 frame');
+        showPageToast(typeof tx === 'function' ? tx('paRegionSameFrameOnly') : '多选仅限同一 frame');
       }
       return;
     }
@@ -299,8 +299,8 @@ function onRegionSelectClick(e) {
     const n = pageAdvisorPickSelection.length;
     setRegionSelectHintText(
       n
-        ? `已选 ${n} 个：Enter 确认；⌘/Ctrl+点击继续 · Esc 清空`
-        : '已清空：⌘/Ctrl+点击添加，或普通点击单选',
+        ? (typeof tx === 'function' ? tx('paRegionSelectedHint', { n }) : `已选 ${n} 个：Enter 确认；⌘/Ctrl+点击继续 · Esc 清空`)
+        : (typeof tx === 'function' ? tx('paRegionClearedHint') : '已清空：⌘/Ctrl+点击添加，或普通点击单选'),
     );
     return;
   }
@@ -324,11 +324,11 @@ function onRegionSelectKeyDown(e) {
   if (pageAdvisorPickSelection.length > 0) {
     clearAdvisorPickSelection();
     if (typeof clearHighlight === 'function') clearHighlight();
-    setRegionSelectHintText('已清空多选；再按 Esc 退出 · 或点击元素');
+    setRegionSelectHintText(typeof tx === 'function' ? tx('paRegionClearedMultiHint') : '已清空多选；再按 Esc 退出 · 或点击元素');
     return;
   }
   stopPageAdvisorRegionSelect();
-  if (typeof showPageToast === 'function') showPageToast('已取消元素选择');
+  if (typeof showPageToast === 'function') showPageToast(typeof tx === 'function' ? tx('paRegionCancelled') : '已取消元素选择');
 }
 
 if (typeof globalThis !== 'undefined') {

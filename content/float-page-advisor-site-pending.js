@@ -5,6 +5,7 @@
 "use strict";
 
 var pageAdvisorSitePendingMode = false;
+
 var pageAdvisorSitePendingState = {
   items: [],
   tenantId: "",
@@ -48,13 +49,13 @@ function syncSitePendingToolbar() {
   const cancel = document.getElementById("taskplugin-page-advisor-cancel");
   if (pageAdvisorSitePendingMode) {
     if (hint) {
-      hint.textContent = "确认后将启动挂起任务；拒绝将关闭本条建议";
+      hint.textContent = (typeof tx === "function" ? tx("paSitePendingHint") : "确认后将启动挂起任务；拒绝将关闭本条建议");
     }
     if (fillAll) fillAll.hidden = true;
     if (fillOne) fillOne.hidden = true;
     if (cancel) {
-      cancel.textContent = "稍后再说";
-      cancel.title = "隐藏待确认面板，稍后可刷新页面再次查看";
+      cancel.textContent = (typeof tx === "function" ? tx("paSitePendingLater") : "稍后再说");
+      cancel.title = (typeof tx === "function" ? tx("paSitePendingLaterTitle") : "隐藏待确认面板，稍后可刷新页面再次查看");
     }
   } else if (typeof PageAdvisorA11y !== "undefined") {
     if (hint) hint.textContent = PageAdvisorA11y.safetyHint;
@@ -121,7 +122,9 @@ async function runSitePendingWrite(action, suggestionId, btnEl) {
       btnEl.setAttribute("aria-busy", "false");
     }
     if (!resp?.success) {
-      const errMsg = resp?.error || (action === "confirm" ? "确认失败" : "拒绝失败");
+      const errMsg =
+        resp?.error ||
+        (typeof tx === "function" ? tx(action === "confirm" ? "paSiteConfirmFail" : "paSiteRejectFail") : (action === "confirm" ? "确认失败" : "拒绝失败"));
       if (typeof setPageAdvisorError === "function") {
         setPageAdvisorError(errMsg, resp?.traceId || "");
       }
@@ -130,7 +133,7 @@ async function runSitePendingWrite(action, suggestionId, btnEl) {
     removeSitePendingCard(sid);
     if (typeof showPageToast === "function") {
       showPageToast(
-        action === "confirm" ? "已确认并启动任务" : "已拒绝该建议",
+        (typeof tx === "function" ? tx(action === "confirm" ? "paSiteConfirmed" : "paSiteRejected") : (action === "confirm" ? "已确认并启动任务" : "已拒绝该建议")),
       );
     } else if (typeof setPageAdvisorError === "function") {
       setPageAdvisorError("");
@@ -227,7 +230,7 @@ function showPageAdvisorSitePending(payload) {
   syncSitePendingToolbar();
   if (typeof setPageAdvisorError === "function") setPageAdvisorError("");
   if (typeof setPageAdvisorLiveStatus === "function") {
-    setPageAdvisorLiveStatus(`有 ${items.length} 条待确认的全站优化建议`);
+    setPageAdvisorLiveStatus((typeof tx === "function" ? tx("paSitePendingCount", { count: items.length }) : `有 ${items.length} 条待确认的全站优化建议`));
   }
   if (typeof collapseFloatPanelDuringAdvisor === "function") {
     collapseFloatPanelDuringAdvisor();

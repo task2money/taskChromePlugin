@@ -105,7 +105,8 @@ describe('page-advisor card layout wiring', () => {
     assert.match(src, /clearAllPageAdvisorPins/);
     assert.match(ui, /dismissPageAdvisorSuggestion/);
     assert.match(ui, /taskplugin-page-advisor-dismiss/);
-    assert.match(ui, /aria-label="关闭此建议"/);
+    // 关闭按钮无障碍名走 i18n（ADR-0089）：键 paCloseSuggestion 或 zh 兜底字面量。
+    assert.match(ui, /paCloseSuggestion|aria-label="关闭此建议"/);
     assert.match(ui, /pageAdvisorDismissGuard/);
     assert.match(ui, /mousedown[\s\S]*stopPropagation/);
   });

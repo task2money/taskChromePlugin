@@ -273,7 +273,8 @@ describe('float-page-advisor dismiss wiring', () => {
     );
     assert.match(ui, /function dismissPageAdvisorSuggestion/);
     assert.match(ui, /pageAdvisorDismissGuard/);
-    assert.match(ui, /aria-label="关闭此建议"/);
+    // 关闭按钮的无障碍名走 i18n（ADR-0089）：键 paCloseSuggestion 或 zh 兜底字面量。
+    assert.match(ui, /paCloseSuggestion|aria-label="关闭此建议"/);
     assert.match(
       ui,
       /taskplugin-page-advisor-dismiss[\s\S]*?addEventListener\("mousedown"[\s\S]*?stopPropagation/,
