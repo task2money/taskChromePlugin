@@ -36,8 +36,11 @@ const MIGRATED = [
   'lib/float-panel-after-create.js',
   'lib/float-workspace-select.js',
   'lib/workspace-auto-schedule.js',
+  'lib/aidev-meta.js',
   // panel 页
   'lib/panel-create-success.js',
+  // popup 页
+  'lib/popup-defaults-sync.js',
   // oauth-callback.html（回调页 boot 前已加载 i18n-tx.js）
   'lib/oauth-callback.js',
   'lib/oauth-callback-boot.js',
