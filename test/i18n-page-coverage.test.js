@@ -28,10 +28,16 @@ const {
 
 /** 已完成扩展页脚本 i18n 迁移、纳入防回退门禁的文件。 */
 const MIGRATED = [
+  // popup 层：取词入口为全局 tx()（popup.html 先加载 lib/i18n-tx.js）
   'popup/popup.js',
   'popup/popup-auth.js',
   'popup/popup-defaults.js',
   'popup/popup-shortcut.js',
+  // panel 层：取词入口为既有封装 P.t()（panel-core.js:api.t）
+  'panel/lib/workspace.js',
+  'panel/lib/workspace-projects.js',
+  'panel/tabs/errors.js',
+  'panel/tabs/history.js',
 ];
 
 /** 扩展页脚本的加载清单来源：HTML 中的 <script src>（lib/ 与本地脚本都算）。 */

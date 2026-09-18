@@ -74,9 +74,9 @@ function stripSeparators(line) {
   return out;
 }
 
-/** 收集源码中引用的 `tx('key')` 键（仅静态字面量键）。 */
+/** 收集源码中引用的取词键（`tx('k')` / `P.t('k')` / `api.t('k')`，仅静态字面量键）。 */
 function collectTxKeys(src) {
-  return [...src.matchAll(/\btx\(\s*["']([A-Za-z_]\w*)["']/g)].map((m) => m[1]);
+  return [...src.matchAll(/(?:\btx|\.t)\(\s*["']([A-Za-z_]\w*)["']/g)].map((m) => m[1]);
 }
 
 /** 断言某文件里引用的 tx() 键在 zh-CN / en 两表均有独立译文。 */
@@ -95,13 +95,19 @@ function checkTxKeys(rel, src, tables) {
   return problems;
 }
 
-/** 返回文件中「含 CJK 但未与 tx() 配对」的代码行。 */
-function unpairedCjkLines(src) {
+/**
+ * 取词入口：content 层与 popup 层是全局 `tx()`；
+ * panel 层沿用其既有封装 `P.t()`（直取或 `api.t()`），二者等价，门禁一视同仁。
+ */
+const PAIRING_RE = /(?:^|[^.\w])tx\(|\bP\.t\(|\bapi\.t\(/;
+
+/** 返回文件中「含 CJK 但未与取词调用配对」的代码行。 */
+function unpairedCjkLines(src, pairingRe = PAIRING_RE) {
   const unpaired = [];
   forEachCodeLine(src, (line, no) => {
     const code = stripSeparators(line);
     if (!CJK.test(code)) return;
-    if (code.includes('tx(')) return;
+    if (pairingRe.test(code)) return;
     unpaired.push(`  L${no}: ${line.trim().slice(0, 100)}`);
   });
   return unpaired;

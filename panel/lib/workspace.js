@@ -132,7 +132,7 @@
       sel.dispatchEvent(new Event('change'));
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
-        sel.innerHTML = '<option value="">-- 请在扩展中重新登录 --</option>';
+        sel.innerHTML = '<option value="">' + P.t('commonReloginExtOption') + '</option>';
         if (typeof setDataTraceId === 'function') setDataTraceId(sel, e);
         return;
       }
@@ -162,7 +162,7 @@
       P.$('#singleOwner').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
       P.$('#singleProgressColumn').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
       P.$('#singleDeliverable').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
-      P.$('#singleAssignees').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
+      P.$('#singleAssignees').innerHTML = '<p class="placeholder">' + P.t('commonPickWsFirst') + '</p>';
       if (P.$('#singleRepoBases')) {
         P.$('#singleRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
       }
@@ -217,7 +217,7 @@
     if (!box) return;
     const members = state.membersCache[cacheKey] || [];
     if (!members.length) {
-      box.innerHTML = '<p class="placeholder">暂无成员</p>';
+      box.innerHTML = '<p class="placeholder">' + P.t('commonNoMembers') + '</p>';
       return;
     }
     let h = '';

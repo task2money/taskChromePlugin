@@ -23,7 +23,7 @@
     try {
       const r = await P.sendMessage({ action: 'getTaskHistory' });
       if (!r.success || !r.data?.length) {
-        c.innerHTML = '<p class="placeholder">暂无创建记录</p>';
+        c.innerHTML = `<p class="placeholder">${P.t('panelNoHistory')}</p>`;
         statsEl.innerHTML = '';
         retryBtn.style.display = 'none';
         return;
@@ -35,9 +35,9 @@
       const failed = history.filter((h) => h.status === 'failed').length;
 
       statsEl.innerHTML = `
-        <span class="stat stat-total">总计: ${total}</span>
-        <span class="stat stat-success">成功: ${success}</span>
-        <span class="stat stat-failed">失败: ${failed}</span>`;
+        <span class="stat stat-total">${P.t('panelStatTotal', { n: total })}</span>
+        <span class="stat stat-success">${P.t('panelStatSuccess', { n: success })}</span>
+        <span class="stat stat-failed">${P.t('panelStatFailed', { n: failed })}</span>`;
       retryBtn.style.display = failed > 0 ? '' : 'none';
 
       let h = '';
@@ -45,25 +45,25 @@
         const sc = item.status === 'success' ? 'success' : (item.status === 'failed' ? 'failed' : 'pending');
         const icon = item.type === 'batch' ? '📦' : '📋';
         const timeStr = new Date(item.createdAt).toLocaleString();
-        const retries = item.retryCount ? `<span class="retry-badge">重试×${item.retryCount}</span>` : '';
+        const retries = item.retryCount ? `<span class="retry-badge">${P.t('panelHistoryRetries', { n: item.retryCount })}</span>` : '';
 
         h += `<div class="history-item">
           <div class="hi-header">
             <span class="hi-title">${icon} ${P.escHtml(item.title)}${retries}</span>
-            <span class="hi-status ${sc}">${item.status === 'success' ? '成功' : (item.status === 'failed' ? '失败' : '处理中')}</span>
+            <span class="hi-status ${sc}">${item.status === 'success' ? P.t('panelStatusSuccess') : (item.status === 'failed' ? P.t('panelStatusFailed') : P.t('panelStatusPending'))}</span>
           </div>
           <div class="hi-meta">
-            <span>类型: ${item.type === 'batch' ? `批量(${item.count || '?'}个)` : '单个'}</span>
-            <span>时间: ${timeStr}</span>
+            <span>${P.t('panelHistoryTypeLabel', { type: item.type === 'batch' ? P.t('panelTypeBatch', { n: item.count || '?' }) : P.t('panelTypeSingle') })}</span>
+            <span>${P.t('panelHistoryTimeLabel', { time: timeStr })}</span>
             ${item.resultId ? `<span>ID: ${item.resultId}</span>` : ''}
           </div>
           ${item.error ? `<div class="hi-error">${P.escHtml(item.error)}</div>` : ''}
           <div class="hi-actions">`;
 
         if (item.status === 'failed') {
-          h += `<button class="btn btn-sm retry-single" data-id="${item.id}">🔁 重试</button>`;
+          h += `<button class="btn btn-sm retry-single" data-id="${item.id}">${P.t('panelRetry')}</button>`;
         }
-        h += `<button class="btn btn-sm copy-task" data-id="${item.id}">📋 复制数据</button>
+        h += `<button class="btn btn-sm copy-task" data-id="${item.id}">${P.t('panelCopyData')}</button>
           </div></div>`;
       }
       c.innerHTML = h;
@@ -80,17 +80,17 @@
           await P.copyTaskData(btn.dataset.id);
         });
       });
-    } catch (_) { c.innerHTML = '<p class="placeholder">加载失败</p>'; }
+    } catch (_) { c.innerHTML = `<p class="placeholder">${P.t('panelLoadFailed')}</p>`; }
   };
 
   P.retrySingleTask = async function (recordId) {
     const r = await P.sendMessage({ action: 'getTaskHistory' });
     if (!r.success) return;
     const record = r.data.find((h) => h.id === recordId);
-    if (!record || !record.taskData) return P.showR('historyResult', 'error', '无法找到任务数据');
+    if (!record || !record.taskData) return P.showR('historyResult', 'error', P.t('panelTaskDataMissing'));
 
     const btn = document.querySelector(`.retry-single[data-id="${recordId}"]`);
-    if (btn) { btn.disabled = true; btn.textContent = '重试中...'; }
+    if (btn) { btn.disabled = true; btn.textContent = P.t('panelRetrying'); }
 
     try {
       const mapping = await P.sendMessage({ action: 'getEndpointMapping' });
@@ -121,28 +121,28 @@
         }
         await Storage.updateTaskHistory(recordId, { status: 'success', response: res.data, retryCount: (record.retryCount || 0) + 1, error: null });
       }
-      P.showR('historyResult', 'success', '✅ 重试成功!');
+      P.showR('historyResult', 'success', P.t('panelRetrySuccess'));
       await P.refreshHistory();
     } catch (e) {
       await Storage.updateTaskHistory(recordId, { status: 'failed', error: e.message, retryCount: (record.retryCount || 0) + 1 });
-      P.showR('historyResult', 'error', `❌ 重试失败: ${e.message}`, e.traceId);
+      P.showR('historyResult', 'error', P.t('panelRetryFailedWith', { msg: e.message }), e.traceId);
       await P.refreshHistory();
     }
-    if (btn) { btn.disabled = false; btn.textContent = '🔁 重试'; }
+    if (btn) { btn.disabled = false; btn.textContent = P.t('panelRetry'); }
   };
 
   P.retryAllFailed = async function () {
     const r = await P.sendMessage({ action: 'getFailedTasks' });
-    if (!r.success || !r.data?.length) return P.showR('historyResult', 'error', '没有失败的任务');
+    if (!r.success || !r.data?.length) return P.showR('historyResult', 'error', P.t('panelNoFailedTasks'));
 
     const btn = P.$('#btnRetryAllFailed');
     btn.disabled = true;
     const failed = r.data;
-    btn.textContent = `重试中 (0/${failed.length})...`;
+    btn.textContent = P.t('panelRetryingProgress', { done: 0, total: failed.length });
 
     let ok = 0, fail = 0;
     for (let i = 0; i < failed.length; i++) {
-      btn.textContent = `重试中 (${i + 1}/${failed.length})...`;
+      btn.textContent = P.t('panelRetryingProgress', { done: i + 1, total: failed.length });
       const record = failed[i];
       try {
         const mapping = await P.sendMessage({ action: 'getEndpointMapping' });
@@ -168,8 +168,8 @@
         fail++;
       }
     }
-    btn.disabled = false; btn.textContent = '🔁 重试全部失败';
-    P.showR('historyResult', 'success', `✅ 重试完成: ${ok} 成功, ${fail} 失败`);
+    btn.disabled = false; btn.textContent = P.t('panelRetryAllFailed');
+    P.showR('historyResult', 'success', P.t('panelRetryAllDone', { ok, fail }));
     await P.refreshHistory();
   };
 
@@ -180,9 +180,9 @@
     if (!record?.taskData) return;
     try {
       await navigator.clipboard.writeText(JSON.stringify(record.taskData, null, 2));
-      P.showR('historyResult', 'success', '📋 任务数据已复制到剪贴板');
+      P.showR('historyResult', 'success', P.t('panelTaskDataCopied'));
     } catch (_) {
-      P.showR('historyResult', 'error', '复制失败');
+      P.showR('historyResult', 'error', P.t('panelCopyFailed'));
     }
   };
 })();

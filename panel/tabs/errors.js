@@ -18,7 +18,7 @@
     try {
       const r = await P.sendMessage({ action: 'getCapturedErrors' });
       const only5xx = CaptureStatus.filterBadgeCountableRequests(r?.success ? (r.data || []) : []);
-      if (!only5xx.length) { c.innerHTML = '<p class="placeholder">暂无 5xx 错误请求（示数仅计 5xx）</p>'; return; }
+      if (!only5xx.length) { c.innerHTML = `<p class="placeholder">${P.t('panelNo5xxErrors')}</p>`; return; }
       let h = '';
       for (const e of [...only5xx].reverse()) {
         const s = (e.url || '').length > 100 ? e.url.slice(0, 100) + '...' : e.url;
@@ -28,6 +28,6 @@
         </div>`;
       }
       c.innerHTML = h;
-    } catch (_) { c.innerHTML = '<p class="placeholder">加载失败</p>'; }
+    } catch (_) { c.innerHTML = `<p class="placeholder">${P.t('panelLoadFailed')}</p>`; }
   };
 })();

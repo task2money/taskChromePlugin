@@ -136,7 +136,7 @@
   P.renderProjectCheckboxes = function (containerId, projects) {
     const c = P.$(`#${containerId}`);
     if (!projects.length) {
-      c.innerHTML = '<p class="placeholder">该项目空间下暂无项目</p>';
+      c.innerHTML = '<p class="placeholder">' + P.t('commonNoProjects') + '</p>';
       P.syncContainerAutoRun(containerId, false);
       return;
     }
