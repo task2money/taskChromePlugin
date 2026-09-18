@@ -13,7 +13,8 @@ function setAidevStatus(text, visible = true) {
   aidevStatusEl.textContent = text;
   aidevStatusEl.hidden = false;
   // Mismatch / failure: assertive alert. Success match: polite status.
-  const isAlert = /未匹配|失败|错误/.test(text);
+  const alertPattern = typeof tx === 'function' ? tx('commonAlertKeywords') : '未匹配|失败|错误';
+  const isAlert = new RegExp(alertPattern).test(text);
   aidevStatusEl.setAttribute('role', isAlert ? 'alert' : 'status');
   aidevStatusEl.setAttribute('aria-live', isAlert ? 'assertive' : 'polite');
 }
@@ -60,6 +61,6 @@ async function applyAidevMetaAfterWorkspacesLoaded() {
     }
   } catch (e) {
     console.warn('[taskChromePlugin] aidev resolve 失败:', e.message);
-    setAidevStatus(`元信息反查失败: ${e.message}`);
+    setAidevStatus(typeof tx === 'function' ? tx('commonMetaLookupFailed', { msg: e.message }) : `元信息反查失败: ${e.message}`);
   }
 }

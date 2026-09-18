@@ -32,6 +32,10 @@ const MIGRATED = [
   'content/float-page-advisor-region.js',
   'content/float-page-advisor-site-pending.js',
   'content/float-pick.js',
+  'content/float-form.js',
+  'content/float-snapshot.js',
+  'content/float-boot.js',
+  'content/float-aidev.js',
 ];
 
 /**

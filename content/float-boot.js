@@ -144,7 +144,7 @@ var aidevStatusEl = document.getElementById('taskplugin-aidev-status');
 function sendMessageWithTimeout(action, timeoutMs = 8000) {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
-      reject(new Error(`消息超时: ${action.action || action}`));
+      reject(new Error(typeof tx === 'function' ? tx('commonMessageTimeout', { action: action.action || action }) : `消息超时: ${action.action || action}`));
     }, timeoutMs);
 
     try {

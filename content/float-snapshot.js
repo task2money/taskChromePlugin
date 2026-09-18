@@ -3,29 +3,37 @@
  */
 function getWorkPresetDatalistOptions() {
   return [
-    { value: `${PRESET_PREFIX}work:feature`, label: '【模板】feature' },
-    { value: `${PRESET_PREFIX}work:bugfix`, label: '【模板】bugfix' },
-    { value: `${PRESET_PREFIX}work:hotfix`, label: '【模板】hotfix' },
-    { value: `${PRESET_PREFIX}work:release`, label: '【模板】release' },
+    { value: `${PRESET_PREFIX}work:feature`, label: (typeof tx === 'function' ? tx('floatBranchTemplate', { name: 'feature' }) : '【模板】feature') },
+    { value: `${PRESET_PREFIX}work:bugfix`, label: (typeof tx === 'function' ? tx('floatBranchTemplate', { name: 'bugfix' }) : '【模板】bugfix') },
+    { value: `${PRESET_PREFIX}work:hotfix`, label: (typeof tx === 'function' ? tx('floatBranchTemplate', { name: 'hotfix' }) : '【模板】hotfix') },
+    { value: `${PRESET_PREFIX}work:release`, label: (typeof tx === 'function' ? tx('floatBranchTemplate', { name: 'release' }) : '【模板】release') },
   ];
 }
 
 function getMergePresetDatalistOptions() {
   const opts = [
-    { value: `${PRESET_PREFIX}merge:develop`, label: '【模板】develop' },
-    { value: `${PRESET_PREFIX}merge:main`, label: '【模板】main' },
+    { value: `${PRESET_PREFIX}merge:develop`, label: (typeof tx === 'function' ? tx('floatBranchTemplate', { name: 'develop' }) : '【模板】develop') },
+    { value: `${PRESET_PREFIX}merge:main`, label: (typeof tx === 'function' ? tx('floatBranchTemplate', { name: 'main' }) : '【模板】main') },
   ];
   const today = new Date();
   const dayOfWeek = today.getDay();
   const startWeek = dayOfWeek > 4 ? 1 : 0;
   const labels = dayOfWeek > 4
-    ? ['下周四', '下下周四', '下下下周四']
-    : ['本周四', '下周四', '下下周四'];
+    ? [
+      typeof tx === 'function' ? tx('floatDueNextThu') : '下周四',
+      typeof tx === 'function' ? tx('floatDueThu2') : '下下周四',
+      typeof tx === 'function' ? tx('floatDueThu3') : '下下下周四',
+    ]
+    : [
+      typeof tx === 'function' ? tx('floatDueThisThu') : '本周四',
+      typeof tx === 'function' ? tx('floatDueNextThu') : '下周四',
+      typeof tx === 'function' ? tx('floatDueThu2') : '下下周四',
+    ];
   for (let i = 0; i < 3; i++) {
     const ymd = getThursdayYmd(startWeek + i);
     opts.push({
       value: `${PRESET_PREFIX}merge:release:${startWeek + i}`,
-      label: `【模板】release/${ymd} (${labels[i] || `第${startWeek + i + 1}个周四`})`,
+      label: typeof tx === 'function' ? tx('floatReleaseTemplate', { date: ymd, label: labels[i] || tx('floatNthThu', { n: startWeek + i + 1 }) }) : `【模板】release/${ymd} (${labels[i] || `第${startWeek + i + 1}个周四`})`,
     });
   }
   return opts;
@@ -75,7 +83,10 @@ async function loadBranchOptions(wsId, pids) {
   const seen = new Set();
   for (const b of ['develop', 'main']) {
     seen.add(b);
-    options.push({ value: b, label: `${b}  [内置]` });
+    options.push({
+      value: b,
+      label: typeof tx === 'function' ? tx('floatBranchBuiltin', { name: b }) : `${b}  [内置]`,
+    });
   }
 
   for (const pid of pids.slice(0, 3)) {
@@ -241,15 +252,15 @@ async function restoreOpenSnapshot(snap) {
   const wsId = normalized.workspaceId || '';
   if (!wsId) {
     wsSelect.value = '';
-    projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
-    if (progressSelect) progressSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
-    if (deliverableSelect) deliverableSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+    projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('commonPickWsFirst') : '请先选择工作空间')}</span>`;
+    if (progressSelect) progressSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --')}</option>`;
+    if (deliverableSelect) deliverableSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --')}</option>`;
     if (repoBasesDiv) {
       repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">'
         + CreateTaskPayload.REPO_BASE_EMPTY_HINT + '</span>';
     }
-    if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
-    if (ownerSelect) ownerSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+    if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载')}</span>`;
+    if (ownerSelect) ownerSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --')}</option>`;
     membersData = [];
     projectsData = [];
     syncFloatAutoRun(false);

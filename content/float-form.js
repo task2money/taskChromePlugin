@@ -334,17 +334,17 @@ async function loadWorkspaceCreateMeta(wsId) {
       const columns = colsResp?.columns || [];
       progressSelect.innerHTML = columns.length
         ? columns.map((c) => `<option value="${esc(String(c.id))}">${esc(c.name || c.id)}</option>`).join('')
-        : '<option value="">无进度列</option>';
+        : `<option value="">${esc((typeof tx === 'function' ? tx('commonNoProgress') : '无进度列'))}</option>`;
     }
     if (deliverableSelect && !delivResp.__err) {
       const types = delivResp?.current_deliverable_objs || [];
       deliverableSelect.innerHTML = types.length
         ? types.map((t) => `<option value="${esc(String(t.id))}">${esc(t.name || t.id)}</option>`).join('')
-        : '<option value="">无可用类别</option>';
+        : `<option value="">${esc((typeof tx === 'function' ? tx('commonNoCategory') : '无可用类别'))}</option>`;
     }
     if (imageSelect && !imagesResp.__err) {
       const images = Array.isArray(imagesResp) ? imagesResp : (imagesResp?.results || imagesResp?.items || imagesResp?.data || []);
-      let h = '<option value="">无</option>';
+      let h = `<option value="">${esc((typeof tx === 'function' ? tx('floatNone') : '无'))}</option>`;
       for (const img of images) {
         const id = img.id || img._id;
         h += `<option value="${esc(String(id))}">${esc(`${img.name || id}:${img.version || img.tag || 'latest'}`)}</option>`;
@@ -355,7 +355,7 @@ async function loadWorkspaceCreateMeta(wsId) {
     }
     if (personalConfigSelect && !personalResp.__err) {
       const configs = personalResp?.configs || (Array.isArray(personalResp) ? personalResp : []);
-      personalConfigSelect.innerHTML = '<option value="">-- 请选择个人配置 --</option>'
+      personalConfigSelect.innerHTML = `<option value="">${esc((typeof tx === 'function' ? tx('floatSelectPersonalConfig') : '-- 请选择个人配置 --'))}</option>`
         + configs.map((c) => `<option value="${esc(String(c.id || c._id))}">${esc(c.name || c.title || c.id)}</option>`).join('');
     }
     if (!membersResp.__err) {
@@ -366,7 +366,7 @@ async function loadWorkspaceCreateMeta(wsId) {
       await renderOwnerOptions();
       renderAssignees();
     } else if (ownerSelect) {
-      ownerSelect.innerHTML = `<option value="">成员加载失败</option>`;
+      ownerSelect.innerHTML = `<option value="">${esc((typeof tx === 'function' ? tx('commonMembersLoadFailed') : '成员加载失败'))}</option>`;
       if (typeof setDataTraceId === 'function') setDataTraceId(ownerSelect, membersResp.__err);
     }
     const GitId = typeof CreateTaskGitIdentity !== 'undefined' ? CreateTaskGitIdentity : null;
@@ -396,13 +396,13 @@ submitBtn.addEventListener('click', async () => {
   const priority = document.getElementById('taskplugin-priority').value;
 
   if (!wsId) return showResult(typeof tx === 'function' ? tx('commonSelectWsError') : '请选择工作空间', 'error');
-  if (!pids.length) return showResult('请选择一个项目', 'error');
-  if (!title) return showResult('请输入任务标题', 'error');
+  if (!pids.length) return showResult((typeof tx === 'function' ? tx('floatSelectProjectError') : '请选择一个项目'), 'error');
+  if (!title) return showResult((typeof tx === 'function' ? tx('floatInputTitleError') : '请输入任务标题'), 'error');
   const owner = String(ownerSelect?.value || '').trim();
-  if (!owner) return showResult('请选择负责人', 'error');
+  if (!owner) return showResult((typeof tx === 'function' ? tx('floatSelectOwnerError') : '请选择负责人'), 'error');
 
   submitBtn.disabled = true;
-  submitBtn.textContent = '创建中...';
+  submitBtn.textContent = typeof tx === 'function' ? tx('floatCreating') : '创建中...';
 
   try {
     const mappingResp = await sendMessageWithTimeout({ action: 'getEndpointMapping' }, 5000);
@@ -414,8 +414,8 @@ submitBtn.addEventListener('click', async () => {
     let fullDesc = desc;
     const sourceInfo = [
       `---`,
-      `**来源页面**: ${window.location.href}`,
-      `**页面标题**: ${document.title}`,
+      typeof tx === 'function' ? tx('floatDescSourcePage', { url: window.location.href }) : `**来源页面**: ${window.location.href}`,
+      typeof tx === 'function' ? tx('floatDescPageTitle', { title: document.title }) : `**页面标题**: ${document.title}`,
     ];
     fullDesc = fullDesc + '\n\n' + sourceInfo.join('\n');
 
@@ -462,10 +462,10 @@ submitBtn.addEventListener('click', async () => {
 
     if (!resp?.success) {
       if (handleApiAuthFailure({ message: resp?.error })) {
-        showResult('会话失效，请重新登录', 'error');
+        showResult((typeof tx === 'function' ? tx('commonSessionExpiredRelogin') : '会话失效，请重新登录'), 'error');
         return;
       }
-      const err = new Error(resp?.error || '创建失败');
+      const err = new Error(resp?.error || (typeof tx === 'function' ? tx('commonCreateFailed') : '创建失败'));
       const tid = extractTraceId(resp);
       if (tid) err.traceId = tid;
       throw err;
@@ -474,10 +474,10 @@ submitBtn.addEventListener('click', async () => {
     const AfterCreate = typeof FloatPanelAfterCreate !== 'undefined' ? FloatPanelAfterCreate : null;
     const taskId = AfterCreate
       ? AfterCreate.extractCreatedTaskId(resp.data)
-      : (resp.data?.id || resp.data?._id || '(已创建)');
+      : (resp.data?.id || resp.data?._id || (typeof tx === 'function' ? tx('floatCreatedNoId') : '(已创建)'));
     const toastMsg = AfterCreate
       ? AfterCreate.formatFloatCreateSuccessToast(taskId)
-      : `✅ 任务创建成功! ID: ${taskId}`;
+      : typeof tx === 'function' ? tx('floatCreateSuccess', { id: taskId }) : `✅ 任务创建成功! ID: ${taskId}`;
 
     hideFloatPanel();
     try {
@@ -490,9 +490,10 @@ submitBtn.addEventListener('click', async () => {
     }
     showPageToast(toastMsg);
   } catch (e) {
-    showResult(`❌ 创建失败: ${e.message}`, 'error', e.traceId);
+    const failMsg = typeof tx === 'function' ? tx('floatCreateFailedDetail', { msg: e.message }) : `❌ 创建失败: ${e.message}`;
+    showResult(failMsg, 'error', e.traceId);
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = '✅ 创建任务';
+    submitBtn.textContent = typeof tx === 'function' ? tx('floatCreateTask') : '✅ 创建任务';
   }
 });
