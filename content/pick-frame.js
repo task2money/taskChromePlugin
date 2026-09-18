@@ -75,10 +75,18 @@
 
   function locateChildFrameRect(childFrameUrl) {
     if (typeof ElementPicker === 'undefined') {
-      return { success: false, error: 'ElementPicker 未加载' };
+      return {
+        success: false,
+        error: typeof tx === 'function' ? tx('pickFramePickerNotLoaded') : 'ElementPicker 未加载',
+      };
     }
     const iframe = ElementPicker.findIframeElementByUrl(document, childFrameUrl);
-    if (!iframe) return { success: false, error: '未找到子 iframe' };
+    if (!iframe) {
+      return {
+        success: false,
+        error: typeof tx === 'function' ? tx('pickFrameChildIframeNotFound') : '未找到子 iframe',
+      };
+    }
     const r = iframe.getBoundingClientRect();
     return {
       success: true,
