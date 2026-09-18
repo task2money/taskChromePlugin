@@ -38,6 +38,9 @@ const MIGRATED = [
   'panel/lib/workspace-projects.js',
   'panel/tabs/errors.js',
   'panel/tabs/history.js',
+  'panel/tabs/single-request.js',
+  // panel/tabs/batch.js 仅剩 `**自动捕获**` Markdown 任务描述正文未迁：
+  // 该正文写入用户任务描述字段，属产品内容，待产品决策后再纳入本清单。
 ];
 
 /** 扩展页脚本的加载清单来源：HTML 中的 <script src>（lib/ 与本地脚本都算）。 */

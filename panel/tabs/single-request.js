@@ -106,14 +106,14 @@
       // SW 不可达时仍清空本地 UI
     }
     P.applyRequestFilters();
-    P.showR('singleResult', 'success', '✅ 已清空请求列表');
+    P.showR('singleResult', 'success', P.t('panelRequestListCleared'));
   };
 
   P.setRequestLoading = function (loading) {
     const el = P.$('#selectedRequest');
     if (!el) return;
     if (loading && state.recentRequests.length === 0 && !state.requestListBootstrapped) {
-      el.innerHTML = '<p class="placeholder">⏳ 加载中...</p>';
+      el.innerHTML = `<p class="placeholder">${P.t('panelRequestLoading')}</p>`;
       el.classList.add('empty');
       return;
     }
@@ -164,7 +164,7 @@
     P.syncSortHeaders();
     P.renderRequestList(filtered.slice(0, 100));
     const countEl = P.$('#requestCount');
-    if (countEl) countEl.textContent = `共 ${filtered.length} 条`;
+    if (countEl) countEl.textContent = P.t('panelRequestCountTotal', { n: filtered.length });
   };
 
   P.renderRequestList = function (requests) {
@@ -172,8 +172,8 @@
     if (!container) return;
     if (requests.length === 0) {
       container.innerHTML = `<div class="empty-state">
-        <p class="placeholder">暂无匹配的请求</p>
-        <p class="hint">打开任意网页，DevTools Network 面板中的请求将自动出现在这里</p>
+        <p class="placeholder">${P.t('panelNoMatchingRequests')}</p>
+        <p class="hint">${P.t('panelRequestListHint')}</p>
       </div>`;
       container.classList.add('empty');
       return;
@@ -265,12 +265,12 @@
       ? GitId.readRepoIdentitiesFromRoot(P.$('#singleGitIdentities'))
       : [];
 
-    if (!wsId) return P.showR('singleResult', 'error', '请选择工作空间');
-    if (!checkedIds.length) return P.showR('singleResult', 'error', '请选择一个项目');
-    if (!title) return P.showR('singleResult', 'error', '请输入任务标题');
-    if (!owner) return P.showR('singleResult', 'error', '请填写 Owner (CompanyMember.id)，可在端点映射中配置默认值');
-    if (!state.selectedRequest) return P.showR('singleResult', 'error', '请从请求列表中选择一个请求');
-    if (!(await P.ensureApiReady())) return P.showR('singleResult', 'error', '请先登录或会话已过期');
+    if (!wsId) return P.showR('singleResult', 'error', P.t('commonSelectWsError'));
+    if (!checkedIds.length) return P.showR('singleResult', 'error', P.t('floatSelectProjectError'));
+    if (!title) return P.showR('singleResult', 'error', P.t('floatInputTitleError'));
+    if (!owner) return P.showR('singleResult', 'error', P.t('panelOwnerRequired'));
+    if (!state.selectedRequest) return P.showR('singleResult', 'error', P.t('panelSelectRequestFirst'));
+    if (!(await P.ensureApiReady())) return P.showR('singleResult', 'error', P.t('panelLoginRequired'));
 
     const form = {
       title,
@@ -298,7 +298,7 @@
     if (blocked) return P.showR('singleResult', 'error', blocked);
 
     const btn = P.$('#btnCreateSingle');
-    btn.disabled = true; btn.textContent = '创建中...';
+    btn.disabled = true; btn.textContent = P.t('floatCreating');
     try {
       await Storage.saveLastProjectIds(checkedIds);
       const mapping = await P.sendMessage({ action: 'getEndpointMapping' });
@@ -326,6 +326,6 @@
         message: PanelCreateSuccess.formatCreateFailureMessage(e.message),
         traceId: e.traceId,
       });
-    } finally { btn.disabled = false; btn.textContent = '✅ 创建任务'; }
+    } finally { btn.disabled = false; btn.textContent = P.t('panelCreateTask'); }
   };
 })();

@@ -91,7 +91,7 @@
       await P.sendMessage({ action: 'clearCapturedErrors' });
     } catch (_) { /* ignore */ }
     await P.refreshCapturedCount();
-    P.showR('batchResult', 'success', '✅ 已清空');
+    P.showR('batchResult', 'success', P.t('panelBatchCleared'));
   };
 
   /**
@@ -170,9 +170,9 @@
       ? GitId.readRepoIdentitiesFromRoot(P.$('#batchGitIdentities'))
       : [];
 
-    if (!wsId) return P.showR('batchResult', 'error', '请选择工作空间');
-    if (!checkedIds.length) return P.showR('batchResult', 'error', '请选择一个项目');
-    if (!(await P.ensureApiReady())) return P.showR('batchResult', 'error', '请先登录或会话已过期');
+    if (!wsId) return P.showR('batchResult', 'error', P.t('commonSelectWsError'));
+    if (!checkedIds.length) return P.showR('batchResult', 'error', P.t('floatSelectProjectError'));
+    if (!(await P.ensureApiReady())) return P.showR('batchResult', 'error', P.t('panelLoginRequired'));
 
     const featureGate = CreateTaskPayload.validateCreateTaskForm({
       title: 'batch',
@@ -199,15 +199,15 @@
     });
 
     const r = await P.sendMessage({ action: 'getCapturedErrors' });
-    if (!r.success || !r.data?.length) return P.showR('batchResult', 'error', '没有捕获到错误请求');
+    if (!r.success || !r.data?.length) return P.showR('batchResult', 'error', P.t('panelNoCapturedErrors'));
 
     // 批量建任务仅针对 5xx（与插件角标示数一致）
     const errors = CaptureStatus.filterBadgeCountableRequests(r.data);
     if (!errors.length) {
-      return P.showR('batchResult', 'error', '没有可建任务的 5xx 请求（示数仅计 5xx）');
+      return P.showR('batchResult', 'error', P.t('panelNo5xxBuildable'));
     }
     const btn = P.$('#btnCreateBatch');
-    btn.disabled = true; btn.textContent = `创建中 (${errors.length})...`;
+    btn.disabled = true; btn.textContent = P.t('panelCreatingBatch', { n: errors.length });
     try {
       await Storage.saveLastProjectIds(checkedIds);
       const tasks = errors.map((e) => {
@@ -252,7 +252,7 @@
         if (tid) err.traceId = tid;
         throw err;
       }
-      const message = `✅ 批量创建完成! 共 ${tasks.length} 个任务`;
+      const message = P.t('panelBatchCreateDone', { n: tasks.length });
       await P.sendMessage({ action: 'clearCapturedErrors' });
       await P.refreshCapturedCount();
       PanelCreateSuccess.runAfterSuccess({
@@ -261,7 +261,7 @@
         message,
       });
     } catch (e) {
-      P.showR('batchResult', 'error', `❌ 失败: ${e.message}`, e.traceId);
-    } finally { btn.disabled = false; btn.textContent = '📦 批量创建任务'; }
+      P.showR('batchResult', 'error', P.t('panelCreateFailedWith', { msg: e.message }), e.traceId);
+    } finally { btn.disabled = false; btn.textContent = P.t('panelBatchCreate'); }
   };
 })();

@@ -257,7 +257,14 @@ describe('panel applyRequestFilters wiring', () => {
       '#requestStatusFilter': { value: '2xx', addEventListener() {} },
       '#requestCount': { textContent: '' },
     };
+    // panel 取词入口：面板真实实现为 panel-core.js 的 P.t → AidevpushI18n.t。
+    // 桩件按 zh-CN 解析，断言文案与源码迁移前一致。
+    const i18n = require('../lib/i18n.js');
+    require('../lib/i18n-messages.js');
+    require('../lib/i18n-ui-messages.js');
+    i18n.setLocale('zh-CN');
     const P = {
+      t: (key, params) => i18n.t(key, params),
       state: {
         recentRequests: [
           req({ id: 'keep', method: 'GET', url: 'https://api.example.com/users', statusCode: 200, type: 'xhr', timestamp: 1 }),
