@@ -45,18 +45,18 @@
     if (!wsSel || !projHost) return;
 
     setDefaultsSectionVisible(true);
-    wsSel.innerHTML = '<option value="">加载中...</option>';
-    projHost.innerHTML = '<span class="hint">加载工作空间中…</span>';
+    wsSel.innerHTML = tx('popupWsLoadingOption');
+    projHost.innerHTML = tx('popupWsLoadingHint');
     if (status) status.textContent = '';
 
     try {
       const r = await sendMessageWithTimeout({ action: 'getWorkspaces' }, 12000);
-      if (!r?.success) throw new Error(r?.error || '加载工作空间失败');
+      if (!r?.success) throw new Error(r?.error || tx('popupWsLoadFailed'));
       const data = r.data;
       workspacesCache = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
       if (!workspacesCache.length) {
-        wsSel.innerHTML = '<option value="">(无工作空间)</option>';
-        projHost.innerHTML = '<span class="hint">暂无工作空间</span>';
+        wsSel.innerHTML = tx('popupNoWorkspaceOption');
+        projHost.innerHTML = tx('popupNoWorkspaceHint');
         return;
       }
 
@@ -65,7 +65,7 @@
         : workspacesCache.map((w) => w.name || w.id || w._id);
 
       const lastWs = await Storage.getLastWorkspace();
-      let html = '<option value="">-- 选择工作空间 --</option>';
+      let html = tx('popupSelectWsOption');
       for (let i = 0; i < workspacesCache.length; i++) {
         const id = String(workspacesCache[i].id || workspacesCache[i]._id || '');
         html += `<option value="${esc(id)}">${esc(labels[i])}</option>`;
@@ -75,12 +75,12 @@
         wsSel.value = String(lastWs);
         await loadPopupProjects(String(lastWs));
       } else {
-        projHost.innerHTML = '<span class="hint">请先选择工作空间</span>';
+        projHost.innerHTML = tx('popupPickWsFirstHint');
       }
     } catch (e) {
       console.warn('[TaskPlugin] loadPageAdvisorDefaults:', e.message || e);
-      wsSel.innerHTML = '<option value="">加载失败</option>';
-      projHost.innerHTML = `<span class="hint err">${esc(e.message || '加载失败')}</span>`;
+      wsSel.innerHTML = tx('popupLoadFailedOption');
+      projHost.innerHTML = `<span class="hint err">${esc(e.message || tx('popupLoadFailed'))}</span>`;
       if (typeof setDataTraceId === 'function') setDataTraceId(projHost, e);
     }
   }
@@ -94,12 +94,12 @@
     const projHost = $('#popupDefaultProjects');
     if (!projHost) return;
     if (!wsId) {
-      projHost.innerHTML = '<span class="hint">请先选择工作空间</span>';
+      projHost.innerHTML = tx('popupPickWsFirstHint');
       return;
     }
     if (loadingProjects) return;
     loadingProjects = true;
-    projHost.innerHTML = '<span class="hint">加载项目中…</span>';
+    projHost.innerHTML = tx('popupProjectsLoadingHint');
     try {
       const ws = workspacesCache.find((w) => String(w.id || w._id) === String(wsId));
       const companyId = ws?.company_id || ws?.companyId || '';
@@ -108,11 +108,11 @@
         workspaceId: wsId,
         companyId,
       }, 12000);
-      if (!r?.success) throw new Error(r?.error || '加载项目失败');
+      if (!r?.success) throw new Error(r?.error || tx('popupProjectsLoadFailed'));
       const data = r.data;
       projectsCache = Array.isArray(data) ? data : (data?.items || data?.data || []);
       if (!projectsCache.length) {
-        projHost.innerHTML = '<span class="hint">无项目</span>';
+        projHost.innerHTML = tx('popupNoProjectsHint');
         if (persist) await Storage.saveLastProjectIds([]);
         return;
       }
@@ -135,7 +135,7 @@
       if (persist) await Storage.saveLastProjectIds(checked);
     } catch (e) {
       console.warn('[TaskPlugin] loadPopupProjects:', e.message || e);
-      projHost.innerHTML = `<span class="hint err">${esc(e.message || '加载失败')}</span>`;
+      projHost.innerHTML = `<span class="hint err">${esc(e.message || tx('popupLoadFailed'))}</span>`;
       if (typeof setDataTraceId === 'function') setDataTraceId(projHost, e);
     } finally {
       loadingProjects = false;
@@ -159,7 +159,7 @@
         if (sel) sel.value = id;
         if (!id) {
           const projHost = $('#popupDefaultProjects');
-          if (projHost) projHost.innerHTML = '<span class="hint">请先选择工作空间</span>';
+          if (projHost) projHost.innerHTML = tx('popupPickWsFirstHint');
         }
       },
       loadProjects: (wsId) => loadPopupProjects(wsId, { persist: false }),
@@ -190,14 +190,14 @@
         await Storage.saveLastWorkspace(wsId || null);
         if (!wsId) {
           await Storage.saveLastProjectIds([]);
-          if (projHost) projHost.innerHTML = '<span class="hint">请先选择工作空间</span>';
-          if (status) status.textContent = '已清除默认工作空间';
+          if (projHost) projHost.innerHTML = tx('popupPickWsFirstHint');
+          if (status) status.textContent = tx('popupWsCleared');
           return;
         }
         await loadPopupProjects(wsId);
-        if (status) status.textContent = '已保存默认工作空间';
+        if (status) status.textContent = tx('popupWsSaved');
       } catch (e) {
-        if (status) status.textContent = e.message || '保存失败';
+        if (status) status.textContent = e.message || tx('popupSaveFailed');
       }
     });
 
@@ -211,9 +211,9 @@
         const status = $('#popupDefaultsStatus');
         try {
           await Storage.saveLastProjectIds(checked);
-          if (status) status.textContent = '已保存默认项目';
+          if (status) status.textContent = tx('popupProjectSaved');
         } catch (err) {
-          if (status) status.textContent = err.message || '保存失败';
+          if (status) status.textContent = err.message || tx('popupSaveFailed');
         }
       });
     }

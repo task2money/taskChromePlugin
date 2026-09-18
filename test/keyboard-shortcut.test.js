@@ -306,8 +306,8 @@ describe('键盘快捷键三层链路', () => {
       '绑定差异后未自动展开 shortcutsSection/shortcutsBody',
     );
     assert.ok(
-      afterDiffers.includes("toggleBtn.textContent = '收起'"),
-      '绑定差异后未同步 btnToggleShortcuts 为「收起」态',
+      afterDiffers.includes("toggleBtn.textContent = tx('commonCollapse')"),
+      '绑定差异后未按折叠态键 commonCollapse 同步 btnToggleShortcuts',
     );
   });
 });

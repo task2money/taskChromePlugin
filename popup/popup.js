@@ -14,7 +14,7 @@
         if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
           return;
         }
-        withTimeout(loadState(), STATE_CHECK_TIMEOUT, '刷新登录态').catch(() => showLoginUI());
+        withTimeout(loadState(), STATE_CHECK_TIMEOUT, tx('opRefreshAuthState')).catch(() => showLoginUI());
       });
     } catch (_) { /* ignore */ }
 
@@ -43,7 +43,7 @@
       floatToggle.addEventListener('change', async () => {
         const enabled = floatToggle.checked;
         try {
-          await withTimeout(Storage.saveFloatBallConfig(enabled), STORAGE_READ_TIMEOUT, '保存悬浮球配置');
+          await withTimeout(Storage.saveFloatBallConfig(enabled), STORAGE_READ_TIMEOUT, tx('opSaveFloatBallConfig'));
         } catch (_) { /* ignore */ }
         // OPT-20260821-008: 只写 storage；content 监听 floatBallEnabled onChanged 自更新，
         // 不再向全部标签页 sendMessage（与登录/快捷键同类的跨 tab 扇出已下线）。
@@ -67,8 +67,8 @@
       btnToggleShortcuts.addEventListener('click', () => {
         const body = $('#shortcutsBody');
         if (!body) return;
-        if (body.style.display === 'none') { body.style.display = 'block'; btnToggleShortcuts.textContent = '收起'; }
-        else { body.style.display = 'none'; btnToggleShortcuts.textContent = '展开'; }
+        if (body.style.display === 'none') { body.style.display = 'block'; btnToggleShortcuts.textContent = tx('commonCollapse'); }
+        else { body.style.display = 'none'; btnToggleShortcuts.textContent = tx('expand'); }
       });
     }
 
@@ -84,8 +84,8 @@
       btnToggleReqs.addEventListener('click', () => {
         const body = $('#requestsBody'); const btn = btnToggleReqs;
         if (!body) return;
-        if (body.style.display === 'none') { body.style.display = 'block'; btn.textContent = '收起'; }
-        else { body.style.display = 'none'; btn.textContent = '展开'; }
+        if (body.style.display === 'none') { body.style.display = 'block'; btn.textContent = tx('commonCollapse'); }
+        else { body.style.display = 'none'; btn.textContent = tx('expand'); }
       });
     }
     const btnRefreshReqs = $('#btnRefreshReqs');
@@ -109,7 +109,7 @@
   async function handleOAuthLogin() {
     const baseUrlInput = $('#baseUrl');
     const baseUrl = baseUrlInput ? baseUrlInput.value.trim() : '';
-    if (!baseUrl) return showResult('loginResult', '请填写服务器地址', 'error');
+    if (!baseUrl) return showResult('loginResult', tx('popupServerUrlRequired'), 'error');
 
     const btn = $('#btnLogin');
     const loginResult = $('#loginResult');
@@ -118,11 +118,11 @@
     if (loginResult) { loginResult.className = 'result'; loginResult.textContent = ''; }
 
     btn.disabled = true;
-    btn.textContent = '⏳ 等待授权...';
+    btn.textContent = tx('popupWaitingAuth');
 
     // 保存地址不得阻塞登录：chrome.storage 挂起时历史上会导致点击无响应
     try {
-      await withTimeout(Storage.saveBaseUrl(baseUrl), STORAGE_READ_TIMEOUT, '保存服务器地址');
+      await withTimeout(Storage.saveBaseUrl(baseUrl), STORAGE_READ_TIMEOUT, tx('opSaveBaseUrl'));
     } catch (e) {
       console.warn('[TaskPlugin] 保存服务器地址失败（继续登录）:', e.message || e);
     }
@@ -133,16 +133,16 @@
         baseUrl,
       }, 30000);
       if (res?.success) {
-        showResult('loginResult', '✅ 已打开授权页，完成授权后请返回本弹窗', 'ok');
+        showResult('loginResult', tx('popupAuthPageOpened'), 'ok');
       } else {
-        showResult('loginResult', `❌ ${res?.error || '登录失败'}`, 'error', res?.traceId);
+        showResult('loginResult', `❌ ${res?.error || tx('popupLoginFailed')}`, 'error', res?.traceId);
       }
     } catch (e) {
-      showResult('loginResult', `❌ ${e.message || '登录失败'}`, 'error', e.traceId);
+      showResult('loginResult', `❌ ${e.message || tx('popupLoginFailed')}`, 'error', e.traceId);
     } finally {
       btn.disabled = false;
       if ($('#loginSection')?.style.display !== 'none') {
-        btn.textContent = '🔓 OAuth 登录';
+        btn.textContent = tx('popupOauthLoginBtn');
       }
     }
   }
@@ -156,11 +156,11 @@
     } catch (e) {
       console.warn('[TaskPlugin] SW logout 失败，回退本地 clearAuth:', e.message || e);
       try {
-        await withTimeout(Storage.clearAuth(), STORAGE_READ_TIMEOUT, '清除登录态');
+        await withTimeout(Storage.clearAuth(), STORAGE_READ_TIMEOUT, tx('opClearAuth'));
       } catch (_) { /* ignore */ }
     }
     try {
-      await withTimeout(loadState(), STATE_CHECK_TIMEOUT, '刷新登录态');
+      await withTimeout(loadState(), STATE_CHECK_TIMEOUT, tx('opRefreshAuthState'));
     } catch (_) {
       showLoginUI();
     }
@@ -210,11 +210,11 @@
     const filtered = Q.filterRequests(capturedRequests, { search, status: statusFilter });
     const sorted = Q.sortRequests(filtered, { key: sortKey, dir: sortDir });
     const display = sorted.slice(0, 50);
-    $('#requestCountBadge').textContent = `(${filtered.length} 条)`;
+    $('#requestCountBadge').textContent = tx('popupReqCount', { n: filtered.length });
 
     const container = $('#requestList');
     if (display.length === 0) {
-      container.innerHTML = '<p class="placeholder">暂无匹配的请求</p>';
+      container.innerHTML = tx('popupNoMatchingRequests');
       return;
     }
 
@@ -251,7 +251,7 @@
 
     let reqHdrHtml = '';
     if (req.requestHeaders && Object.keys(req.requestHeaders).length) {
-      reqHdrHtml = '<div class="detail-section"><h4>📤 请求头</h4>' +
+      reqHdrHtml = '<div class="detail-section"><h4>' + tx('popupReqHeaders') + '</h4>' +
         Object.entries(req.requestHeaders).map(([k, v]) =>
           `<span class="hdr-pair"><strong>${escHtml(k)}:</strong> ${escHtml(String(v))}</span>`
         ).join('<br>') + '</div>';
@@ -259,7 +259,7 @@
 
     let resHdrHtml = '';
     if (req.responseHeaders && Object.keys(req.responseHeaders).length) {
-      resHdrHtml = '<div class="detail-section"><h4>📥 响应头</h4>' +
+      resHdrHtml = '<div class="detail-section"><h4>' + tx('popupResHeaders') + '</h4>' +
         Object.entries(req.responseHeaders).map(([k, v]) =>
           `<span class="hdr-pair"><strong>${escHtml(k)}:</strong> ${escHtml(String(v))}</span>`
         ).join('<br>') + '</div>';
@@ -271,11 +271,11 @@
       <span style="font-size:10px;color:#6c7086;margin-left:6px">${escHtml(req.url)}</span>
     </div>
     ${reqHdrHtml}
-    ${req.requestBody ? `<div class="detail-section"><h4>📤 请求体</h4><pre class="body-pre">${escHtml(String(req.requestBody))}</pre></div>` : ''}
+    ${req.requestBody ? `<div class="detail-section"><h4>${tx('popupReqBody')}</h4><pre class="body-pre">${escHtml(String(req.requestBody))}</pre></div>` : ''}
     ${resHdrHtml}
-    ${req.responseBody ? `<div class="detail-section"><h4>📥 响应体</h4><pre class="body-pre">${escHtml(String(req.responseBody))}</pre></div>` : ''}
+    ${req.responseBody ? `<div class="detail-section"><h4>${tx('popupResBody')}</h4><pre class="body-pre">${escHtml(String(req.responseBody))}</pre></div>` : ''}
     <div class="dt-hint" style="margin-top:8px;padding:6px 8px;background:#252536;border-radius:4px;text-align:center">
-      <span style="font-size:10px;color:#89b4fa;">💡 按 <kbd style="background:#45475a;color:#cdd6f4;padding:1px 5px;border-radius:3px;font-size:9px">F12</kbd> → <b>云端Coding: 自动创新助手</b> 面板创建任务</span>
+      <span style="font-size:10px;color:#89b4fa;">${tx('popupReqDetailHint', { brand: globalThis.PLUGIN_DISPLAY_NAME || '' })}</span>
     </div>`;
   }
 
@@ -316,7 +316,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const status = document.querySelector('#popupStatus');
     if (status) {
       status.style.display = 'inline';
-      status.textContent = '⚠️ 未登录';
+      status.textContent = tx('panelBadgeNotLoggedIn');
       status.className = 'badge badge-disconnected';
     }
   });

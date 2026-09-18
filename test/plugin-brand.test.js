@@ -58,7 +58,13 @@ describe('PLUGIN_DISPLAY_NAME', () => {
   });
 
   it('用户可见文件均含新显示名', () => {
-    const IDENTIFIER_ONLY = new Set(['content/content.js', 'lib/float-panel-markup.js']);
+    // popup/popup.js 的 F12 提示短语已改为 i18n 键 popupReqDetailHint（含 {brand}），
+    // 品牌名在运行期经 globalThis.PLUGIN_DISPLAY_NAME 注入，故按 SSOT 引用判据。
+    const IDENTIFIER_ONLY = new Set([
+      'content/content.js',
+      'lib/float-panel-markup.js',
+      'popup/popup.js',
+    ]);
     for (const rel of USER_FACING) {
       const src = read(rel);
       if (IDENTIFIER_ONLY.has(rel)) {

@@ -40,9 +40,8 @@
     const editBtn = $('#btnPickShortcutEdit');
     if (hint) hint.style.display = active ? 'block' : 'none';
     if (editBtn) {
-      const txFn = typeof globalThis !== 'undefined' && typeof globalThis.tx === 'function' ? globalThis.tx : null;
-      const key = active ? 'popupPickShortcutCancel' : 'popupPickShortcutEdit';
-      editBtn.textContent = txFn ? txFn(key) : (active ? '✏️ 取消' : '✏️ 修改');
+      // popup.html 保证 lib/i18n-tx.js 先于本脚本加载，直接取全局 tx，不再留运行时兜底
+      editBtn.textContent = tx(active ? 'popupPickShortcutCancel' : 'popupPickShortcutEdit');
     }
   }
 
@@ -75,7 +74,7 @@
       const combo = [...mods, eventKeyToShortcutName(e)].join('+');
       const normalized = Storage.normalizeShortcut(combo);
       if (!normalized) {
-        showShortcutResult('❌ 该组合不可用：须包含 Ctrl/Alt/Command（可选 Shift）与一个按键，且不得为 Tab/Esc/Enter', 'err');
+        showShortcutResult(tx('popupShortcutInvalidCombo'), 'err');
         return; // 保持捕获，等待合法组合
       }
       commitShortcut(normalized);
@@ -89,16 +88,16 @@
       const r = await sendMessageWithTimeout({ action: 'setElementPickerShortcut', shortcut }, 15000);
       if (r?.success) {
         renderPickShortcutDisplay(r.data?.shortcut || shortcut);
-        showShortcutResult(`✅ 快捷键已生效：${r.data?.shortcut || shortcut}`, 'ok');
+        showShortcutResult(tx('popupShortcutApplied', { shortcut: r.data?.shortcut || shortcut }), 'ok');
       } else {
-        const err = r?.error || '保存失败';
+        const err = r?.error || tx('popupSaveFailed');
         const friendly = /already in use|已.*占用/i.test(err)
-          ? '该组合已被其他扩展占用，请换一个'
-          : `保存失败：${err}`;
+          ? tx('popupShortcutInUse')
+          : tx('popupShortcutSaveFailedWith', { msg: err });
         showShortcutResult(`❌ ${friendly}`, 'err');
       }
     } catch (e) {
-      showShortcutResult(`❌ ${e.message || '保存失败'}`, 'err');
+      showShortcutResult(`❌ ${e.message || tx('popupSaveFailed')}`, 'err');
     } finally {
       cancelShortcutCapture();
     }
@@ -115,7 +114,7 @@
       const shortcut = await withTimeout(
         Storage.getElementPickerShortcut(),
         STORAGE_READ_TIMEOUT,
-        '读取快捷键配置',
+        tx('opReadShortcutCfg'),
       );
       renderPickShortcutDisplay(shortcut);
       checkShortcutBindingDiff(shortcut).catch(() => {});
@@ -144,13 +143,12 @@
       const toggleBtn = $('#btnToggleShortcuts');
       if (sec) sec.style.display = 'block';
       if (body) body.style.display = 'block';
-      if (toggleBtn) toggleBtn.textContent = '收起';
+      if (toggleBtn) toggleBtn.textContent = tx('commonCollapse');
       const cfg = r.data.configuredBinding || configured || '';
       const act = r.data.actual || '';
       hintEl.innerHTML =
-        `⚠️ 浏览器实际绑定为 <b>${escapeHtml(act)}</b>，与配置 <b>${escapeHtml(cfg)}</b> 不同` +
-        `（chrome://extensions/shortcuts 中可能被手动改绑）。` +
-        `<a href="#" id="btnPickShortcutRestore" style="margin-left:6px">点此恢复为配置</a>`;
+        tx('popupShortcutMismatchHtml', { actual: escapeHtml(act), configured: escapeHtml(cfg) }) +
+        `<a href="#" id="btnPickShortcutRestore" style="margin-left:6px">${tx('popupShortcutRestoreLink')}</a>`;
       hintEl.style.display = 'block';
       const restoreBtn = document.getElementById('btnPickShortcutRestore');
       if (restoreBtn) {

@@ -20,11 +20,15 @@
       ? withTimeout
       : (p, ms, label) => Promise.race([
         p,
-        new Promise((_, reject) => setTimeout(() => reject(new Error(`${label || '操作'}超时`)), ms)),
+        new Promise((_, reject) => setTimeout(() => reject(new Error(tx('opTimeout', { label: label || tx('commonOp') }))), ms)),
       ]);
 
     try {
-      return race(chrome.runtime.sendMessage(action), timeoutMs, `消息(${action.action || action})`);
+      return race(
+        chrome.runtime.sendMessage(action),
+        timeoutMs,
+        tx('opMessageLabel', { action: action.action || action }),
+      );
     } catch (syncErr) {
       return Promise.reject(syncErr);
     }
@@ -97,7 +101,7 @@
       ? startWatchdog(STATE_CHECK_TIMEOUT + 800, () => {
         console.error('[TaskPlugin] init watchdog: 强制结束加载态');
         if (isStillShowingLoadingOnly()) {
-          showLoginUI('登录状态检查超时，请重试');
+          showLoginUI(tx('popupAuthCheckTimeout'));
         }
         hideLoadingUI();
       })
@@ -110,7 +114,7 @@
 
       // 先恢复上次服务器地址/账号（带超时，失败不阻塞）
       try {
-        await withTimeout(restoreRememberedFormFields(), STORAGE_READ_TIMEOUT, '恢复表单字段');
+        await withTimeout(restoreRememberedFormFields(), STORAGE_READ_TIMEOUT, tx('opRestoreFormFields'));
       } catch (e) {
         console.warn('[TaskPlugin] 恢复表单字段失败:', e.message || e);
       }
@@ -125,7 +129,7 @@
       }, STATE_CHECK_TIMEOUT);
 
       try {
-        await withTimeout(loadState(), STATE_CHECK_TIMEOUT, '登录状态检查');
+        await withTimeout(loadState(), STATE_CHECK_TIMEOUT, tx('opAuthStateCheck'));
       } catch (e) {
         console.error('[TaskPlugin] loadState 失败:', e);
         showLoginUI(e.message || undefined);
@@ -200,7 +204,7 @@
     const loginHint = $('#loginHint');
     const loginResult = $('#loginResult');
 
-    if (status) { status.style.display = 'inline'; status.textContent = '⚠️ 未登录'; status.className = 'badge badge-disconnected'; }
+    if (status) { status.style.display = 'inline'; status.textContent = tx('panelBadgeNotLoggedIn'); status.className = 'badge badge-disconnected'; }
     if (headerArea) headerArea.style.display = 'none';
     if (loginSec) loginSec.style.display = 'block';
     if (devGuide) devGuide.style.display = 'none';
@@ -217,7 +221,7 @@
         loginHint.textContent = errorMessage;
         loginHint.style.color = '#f38ba8';
       } else {
-        loginHint.textContent = '通过网页端授权登录（OAuth2+PKCE）。';
+        loginHint.textContent = tx('loginHint');
         loginHint.style.color = '';
       }
     }
@@ -231,7 +235,7 @@
     // 先显示已登录 UI，再显示过期警告横幅
     showLoggedInUI(username);
     const status = $('#popupStatus');
-    if (status) { status.style.display = 'inline'; status.textContent = '⚠️ 会话已过期'; status.className = 'badge badge-disconnected'; }
+    if (status) { status.style.display = 'inline'; status.textContent = tx('popupSessionExpiredBadge'); status.className = 'badge badge-disconnected'; }
 
     // 显示重新登录按钮
     const loginSec = $('#loginSection');
@@ -248,7 +252,7 @@
 
     const loginHint = $('#loginHint');
     if (loginHint) {
-      loginHint.textContent = '⏰ 登录会话已过期，请重新登录。';
+      loginHint.textContent = tx('popupSessionExpiredHint');
       loginHint.style.color = '#fab387';
     }
 
@@ -258,7 +262,7 @@
 
     const btn = $('#btnLogin');
     if (btn) {
-      btn.textContent = '🔄 重新登录';
+      btn.textContent = tx('popupReloginBtn');
       btn.disabled = false;
     }
   }
@@ -273,7 +277,7 @@
     const reqSec = $('#requestsSection');
     if (status) status.style.display = 'none';
     if (headerArea) headerArea.style.display = 'flex';
-    if (headerUser) headerUser.textContent = '👤 ' + (username || '(已登录)');
+    if (headerUser) headerUser.textContent = '👤 ' + (username || tx('popupLoggedInFallback'));
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'block';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
@@ -324,7 +328,7 @@
     }
 
     if (!cfg) {
-      const local = await withTimeout(loadStateFromStorage(), STORAGE_READ_TIMEOUT, '读取本地登录态');
+      const local = await withTimeout(loadStateFromStorage(), STORAGE_READ_TIMEOUT, tx('opReadLocalAuth'));
       cfg = local.cfg;
       cred = local.cred;
       isExpired = local.isExpired;
@@ -370,7 +374,7 @@
     status.style.display = 'inline';
     status.textContent = expiryHint.text;
     status.className = expiryHint.level === 'critical' ? 'badge badge-disconnected' : 'badge badge-warning';
-    status.title = '登录会话即将过期，请尽快重新登录';
+    status.title = tx('panelBadgeExpiringTitle');
   }
 
   async function refreshAuthBadgeOnly() {

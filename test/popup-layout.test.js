@@ -91,7 +91,11 @@ describe('Popup 面板布局', () => {
     assert.ok(popupJs.includes('btnToggleShortcuts'), 'popup.js 未读取切换按钮');
     assert.ok(popupJs.includes('shortcutsBody'), 'popup.js 未切换 shortcutsBody');
     assert.match(popupJs, /body\.style\.display === 'none'/, '缺少折叠判断');
-    assert.match(popupJs, /textContent = .*展开/, '按钮文案缺少「展开」态');
+    assert.match(
+      popupJs,
+      /textContent = tx\('(?:expand|commonCollapse)'\)/,
+      '按钮文案缺少 i18n 展开/收起态（expand / commonCollapse）',
+    );
   });
 
   it('快捷键键位锚点无重复 id：列表/自定义行/hint 各自独立，改键后全部跟随刷新', () => {
