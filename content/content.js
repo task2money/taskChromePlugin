@@ -65,10 +65,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       const resp = (typeof getPageAdvisorContextFromFloat === 'function')
         ? getPageAdvisorContextFromFloat()
-        : { success: false, error: 'page advisor content 未就绪' };
+        : { success: false, error: (typeof tx === 'function' ? tx('contentAdvisorNotReady') : 'page advisor content 未就绪') };
       sendResponse?.(resp);
     } catch (e) {
-      sendResponse?.({ success: false, error: e?.message || '采集页面上下文失败' });
+      sendResponse?.({ success: false, error: e?.message || (typeof tx === 'function' ? tx('contentCaptureFailed') : '采集页面上下文失败') });
     }
     return true;
   }
@@ -76,10 +76,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       const resp = (typeof startPageAdvisorRegionSelect === 'function')
         ? startPageAdvisorRegionSelect()
-        : { success: false, error: 'region select 未就绪' };
+        : { success: false, error: (typeof tx === 'function' ? tx('contentRegionNotReady') : 'region select 未就绪') };
       sendResponse?.(resp);
     } catch (e) {
-      sendResponse?.({ success: false, error: e?.message || '无法启动区域框选' });
+      sendResponse?.({ success: false, error: e?.message || (typeof tx === 'function' ? tx('contentRegionStartFailed') : '无法启动区域框选') });
     }
     return true;
   }
@@ -90,7 +90,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       sendResponse?.({ success: true });
     } catch (e) {
-      sendResponse?.({ success: false, error: e?.message || '展示建议失败' });
+      sendResponse?.({ success: false, error: e?.message || (typeof tx === 'function' ? tx('contentShowSuggestionsFailed') : '展示建议失败') });
     }
     return true;
   }
@@ -101,7 +101,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       }
       sendResponse?.({ success: true });
     } catch (e) {
-      sendResponse?.({ success: false, error: e?.message || '展示待确认建议失败' });
+      sendResponse?.({ success: false, error: e?.message || (typeof tx === 'function' ? tx('contentShowSitePendingFailed') : '展示待确认建议失败') });
     }
     return true;
   }
@@ -194,7 +194,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       ? ElementPicker.findIframeElementByUrl(document, msg.childFrameUrl)
       : findIframeByUrl(msg.childFrameUrl);
     if (!iframe) {
-      sendResponse?.({ success: false, error: '未找到子 iframe' });
+      sendResponse?.({ success: false, error: (typeof tx === 'function' ? tx('contentIframeNotFound') : '未找到子 iframe') });
       return true;
     }
     const r = iframe.getBoundingClientRect();

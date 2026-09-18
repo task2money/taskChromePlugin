@@ -36,6 +36,8 @@ const MIGRATED = [
   'content/float-snapshot.js',
   'content/float-boot.js',
   'content/float-aidev.js',
+  'content/float-drag-auth.js',
+  'content/content.js',
 ];
 
 /**
@@ -81,8 +83,12 @@ function forEachCodeLine(src, visit) {
     }
     if (trimmed.startsWith('//') || trimmed.startsWith('*')) return;
     if (line.includes('console.')) return;
-    // 去掉行尾注释，避免把 `code; // 中文说明` 误判为界面文案。
-    visit(line.replace(/\s\/\/.*$/, ''), idx + 1);
+    // 去掉行尾注释与行内块注释，避免把 `code; // 中文说明` / `catch (_) { /* 保持默认 */ }`
+    // 误判为界面文案。
+    visit(
+      line.replace(/\s\/\/.*$/, '').replace(/\/\*.*?\*\//g, ''),
+      idx + 1,
+    );
   });
 }
 
@@ -94,6 +100,21 @@ function stripSeparators(line) {
 }
 
 describe('content/*.js i18n 覆盖门禁', () => {
+  it('全部 content 脚本可解析（模板字面量改写不得破坏语法）', () => {
+    const vm = require('node:vm');
+    const broken = [];
+    for (const rel of CONTENT_JS) {
+      const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      try {
+        // 仅解析不执行：能在 CI 早于浏览器捕获模板字面量/括号配对错误。
+        new vm.Script(src, { filename: rel });
+      } catch (e) {
+        broken.push(`${rel}: ${e.message}`);
+      }
+    }
+    assert.deepEqual(broken, [], `content 脚本语法错误：\n${broken.join('\n')}`);
+  });
+
   it('content 脚本引用的 tx() 键在 zh-CN / en 两表均有独立译文', () => {
     const tables = loadMessageTables();
     const problems = [];

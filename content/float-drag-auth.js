@@ -22,7 +22,7 @@ function setupElementPicker() {
 function syncDescResetButton() {
   if (!descResetBtn) return;
   if (typeof CreateTaskPayload === 'undefined' || typeof CreateTaskPayload.shouldEnableDescReset !== 'function') {
-    throw new Error('CreateTaskPayload.shouldEnableDescReset 未加载');
+    throw new Error((typeof tx === 'function' ? tx('commonModuleNotLoaded', { name: 'CreateTaskPayload.shouldEnableDescReset' }) : 'CreateTaskPayload.shouldEnableDescReset 未加载'));
   }
   descResetBtn.disabled = !CreateTaskPayload.shouldEnableDescReset(descInput.value);
 }
@@ -166,7 +166,10 @@ async function swApi(action, extra = {}, timeoutMs = 12000) {
     ...extra,
   }, timeoutMs);
   if (!r?.success) {
-    const err = new Error(r?.error || `${action} 失败`);
+    const err = new Error(
+      r?.error ||
+        (typeof tx === 'function' ? tx('commonActionFailed', { action }) : `${action} 失败`),
+    );
     const tid = (typeof extractTraceId === 'function' ? extractTraceId(r) : '') || r?.traceId || '';
     if (tid) err.traceId = tid;
     throw err;
@@ -204,22 +207,29 @@ async function fetchCreateTaskFieldSettings(companyId) {
 async function fetchAuthStatusFromBackground() {
   const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, 5000);
   if (!r?.success || !r.data) {
-    throw new Error(r?.error || 'getAuthStatus 失败');
+    throw new Error(
+      r?.error ||
+        (typeof tx === 'function' ? tx('commonActionFailed', { action: 'getAuthStatus' }) : 'getAuthStatus 失败'),
+    );
   }
   return r.data;
 }
 
 function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalidated = false } = {}) {
   if (invalidated) {
-    badge.textContent = '请刷新页面';
+    badge.textContent = typeof tx === 'function' ? tx('floatBadgeRefreshPage') : '请刷新页面';
     badge.className = 'taskplugin-badge taskplugin-badge-err';
-    badge.title = '扩展已重载，请刷新本页后重试';
+    badge.title = typeof tx === 'function' ? tx('floatBadgeReloadTitle') : '扩展已重载，请刷新本页后重试';
     return;
   }
   if (!loggedIn) {
-    badge.textContent = expired ? '会话过期' : '未登录';
+    badge.textContent = expired
+      ? (typeof tx === 'function' ? tx('floatBadgeExpired') : '会话过期')
+      : (typeof tx === 'function' ? tx('floatNotLoggedIn') : '未登录');
     badge.className = 'taskplugin-badge taskplugin-badge-err';
-    badge.title = expired ? '请在扩展弹窗中重新登录' : '请先在扩展弹窗中登录';
+    badge.title = expired
+      ? (typeof tx === 'function' ? tx('floatBadgeReloginTitle') : '请在扩展弹窗中重新登录')
+      : (typeof tx === 'function' ? tx('floatBadgeNotLoggedInTitle') : '请先在扩展弹窗中登录');
     return;
   }
   if (expiryHint?.text) {
@@ -227,10 +237,10 @@ function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalid
     badge.className = expiryHint.level === 'critical'
       ? 'taskplugin-badge taskplugin-badge-warn taskplugin-badge-critical'
       : 'taskplugin-badge taskplugin-badge-warn';
-    badge.title = '登录会话即将过期，请尽快在扩展弹窗中重新登录';
+    badge.title = typeof tx === 'function' ? tx('floatBadgeExpiringTitle') : '登录会话即将过期，请尽快在扩展弹窗中重新登录';
     return;
   }
-  badge.textContent = '已登录';
+  badge.textContent = typeof tx === 'function' ? tx('floatBadgeLoggedIn') : '已登录';
   badge.className = 'taskplugin-badge taskplugin-badge-ok';
   badge.title = '';
 }
@@ -250,9 +260,9 @@ function applyWorkspaceSelectFromAuth({ loggedIn, mode, invalidated = false }) {
   if (typeof FloatWorkspaceSelect === 'undefined') {
     console.warn('[taskChromePlugin] FloatWorkspaceSelect 未加载');
     if (!loggedIn) {
-      wsSelect.innerHTML = `<option value="">-- ${invalidated ? '请刷新页面后重试' : '请先登录'} --</option>`;
+      wsSelect.innerHTML = `<option value="">-- ${invalidated ? (typeof tx === 'function' ? tx('floatBadgeRefreshRetryOption') : '请刷新页面后重试') : (typeof tx === 'function' ? tx('commonPleaseLogin') : '请先登录')} --</option>`;
     } else if (mode !== 'badgeOnly' || selectNeeds) {
-      wsSelect.innerHTML = '<option value="">加载中...</option>';
+      wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonLoading') : '加载中...'}</option>`;
     }
     return;
   }
@@ -403,10 +413,10 @@ function handleApiAuthFailure(err) {
   const msg = String(err?.message || err || '');
   if (!/\b401\b/.test(msg)) return false;
   isLoggedIn = false;
-  badge.textContent = '会话失效';
+  badge.textContent = typeof tx === 'function' ? tx('floatBadgeInvalid') : '会话失效';
   badge.className = 'taskplugin-badge taskplugin-badge-err';
-  badge.title = '请在扩展弹窗中重新登录';
-  wsSelect.innerHTML = '<option value="">-- 请在扩展中重新登录 --</option>';
+  badge.title = typeof tx === 'function' ? tx('floatBadgeReloginTitle') : '请在扩展弹窗中重新登录';
+  wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonReloginExtOption') : '-- 请在扩展中重新登录 --'}</option>`;
   return true;
 }
 
