@@ -205,7 +205,7 @@ function onPickClick(e) {
     // 跨域：继续等待子 frame 的 elementPickedInFrame；给一次提示
     if (!pickCrossOriginHintShown) {
       pickCrossOriginHintShown = true;
-      showResult('已进入跨域 iframe 选择：请直接点击框内元素（⌘/Ctrl+点击多选）', 'success');
+      showResult((typeof tx === 'function' ? tx('floatPickCrossOriginToast') : '已进入跨域 iframe 选择：请直接点击框内元素（⌘/Ctrl+点击多选）'), 'success');
     }
     return;
   }
@@ -218,7 +218,7 @@ function onPickClick(e) {
   try {
     if (isMetaClick(e)) {
       if (pickSelection.length > 0 && !samePickFrame(frameElement, pickSelectionFrame)) {
-        showResult('多选仅限同一 frame，请先清空或在同一框架内选择', 'error');
+        showResult((typeof tx === 'function' ? tx('floatPickSameFrameOnly') : '多选仅限同一 frame，请先清空或在同一框架内选择'), 'error');
         return;
       }
       if (pickSelection.length === 0) pickSelectionFrame = frameElement || null;
@@ -226,8 +226,8 @@ function onPickClick(e) {
       if (pickSelection.length === 0) pickSelectionFrame = null;
       applyHighlightMany(pickSelection.length ? pickSelection : [el], el.ownerDocument);
       const tip = pickSelection.length
-        ? `已选 ${pickSelection.length} 个：Enter 确认；⌘/Ctrl+点击继续增删（Esc 清空）`
-        : '已清空多选：⌘/Ctrl+点击添加，或普通点击单选';
+        ? (typeof tx === 'function' ? tx('floatPickSelectedHint', { n: pickSelection.length }) : `已选 ${pickSelection.length} 个：Enter 确认；⌘/Ctrl+点击继续增删（Esc 清空）`)
+        : (typeof tx === 'function' ? tx('floatPickClearedHint') : '已清空多选：⌘/Ctrl+点击添加，或普通点击单选');
       btn.title = tip;
       return;
     }
@@ -255,7 +255,7 @@ function onPickKeyDown(e) {
     if (pickSelection.length > 0) {
       clearPickSelection();
       clearHighlight();
-      const tip = '已清空多选；Esc 再按退出指针模式';
+      const tip = (typeof tx === 'function' ? tx('floatPickClearedExitTip') : '已清空多选；Esc 再按退出指针模式');
       btn.title = tip;
       return;
     }
@@ -272,10 +272,10 @@ function openAdjustModal(snapshot) {
   if (!adjustModal) return;
   const ctx = [
     snapshot.selectionKind === 'disjoint' && snapshot.elements?.length
-      ? `多选×${snapshot.elements.length}`
+      ? (typeof tx === 'function' ? tx('floatPickMultiCount', { n: snapshot.elements.length }) : `多选×${snapshot.elements.length}`)
       : '',
     snapshot.inClosedShadow ? 'closed-Shadow' : (snapshot.inShadow ? 'Shadow' : ''),
-    snapshot.uaShadowOpaque ? 'UA-Shadow不可穿透' : (snapshot.uaShadowHost ? '原生宿主' : ''),
+    snapshot.uaShadowOpaque ? (typeof tx === 'function' ? tx('floatPickUaShadowOpaque') : 'UA-Shadow不可穿透') : (snapshot.uaShadowHost ? (typeof tx === 'function' ? tx('floatPickNativeHost') : '原生宿主') : ''),
     snapshot.crossOriginIframe ? 'x-iframe' : (snapshot.inIframe ? 'iframe' : ''),
     snapshot.frameNestingDepth > 1 ? `nest×${snapshot.frameNestingDepth}` : '',
   ].filter(Boolean).join('+');
@@ -288,7 +288,7 @@ function openAdjustModal(snapshot) {
   }
   adjustElSummary.textContent = summary;
   if (snapshot.uaShadowOpaque) {
-    adjustError.textContent = '提示：原生控件内部（UA Shadow）无法选中，已选中宿主元素。';
+    adjustError.textContent = typeof tx === 'function' ? tx('floatPickUaShadowHint') : '提示：原生控件内部（UA Shadow）无法选中，已选中宿主元素。';
     adjustError.className = 'taskplugin-result taskplugin-show';
   } else {
     adjustError.className = 'taskplugin-result';
@@ -320,7 +320,7 @@ function closeAdjustModal() {
 
 async function captureElementScreenshot(rect) {
   if (!rect || !(rect.width > 0) || !(rect.height > 0)) {
-    throw new Error('元素不在可视区域，无法截图');
+    throw new Error((typeof tx === 'function' ? tx('floatPickShotOffscreen') : '元素不在可视区域，无法截图'));
   }
   // 截图前暂时隐藏插件 UI，避免入镜
   const prevRootDisplay = root.style.display;
@@ -341,7 +341,7 @@ async function captureElementScreenshot(rect) {
       maxWidth: ElementPicker.SCREENSHOT_MAX_WIDTH,
     }, 12000);
     if (!resp?.success || !resp.dataUrl) {
-      throw new Error(resp?.error || '截图失败');
+      throw new Error(resp?.error || (typeof tx === 'function' ? tx('floatPickShotFailed') : '截图失败'));
     }
     return resp.dataUrl;
   } finally {
@@ -352,12 +352,12 @@ async function captureElementScreenshot(rect) {
 
 async function confirmAdjustModal() {
   if (typeof ElementPicker === 'undefined') {
-    adjustError.textContent = 'ElementPicker 未加载';
+    adjustError.textContent = typeof tx === 'function' ? tx('floatPickModuleMissing') : 'ElementPicker 未加载';
     adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
     return;
   }
   if (!pendingElementSnapshot) {
-    adjustError.textContent = '未选中元素，请重新用指针选择';
+    adjustError.textContent = typeof tx === 'function' ? tx('floatPickNoElement') : '未选中元素，请重新用指针选择';
     adjustError.className = 'taskplugin-result taskplugin-show taskplugin-result-error';
     return;
   }
@@ -374,7 +374,7 @@ async function confirmAdjustModal() {
   adjustConfirm.disabled = true;
   try {
     if (wantShot) {
-      adjustError.textContent = '正在截图并上传...';
+      adjustError.textContent = typeof tx === 'function' ? tx('floatPickShotUploading') : '正在截图并上传...';
       adjustError.className = 'taskplugin-result taskplugin-show';
       const dataUrl = await captureElementScreenshot(pendingElementSnapshot._viewportRect);
       const up = await sendMessageWithTimeout({
@@ -382,7 +382,7 @@ async function confirmAdjustModal() {
         dataUrl,
       }, 20000);
       if (!up?.success || !up.url) {
-        throw new Error(up?.error || '截图上传失败');
+        throw new Error(up?.error || (typeof tx === 'function' ? tx('floatPickShotUploadFailed') : '截图上传失败'));
       }
       screenshotUrl = up.url;
       console.log('[taskChromePlugin] screenshot uploaded:', screenshotUrl);
@@ -412,8 +412,8 @@ async function confirmAdjustModal() {
     syncDescResetButton();
     console.log('[taskChromePlugin] element adjustment appended to float description');
     closeAdjustModal();
-    const clipSuffix = copied ? '，并已复制到剪贴板' : '';
-    showResult(`已将元素调整期望加入任务描述${clipSuffix}`, 'success');
+    const clipSuffix = copied ? (typeof tx === 'function' ? tx('floatPickCopiedSuffix') : '，并已复制到剪贴板') : '';
+    showResult((typeof tx === 'function' ? tx('floatPickAdjustAdded', { suffix: clipSuffix }) : `已将元素调整期望加入任务描述${clipSuffix}`), 'success');
   } catch (ex) {
     console.warn('[taskChromePlugin] confirmAdjustModal failed:', ex.message || ex);
     adjustError.textContent = ex.message || String(ex);
@@ -469,12 +469,12 @@ function onShortcutKeyDown(e) {
 function renderShortcutHints() {
   const combo = pickShortcutCombo || Storage.detectDefaultShortcut();
   const ta = document.getElementById('taskplugin-desc');
-  if (ta) ta.placeholder = `任务描述...（按 ${combo} 指针选择页面元素）`;
+  if (ta) ta.placeholder = (typeof tx === 'function' ? tx('floatPickDescPlaceholder', { combo }) : `任务描述...（按 ${combo} 指针选择页面元素）`);
   const fab = document.getElementById('taskplugin-float-btn');
   if (fab) {
     fab.title = pickMode
-      ? `取消指针选择（Esc / ${combo}）；⌘/Ctrl+点击多选，Enter 确认`
-      : `${PLUGIN_DISPLAY_NAME} — 快速创建任务 (${combo} 指针选择)`;
+      ? (typeof tx === 'function' ? tx('floatPickExitHint', { combo }) : `取消指针选择（Esc / ${combo}）；⌘/Ctrl+点击多选，Enter 确认`)
+      : (typeof tx === 'function' ? tx('floatPickFabTitle', { brand: PLUGIN_DISPLAY_NAME, combo }) : `${PLUGIN_DISPLAY_NAME} — 快速创建任务 (${combo} 指针选择)`);
   }
 }
 

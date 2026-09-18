@@ -31,7 +31,14 @@ const MIGRATED = [
   'content/float-page-advisor-layer.js',
   'content/float-page-advisor-region.js',
   'content/float-page-advisor-site-pending.js',
+  'content/float-pick.js',
 ];
+
+/**
+ * 语言无关的分隔符字面量：仅用于拼接列表/路径，不是可翻译文案。
+ * `、`（U+3001）是元素标签列表的连接符，不随语言切换，故豁免。
+ */
+const SEPARATOR_LITERALS = ["'、'", '"、"', '`、`'];
 
 const CONTENT_JS = fs
   .readdirSync(path.join(ROOT, 'content'))
@@ -70,8 +77,16 @@ function forEachCodeLine(src, visit) {
     }
     if (trimmed.startsWith('//') || trimmed.startsWith('*')) return;
     if (line.includes('console.')) return;
-    visit(line, idx + 1);
+    // 去掉行尾注释，避免把 `code; // 中文说明` 误判为界面文案。
+    visit(line.replace(/\s\/\/.*$/, ''), idx + 1);
   });
+}
+
+/** 剥离语言无关的分隔符字面量后返回该行。 */
+function stripSeparators(line) {
+  let out = line;
+  for (const lit of SEPARATOR_LITERALS) out = out.split(lit).join('');
+  return out;
 }
 
 describe('content/*.js i18n 覆盖门禁', () => {
@@ -100,8 +115,9 @@ describe('content/*.js i18n 覆盖门禁', () => {
       const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
       const unpaired = [];
       forEachCodeLine(src, (line, no) => {
-        if (!CJK.test(line)) return;
-        if (line.includes('tx(')) return;
+        const code = stripSeparators(line);
+        if (!CJK.test(code)) return;
+        if (code.includes('tx(')) return;
         unpaired.push(`  L${no}: ${line.trim().slice(0, 100)}`);
       });
       assert.deepEqual(
