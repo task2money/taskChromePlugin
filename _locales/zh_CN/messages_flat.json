@@ -1,0 +1,19 @@
+{
+  "extName": "云端Coding: 自动创新助手",
+  "extTitle": "云端Coding: 自动创新助手",
+  "statusLoading": "加载中...",
+  "showFloatBall": "显示悬浮球",
+  "floatBallHint": "关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。",
+  "altZDefaults": "Alt+Z 默认上下文",
+  "altZHint": "未打开浮窗时，Alt+Z 使用此处的默认工作空间；填入任务描述后也会预选默认项目。",
+  "defaultWorkspace": "默认工作空间",
+  "defaultProject": "默认项目",
+  "pickWorkspaceFirst": "请先选择工作空间",
+  "checkingLogin": "正在检查登录状态...",
+  "retry": "重试",
+  "login": "登录",
+  "logout": "退出",
+  "cancel": "取消",
+  "save": "保存",
+  "loading": "加载中..."
+}

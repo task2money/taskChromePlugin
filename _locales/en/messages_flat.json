@@ -1,0 +1,19 @@
+{
+  "extName": "Cloud Coding: Auto Innovate",
+  "extTitle": "Cloud Coding: Auto Innovate",
+  "statusLoading": "Loading...",
+  "showFloatBall": "Show floating ball",
+  "floatBallHint": "When off, hides the in-page floating ball. The panel × only collapses the panel; it does not turn off the ball.",
+  "altZDefaults": "Alt+Z default context",
+  "altZHint": "When the float panel is closed, Alt+Z uses this default workspace; task description fill also preselects the default project.",
+  "defaultWorkspace": "Default workspace",
+  "defaultProject": "Default project",
+  "pickWorkspaceFirst": "Select a workspace first",
+  "checkingLogin": "Checking login…",
+  "retry": "Retry",
+  "login": "Log in",
+  "logout": "Log out",
+  "cancel": "Cancel",
+  "save": "Save",
+  "loading": "Loading..."
+}
