@@ -71,8 +71,8 @@
     <section id="devtoolsGuide" class="section devtools-guide" style="display:none">
       <div class="guide-icon">🛠️</div>
       <div class="guide-text">
-        <strong>按 F12 打开 DevTools</strong>
-        <p>切换到 <b>云端Coding: 自动创新助手</b> 面板即可创建任务、批量捕获错误请求</p>
+        <strong data-i18n="popupDevToolsStrong">按 F12 打开 DevTools</strong>
+        <p data-i18n="popupDevToolsBody">切换到面板即可创建任务、批量捕获错误请求</p>
       </div>
       <div class="guide-steps">
         <span class="step">1️⃣ <kbd>F12</kbd> 打开开发者工具</span>
@@ -83,7 +83,7 @@
 
     <!-- 快捷键说明（默认收起，点击「展开」后显示） -->
     <section id="shortcutsSection" class="section shortcuts-section" style="display:none">
-      <h3 class="shortcuts-title">⌨️ 快捷键 <button id="btnToggleShortcuts" class="btn btn-sm btn-link">展开</button></h3>
+      <h3 class="shortcuts-title">⌨️ <span data-i18n="shortcuts">快捷键</span> <button id="btnToggleShortcuts" class="btn btn-sm btn-link"><span data-i18n="expand">展开</span></button></h3>
       <div id="shortcutsBody" style="display:none">
         <div class="shortcuts-list">
           <div class="shortcut-item">
@@ -134,13 +134,13 @@
 
     <!-- 请求列表（仅查看/过滤） -->
     <section id="requestsSection" class="section" style="display:none">
-      <h3>📌 请求预览 <span id="requestCountBadge" class="hint-inline"></span> <button id="btnToggleRequests" class="btn btn-sm btn-link">展开</button></h3>
+      <h3>📌 <span data-i18n="requestPreview">请求预览</span> <span id="requestCountBadge" class="hint-inline"></span> <button id="btnToggleRequests" class="btn btn-sm btn-link"><span data-i18n="expand">展开</span></button></h3>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <label class="tracking-toggle">
           <input type="checkbox" id="trackingToggle">
           <span class="toggle-slider"></span>
         </label>
-        <span style="font-size:10px;color:#6c7086">跟踪请求（保留刷新前的记录）</span>
+        <span style="font-size:10px;color:#6c7086" data-i18n="trackRequests">跟踪请求（保留刷新前的记录）</span>
       </div>
       <div id="requestsBody" style="display:none">
         <div class="search-bar">

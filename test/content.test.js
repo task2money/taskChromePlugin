@@ -51,8 +51,8 @@ describe('content.js 悬浮球 storage 变更监听', () => {
 describe('content.js 元素拾取快捷键提示语（平台默认分派）', () => {
   it('静态 placeholder 为平台中立文案，不再硬编码 Ctrl+Shift+X', () => {
     assert.ok(
-      /id="taskplugin-desc"[^>]*placeholder="[^"]*按快捷键/.test(floatHtml),
-      'placeholder 应平台中立（按快捷键…），由 renderShortcutHints 按平台渲染实际组合',
+      /id="taskplugin-desc"[^>]*placeholder="[^"]*(按快捷键|floatDescPlaceholder|\$\{esc\(t\('floatDescPlaceholder'\)\)\})/.test(floatHtml),
+      'placeholder 应平台中立，由 i18n floatDescPlaceholder / renderShortcutHints 渲染',
     );
     const phIdx = floatHtml.indexOf('id="taskplugin-desc"');
     assert.ok(phIdx >= 0);
@@ -82,7 +82,7 @@ describe('content.js 浮窗面板顶部 × 仅关闭面板', () => {
       '关闭按钮须在悬浮面板顶部 header 内'
     );
     assert.match(floatHtml, /<button[^>]*id="taskplugin-float-close"[^>]*type="button"/);
-    assert.match(floatHtml, /aria-label="关闭浮窗"/);
+    assert.match(floatHtml, /floatClosePanel|aria-label="关闭浮窗"/);
   });
 
   it('点击 × 只收起面板，不隐藏悬浮球、不写 floatBallEnabled', () => {

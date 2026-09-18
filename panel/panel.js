@@ -35,6 +35,7 @@ const Panel = (() => {
 
   // ---- Init ----
   async function init() {
+    await P.initI18n();
     // 先挂请求列表管道，再做任何 await（修复卡在「正在加载请求列表...」）
     P.bindRequestMessagePipeline();
     P.mountUserGuide();

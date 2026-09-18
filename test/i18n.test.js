@@ -12,3 +12,15 @@ test('plugin i18n switches login label', () => {
   i18n.setLocale('zh-CN')
   assert.equal(i18n.t('login'), '登录')
 })
+
+test('plugin i18n panel float keys', () => {
+  delete require.cache[require.resolve('../lib/i18n.js')]
+  delete require.cache[require.resolve('../lib/i18n-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-ui-messages.js')]
+  const i18n = require('../lib/i18n.js')
+  require('../lib/i18n-messages.js')
+  require('../lib/i18n-ui-messages.js')
+  i18n.setLocale('en')
+  assert.equal(i18n.t('floatQuickCreate'), 'Quick create task')
+  assert.equal(i18n.t('panelTabSingle'), '📋 Single request')
+})

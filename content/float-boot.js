@@ -19,6 +19,9 @@ if (!root) {
     ? FloatPanelMarkup.html()
     : '';
   document.body.appendChild(root);
+  if (globalThis.AidevpushI18n && typeof globalThis.AidevpushI18n.applyDom === 'function') {
+    globalThis.AidevpushI18n.applyDom(root);
+  }
 }
 
 if (__taskpluginOnAuthRoute && root) {
@@ -28,10 +31,19 @@ if (__taskpluginOnAuthRoute && root) {
   // Leave a single-line tip on the ball if markup exists (for e2e / power users who force-show).
   var authBtn = document.getElementById('taskplugin-float-btn');
   if (authBtn) {
-    authBtn.title = '请先登录后再创建任务';
-    authBtn.setAttribute('aria-label', '请先登录后再创建任务');
+    const hint = typeof tx === 'function' ? tx('floatLoginBeforeCreate') : '请先登录后再创建任务';
+    authBtn.title = hint;
+    authBtn.setAttribute('aria-label', hint);
   }
 }
+
+(async function hydrateFloatI18n() {
+  try {
+    if (globalThis.AidevpushI18n && globalThis.AidevpushI18n.hydrateFromStorage) {
+      await globalThis.AidevpushI18n.hydrateFromStorage();
+    }
+  } catch (_) { /* ignore */ }
+})();
 
 if (!__taskpluginFloatSkip && !__taskpluginOnAuthRoute) {
 // ---- 使用说明（SSOT: lib/user-guide.js）----

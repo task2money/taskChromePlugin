@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" id="tcp-panel-root">
 <head>
   <meta charset="utf-8">
   <meta name="trae-service" content="taskChromePlugin" />
-  <title>云端Coding: 自动创新助手</title>
+  <title data-i18n="extTitle">云端Coding: 自动创新助手</title>
   <link rel="stylesheet" href="panel.css">
   <!--
     DevTools postMessage 消息入口（initRequests / newRequest / requestUpdated）已在
@@ -15,29 +15,29 @@
   <div id="app">
     <!-- 头部状态 -->
     <header class="header">
-      <h1>🔧 云端Coding: 自动创新助手</h1>
-      <span id="statusBadge" class="badge badge-disconnected">未连接</span>
+      <h1>🔧 <span data-i18n="extTitle">云端Coding: 自动创新助手</span></h1>
+      <span id="statusBadge" class="badge badge-disconnected" data-i18n="panelBadgeDisconnected">未连接</span>
     </header>
 
     <!-- Tab 切换 -->
     <nav class="tabs">
-      <button class="tab active" data-tab="single">📋 单请求创建</button>
-      <button class="tab" data-tab="batch">📦 批量错误捕获</button>
-      <button class="tab" data-tab="errors">⚠️ 错误列表</button>
-      <button class="tab" data-tab="history">📜 历史记录</button>
-      <button class="tab" data-tab="guide">📖 使用说明</button>
+      <button class="tab active" data-tab="single" data-i18n="panelTabSingle">📋 单请求创建</button>
+      <button class="tab" data-tab="batch" data-i18n="panelTabBatch">📦 批量错误捕获</button>
+      <button class="tab" data-tab="errors" data-i18n="panelTabErrors">⚠️ 错误列表</button>
+      <button class="tab" data-tab="history" data-i18n="panelTabHistory">📜 历史记录</button>
+      <button class="tab" data-tab="guide" data-i18n="panelTabGuide">📖 使用说明</button>
     </nav>
 
     <!-- Tab: 单请求创建 -->
     <section id="tab-single" class="tab-content active">
       <!-- 请求列表 + 选中预览 -->
       <div class="section">
-        <h3>📌 请求列表 <span class="hint-inline">(来自 DevTools Network)</span></h3>
+        <h3><span data-i18n="panelRequestListTitle">📌 请求列表</span> <span class="hint-inline" data-i18n="panelFromDevToolsNetwork">(来自 DevTools Network)</span></h3>
         <!-- 搜索栏 -->
         <div class="search-bar">
-          <input type="text" id="requestSearch" class="form-input search-input" placeholder="🔍 搜索 URL / 方法 / 状态码...">
+          <input type="text" id="requestSearch" class="form-input search-input" data-i18n-placeholder="panelSearchRequests" placeholder="🔍 搜索 URL / 方法 / 状态码...">
           <select id="requestMethodFilter" class="form-select search-select">
-            <option value="">全部方法</option>
+            <option value="" data-i18n="panelAllMethods">全部方法</option>
             <option value="GET">GET</option>
             <option value="POST">POST</option>
             <option value="PUT">PUT</option>
@@ -47,17 +47,17 @@
             <option value="HEAD">HEAD</option>
           </select>
           <select id="requestStatusFilter" class="form-select search-select">
-            <option value="">全部状态</option>
-            <option value="2xx">2xx 成功</option>
-            <option value="3xx">3xx 重定向</option>
-            <option value="4xx">4xx 客户端错误</option>
-            <option value="5xx">5xx 服务端错误</option>
-            <option value="canceled">Canceled 已取消</option>
+            <option value="" data-i18n="panelAllStatus">全部状态</option>
+            <option value="2xx" data-i18n="panelStatus2xx">2xx 成功</option>
+            <option value="3xx" data-i18n="panelStatus3xx">3xx 重定向</option>
+            <option value="4xx" data-i18n="panelStatus4xx">4xx 客户端错误</option>
+            <option value="5xx" data-i18n="panelStatus5xx">5xx 服务端错误</option>
+            <option value="canceled" data-i18n="panelStatusCanceled">Canceled 已取消</option>
           </select>
         </div>
         <!-- Anti-Replay-OK: local view query only — type chips do not POST -->
-        <div id="requestTypeFilters" class="request-type-filters" role="group" aria-label="资源类型">
-          <button type="button" class="type-chip active" data-type="" aria-pressed="true">全部</button>
+        <div id="requestTypeFilters" class="request-type-filters" role="group" aria-label="资源类型" data-i18n-aria-label="panelResourceTypes">
+          <button type="button" class="type-chip active" data-type="" aria-pressed="true" data-i18n="all">全部</button>
           <button type="button" class="type-chip" data-type="xhr" aria-pressed="false">XHR</button>
           <button type="button" class="type-chip" data-type="doc" aria-pressed="false">Doc</button>
           <button type="button" class="type-chip" data-type="js" aria-pressed="false">JS</button>
@@ -66,109 +66,109 @@
           <button type="button" class="type-chip" data-type="other" aria-pressed="false">Other</button>
         </div>
         <div class="btn-row">
-          <button id="btnRefreshRequest" class="btn btn-sm">🔄 刷新列表</button>
-          <button id="btnClearRequestList" class="btn btn-sm btn-danger" title="清空本面板与后台缓存的请求列表（不影响 Network 面板）">🗑️ 清空列表</button>
+          <button id="btnRefreshRequest" data-i18n="panelRefreshList" class="btn btn-sm">🔄 刷新列表</button>
+          <button id="btnClearRequestList" class="btn btn-sm btn-danger" data-i18n-title="panelClearListTitle" title="清空本面板与后台缓存的请求列表（不影响 Network 面板）"><span data-i18n="panelClearList">🗑️ 清空列表</span></button>
           <span id="requestCount" class="hint-inline"></span>
         </div>
         <!-- Anti-Replay-OK: local view query only — column headers sort in-memory list -->
         <div class="request-list-header" role="row">
-          <button type="button" class="req-sort" data-sort="method">方法</button>
-          <button type="button" class="req-sort" data-sort="status">状态</button>
-          <button type="button" class="req-sort req-sort-url" data-sort="url">URL</button>
-          <button type="button" class="req-sort" data-sort="time">耗时</button>
-          <button type="button" class="req-sort" data-sort="timestamp" aria-sort="descending">时间</button>
+          <button type="button" class="req-sort" data-sort="method" data-i18n="panelColMethod">方法</button>
+          <button type="button" class="req-sort" data-sort="status" data-i18n="panelColStatus">状态</button>
+          <button type="button" class="req-sort req-sort-url" data-sort="url" data-i18n="panelColUrl">URL</button>
+          <button type="button" class="req-sort" data-sort="time" data-i18n="panelColTime">耗时</button>
+          <button type="button" class="req-sort" data-sort="timestamp" aria-sort="descending" data-i18n="panelColTimestamp">时间</button>
         </div>
         <div id="selectedRequest" class="request-preview empty">
-          <p class="placeholder">正在加载请求列表...</p>
+          <p class="placeholder" data-i18n="panelLoadingRequests">正在加载请求列表...</p>
         </div>
       </div>
 
       <!-- 工作空间 & 项目选择 -->
       <div class="section">
-        <h3>🗂️ 工作空间</h3>
+        <h3 data-i18n="panelWorkspace">🗂️ 工作空间</h3>
         <div class="target-row">
           <select id="singleWorkspace" class="form-select" style="flex:2">
-            <option value="">-- 请选择工作空间 --</option>
+            <option value="" data-i18n="panelSelectWorkspace">-- 请选择工作空间 --</option>
           </select>
           <select id="singleProgressColumn" class="form-select" style="flex:1">
-            <option value="">进度列</option>
+            <option value="" data-i18n="panelProgressColumn">进度列</option>
           </select>
           <select id="singlePriority" class="form-select" style="flex:1">
-            <option value="0">高</option>
-            <option value="1" selected>中</option>
-            <option value="2">低</option>
+            <option value="0" data-i18n="panelPriorityHigh">高</option>
+            <option value="1" selected data-i18n="panelPriorityMedium">中</option>
+            <option value="2" data-i18n="panelPriorityLow">低</option>
           </select>
           <select id="singleOwner" class="form-select" style="flex:2">
-            <option value="">负责人</option>
+            <option value="" data-i18n="panelOwner">负责人</option>
           </select>
         </div>
-        <div id="singleProjects" class="checkbox-group" style="margin-top:6px" role="radiogroup" aria-label="项目（单选）" aria-required="true">
-          <p class="placeholder">项目 (单选)</p>
+        <div id="singleProjects" class="checkbox-group" style="margin-top:6px" role="radiogroup" aria-label="项目（单选）" data-i18n-aria-label="panelProjectSingleAria" aria-required="true">
+          <p class="placeholder" data-i18n="panelProjectSingle">项目 (单选)</p>
         </div>
         <p id="panel-aidev-status" class="hint-inline" hidden style="margin-top:6px"></p>
       </div>
 
       <!-- 分支策略 -->
       <div class="section">
-        <h3>🌿 分支策略</h3>
+        <h3 data-i18n="panelBranchStrategy">🌿 分支策略</h3>
         <div class="target-row">
           <div style="flex:1">
-            <label>工作分支 <span class="hint-inline">— 选择模板或输入分支名</span></label>
-            <input type="text" id="singleWorkBranch" class="form-input" placeholder="选择模板或输入分支名" list="singleWorkBranchList">
+            <label><span data-i18n="panelWorkBranch">工作分支</span> <span class="hint-inline" data-i18n="panelWorkBranchHint">— 选择模板或输入分支名</span></label>
+            <input type="text" id="singleWorkBranch" class="form-input" data-i18n-placeholder="panelWorkBranchPlaceholder" placeholder="选择模板或输入分支名" list="singleWorkBranchList">
             <datalist id="singleWorkBranchList"></datalist>
           </div>
           <div style="flex:1">
-            <label>合并目标分支 <span class="hint-inline">— 选择模板或输入分支名</span></label>
+            <label><span data-i18n="panelMergeTarget">合并目标分支</span> <span class="hint-inline" data-i18n="panelWorkBranchHint">— 选择模板或输入分支名</span></label>
             <div class="target-row" style="gap:4px">
-              <input type="text" id="singleMergeTarget" class="form-input" style="flex:1" placeholder="如: main, develop" list="singleMergeTargetList">
-              <button id="btnRefreshSingleBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
+              <input type="text" id="singleMergeTarget" class="form-input" style="flex:1" data-i18n-placeholder="panelMergePlaceholder" placeholder="如: main, develop" list="singleMergeTargetList">
+              <button id="btnRefreshSingleBranches" class="btn btn-sm" data-i18n-title="panelRefreshBranchesTitle" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
             </div>
             <datalist id="singleMergeTargetList"></datalist>
           </div>
         </div>
         <div class="form-row" style="margin-top:8px">
-          <label>基准分支 <span class="hint-inline">— 空则用项目默认分支</span></label>
+          <label><span data-i18n="panelBaseBranch">基准分支</span> <span class="hint-inline" data-i18n="panelBaseBranchHint">— 空则用项目默认分支</span></label>
           <div id="singleRepoBases" class="repo-bases">
-            <p class="placeholder">空则用项目默认分支</p>
+            <p class="placeholder" data-i18n="panelBaseBranchPlaceholder">空则用项目默认分支</p>
           </div>
         </div>
       </div>
 
       <!-- 对齐 work-panel 的创建参数 -->
       <div class="section">
-        <h3>⚙️ 创建参数 <span class="hint-inline">— 与工作面板创建任务一致</span></h3>
+        <h3><span data-i18n="panelCreateParams">⚙️ 创建参数</span> <span class="hint-inline" data-i18n="panelCreateParamsHint">— 与工作面板创建任务一致</span></h3>
         <div class="target-row">
           <div style="flex:1">
-            <label>交付物类别</label>
+            <label data-i18n="panelDeliverable">交付物类别</label>
             <select id="singleDeliverable" class="form-select">
-              <option value="">加载中...</option>
+              <option value="" data-i18n="commonLoading">加载中...</option>
             </select>
           </div>
           <div style="flex:1">
-            <label>已安装镜像 <span id="singleImageRequired" class="hint-inline" hidden style="color:#f38ba8;">*自动运行必选</span></label>
+            <label><span data-i18n="panelInstalledImage">已安装镜像</span> <span id="singleImageRequired" class="hint-inline" hidden style="color:#f38ba8;" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
             <select id="singleContainerImage" class="form-select">
-              <option value="">无</option>
+              <option value="" data-i18n="panelNone">无</option>
             </select>
           </div>
         </div>
         <div class="target-row" style="margin-top:6px">
           <div style="flex:1">
-            <label>智能体资源配置 <span class="hint-inline">— 绑定镜像后必填</span></label>
+            <label><span data-i18n="panelFeatureParams">智能体资源配置</span> <span class="hint-inline" data-i18n="panelFeatureParamsHint">— 绑定镜像后必填</span></label>
             <select id="singleFeatureParamsSource" class="form-select">
-              <option value="">-- 请选择 --</option>
-              <option value="company">公司默认</option>
-              <option value="workspace">工作空间默认</option>
-              <option value="personal">个人配置</option>
+              <option value="" data-i18n="panelSelectOption">-- 请选择 --</option>
+              <option value="company" data-i18n="panelCompanyDefault">公司默认</option>
+              <option value="workspace" data-i18n="panelWorkspaceDefault">工作空间默认</option>
+              <option value="personal" data-i18n="panelPersonalConfig">个人配置</option>
             </select>
           </div>
           <div style="flex:1" id="singlePersonalConfigWrap" hidden>
-            <label>个人配置</label>
+            <label data-i18n="panelPersonalConfig">个人配置</label>
             <select id="singlePersonalConfig" class="form-select">
-              <option value="">-- 请选择个人配置 --</option>
+              <option value="" data-i18n="panelSelectPersonalConfig">-- 请选择个人配置 --</option>
             </select>
           </div>
           <div style="flex:1">
-            <label>截止日期</label>
+            <label data-i18n="panelDueDate">截止日期</label>
             <input type="datetime-local" id="singleDueDate" class="form-input">
           </div>
         </div>
@@ -176,8 +176,8 @@
           <label class="toggle-label">
             <input type="checkbox" id="singleAutoRun" disabled aria-disabled="true">
             <span>
-              是否自动运行
-              <span class="hint-inline" id="singleAutoRunHint">请先选择项目</span>
+              <span data-i18n="panelAutoRun">是否自动运行</span>
+              <span class="hint-inline" id="singleAutoRunHint" data-i18n="panelPickProjectFirst">请先选择项目</span>
             </span>
           </label>
         </div>
@@ -185,35 +185,35 @@
           <label class="toggle-label" for="singleQueuedAutoRun">
             <input type="checkbox" id="singleQueuedAutoRun" aria-describedby="singleQueuedAutoRunHint">
             <span>
-              加入自动调度队列
-              <span class="hint-inline" id="singleQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
+              <span data-i18n="panelQueuedAutoRun">加入自动调度队列</span>
+              <span class="hint-inline" id="singleQueuedAutoRunHint" data-i18n="panelQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
             </span>
           </label>
           <div id="singleQueuedAutoRunError" class="result" role="alert" hidden></div>
         </div>
         <div class="form-row" id="singleGitIdentities"></div>
         <div class="form-row">
-          <label>协作人员 (可多选)</label>
+          <label data-i18n="panelCollaborators">协作人员 (可多选)</label>
           <div id="singleAssignees" class="checkbox-group">
-            <p class="placeholder">选择工作空间后加载成员</p>
+            <p class="placeholder" data-i18n="panelLoadMembersAfterWs">选择工作空间后加载成员</p>
           </div>
         </div>
       </div>
 
       <!-- 任务信息编辑 -->
       <div class="section">
-        <h3>📝 任务信息</h3>
+        <h3 data-i18n="panelTaskInfo">📝 任务信息</h3>
         <div id="singleResult" class="result"></div>
         <div class="target-row">
           <div style="flex:1">
-            <label>标题</label>
-            <input type="text" id="singleTaskTitle" class="form-input" placeholder="任务标题">
+            <label data-i18n="panelTaskTitle">标题</label>
+            <input type="text" id="singleTaskTitle" class="form-input" data-i18n-placeholder="panelTaskTitlePlaceholder" placeholder="任务标题">
           </div>
-          <button id="btnCreateSingle" class="btn btn-primary" style="flex-shrink:0;margin-top:18px">✅ 创建任务</button>
+          <button id="btnCreateSingle" data-i18n="panelCreateTask" class="btn btn-primary" style="flex-shrink:0;margin-top:18px">✅ 创建任务</button>
         </div>
         <div class="form-row">
-          <label>描述</label>
-          <textarea id="singleTaskDesc" class="form-textarea" rows="14" placeholder="点击请求列表中的请求 → 自动填充"></textarea>
+          <label data-i18n="panelTaskDesc">描述</label>
+          <textarea id="singleTaskDesc" class="form-textarea" rows="14" data-i18n-placeholder="panelTaskDescPlaceholder" placeholder="点击请求列表中的请求 → 自动填充"></textarea>
         </div>
       </div>
     </section>
@@ -222,15 +222,15 @@
     <section id="tab-batch" class="tab-content">
       <!-- 捕获控制 -->
       <div class="section">
-        <h3>🎯 自动捕获设置</h3>
+        <h3 data-i18n="panelBatchCaptureSettings">🎯 自动捕获设置</h3>
         <div class="form-row">
           <label class="toggle-label">
             <input type="checkbox" id="captureToggle">
-            启用自动请求捕获
+            <span data-i18n="panelEnableCapture">启用自动请求捕获</span>
           </label>
         </div>
         <div class="form-row">
-          <label>捕获状态码</label>
+          <label data-i18n="panelCaptureStatusCodes">捕获状态码</label>
           <div class="checkbox-group horizontal" id="statusCodeFilters">
             <label><input type="checkbox" value="2xx" checked> 2xx</label>
             <label><input type="checkbox" value="3xx" checked> 3xx</label>
@@ -240,24 +240,24 @@
           </div>
         </div>
         <div class="form-row">
-          <span id="captureStatus" class="status-text">⏸️ 捕获已停止</span>
+          <span id="captureStatus" class="status-text" data-i18n="panelCaptureStopped">⏸️ 捕获已停止</span>
           <span id="capturedCount" class="status-text" style="display:none"> | 5xx 示数: <strong>0</strong></span>
         </div>
       </div>
 
       <!-- 工作空间 & 项目选择 -->
       <div class="section">
-        <h3>🗂️ 批量创建目标</h3>
+        <h3 data-i18n="panelBatchTarget">🗂️ 批量创建目标</h3>
         <div class="form-row">
-          <label>工作空间</label>
+          <label data-i18n="panelBatchWorkspace">工作空间</label>
           <select id="batchWorkspace" class="form-select">
-            <option value="">-- 请选择 --</option>
+            <option value="" data-i18n="panelSelectWorkspace">-- 请选择工作空间 --</option>
           </select>
         </div>
         <div class="form-row">
           <label id="batchProjectsLabel">项目 (单选)</label>
-          <div id="batchProjects" class="checkbox-group" role="radiogroup" aria-label="项目（单选）" aria-required="true" aria-labelledby="batchProjectsLabel">
-            <p class="placeholder">请先选择工作空间</p>
+          <div id="batchProjects" class="checkbox-group" role="radiogroup" aria-label="项目（单选）" data-i18n-aria-label="panelProjectSingleAria" aria-required="true" aria-labelledby="batchProjectsLabel">
+            <p class="placeholder" data-i18n="panelBatchPickWsFirst">请先选择工作空间</p>
           </div>
         </div>
         <div class="form-row">
@@ -267,35 +267,35 @@
           </select>
         </div>
         <div class="form-row">
-          <label>交付物类别</label>
+          <label data-i18n="panelDeliverable">交付物类别</label>
           <select id="batchDeliverable" class="form-select">
             <option value="">请先选择工作空间</option>
           </select>
         </div>
         <div class="form-row">
-          <label>已安装镜像 <span id="batchImageRequired" class="hint-inline" hidden style="color:#f38ba8;">*自动运行必选</span></label>
+          <label>已安装镜像 <span id="batchImageRequired" class="hint-inline" hidden style="color:#f38ba8;" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
           <select id="batchContainerImage" class="form-select">
-            <option value="">无</option>
+            <option value="" data-i18n="panelNone">无</option>
           </select>
         </div>
         <div class="target-row">
           <div style="flex:1">
-            <label>智能体资源配置 <span class="hint-inline">— 绑定镜像后必填</span></label>
+            <label><span data-i18n="panelFeatureParams">智能体资源配置</span> <span class="hint-inline" data-i18n="panelFeatureParamsHint">— 绑定镜像后必填</span></label>
             <select id="batchFeatureParamsSource" class="form-select">
-              <option value="">-- 请选择 --</option>
-              <option value="company">公司默认</option>
-              <option value="workspace">工作空间默认</option>
-              <option value="personal">个人配置</option>
+              <option value="" data-i18n="panelSelectOption">-- 请选择 --</option>
+              <option value="company" data-i18n="panelCompanyDefault">公司默认</option>
+              <option value="workspace" data-i18n="panelWorkspaceDefault">工作空间默认</option>
+              <option value="personal" data-i18n="panelPersonalConfig">个人配置</option>
             </select>
           </div>
           <div style="flex:1" id="batchPersonalConfigWrap" hidden>
-            <label>个人配置</label>
+            <label data-i18n="panelPersonalConfig">个人配置</label>
             <select id="batchPersonalConfig" class="form-select">
-              <option value="">-- 请选择个人配置 --</option>
+              <option value="" data-i18n="panelSelectPersonalConfig">-- 请选择个人配置 --</option>
             </select>
           </div>
           <div style="flex:1">
-            <label>截止日期</label>
+            <label data-i18n="panelDueDate">截止日期</label>
             <input type="datetime-local" id="batchDueDate" class="form-input">
           </div>
         </div>
@@ -322,7 +322,7 @@
         <div class="form-row">
           <label>基准分支 <span class="hint-inline">— 批量任务共用；空则用项目默认分支</span></label>
           <div id="batchRepoBases" class="repo-bases">
-            <p class="placeholder">空则用项目默认分支</p>
+            <p class="placeholder" data-i18n="panelBaseBranchPlaceholder">空则用项目默认分支</p>
           </div>
         </div>
         <div class="form-row">
@@ -333,17 +333,17 @@
         <div class="form-row">
           <label>合并目标分支 <span class="hint-inline">— 选择模板或输入分支名，所有批量任务共用</span></label>
           <div class="target-row" style="gap:4px">
-            <input type="text" id="batchMergeTarget" class="form-input" style="flex:1" placeholder="如: main, develop" list="batchMergeTargetList">
-            <button id="btnRefreshBatchBranches" class="btn btn-sm" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
+            <input type="text" id="batchMergeTarget" class="form-input" style="flex:1" data-i18n-placeholder="panelMergePlaceholder" placeholder="如: main, develop" list="batchMergeTargetList">
+            <button id="btnRefreshBatchBranches" class="btn btn-sm" data-i18n-title="panelRefreshBranchesTitle" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
           </div>
           <datalist id="batchMergeTargetList"></datalist>
         </div>
       </div>
 
       <div class="btn-row">
-        <button id="btnRefreshErrors" class="btn">🔄 刷新错误列表</button>
-        <button id="btnClearErrors" class="btn btn-danger">🗑️ 清空错误列表</button>
-        <button id="btnCreateBatch" class="btn btn-primary">📦 批量创建任务</button>
+        <button id="btnRefreshErrors" data-i18n="panelBatchRefreshErrors" class="btn">🔄 刷新错误列表</button>
+        <button id="btnClearErrors" data-i18n="panelBatchClearErrors" class="btn btn-danger">🗑️ 清空错误列表</button>
+        <button id="btnCreateBatch" data-i18n="panelBatchCreate" class="btn btn-primary">📦 批量创建任务</button>
       </div>
       <div id="batchResult" class="result"></div>
     </section>
@@ -351,13 +351,13 @@
     <!-- Tab: 错误列表 -->
     <section id="tab-errors" class="tab-content">
       <div class="section">
-        <h3>⚠️ 已捕获的错误请求</h3>
+        <h3 data-i18n="panelErrorsCaptured">⚠️ 已捕获的错误请求</h3>
         <div class="btn-row">
           <button id="btnRefreshErrorList" class="btn btn-sm">🔄 刷新</button>
           <button id="btnClearErrorList" class="btn btn-sm btn-danger">🗑️ 清空</button>
         </div>
         <div id="errorList" class="error-list">
-          <p class="placeholder">暂无捕获的错误请求</p>
+          <p class="placeholder" data-i18n="panelNoErrors">暂无捕获的错误请求</p>
         </div>
       </div>
     </section>
@@ -365,15 +365,15 @@
     <!-- Tab: 历史记录 -->
     <section id="tab-history" class="tab-content">
       <div class="section">
-        <h3>📜 任务创建历史</h3>
+        <h3 data-i18n="panelHistoryTitle">📜 任务创建历史</h3>
         <div class="btn-row">
           <button id="btnRefreshHistory" class="btn btn-sm">🔄 刷新</button>
-          <button id="btnClearHistory" class="btn btn-sm btn-danger">🗑️ 清空历史</button>
-          <button id="btnRetryAllFailed" class="btn btn-sm" style="display:none">🔁 重试全部失败</button>
+          <button id="btnClearHistory" data-i18n="panelClearHistory" class="btn btn-sm btn-danger">🗑️ 清空历史</button>
+          <button id="btnRetryAllFailed" data-i18n="panelRetryAllFailed" class="btn btn-sm" style="display:none">🔁 重试全部失败</button>
         </div>
         <div id="historyStats" class="history-stats"></div>
         <div id="historyList" class="history-list">
-          <p class="placeholder">暂无创建记录</p>
+          <p class="placeholder" data-i18n="panelNoHistory">暂无创建记录</p>
         </div>
         <div id="historyResult" class="result"></div>
       </div>
@@ -382,12 +382,16 @@
     <!-- Tab: 使用说明 -->
     <section id="tab-guide" class="tab-content">
       <div class="section">
-        <h3>📖 使用说明</h3>
+        <h3 data-i18n="panelGuideSectionTitle">📖 使用说明</h3>
         <div id="panel-user-guide" class="tcp-guide-host"></div>
       </div>
     </section>
   </div>
 
+  <script src="../lib/i18n.js"></script>
+  <script src="../lib/i18n-messages.js"></script>
+  <script src="../lib/i18n-ui-messages.js"></script>
+  <script src="../lib/i18n-tx.js"></script>
   <script src="../lib/aidev-meta.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/dom-trace.js"></script>
@@ -398,6 +402,7 @@
   <script src="../lib/panel-request-bootstrap.js"></script>
   <script src="../lib/plugin-brand.js"></script>
   <script src="../lib/user-guide.js"></script>
+  <script src="../lib/user-guide-en-sections.js"></script>
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/project-auto-run-label.js"></script>
   <script src="../lib/workspace-auto-schedule.js"></script>

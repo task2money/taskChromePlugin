@@ -270,13 +270,13 @@ describe('single-select source contracts', () => {
     const workspace = read('panel/lib/workspace.js') + read('panel/lib/workspace-projects.js');
     const panelHtml = read('panel/panel.html');
     const lib = read('lib/project-auto-run-label.js');
-    assert.match(markup, /项目 \(单选\)/);
+    assert.match(markup, /项目 \(单选\)|floatProjectLegend|panelProjectSingle/);
     assert.match(lib, /type="radio"/);
     assert.match(content, /input\.project-radio/);
     assert.doesNotMatch(workspace, /select-all/);
     assert.doesNotMatch(workspace, /全选\/取消/);
     assert.match(workspace, /project-radio/);
-    assert.match(panelHtml, /项目 \(单选\)/);
+    assert.match(panelHtml, /项目 \(单选\)|panelProjectSingle/);
     assert.doesNotMatch(panelHtml, /项目 \(可多选\)/);
   });
 });

@@ -3,19 +3,19 @@
  */
 async function loadWorkspaces() {
   if (!isLoggedIn) {
-    wsSelect.innerHTML = '<option value="">-- 请先登录 --</option>';
+    wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('floatPleaseLoginFirst') : '-- 请先登录 --'}</option>`;
     return;
   }
-  wsSelect.innerHTML = '<option value="">加载中...</option>';
+  wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonLoading') : '加载中...'}</option>`;
   try {
     const data = await swApi('getWorkspaces');
 
     workspacesData = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
     if (!workspacesData.length) {
-      wsSelect.innerHTML = '<option value="">(无工作空间)</option>';
+      wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonNoWorkspace') : '(无工作空间)'}</option>`;
       return;
     }
-    wsSelect.innerHTML = '<option value="">-- 选择工作空间 --</option>';
+    wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonSelectWsOption') : '-- 选择工作空间 --'}</option>`;
     if (typeof WorkspaceList === 'undefined' || typeof WorkspaceList.workspaceOptionLabels !== 'function') {
       throw new Error('WorkspaceList helpers missing');
     }
@@ -50,7 +50,7 @@ async function loadWorkspaces() {
       if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
       return;
     }
-    wsSelect.innerHTML = `<option value="">加载失败: ${e.message}</option>`;
+    wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : `加载失败: ${e.message}`}</option>`;
     if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
   }
 }
@@ -131,7 +131,7 @@ async function refreshWorkspaceScheduleEnabled(wsId, companyId) {
 }
 
 async function loadProjects(wsId) {
-  projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">加载中...</span>';
+  projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('commonLoading') : '加载中...'}</span>`;
   try {
     const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
     const companyId = ws?.company_id || ws?.companyId;
@@ -139,7 +139,7 @@ async function loadProjects(wsId) {
 
     projectsData = Array.isArray(data) ? data : (data?.items || data?.data || []);
     if (!projectsData.length) {
-      projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">无项目</span>';
+      projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('commonNoProjectsShort') : '无项目'}</span>`;
       syncFloatAutoRun(false);
       return;
     }
@@ -169,7 +169,7 @@ async function loadProjects(wsId) {
     projectsData = [];
     syncFloatAutoRun(false);
     if (handleApiAuthFailure(e)) return;
-    projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">加载失败: ${e.message}</span>`;
+    projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">${typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : `加载失败: ${e.message}`}</span>`;
     if (typeof setDataTraceId === 'function') setDataTraceId(projectsDiv, e);
   }
 }
@@ -212,7 +212,7 @@ function renderAssignees() {
   const Ui = typeof FloatMembersUi !== 'undefined' ? FloatMembersUi : null;
   const WM = typeof WorkspaceMembers !== 'undefined' ? WorkspaceMembers : null;
   if (!Ui) {
-    assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">暂无成员</span>';
+    assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('commonNoMembers') : '暂无成员'}</span>`;
     return;
   }
   assigneesDiv.innerHTML = Ui.buildAssigneesCheckboxHtml(membersData, { WorkspaceMembers: WM });
@@ -227,7 +227,7 @@ async function renderOwnerOptions(opts = {}) {
   const Ui = typeof FloatMembersUi !== 'undefined' ? FloatMembersUi : null;
   const WM = typeof WorkspaceMembers !== 'undefined' ? WorkspaceMembers : null;
   if (!Ui) {
-    ownerSelect.innerHTML = '<option value="">暂无协作人</option>';
+    ownerSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonNoCollaborators') : '暂无协作人'}</option>`;
     return;
   }
   let preferred = String(opts.preferredOwnerId || '').trim();
@@ -260,15 +260,15 @@ function getSelectedAssigneeIds() {
 wsSelect.addEventListener('change', async () => {
   const wsId = wsSelect.value;
   if (!wsId) {
-    projectsDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">请先选择工作空间</span>';
-    if (progressSelect) progressSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
-    if (deliverableSelect) deliverableSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+    projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('floatPickWsFirst') : '请先选择工作空间'}</span>`;
+    if (progressSelect) progressSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
+    if (deliverableSelect) deliverableSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     if (repoBasesDiv) {
       repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">'
         + CreateTaskPayload.REPO_BASE_EMPTY_HINT + '</span>';
     }
-    if (assigneesDiv) assigneesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">选择工作空间后加载</span>';
-    if (ownerSelect) ownerSelect.innerHTML = '<option value="">-- 请先选择工作空间 --</option>';
+    if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载'}</span>`;
+    if (ownerSelect) ownerSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     membersData = [];
     projectsData = [];
     syncFloatAutoRun(false);
@@ -385,7 +385,7 @@ async function loadWorkspaceCreateMeta(wsId) {
 // 提交
 submitBtn.addEventListener('click', async () => {
   if (!isLoggedIn) {
-    showResult('请先在扩展弹窗中登录', 'error');
+    showResult(typeof tx === 'function' ? tx('commonPleaseLoginExt') : '请先在扩展弹窗中登录', 'error');
     return;
   }
 
@@ -395,7 +395,7 @@ submitBtn.addEventListener('click', async () => {
   const desc = descInput.value.trim();
   const priority = document.getElementById('taskplugin-priority').value;
 
-  if (!wsId) return showResult('请选择工作空间', 'error');
+  if (!wsId) return showResult(typeof tx === 'function' ? tx('commonSelectWsError') : '请选择工作空间', 'error');
   if (!pids.length) return showResult('请选择一个项目', 'error');
   if (!title) return showResult('请输入任务标题', 'error');
   const owner = String(ownerSelect?.value || '').trim();

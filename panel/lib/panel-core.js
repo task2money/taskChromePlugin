@@ -42,6 +42,22 @@ window.PanelApp = (function () {
     requestMsgBuffer,
   };
 
+  api.t = function tPanel(key, params) {
+    if (typeof tx === 'function') return tx(key, params);
+    if (globalThis.AidevpushI18n && typeof globalThis.AidevpushI18n.t === 'function') {
+      return globalThis.AidevpushI18n.t(key, params);
+    }
+    return key;
+  };
+
+  api.initI18n = async function initPanelI18n() {
+    if (!globalThis.AidevpushI18n) return;
+    await globalThis.AidevpushI18n.hydrateFromStorage().catch(() => {});
+    globalThis.AidevpushI18n.applyDom(document);
+    const loc = globalThis.AidevpushI18n.getLocale();
+    document.documentElement.lang = loc === 'en' ? 'en' : 'zh-CN';
+  };
+
   // ---- DOM ----
   api.$ = (sel) => document.querySelector(sel);
   api.$$ = (sel) => document.querySelectorAll(sel);
@@ -133,7 +149,7 @@ window.PanelApp = (function () {
     if (!host) return;
     if (typeof UserGuide === 'undefined') {
       console.warn('[taskChromePlugin] UserGuide 未加载，面板使用说明跳过');
-      host.textContent = '使用说明模块未加载';
+      host.textContent = api.t('guideModuleMissing');
       return;
     }
     // 快捷键说明动态插值用户当前选择的组合（OPT-20260806-017）
@@ -159,8 +175,8 @@ window.PanelApp = (function () {
     state.progressColumnsCache = {};
 
     const wsHint = reason === 'logout'
-      ? '-- 请先登录 --'
-      : '-- 会话过期，请重新登录 --';
+      ? api.t('commonPleaseLoginSelect')
+      : api.t('commonSessionExpiredSelect');
 
     for (const id of ['singleWorkspace', 'batchWorkspace']) {
       const sel = api.$(`#${id}`);
@@ -168,30 +184,31 @@ window.PanelApp = (function () {
     }
 
     const singleProjects = api.$('#singleProjects');
-    if (singleProjects) singleProjects.innerHTML = '<p class="placeholder">请先重新登录</p>';
+    const reloginPh = api.t('commonReloginPanel');
+    if (singleProjects) singleProjects.innerHTML = `<p class="placeholder">${reloginPh}</p>`;
     const batchProjects = api.$('#batchProjects');
-    if (batchProjects) batchProjects.innerHTML = '<p class="placeholder">请先重新登录</p>';
+    if (batchProjects) batchProjects.innerHTML = `<p class="placeholder">${reloginPh}</p>`;
 
     const ownerSel = api.$('#singleOwner');
-    if (ownerSel) ownerSel.innerHTML = '<option value="">请重新登录</option>';
+    if (ownerSel) ownerSel.innerHTML = `<option value="">${api.t('commonRelogin')}</option>`;
     const progressSel = api.$('#singleProgressColumn');
-    if (progressSel) progressSel.innerHTML = '<option value="">请重新登录</option>';
+    if (progressSel) progressSel.innerHTML = `<option value="">${api.t('commonRelogin')}</option>`;
     const deliverableSel = api.$('#singleDeliverable');
-    if (deliverableSel) deliverableSel.innerHTML = '<option value="">请重新登录</option>';
+    if (deliverableSel) deliverableSel.innerHTML = `<option value="">${api.t('commonRelogin')}</option>`;
     const assignees = api.$('#singleAssignees');
-    if (assignees) assignees.innerHTML = '<p class="placeholder">请先重新登录</p>';
+    if (assignees) assignees.innerHTML = `<p class="placeholder">${reloginPh}</p>`;
     const repoBases = api.$('#singleRepoBases');
-    if (repoBases) repoBases.innerHTML = '<p class="placeholder">请先重新登录</p>';
+    if (repoBases) repoBases.innerHTML = `<p class="placeholder">${reloginPh}</p>`;
 
     const batchProgress = api.$('#batchProgressColumn');
-    if (batchProgress) batchProgress.innerHTML = '<option value="">请重新登录</option>';
+    if (batchProgress) batchProgress.innerHTML = `<option value="">${api.t('commonRelogin')}</option>`;
     const batchDeliverable = api.$('#batchDeliverable');
-    if (batchDeliverable) batchDeliverable.innerHTML = '<option value="">请重新登录</option>';
+    if (batchDeliverable) batchDeliverable.innerHTML = `<option value="">${api.t('commonRelogin')}</option>`;
 
     if (notify) {
       const msg = reason === 'logout'
-        ? '⚠️ 已退出登录，请在扩展弹窗中重新登录'
-        : '⏰ 会话已过期，工作空间缓存已清空，请在扩展弹窗中重新登录';
+        ? api.t('commonLogoutNotify')
+        : api.t('commonExpiredNotify');
       api.showR('singleResult', 'error', msg);
       api.showR('batchResult', 'error', msg);
     }
@@ -296,24 +313,24 @@ window.PanelApp = (function () {
     const badge = api.$('#statusBadge');
     if (!badge) return;
     if (!state.apiConfig.token) {
-      badge.textContent = '⚠️ 未登录';
+      badge.textContent = api.t('panelBadgeNotLoggedIn');
       badge.className = 'badge badge-disconnected';
-      badge.title = '请先在扩展弹窗中登录';
+      badge.title = api.t('panelBadgeNotLoggedInTitle');
       return;
     }
     if (expired || !state.isLoggedIn) {
-      badge.textContent = '⏰ 会话过期';
+      badge.textContent = api.t('panelBadgeExpired');
       badge.className = 'badge badge-disconnected';
-      badge.title = '请在扩展弹窗中重新登录';
+      badge.title = api.t('panelBadgeExpiredTitle');
       return;
     }
     if (expiryHint?.text) {
       badge.textContent = expiryHint.text;
       badge.className = expiryHint.level === 'critical' ? 'badge badge-disconnected' : 'badge badge-warning';
-      badge.title = '登录会话即将过期，请尽快重新登录';
+      badge.title = api.t('panelBadgeExpiringTitle');
       return;
     }
-    badge.textContent = '✅ 已连接';
+    badge.textContent = api.t('panelBadgeConnected');
     badge.className = 'badge badge-connected';
     badge.title = '';
   };

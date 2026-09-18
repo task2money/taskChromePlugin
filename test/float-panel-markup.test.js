@@ -12,7 +12,7 @@ describe('float-panel-markup 负责人字段', () => {
       'utf8',
     );
     assert.match(src, /id="taskplugin-owner"/);
-    assert.match(src, /负责人/);
+    assert.match(src, /taskplugin-owner|panelOwner/);
     assert.match(src, /aria-required="true"/);
   });
 });

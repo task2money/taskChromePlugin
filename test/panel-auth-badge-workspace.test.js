@@ -49,16 +49,18 @@ describe('OPT-20260903-013 workspace.js 加载失败统一 data-traceId', () => 
     // 契约：禁止出现 innerHTML 直接拼「加载失败」而未走 setLoadError 的裸赋值；
     // 且每处「加载失败」文案行本身就是 P.setLoadError 调用。
     const lines = workspaceJs.split('\n');
-    const bareAssign = lines.filter((l) => l.includes('加载失败') && l.includes('innerHTML'));
-    assert.deepEqual(bareAssign, [], '存在未走 P.setLoadError 的「加载失败」裸 innerHTML 赋值');
+    const bareAssign = lines.filter(
+      (l) => (l.includes('加载失败') || l.includes('commonLoadFailed')) && l.includes('innerHTML') && !l.includes('P.setLoadError'),
+    );
+    assert.deepEqual(bareAssign, [], '存在未走 P.setLoadError 的加载失败裸 innerHTML 赋值');
     const loadFailLines = lines
       .map((l, i) => ({ l, i }))
-      .filter((x) => x.l.includes('加载失败') && !x.l.trim().startsWith('//'));
+      .filter((x) => (x.l.includes('commonLoadFailed') || x.l.includes('加载失败')) && !x.l.trim().startsWith('//'));
     assert.ok(loadFailLines.length >= 7, '应覆盖全部加载失败节点');
     for (const { l, i } of loadFailLines) {
       assert.ok(
         l.includes('P.setLoadError('),
-        `第 ${i + 1} 行「加载失败」未走 P.setLoadError: ${l.trim()}`,
+        `第 ${i + 1} 行加载失败未走 P.setLoadError: ${l.trim()}`,
       );
     }
   });

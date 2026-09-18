@@ -15,9 +15,9 @@
 
   P.loadMembers = async function (companyId, wsId) {
     const sel = P.$('#singleOwner');
-    sel.innerHTML = '<option value="">加载中...</option>';
+    sel.innerHTML = `<option value="">${P.t('commonLoading')}</option>`;
     if (!(await P.ensureApiReady())) {
-      sel.innerHTML = '<option value="">请先登录</option>';
+      sel.innerHTML = `<option value="">${P.t('commonPleaseLogin')}</option>`;
       return;
     }
     // OPT-20260820-040: 缓存按工作空间隔离（不同工作空间协作人不同）
@@ -33,17 +33,17 @@
       P.renderMemberOptions(cacheKey);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
-        sel.innerHTML = '<option value="">请重新登录</option>';
+        sel.innerHTML = `<option value="">${P.t('commonRelogin')}</option>`;
         return;
       }
-      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
+      P.setLoadError(sel, `<option value="">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</option>`, e);
     }
   };
 
   P.renderMemberOptions = function (cacheKey) {
     const members = state.membersCache[cacheKey] || [];
     const sel = P.$('#singleOwner');
-    sel.innerHTML = '<option value="">-- 请选择负责人 --</option>';
+    sel.innerHTML = `<option value="">${P.t('commonSelectOwner')}</option>`;
     let defaultMemberId = '';
     // 优先用登录响应中的 member_id 精确匹配
     if (state.currentMemberId && members.some(m => String(m.id) === state.currentMemberId)) {
@@ -70,14 +70,14 @@
 
   P.loadProgressColumns = async function (companyId, wsId, selectId) {
     const sel = P.$(`#${selectId}`);
-    sel.innerHTML = '<option value="">加载中...</option>';
+    sel.innerHTML = `<option value="">${P.t('commonLoading')}</option>`;
     const cacheKey = `${companyId}:${wsId}`;
     if (state.progressColumnsCache[cacheKey]) {
       P.renderProgressColumnOptions(selectId, cacheKey);
       return;
     }
     if (!(await P.ensureApiReady())) {
-      sel.innerHTML = '<option value="">请先登录</option>';
+      sel.innerHTML = `<option value="">${P.t('commonPleaseLogin')}</option>`;
       return;
     }
     try {
@@ -87,17 +87,17 @@
       P.renderProgressColumnOptions(selectId, cacheKey);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
-        sel.innerHTML = '<option value="">请重新登录</option>';
+        sel.innerHTML = `<option value="">${P.t('commonRelogin')}</option>`;
         return;
       }
-      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
+      P.setLoadError(sel, `<option value="">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</option>`, e);
     }
   };
 
   P.renderProgressColumnOptions = function (selectId, cacheKey) {
     const columns = state.progressColumnsCache[cacheKey] || [];
     const sel = P.$(`#${selectId}`);
-    sel.innerHTML = '<option value="">-- 自动 --</option>';
+    sel.innerHTML = `<option value="">${P.t('commonAuto')}</option>`;
     for (const col of columns) {
       const cid = String(col.id);
       const name = col.name || cid;
@@ -110,10 +110,10 @@
     const sel = P.$(`#${selectId}`);
     if (!sel) return;
     if (!(await P.ensureApiReady())) {
-      sel.innerHTML = `<option value="">-- ${state.apiConfig.token ? '会话过期，请重新登录' : '请先登录'} --</option>`;
+      sel.innerHTML = `<option value="">${state.apiConfig.token ? P.t('commonSessionExpiredSelect') : P.t('commonPleaseLoginSelect')}</option>`;
       return;
     }
-    sel.innerHTML = '<option value="">加载中...</option>';
+    sel.innerHTML = `<option value="">${P.t('commonLoading')}</option>`;
     try {
       const data = await P.swApi('getWorkspaces');
       state.workspaces = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
@@ -136,13 +136,13 @@
         if (typeof setDataTraceId === 'function') setDataTraceId(sel, e);
         return;
       }
-      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
+      P.setLoadError(sel, `<option value="">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</option>`, e);
     }
   };
 
   P.renderWorkspaceOptions = function (selectId) {
     const sel = P.$(`#${selectId}`);
-    sel.innerHTML = '<option value="">-- 请选择工作空间 --</option>';
+    sel.innerHTML = `<option value="">${P.t('commonSelectWorkspace')}</option>`;
     if (typeof WorkspaceList === 'undefined' || typeof WorkspaceList.workspaceOptionLabels !== 'function') {
       throw new Error('WorkspaceList helpers missing');
     }
@@ -158,10 +158,10 @@
     const wsId = P.$('#singleWorkspace').value;
     await Storage.saveLastWorkspace(wsId);
     if (!wsId) {
-      P.$('#singleProjects').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
-      P.$('#singleOwner').innerHTML = '<option value="">请先选择工作空间</option>';
-      P.$('#singleProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
-      P.$('#singleDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
+      P.$('#singleProjects').innerHTML = `<p class="placeholder">${P.t('commonPickWsFirst')}</p>`;
+      P.$('#singleOwner').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
+      P.$('#singleProgressColumn').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
+      P.$('#singleDeliverable').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
       P.$('#singleAssignees').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
       if (P.$('#singleRepoBases')) {
         P.$('#singleRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
@@ -301,9 +301,9 @@
   P.loadDeliverableTypesInto = async function (selectId, companyId, wsId) {
     const sel = P.$(`#${selectId}`);
     if (!sel) return;
-    sel.innerHTML = '<option value="">加载中...</option>';
+    sel.innerHTML = `<option value="">${P.t('commonLoading')}</option>`;
     if (!(await P.ensureApiReady())) {
-      sel.innerHTML = '<option value="">请先登录</option>';
+      sel.innerHTML = `<option value="">${P.t('commonPleaseLogin')}</option>`;
       return;
     }
     try {
@@ -311,28 +311,28 @@
       const types = data?.current_deliverable_objs || [];
       sel.innerHTML = types.length
         ? types.map((t) => `<option value="${P.escHtml(String(t.id))}">${P.escHtml(t.name || t.id)}</option>`).join('')
-        : '<option value="">无可用交付物类别</option>';
+        : `<option value="">${P.t('commonNoDeliverable')}</option>`;
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
-        sel.innerHTML = '<option value="">请重新登录</option>';
+        sel.innerHTML = `<option value="">${P.t('commonRelogin')}</option>`;
         return;
       }
-      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
+      P.setLoadError(sel, `<option value="">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</option>`, e);
     }
   };
 
   P.loadInstalledImagesInto = async function (selectId, companyId) {
     const sel = P.$(`#${selectId}`);
     if (!sel) return;
-    sel.innerHTML = '<option value="">加载中...</option>';
+    sel.innerHTML = `<option value="">${P.t('commonLoading')}</option>`;
     if (!(await P.ensureApiReady())) {
-      sel.innerHTML = '<option value="">请先登录</option>';
+      sel.innerHTML = `<option value="">${P.t('commonPleaseLogin')}</option>`;
       return;
     }
     try {
       const data = await P.swApi('getInstalledImages', { companyId });
       const images = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
-      let h = '<option value="">无</option>';
+      let h = `<option value="">${P.t('panelNone')}</option>`;
       for (const img of images) {
         const iid = img.id || img._id;
         const label = `${img.name || iid}:${img.version || img.tag || 'latest'}`;
@@ -344,10 +344,10 @@
       P.syncContainerAutoRun(containerId);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
-        sel.innerHTML = '<option value="">请重新登录</option>';
+        sel.innerHTML = `<option value="">${P.t('commonRelogin')}</option>`;
         return;
       }
-      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
+      P.setLoadError(sel, `<option value="">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</option>`, e);
     }
   };
 
@@ -358,7 +358,7 @@
     try {
       const data = await P.swApi('getPersonalFeatureParamsConfigs');
       const configs = data?.configs || (Array.isArray(data) ? data : []);
-      let h = '<option value="">-- 请选择个人配置 --</option>';
+      let h = `<option value="">${P.t('panelSelectPersonalConfig')}</option>`;
       for (const c of configs) {
         const cid = c.id || c._id;
         h += `<option value="${P.escHtml(String(cid))}">${P.escHtml(c.name || c.title || cid)}</option>`;
@@ -366,15 +366,15 @@
       sel.innerHTML = h;
     } catch (e) {
       console.warn('[taskChromePlugin] loadPersonalFeatureParamsInto:', e.message);
-      P.setLoadError(sel, `<option value="">加载失败: ${P.escHtml(e.message)}</option>`, e);
+      P.setLoadError(sel, `<option value="">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</option>`, e);
     }
   };
 
   P.loadProjects = async function (wsId, containerId, companyId) {
     const c = P.$(`#${containerId}`);
-    c.innerHTML = '<p class="placeholder">加载中...</p>';
+    c.innerHTML = `<p class="placeholder">${P.t('commonLoading')}</p>`;
     if (!(await P.ensureApiReady())) {
-      c.innerHTML = '<p class="placeholder">请先登录</p>';
+      c.innerHTML = `<p class="placeholder">${P.t('commonPleaseLogin')}</p>`;
       P.syncContainerAutoRun(containerId, false);
       return;
     }
@@ -393,11 +393,11 @@
       P.checkPanelAidevMatchingProjects(containerId, wsId);
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
-        c.innerHTML = '<p class="placeholder">请重新登录</p>';
+        c.innerHTML = `<p class="placeholder">${P.t('commonRelogin')}</p>`;
         P.syncContainerAutoRun(containerId, false);
         return;
       }
-      P.setLoadError(c, `<p class="placeholder">加载失败: ${P.escHtml(e.message)}</p>`, e);
+      P.setLoadError(c, `<p class="placeholder">${P.t('commonLoadFailed', { msg: P.escHtml(e.message) })}</p>`, e);
       P.syncContainerAutoRun(containerId, false);
     }
   };
@@ -440,7 +440,7 @@
       return wsIds.length === 1 ? wsIds[0] : null;
     } catch (e) {
       console.warn('[taskChromePlugin] panel aidev resolve:', e.message);
-      P.setPanelAidevStatus(`元信息反查失败: ${e.message}`);
+      P.setPanelAidevStatus(P.t('commonMetaLookupFailed', { msg: e.message }));
       return null;
     }
   };

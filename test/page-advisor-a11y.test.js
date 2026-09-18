@@ -71,7 +71,7 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     const src = ui + a11y;
     assert.match(
       src,
-      /aria-label="\$\{e\(PAGE_ADVISOR_A11Y\.toolbarLabel\)\}"|aria-label="优化建议操作栏"/,
+      /aria-label="\$\{e\(PAGE_ADVISOR_A11Y\.toolbarLabel\)\}"|paToolbarLabel|aria-label="优化建议操作栏"/,
     );
     assert.match(src, /aria-describedby="taskplugin-page-advisor-hint"/);
     assert.match(src, /填入仅写入任务描述，不会自动创建任务/);
@@ -103,7 +103,7 @@ describe("project radiogroup a11y", () => {
   it("float markup exposes radiogroup with 项目（单选） label", () => {
     const markup = read("lib/float-panel-markup.js");
     assert.match(markup, /role="radiogroup"/);
-    assert.match(markup, /aria-label="项目（单选）"/);
+    assert.match(markup, /aria-label="项目（单选）"|panelProjectSingleAria/);
     assert.match(markup, /aria-required="true"/);
   });
 

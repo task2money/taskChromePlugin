@@ -55,6 +55,10 @@
       ],
       "js": [
         "lib/content-boot-gate.js",
+        "lib/i18n.js",
+        "lib/i18n-messages.js",
+        "lib/i18n-ui-messages.js",
+        "lib/i18n-tx.js",
         "lib/storage.js",
         "lib/dom-trace.js",
         "lib/create-task-git-identity.js",
@@ -63,6 +67,7 @@
         "lib/element-picker.js",
         "lib/plugin-brand.js",
         "lib/user-guide.js",
+        "lib/user-guide-en-sections.js",
         "lib/float-workspace-select.js",
         "lib/workspace-list.js",
         "lib/workspace-members.js",

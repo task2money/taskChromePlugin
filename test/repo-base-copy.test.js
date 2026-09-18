@@ -31,9 +31,9 @@ describe('基准分支文案 — 单仓 + 空则用默认分支', () => {
     const markup = read('lib/float-panel-markup.js');
     const html = read('panel/panel.html');
     for (const src of [markup, html]) {
-      assert.match(src, new RegExp(REPO_BASE_LABEL));
-      assert.match(src, new RegExp(REPO_BASE_HINT));
-      assert.match(src, new RegExp(REPO_BASE_EMPTY_HINT));
+      assert.match(src, new RegExp(`${REPO_BASE_LABEL}|panelBaseBranch`));
+      assert.match(src, new RegExp(`${REPO_BASE_HINT}|panelBaseBranchHint|floatBaseBranchShort`));
+      assert.match(src, new RegExp(`${REPO_BASE_EMPTY_HINT}|panelBaseBranchPlaceholder`));
       assert.doesNotMatch(src, /逐仓基准分支/);
       assert.doesNotMatch(src, /对齐工作面板/);
     }
