@@ -5,10 +5,12 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const {
-  REPO_BASE_EMPTY_HINT,
-  REPO_BASE_HINT,
-  REPO_BASE_LABEL,
+  repoBaseEmptyHint,
+  repoBaseHint,
+  repoBaseLabel,
 } = require('../lib/create-task-payload.js');
 
 const root = path.join(__dirname, '..');
@@ -19,21 +21,21 @@ function read(rel) {
 
 describe('基准分支文案 — 单仓 + 空则用默认分支', () => {
   it('共享空态/副文案不再写「逐仓」或「对齐工作面板」', () => {
-    assert.equal(REPO_BASE_LABEL, '基准分支');
-    assert.equal(REPO_BASE_HINT, '空则用项目默认分支');
-    assert.equal(REPO_BASE_EMPTY_HINT, REPO_BASE_HINT);
-    assert.doesNotMatch(REPO_BASE_LABEL, /逐仓/);
-    assert.doesNotMatch(REPO_BASE_HINT, /对齐工作面板/);
-    assert.doesNotMatch(REPO_BASE_EMPTY_HINT, /按仓库填写/);
+    assert.equal(repoBaseLabel(), '基准分支');
+    assert.equal(repoBaseHint(), '空则用项目默认分支');
+    assert.equal(repoBaseEmptyHint(), repoBaseHint());
+    assert.doesNotMatch(repoBaseLabel(), /逐仓/);
+    assert.doesNotMatch(repoBaseHint(), /对齐工作面板/);
+    assert.doesNotMatch(repoBaseEmptyHint(), /按仓库填写/);
   });
 
   it('浮窗与 DevTools 标签均为「基准分支」且 hint 为单仓空则默认', () => {
     const markup = read('lib/float-panel-markup.js');
     const html = read('panel/panel.html');
     for (const src of [markup, html]) {
-      assert.match(src, new RegExp(`${REPO_BASE_LABEL}|panelBaseBranch`));
-      assert.match(src, new RegExp(`${REPO_BASE_HINT}|panelBaseBranchHint|floatBaseBranchShort`));
-      assert.match(src, new RegExp(`${REPO_BASE_EMPTY_HINT}|panelBaseBranchPlaceholder`));
+      assert.match(src, new RegExp(`${repoBaseLabel()}|panelBaseBranch`));
+      assert.match(src, new RegExp(`${repoBaseHint()}|panelBaseBranchHint|floatBaseBranchShort`));
+      assert.match(src, new RegExp(`${repoBaseEmptyHint()}|panelBaseBranchPlaceholder`));
       assert.doesNotMatch(src, /逐仓基准分支/);
       assert.doesNotMatch(src, /对齐工作面板/);
     }
@@ -42,7 +44,7 @@ describe('基准分支文案 — 单仓 + 空则用默认分支', () => {
   it('content.js 空态与 emptyHint 引用共享文案，不残留旧句', () => {
     const { readContentBundle } = require('./helpers/contentBundle.js');
     const content = readContentBundle();
-    assert.match(content, /REPO_BASE_EMPTY_HINT/);
+    assert.match(content, /repoBaseEmptyHint\(\)/);
     assert.doesNotMatch(content, /选择项目后按仓库填写/);
     assert.doesNotMatch(content, /一个任务一个项目，按仓库填写/);
   });
@@ -73,13 +75,13 @@ describe('基准分支文案 — 单仓 + 空则用默认分支', () => {
 
   it('DevTools 单请求/批量面板空态与浮窗同一语义', () => {
     const html = read('panel/panel.html');
-    assert.match(html, new RegExp(REPO_BASE_EMPTY_HINT));
+    assert.match(html, new RegExp(repoBaseEmptyHint()));
     assert.doesNotMatch(html, /选择项目后按仓库填写/);
     assert.doesNotMatch(html, /一个任务一个项目，按仓库填写/);
     const workspace = read('panel/lib/workspace.js');
     const batch = read('panel/tabs/batch.js');
     for (const src of [workspace, batch]) {
-      assert.match(src, /REPO_BASE_EMPTY_HINT/);
+      assert.match(src, /repoBaseEmptyHint\(\)/);
       assert.doesNotMatch(src, /选择项目后按仓库填写/);
     }
   });

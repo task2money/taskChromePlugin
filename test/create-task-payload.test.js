@@ -3,6 +3,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const {
   normalizePriority,
   getDefaultTaskDeadline,
@@ -17,7 +19,7 @@ const {
   parseRemoteBranchNames,
   branchDatalistOptionsHtml,
   repoBaseDatalistId,
-  REPO_BASE_EMPTY_HINT,
+  repoBaseEmptyHint,
 } = require('../lib/create-task-payload.js');
 
 describe('normalizePriority', () => {
@@ -196,7 +198,7 @@ describe('repoBaseBranchKey / normalizeAssignees / buildRepoBaseEditorsHtml', ()
   });
 
   it('empty project list uses single-project empty hint, not select-then-fill copy', () => {
-    assert.equal(REPO_BASE_EMPTY_HINT, '空则用项目默认分支');
+    assert.equal(repoBaseEmptyHint(), '空则用项目默认分支');
     const html = buildRepoBaseEditorsHtml({ projectIds: [] });
     assert.match(html, /空则用项目默认分支/);
     assert.doesNotMatch(html, /选择项目后/);

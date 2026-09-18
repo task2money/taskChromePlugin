@@ -23,6 +23,12 @@ const CJK = /[㐀-䶿一-鿿　-〿！-～]/;
  */
 const SEPARATOR_LITERALS = ["'、'", '"、"', '`、`'];
 
+/**
+ * 品牌专名 SSOT（lib/plugin-brand.js）：产品名不随 locale 变化，
+ * 文案里的品牌位由 `{brand}` 插值注入，故不算「未迁移的用户可见文案」。
+ */
+const BRAND_LITERALS = ["'云端Coding: 自动创新助手'"];
+
 /** 正则字面量中的服务端错误匹配片段（用于识别后端返回的既有文案，非本端拷贝）。 */
 const MATCHER_LITERALS = [
   '已.*占用',
@@ -31,6 +37,8 @@ const MATCHER_LITERALS = [
   '请先登录|会话过期|请刷新页面|请在扩展中重新登录|加载失败',
   // background/sw-page-advisor.js 的超时识别正则：匹配服务端/上游返回的文案。
   'timeout|超时|timed?\\s*out',
+  // lib/workspace-list.js 的租户成员校验失败识别（匹配服务端返回的既有文案）。
+  '/您不是该公司的成员/',
 ];
 
 /** 载入插件消息表（基础表 + panel/float 的 ui 表）。 */
@@ -78,6 +86,7 @@ function stripSeparators(line) {
   let out = line;
   for (const lit of SEPARATOR_LITERALS) out = out.split(lit).join('');
   for (const lit of MATCHER_LITERALS) out = out.split(lit).join('');
+  for (const lit of BRAND_LITERALS) out = out.split(lit).join('');
   return out;
 }
 
@@ -125,6 +134,7 @@ module.exports = {
   CJK,
   SEPARATOR_LITERALS,
   MATCHER_LITERALS,
+  BRAND_LITERALS,
   loadMessageTables,
   forEachCodeLine,
   stripSeparators,

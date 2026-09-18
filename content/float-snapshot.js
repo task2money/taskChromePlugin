@@ -257,7 +257,7 @@ async function restoreOpenSnapshot(snap) {
     if (deliverableSelect) deliverableSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     if (repoBasesDiv) {
       repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">'
-        + CreateTaskPayload.REPO_BASE_EMPTY_HINT + '</span>';
+        + CreateTaskPayload.repoBaseEmptyHint() + '</span>';
     }
     if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载'}</span>`;
     if (ownerSelect) ownerSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
@@ -310,7 +310,7 @@ async function restoreOpenSnapshot(snap) {
       projectsList: projectsData,
       previousValues: normalized.repoBaseBranches || {},
       inputClass: 'taskplugin-input',
-      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
+      emptyHint: CreateTaskPayload.repoBaseEmptyHint(),
     });
     refreshFloatGitIdentities();
     populateFloatRepoBaseDatalists();

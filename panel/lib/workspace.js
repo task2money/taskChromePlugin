@@ -164,7 +164,7 @@
       P.$('#singleDeliverable').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;
       P.$('#singleAssignees').innerHTML = '<p class="placeholder">' + P.t('commonPickWsFirst') + '</p>';
       if (P.$('#singleRepoBases')) {
-        P.$('#singleRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
+        P.$('#singleRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.repoBaseEmptyHint()}</p>`;
       }
       P.syncContainerAutoRun('singleProjects', false);
       await P.refreshWorkspaceScheduleEnabled('singleProjects', '', '');
@@ -267,7 +267,7 @@
       projectsList: list,
       previousValues: prev,
       inputClass: 'form-input',
-      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
+      emptyHint: CreateTaskPayload.repoBaseEmptyHint(),
     });
     if (typeof P.populateRepoBaseBranchDatalists === 'function') {
       P.populateRepoBaseBranchDatalists(box, wsId);

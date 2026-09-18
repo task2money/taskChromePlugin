@@ -3,6 +3,8 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const {
   uniqueCompanies,
   appendWorkspaceRows,
@@ -83,7 +85,7 @@ describe('workspaceOptionLabels', () => {
 describe('tenant membership denial vs plugin/web session mismatch', () => {
   const {
     isTenantMembershipDenied,
-    MEMBERSHIP_MISMATCH_HINT,
+    membershipMismatchHint,
     loadWorkspacesAcrossCompanies,
   } = require('../lib/workspace-list.js');
 
@@ -94,8 +96,8 @@ describe('tenant membership denial vs plugin/web session mismatch', () => {
   });
 
   it('hint tells the user plugin login is independent of the website session', () => {
-    assert.match(MEMBERSHIP_MISMATCH_HINT, /您不是该公司的成员/);
-    assert.match(MEMBERSHIP_MISMATCH_HINT, /插件登录与网页登录是两套会话/);
+    assert.match(membershipMismatchHint(), /您不是该公司的成员/);
+    assert.match(membershipMismatchHint(), /插件登录与网页登录是两套会话/);
   });
 
   it('skips a 403 membership company and keeps the next tenant workspaces', async () => {

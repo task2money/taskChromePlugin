@@ -3,6 +3,8 @@
 const { describe, it, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const API = require('../lib/api.js');
 
 function jsonOk(body) {

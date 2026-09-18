@@ -100,7 +100,7 @@
    */
   P.resetBatchCreateForm = function () {
     PanelCreateSuccess.resetBatchCreateFields(document, {
-      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
+      emptyHint: CreateTaskPayload.repoBaseEmptyHint(),
       defaultDueDate: CreateTaskPayload.getDefaultTaskDeadline(),
     });
     P.syncContainerAutoRun('batchProjects');
@@ -115,7 +115,7 @@
       P.$('#batchProgressColumn').innerHTML = `<option value="">${pickWsFirst}</option>`;
       if (P.$('#batchDeliverable')) P.$('#batchDeliverable').innerHTML = `<option value="">${pickWsFirst}</option>`;
       if (P.$('#batchRepoBases')) {
-        P.$('#batchRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
+        P.$('#batchRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.repoBaseEmptyHint()}</p>`;
       }
       P.syncContainerAutoRun('batchProjects', false);
       await P.refreshWorkspaceScheduleEnabled('batchProjects', '', '');

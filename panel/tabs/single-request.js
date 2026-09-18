@@ -68,7 +68,7 @@
 
   P.resetSingleCreateForm = function () {
     PanelCreateSuccess.resetSingleCreateFields(document, {
-      emptyHint: CreateTaskPayload.REPO_BASE_EMPTY_HINT,
+      emptyHint: CreateTaskPayload.repoBaseEmptyHint(),
       defaultDueDate: CreateTaskPayload.getDefaultTaskDeadline(),
       defaultPriority: '1',
     });

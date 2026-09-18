@@ -33,6 +33,8 @@ global.chrome = {
   },
 };
 
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const Storage = require('../lib/storage.js');
 
 describe('Storage baseUrl persistence', () => {

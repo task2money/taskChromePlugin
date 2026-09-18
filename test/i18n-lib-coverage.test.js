@@ -59,7 +59,22 @@ const MIGRATED = [
   'lib/captured-buffer.js',
   'lib/login-finalize.js',
   'lib/async-timeout.js',
+  // 第 9 批：SW 装载 i18n 后同样解锁的双上下文 lib
+  'lib/api.js',
+  'lib/api-http.js',
+  'lib/storage.js',
+  'lib/workspace-list.js',
+  'lib/create-task-payload.js',
+  'lib/create-task-git-identity.js',
+  'lib/page-advisor-site-pending.js',
 ];
+
+/**
+ * 无待迁文案、但因品牌专名（`{brand}` 插值 SSOT）含 CJK 的文件。
+ * 这些文件在 devtools/oauth 回调页被加载而那里没有 tx()，故只做「无未配对 CJK」断言，
+ * 不纳入 MIGRATED 的取词可用性检查。
+ */
+const BRAND_ONLY = ['lib/plugin-brand.js'];
 
 /** 取词器全局名所在的脚本；它在某上下文中的位置之前加载即代表 tx() 可用。 */
 const TX_SCRIPT = 'lib/i18n-tx.js';
@@ -162,6 +177,15 @@ describe('lib/ 层 i18n 覆盖门禁', () => {
       if (/typeof\s+tx\s*===\s*['"]function['"]/.test(src)) offenders.push(rel);
     }
     assert.deepEqual(offenders, [], `lib 脚本出现 content 层兜底取词：\n${offenders.join('\n')}`);
+  });
+
+  it('品牌专名豁免文件除品牌 SSOT 外无未迁移 CJK', () => {
+    const problems = [];
+    for (const rel of BRAND_ONLY) {
+      const unpaired = unpairedCjkLines(fs.readFileSync(path.join(ROOT, rel), 'utf8'));
+      for (const line of unpaired) problems.push(`${rel} ${line.trim()}`);
+    }
+    assert.deepEqual(problems, [], `品牌豁免文件仍有未迁移 CJK：\n${problems.join('\n')}`);
   });
 
   for (const rel of MIGRATED) {
