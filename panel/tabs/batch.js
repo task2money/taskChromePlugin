@@ -64,7 +64,9 @@
     P.updateCaptureStatus(en);
   };
 
-  P.updateCaptureStatus = function (en) { P.$('#captureStatus').textContent = en ? '🔴 自动捕获中...' : '⏸️ 捕获已停止'; };
+  P.updateCaptureStatus = function (en) {
+    P.$('#captureStatus').textContent = P.t(en ? 'panelCapturing' : 'panelCaptureStopped');
+  };
 
   P.refreshCapturedCount = async function () {
     try {
@@ -76,7 +78,10 @@
       const el = P.$('#capturedCount');
       if (el) {
         el.style.display = 'inline';
-        el.innerHTML = ` | 5xx 示数: <strong>${n5xx}</strong>${nAll !== n5xx ? `（总捕获 ${nAll}）` : ''} 条`;
+        el.innerHTML =
+          nAll !== n5xx
+            ? P.t('panelCapture5xxCountTotalHtml', { n: n5xx, total: nAll })
+            : P.t('panelCapture5xxCountHtml', { n: n5xx });
       }
     } catch (_) { /* ignore */ }
   };
@@ -105,9 +110,10 @@
     const id = P.$('#batchWorkspace').value;
     await Storage.saveLastWorkspace(id);
     if (!id) {
-      P.$('#batchProjects').innerHTML = '<p class="placeholder">请先选择工作空间</p>';
-      P.$('#batchProgressColumn').innerHTML = '<option value="">请先选择工作空间</option>';
-      if (P.$('#batchDeliverable')) P.$('#batchDeliverable').innerHTML = '<option value="">请先选择工作空间</option>';
+      const pickWsFirst = P.t('commonPickWsFirst');
+      P.$('#batchProjects').innerHTML = `<p class="placeholder">${pickWsFirst}</p>`;
+      P.$('#batchProgressColumn').innerHTML = `<option value="">${pickWsFirst}</option>`;
+      if (P.$('#batchDeliverable')) P.$('#batchDeliverable').innerHTML = `<option value="">${pickWsFirst}</option>`;
       if (P.$('#batchRepoBases')) {
         P.$('#batchRepoBases').innerHTML = `<p class="placeholder">${CreateTaskPayload.REPO_BASE_EMPTY_HINT}</p>`;
       }

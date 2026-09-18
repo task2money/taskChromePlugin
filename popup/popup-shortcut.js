@@ -39,7 +39,11 @@
     const hint = $('#pickShortcutCaptureHint');
     const editBtn = $('#btnPickShortcutEdit');
     if (hint) hint.style.display = active ? 'block' : 'none';
-    if (editBtn) editBtn.textContent = active ? '✏️ 取消' : '✏️ 修改';
+    if (editBtn) {
+      const txFn = typeof globalThis !== 'undefined' && typeof globalThis.tx === 'function' ? globalThis.tx : null;
+      const key = active ? 'popupPickShortcutCancel' : 'popupPickShortcutEdit';
+      editBtn.textContent = txFn ? txFn(key) : (active ? '✏️ 取消' : '✏️ 修改');
+    }
   }
 
   function cancelShortcutCapture() {

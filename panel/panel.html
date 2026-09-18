@@ -241,7 +241,8 @@
         </div>
         <div class="form-row">
           <span id="captureStatus" class="status-text" data-i18n="panelCaptureStopped">⏸️ 捕获已停止</span>
-          <span id="capturedCount" class="status-text" style="display:none"> | 5xx 示数: <strong>0</strong></span>
+          <!-- 文案由批量标签页脚本 refreshCapturedCount() 经 t() 写入（默认隐藏） -->
+          <span id="capturedCount" class="status-text" style="display:none"></span>
         </div>
       </div>
 
@@ -255,25 +256,25 @@
           </select>
         </div>
         <div class="form-row">
-          <label id="batchProjectsLabel">项目 (单选)</label>
+          <label id="batchProjectsLabel" data-i18n="floatProjectLegend">项目 (单选)</label>
           <div id="batchProjects" class="checkbox-group" role="radiogroup" aria-label="项目（单选）" data-i18n-aria-label="panelProjectSingleAria" aria-required="true" aria-labelledby="batchProjectsLabel">
             <p class="placeholder" data-i18n="panelBatchPickWsFirst">请先选择工作空间</p>
           </div>
         </div>
         <div class="form-row">
-          <label>进度列 <span class="hint-inline">— 选择工作空间后自动加载</span></label>
+          <label><span data-i18n="panelProgressColumn">进度列</span> <span class="hint-inline" data-i18n="panelProgressColumnHint">— 选择工作空间后自动加载</span></label>
           <select id="batchProgressColumn" class="form-select">
-            <option value="">请先选择工作空间</option>
+            <option value="" data-i18n="commonPickWsFirst">请先选择工作空间</option>
           </select>
         </div>
         <div class="form-row">
           <label data-i18n="panelDeliverable">交付物类别</label>
           <select id="batchDeliverable" class="form-select">
-            <option value="">请先选择工作空间</option>
+            <option value="" data-i18n="commonPickWsFirst">请先选择工作空间</option>
           </select>
         </div>
         <div class="form-row">
-          <label>已安装镜像 <span id="batchImageRequired" class="hint-inline" hidden style="color:#f38ba8;" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
+          <label><span data-i18n="panelInstalledImage">已安装镜像</span> <span id="batchImageRequired" class="hint-inline" hidden style="color:#f38ba8;" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
           <select id="batchContainerImage" class="form-select">
             <option value="" data-i18n="panelNone">无</option>
           </select>
@@ -303,7 +304,8 @@
           <label class="toggle-label">
             <input type="checkbox" id="batchAutoRun" disabled aria-disabled="true">
             <span>
-              是否自动运行
+              <span data-i18n="panelAutoRun">是否自动运行</span>
+              <!-- 提示文案由 ProjectAutoRunLabel 运行期写入（见项目自动运行标签模块） -->
               <span class="hint-inline" id="batchAutoRunHint">请先选择项目</span>
             </span>
           </label>
@@ -312,26 +314,26 @@
           <label class="toggle-label" for="batchQueuedAutoRun">
             <input type="checkbox" id="batchQueuedAutoRun" aria-describedby="batchQueuedAutoRunHint">
             <span>
-              加入自动调度队列
-              <span class="hint-inline" id="batchQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
+              <span data-i18n="panelQueuedAutoRun">加入自动调度队列</span>
+              <span class="hint-inline" id="batchQueuedAutoRunHint" data-i18n="panelQueuedAutoRunHint">工作空间已启用自动调度。勾选后任务进入排队，按调度时段逐个启动，创建后不立即启服。不勾选则仍立即按运行模版启动。</span>
             </span>
           </label>
           <div id="batchQueuedAutoRunError" class="result" role="alert" hidden></div>
         </div>
         <div class="form-row" id="batchGitIdentities"></div>
         <div class="form-row">
-          <label>基准分支 <span class="hint-inline">— 批量任务共用；空则用项目默认分支</span></label>
+          <label><span data-i18n="panelBaseBranch">基准分支</span> <span class="hint-inline" data-i18n="panelBatchBaseHint">— 批量任务共用；空则用项目默认分支</span></label>
           <div id="batchRepoBases" class="repo-bases">
             <p class="placeholder" data-i18n="panelBaseBranchPlaceholder">空则用项目默认分支</p>
           </div>
         </div>
         <div class="form-row">
-          <label>工作分支 <span class="hint-inline">— 选择模板或输入分支名，所有批量任务共用</span></label>
-          <input type="text" id="batchWorkBranch" class="form-input" placeholder="选择模板或输入分支名" list="batchWorkBranchList">
+          <label><span data-i18n="floatWorkBranch">工作分支</span> <span class="hint-inline" data-i18n="panelBatchWorkBranchHint">— 选择模板或输入分支名，所有批量任务共用</span></label>
+          <input type="text" id="batchWorkBranch" class="form-input" data-i18n-placeholder="panelWorkBranchPlaceholder" placeholder="选择模板或输入分支名" list="batchWorkBranchList">
           <datalist id="batchWorkBranchList"></datalist>
         </div>
         <div class="form-row">
-          <label>合并目标分支 <span class="hint-inline">— 选择模板或输入分支名，所有批量任务共用</span></label>
+          <label><span data-i18n="floatMergeTarget">合并目标分支</span> <span class="hint-inline" data-i18n="panelBatchWorkBranchHint">— 选择模板或输入分支名，所有批量任务共用</span></label>
           <div class="target-row" style="gap:4px">
             <input type="text" id="batchMergeTarget" class="form-input" style="flex:1" data-i18n-placeholder="panelMergePlaceholder" placeholder="如: main, develop" list="batchMergeTargetList">
             <button id="btnRefreshBatchBranches" class="btn btn-sm" data-i18n-title="panelRefreshBranchesTitle" title="从 Git 仓库刷新分支列表（工作分支 + 合并目标）">🔄</button>
@@ -353,8 +355,8 @@
       <div class="section">
         <h3 data-i18n="panelErrorsCaptured">⚠️ 已捕获的错误请求</h3>
         <div class="btn-row">
-          <button id="btnRefreshErrorList" class="btn btn-sm">🔄 刷新</button>
-          <button id="btnClearErrorList" class="btn btn-sm btn-danger">🗑️ 清空</button>
+          <button id="btnRefreshErrorList" class="btn btn-sm" data-i18n="commonRefresh">🔄 刷新</button>
+          <button id="btnClearErrorList" class="btn btn-sm btn-danger" data-i18n="commonClearIcon">🗑️ 清空</button>
         </div>
         <div id="errorList" class="error-list">
           <p class="placeholder" data-i18n="panelNoErrors">暂无捕获的错误请求</p>
@@ -367,7 +369,7 @@
       <div class="section">
         <h3 data-i18n="panelHistoryTitle">📜 任务创建历史</h3>
         <div class="btn-row">
-          <button id="btnRefreshHistory" class="btn btn-sm">🔄 刷新</button>
+          <button id="btnRefreshHistory" class="btn btn-sm" data-i18n="commonRefresh">🔄 刷新</button>
           <button id="btnClearHistory" data-i18n="panelClearHistory" class="btn btn-sm btn-danger">🗑️ 清空历史</button>
           <button id="btnRetryAllFailed" data-i18n="panelRetryAllFailed" class="btn btn-sm" style="display:none">🔁 重试全部失败</button>
         </div>
