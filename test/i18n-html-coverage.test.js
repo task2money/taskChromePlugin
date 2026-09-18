@@ -27,7 +27,7 @@ const CJK = /[㐀-䶿一-鿿　-〿！-～]/;
 /** 运行期由 JS 写文本的元素（id）——静态迁移不适用，责任在对应 JS 模块。 */
 const JS_DRIVEN = new Set([
   // ProjectAutoRunLabel 返回的提示串仍是硬编码中文，运行期写 textContent 覆盖静态文案；
-  // 迁移责任在 lib/project-auto-run-label.js（见 OPT-20260919-028）。
+  // 迁移责任在 lib/project-auto-run-label.js（见 OPT-20260919-008）。
   'batchAutoRunHint',
   'singleAutoRunHint',
 ]);
