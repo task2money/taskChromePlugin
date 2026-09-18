@@ -103,7 +103,9 @@ describe('content/*.js i18n 覆盖门禁', () => {
   it('全部 content 脚本可解析（模板字面量改写不得破坏语法）', () => {
     const vm = require('node:vm');
     const broken = [];
-    for (const rel of CONTENT_JS) {
+    // 译文表也纳入：每批 i18n 都要改它，且它不在任何 content 行数/注入门禁内。
+    const PARSE_TARGETS = [...CONTENT_JS, 'lib/i18n-messages.js', 'lib/i18n-ui-messages.js'];
+    for (const rel of PARSE_TARGETS) {
       const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
       try {
         // 仅解析不执行：能在 CI 早于浏览器捕获模板字面量/括号配对错误。
