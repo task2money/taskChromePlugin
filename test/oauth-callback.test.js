@@ -3,6 +3,9 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+// 模块用全局 tx() 取词（oauth-callback.html 先加载 lib/i18n-tx.js）。
+require('./helpers/txRuntime.js').installTxRuntime();
+
 const OAuthCallback = require('../lib/oauth-callback.js');
 
 const SESSION_KEY = OAuthCallback.SESSION_KEY;

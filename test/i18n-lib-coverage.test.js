@@ -38,6 +38,9 @@ const MIGRATED = [
   'lib/workspace-auto-schedule.js',
   // panel 页
   'lib/panel-create-success.js',
+  // oauth-callback.html（回调页 boot 前已加载 i18n-tx.js）
+  'lib/oauth-callback.js',
+  'lib/oauth-callback-boot.js',
 ];
 
 /** 取词器全局名所在的脚本；它在某上下文中的位置之前加载即代表 tx() 可用。 */
