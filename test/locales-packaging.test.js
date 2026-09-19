@@ -122,4 +122,21 @@ describe('_locales 打包形态（Chromium 可加载性）', () => {
       }
     }
   });
+
+  it('pack-crx.sh 的打包清单必须包含仓库内 _locales（否则 Chrome 报 Default locale was specified, but _locales subtree is missing）', () => {
+    const packScript = fs.readFileSync(path.join(ROOT, 'scripts/pack-crx.sh'), 'utf8');
+    // PACK_PATHS=( ... ) 段须含 _locales；打包机无 rsync，只 cp 仓库已有路径
+    const pathsBlock = packScript.match(/PACK_PATHS=\([\s\S]*?\)/);
+    assert.ok(pathsBlock, 'pack-crx.sh 中未找到 PACK_PATHS=(...) 清单');
+    assert.match(
+      pathsBlock[0],
+      /^\s*_locales\s*$/m,
+      'pack-crx.sh PACK_PATHS 未包含 _locales —— staging 缺 locale 树时 Chrome --pack-extension 会失败',
+    );
+    assert.doesNotMatch(
+      packScript,
+      /^\s*rsync\b/m,
+      'pack-crx.sh 不得调用 rsync（打包机可能未安装；注释提及除外）',
+    );
+  });
 });

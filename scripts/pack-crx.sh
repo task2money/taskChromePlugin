@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
 # 将扩展打包为 .crx / .zip 并输出到 dist/（见 --help）
+#
+# 依赖：bash、cp、find、node、zip；打 crx 另需 Chrome + ChromeExtPos 私钥。
+# 不依赖 rsync（打包机可能无此命令）。扩展运行时文件须已在本仓库中
+# （含 _locales/*/messages.json，由 scripts/build-locales.js 生成并提交）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -90,23 +94,43 @@ ZIP_NAME="${BASE_NAME}.zip"
 DIST="$ROOT/dist"
 mkdir -p "$DIST"
 
+# 扩展运行时文件清单（须已在仓库中；打包机仅 cp，不跑 rsync / 不现场生成）
+# 含 _locales：manifest default_locale 要求 locale 树，否则 Chrome 报
+# 「Default locale was specified, but _locales subtree is missing」
+PACK_PATHS=(
+  manifest.json
+  oauth-callback.html
+  _locales
+  background
+  content
+  devtools
+  icons
+  lib
+  panel
+  popup
+)
+
+for p in "${PACK_PATHS[@]}"; do
+  if [[ ! -e "$ROOT/$p" ]]; then
+    echo "错误: 仓库缺少打包所需路径: $p（须提前提交到本仓，勿依赖打包机生成）" >&2
+    exit 1
+  fi
+done
+
+if [[ ! -f "$ROOT/_locales/zh_CN/messages.json" ]]; then
+  echo "错误: 缺少 _locales/zh_CN/messages.json（请在开发机运行 node scripts/build-locales.js 并提交）" >&2
+  exit 1
+fi
+
 # 打包仅含扩展运行所需的文件（避免把测试、文档、密钥等打入产物）
+# 用 cp -R：macOS / Linux 自带，不依赖 rsync
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
 SRC="$STAGE/${BASE_NAME}"
 mkdir -p "$SRC"
-rsync -a \
-  --exclude='.DS_Store' \
-  manifest.json \
-  oauth-callback.html \
-  background \
-  content \
-  devtools \
-  icons \
-  lib \
-  panel \
-  popup \
-  "$SRC/"
+for p in "${PACK_PATHS[@]}"; do
+  cp -R "$ROOT/$p" "$SRC/"
+done
 find "$SRC" -name '.DS_Store' -delete
 
 if [[ "$NEED_CRX" -eq 1 ]]; then
