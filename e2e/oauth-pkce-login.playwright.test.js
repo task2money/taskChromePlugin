@@ -26,6 +26,7 @@ function loadPlaywrightTest() {
 const { test, expect } = loadPlaywrightTest();
 
 const { webLoginWithLegalAccept } = require('./helpers/webLoginWithLegalAccept');
+const { launchExtensionContext } = require('./helpers/launchExtensionContext');
 
 const ROOT = path.resolve(__dirname, '..');
 const EXT_PATH = ROOT;
@@ -47,16 +48,10 @@ test.describe('OAuth2+PKCE 登录全链路', () => {
       'oauth-callback.html 必须注册 web_accessible_resources（否则 302 回跳被 Chrome 拦截）').toBe(true);
 
     const { chromium } = loadPlaywrightTest();
-    const context = await chromium.launchPersistentContext('', {
-      channel: 'chromium',
-      headless: false,
-      args: [
-        `--disable-extensions-except=${EXT_PATH}`,
-        `--load-extension=${EXT_PATH}`,
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-    });
+    // OPT-20260918-027: 统一走 launchExtensionContext（优先缓存完整 chromium 的
+    // executablePath，而非易抖的 channel:'chromium'）。后者在本机 headed 下起不来，
+    // 是此前 180s 超时的根因。
+    const context = await launchExtensionContext(chromium, EXT_PATH, { headless: false });
 
     try {
       // ---- 0. 预登录：网页登录获取会话 cookie ----
@@ -93,12 +88,23 @@ test.describe('OAuth2+PKCE 登录全链路', () => {
       }
       expect(callbackSeen, '已登录时 authorize 应 302 code 回跳 oauth-callback.html').toBe(true);
       const callbackPage = context.pages().find((p) => p.url().startsWith(`chrome-extension://${extId}/oauth-callback.html`)) || null;
-      if (callbackPage) {
-        await callbackPage.waitForSelector('#result', { timeout: 30000 });
-        await callbackPage.waitForFunction(
-          () => /登录成功/.test(document.getElementById('result')?.textContent || ''),
-          { timeout: 30000 },
-        );
+      if (callbackPage && !callbackPage.isClosed()) {
+        // SW 在 token 交换完成后会主动关闭回调页，此时 waitForFunction 会以
+        // "Target page ... has been closed" reject —— 那是成功路径，不是失败。
+        // 页面仍存活却迟迟不显示「登录成功」才算失败；交换是否真的成功由下方
+        // getAuthStatus（loggedIn + RS256 JWT）权威断言兜底。
+        const shown = await callbackPage
+          .waitForFunction(
+            () => /登录成功/.test(document.getElementById('result')?.textContent || ''),
+            { timeout: 30000 },
+          )
+          .then(() => true, () => false);
+        if (!shown && !callbackPage.isClosed()) {
+          const text = await callbackPage
+            .evaluate(() => document.getElementById('result')?.textContent || '(无 #result)')
+            .catch((e) => String(e).slice(0, 200));
+          expect(shown, `回调页应显示「登录成功」，实际：${text}`).toBe(true);
+        }
       }
 
       // ---- 6. 登录态验证：getAuthStatus loggedIn + storage 单账号 ----

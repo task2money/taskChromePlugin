@@ -52,15 +52,8 @@ if [ "$rc" -eq 0 ]; then
   exit 0
 fi
 
-# Soft FALLBACK is opt-in only — pre-commit must not mask OAuth regressions
-# (OPT-20260916-016). Emergency: ALLOW_OAUTH_PKCE_FALLBACK=1.
-if [ "${PRE_COMMIT:-}" = "1" ] && [ "${ALLOW_OAUTH_PKCE_FALLBACK:-}" = "1" ] \
-  && [ -f "e2e/real-extension-messaging.playwright.test.js.sh" ]; then
-  echo "oauth-pkce e2e failed under PRE_COMMIT; ALLOW_OAUTH_PKCE_FALLBACK=1 → real-extension-messaging smoke..."
-  bash e2e/real-extension-messaging.playwright.test.js.sh
-  echo "oauth-pkce-login.playwright.test.js: FALLBACK OK (real-extension-messaging)"
-  exit 0
-fi
-
-echo "oauth-pkce-login.playwright.test.js: FAILED (rc=$rc); FALLBACK disabled by default" >&2
+# OPT-20260918-027: FALLBACK 残留已移除（原 ALLOW_OAUTH_PKCE_FALLBACK=1 应急通道）。
+# 该通道以 real-extension-messaging 冒烟替代真实 OAuth 链路，会把登录回归伪装成通过；
+# OAuth e2e 现已稳定（launchExtensionContext + 生产登录辅助器），失败即须暴露。
+echo "oauth-pkce-login.playwright.test.js: FAILED (rc=$rc)" >&2
 exit "$rc"

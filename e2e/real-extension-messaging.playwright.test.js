@@ -25,6 +25,8 @@ function loadPlaywrightTest() {
 
 const { test, expect } = loadPlaywrightTest();
 
+const { launchExtensionContext } = require('./helpers/launchExtensionContext');
+
 const ROOT = path.resolve(__dirname, '..');
 const EXT_PATH = ROOT;
 const T = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -43,16 +45,9 @@ test.describe('真实扩展：SW 消息通道与 panel 消息管道', () => {
       .not.toContain('activeTab');
 
     const { chromium } = loadPlaywrightTest();
-    const context = await chromium.launchPersistentContext('', {
-      channel: 'chromium',
-      headless: false, // 扩展加载需要完整 chromium（非 headless shell）
-      args: [
-        `--disable-extensions-except=${EXT_PATH}`,
-        `--load-extension=${EXT_PATH}`,
-        '--no-sandbox',
-        '--disable-dev-shm-usage',
-      ],
-    });
+    // OPT-20260918-027: 与 oauth-pkce e2e 统一走 launchExtensionContext
+    // （优先缓存完整 chromium 的 executablePath，而非易抖的 channel:'chromium'）。
+    const context = await launchExtensionContext(chromium, EXT_PATH, { headless: false });
 
     try {
       // ---- 1. 等待 SW 启动 ----
