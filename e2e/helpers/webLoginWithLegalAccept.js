@@ -18,6 +18,8 @@ async function webLoginWithLegalAccept(page, { email, password, baseURL }) {
   await page.locator('#email').waitFor({ state: 'visible', timeout: 30000 });
 
   const checkboxCandidates = [
+    // 生产实际 id（见 playwright/_opt_harness.cjs 的可用配方）；testid 项保留为历史兼容
+    page.locator('#login-legal-consent'),
     page.getByTestId('login-accept-all'),
     page.getByTestId('login-privacy-accept'),
     page.getByTestId('login-license-accept'),
@@ -33,10 +35,23 @@ async function webLoginWithLegalAccept(page, { email, password, baseURL }) {
   await page.locator('#email').fill(email);
   await page.locator('#email-password, #password').first().fill(password);
 
-  const loginBtn = page.getByRole('button', { name: '登录', exact: true });
-  for (let i = 0; i < 60; i++) {
-    if (await loginBtn.isEnabled().catch(() => false)) break;
-    await page.waitForTimeout(500);
+  // 等待提交按钮就绪（OPT-20260918-027）。
+  // 原实现：`getByRole('button', {name:'登录', exact:true})` + 60 轮 isEnabled() 轮询。
+  // 每轮未命中都要等满 runner 的 actionTimeout(15s)，最坏 60×15.5s ≈ 930s，远超用例
+  // 180s 预算；且「精确可访问名 = 登录」一旦按钮改名/加图标/切英文就永久匹配不到，
+  // 表现为 oauth e2e 恒超时。改为多候选 + 有界 waitFor——拿不到也不阻塞，
+  // 真正的提交走 form.requestSubmit()，只依赖 form 本身。
+  const submitCandidates = [
+    page.getByTestId('login-submit'),
+    page.locator('button[type=submit]'),
+    page.getByRole('button', { name: /登录|Sign in/i }),
+  ];
+  for (const candidate of submitCandidates) {
+    const first = candidate.first();
+    if (await first.waitFor({ state: 'visible', timeout: 5000 }).then(() => true, () => false)) {
+      await first.waitFor({ state: 'attached', timeout: 5000 }).catch(() => {});
+      break;
+    }
   }
 
   const authResponsePromise = page.waitForResponse(
