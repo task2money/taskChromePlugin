@@ -182,7 +182,10 @@ function buildWorkBranchName(presetType) {
 }
 
 function showResult(msg, type, traceId) {
-  resultDiv.textContent = msg;
+  // 失败文案带可见 traceId（约束 24）：仅 data-traceId 在纯文本复制时不可见。
+  resultDiv.textContent = type === 'error' && typeof formatErrorWithTraceId === 'function'
+    ? formatErrorWithTraceId(msg, traceId)
+    : msg;
   resultDiv.className = `taskplugin-result taskplugin-show taskplugin-result-${type}`;
   if (type === 'error') {
     setDataTraceId(resultDiv, traceId);

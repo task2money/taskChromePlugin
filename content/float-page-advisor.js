@@ -143,11 +143,10 @@ function setPageAdvisorError(msg, traceId) {
   const tid = String(
     typeof extractTraceId === "function" ? extractTraceId(traceId) : (traceId || ""),
   ).trim();
-  let text = String(msg || "");
   // Visible + copyable for chat/Agent (constraint 24): data-traceId alone is invisible when users paste textContent.
-  if (text && tid && !/\btrace[_-]?id\s*[:=]/i.test(text)) {
-    text = `${text}\ntraceId: ${tid}`;
-  }
+  const text = typeof formatErrorWithTraceId === "function"
+    ? formatErrorWithTraceId(msg, tid)
+    : String(msg || "");
   err.textContent = text;
   err.className = text
     ? "taskplugin-result taskplugin-show taskplugin-result-error"

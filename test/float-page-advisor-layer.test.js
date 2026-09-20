@@ -348,16 +348,8 @@ describe('float-page-advisor-layer result message traceId', () => {
         createElement: (tag) => makeEl(tag),
         body: { appendChild() {} },
       },
-      extractTraceId(source) {
-        if (source == null || source === '') return '';
-        if (typeof source === 'string') return source.trim();
-        return String(source.traceId ?? source.trace_id ?? '').trim();
-      },
-      setDataTraceId(el, source) {
-        const tid = sandbox.extractTraceId(source);
-        if (tid) el.setAttribute('data-traceId', tid);
-        else el.removeAttribute('data-traceId');
-      },
+      // extractTraceId / setDataTraceId / formatErrorWithTraceId 由 lib/dom-trace.js 注入，
+      // 不在用例内手工复刻（曾因复刻漂移掩盖真实实现差异）。
       esc: (s) => String(s || ''),
       ensurePageAdvisorLayer: () => layer,
       syncPageAdvisorFillButtons() {},
@@ -376,7 +368,14 @@ describe('float-page-advisor-layer result message traceId', () => {
       path.join(__dirname, '../content/float-page-advisor-layer.js'),
       'utf8',
     );
-    vm.runInNewContext(
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(
+      fs.readFileSync(path.join(__dirname, '../lib/dom-trace.js'), 'utf8'),
+      sandbox,
+      { filename: 'lib/dom-trace.js' },
+    );
+    vm.runInContext(
       `${advisorSrc}\n${layerSrc}\n;`
       + 'this.setPageAdvisorError = setPageAdvisorError;'
       + 'this.handlePageAdvisorResultMessage = handlePageAdvisorResultMessage;',

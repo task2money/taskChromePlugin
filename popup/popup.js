@@ -285,7 +285,10 @@
   function showResult(targetId, msg, type, traceId) {
     const el = $(`#${targetId}`);
     if (!el) return;
-    el.textContent = msg;
+    // 失败文案带可见 traceId（约束 24）：仅 data-traceId 在纯文本复制时不可见。
+    el.textContent = type === 'error' && typeof formatErrorWithTraceId === 'function'
+      ? formatErrorWithTraceId(msg, traceId)
+      : msg;
     el.className = `result ${type}`;
     if (type === 'error') {
       setDataTraceId(el, traceId);

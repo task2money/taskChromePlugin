@@ -72,18 +72,8 @@ describe('page-advisor error data-traceId', () => {
         createElement: (tag) => makeEl(tag),
         body: { appendChild() {} },
       },
-      setDataTraceId(el, source) {
-        const tid = String(source || '').trim();
-        if (tid) el.setAttribute('data-traceId', tid);
-        else el.removeAttribute('data-traceId');
-      },
-      extractTraceId(source) {
-        if (source == null || source === '') return '';
-        if (typeof source === 'string') return source.trim();
-        const tid = source.traceId ?? source.trace_id;
-        if (tid == null) return '';
-        return String(tid).trim();
-      },
+      // extractTraceId / setDataTraceId / formatErrorWithTraceId 由 lib/dom-trace.js 注入，
+      // 不在用例内手工复刻（曾因复刻漂移掩盖真实实现差异）。
       esc: (s) => String(s || '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -111,7 +101,14 @@ describe('page-advisor error data-traceId', () => {
       'utf8',
     );
     // Only need setPageAdvisorError + handlePageAdvisorResultMessage — eval both.
-    vm.runInNewContext(
+    sandbox.globalThis = sandbox;
+    vm.createContext(sandbox);
+    vm.runInContext(
+      fs.readFileSync(path.join(__dirname, '../lib/dom-trace.js'), 'utf8'),
+      sandbox,
+      { filename: 'lib/dom-trace.js' },
+    );
+    vm.runInContext(
       `${advisorSrc}\n${layerSrc}\n;`
       + 'this.setPageAdvisorError = setPageAdvisorError;'
       + 'this.handlePageAdvisorResultMessage = handlePageAdvisorResultMessage;',
