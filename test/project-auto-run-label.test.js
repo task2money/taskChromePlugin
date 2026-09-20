@@ -47,7 +47,7 @@ const allowed = {
 };
 
 describe('projectAllowsAutoRun', () => {
-  it('T1 true when default_auto_run is boolean true', () => {
+  it('T1 true when default_auto_run is boolean true (legacy key)', () => {
     assert.equal(projectAllowsAutoRun(allowed), true);
     assert.equal(projectAutoRunBadgeText(allowed), '可自动运行');
   });
@@ -69,6 +69,43 @@ describe('projectAllowsAutoRun', () => {
     assert.equal(projectAllowsAutoRun({ server_run_template: 'yes' }), false);
     assert.equal(projectAllowsAutoRun({ server_run_template: { default_auto_run: 'true' } }), false);
     assert.equal(projectAllowsAutoRun({ server_run_template: { default_auto_run: 1 } }), false);
+  });
+
+  // OPT-20260720-032: 项目 API 序列化只输出 allow_auto_run；插件须双读否则误标「不可自动运行」。
+  it('T1b true when allow_auto_run is boolean true (current API key)', () => {
+    const p = {
+      id: 'p1b',
+      name: 'AlphaNew',
+      server_run_template: { allow_auto_run: true, platform: 'aliyun' },
+    };
+    assert.equal(projectAllowsAutoRun(p), true);
+    assert.equal(projectAutoRunBadgeText(p), '可自动运行');
+  });
+
+  it('T2b false when allow_auto_run is false', () => {
+    const p = { id: 'p2b', name: 'BetaNew', server_run_template: { allow_auto_run: false } };
+    assert.equal(projectAllowsAutoRun(p), false);
+    assert.equal(projectAutoRunBadgeText(p), '不可自动运行');
+  });
+
+  it('T5 dual-key: allow_auto_run wins over default_auto_run', () => {
+    assert.equal(
+      projectAllowsAutoRun({
+        server_run_template: { allow_auto_run: false, default_auto_run: true },
+      }),
+      false,
+    );
+    assert.equal(
+      projectAllowsAutoRun({
+        server_run_template: { allow_auto_run: true, default_auto_run: false },
+      }),
+      true,
+    );
+  });
+
+  it('T4b false for non-boolean allow_auto_run', () => {
+    assert.equal(projectAllowsAutoRun({ server_run_template: { allow_auto_run: 'true' } }), false);
+    assert.equal(projectAllowsAutoRun({ server_run_template: { allow_auto_run: 1 } }), false);
   });
 });
 
@@ -183,6 +220,35 @@ describe('resolveAutoRunControlState', () => {
     assert.equal(st.hintKey, 'panelAutoRunHintReady');
   });
 
+  it('T12b enables when project uses allow_auto_run (API current key)', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: {
+        id: 'p1c',
+        name: 'Current',
+        server_run_template: { allow_auto_run: true, platform: 'aliyun' },
+      },
+      checkedPreference: true,
+      hasInstalledImage: true,
+    });
+    assert.equal(st.enabled, true);
+    assert.equal(st.checked, true);
+    assert.equal(st.hintKey, 'panelAutoRunHintReady');
+  });
+
+  it('T12c disables when allow_auto_run is false even if legacy default_auto_run true', () => {
+    const st = resolveAutoRunControlState({
+      selectedProject: {
+        id: 'p1d',
+        name: 'Conflict',
+        server_run_template: { allow_auto_run: false, default_auto_run: true, platform: 'aliyun' },
+      },
+      checkedPreference: true,
+      hasInstalledImage: true,
+    });
+    assert.equal(st.enabled, false);
+    assert.equal(st.hintKey, 'panelAutoRunHintNotAllowed');
+  });
+
   it('T13 enables but leaves unchecked when allowed, image selected, and preference false', () => {
     const st = resolveAutoRunControlState({
       selectedProject: allowed,
@@ -218,6 +284,10 @@ describe('projectHasConfiguredRunTemplate', () => {
   it('true when template has a meaningful field', () => {
     assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { platform: 'aliyun', region: 'cn-hangzhou' } }), true);
     assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { label: '2c8g', hardware_config: { cpu_cores: 2 } } }), true);
+  });
+
+  it('true when template has allow_auto_run key only (current API serialize shape)', () => {
+    assert.equal(projectHasConfiguredRunTemplate({ server_run_template: { allow_auto_run: true } }), true);
   });
 
   it('true when template has default_auto_run key (work-panel summarizeRunTemplate 语义)', () => {
