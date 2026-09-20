@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# post-commit：扩展运行时文件变更后自动 publish dist zip（约束 68 / ADR-0097）。
+# fail-open：打包失败只告警，不回滚已成功的 commit。
+set -u
+
+cd "$(git rev-parse --show-toplevel)" || exit 0
+
+if [ "${TASK_CHROME_PLUGIN_SKIP_PACK:-0}" = "1" ] || [ "${TASK_CHROME_PLUGIN_SKIP_PACK:-}" = "true" ]; then
+  exit 0
+fi
+
+# 仅当 HEAD 触及打包清单路径时触发（与 scripts/pack-crx.sh PACK_PATHS 对齐）
+CHANGED="$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)"
+[ -n "$CHANGED" ] || exit 0
+
+NEED=0
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    manifest.json|oauth-callback.html|_locales/*|background/*|content/*|devtools/*|icons/*|lib/*|panel/*|popup/*)
+      NEED=1
+      break
+      ;;
+  esac
+done <<< "$CHANGED"
+
+[ "$NEED" -eq 1 ] || exit 0
+
+echo "post-commit: packing taskChromePlugin dist zip..." >&2
+if ! bash scripts/publish-dist-zip.sh; then
+  echo "post-commit: WARNING publish-dist-zip failed（commit 已成功；可手动 bash scripts/publish-dist-zip.sh）" >&2
+  exit 0
+fi
+exit 0
