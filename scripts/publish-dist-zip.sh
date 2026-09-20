@@ -31,3 +31,6 @@ if ! unzip -p "$ZIP" lib/project-auto-run-label.js | grep -q "allow_auto_run"; t
   exit 1
 fi
 echo "publish-dist-zip: OK $ZIP version=$VERSION" >&2
+
+# GitHub Release（zip；有 crx 则一并上传）— OPT-20260920-032 漏发 release 的补全
+bash "$ROOT/scripts/publish-github-release.sh"

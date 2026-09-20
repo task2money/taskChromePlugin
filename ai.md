@@ -43,7 +43,7 @@
 - content script 改动注意 `manifest.json` `content_scripts` 注入顺序
 - **热重载幂等**：`lib/content-boot-gate.js` 须为 `content_scripts` 首文件；各脚本用 `if (!globalThis.__taskpluginContentBoot?.skip) { … }` 包裹，扩展 Reload 且不刷新页面时避免顶层 `const`/`let` 重复声明
 - 版本号：用户可见行为变更时 bump `manifest.json` `version`
-- **dist zip 自动 publish（硬）**：运行时路径 commit 后须生成 `dist/task-chrome-plugin-v*.zip`（`.githooks/post-commit` + meta SessionEnd；约束 68 / ADR-0097）。入口 `bash scripts/publish-dist-zip.sh`；验收 `bash scripts/verify-dist-zip-reload.sh`
+- **dist zip 自动 publish（硬）**：运行时路径 commit 后须生成 `dist/task-chrome-plugin-v*.zip` **并**上传 GitHub Release（`.githooks/post-commit` + meta SessionEnd；约束 68 / ADR-0097）。入口 `bash scripts/publish-dist-zip.sh`（内含 `publish-github-release.sh`）；验收 `bash scripts/verify-dist-zip-reload.sh` + `gh release view v…`
 - 不新增未批准的敏感权限；网络与截图路径保持既有脱敏与直连约定
 
 ## 相关文档
