@@ -140,21 +140,29 @@ function closePageAdvisorModal() {
 function setPageAdvisorError(msg, traceId) {
   const err = document.getElementById("taskplugin-page-advisor-error");
   if (!err) return;
-  err.textContent = msg || "";
-  err.className = msg
+  const tid = String(
+    typeof extractTraceId === "function" ? extractTraceId(traceId) : (traceId || ""),
+  ).trim();
+  let text = String(msg || "");
+  // Visible + copyable for chat/Agent (constraint 24): data-traceId alone is invisible when users paste textContent.
+  if (text && tid && !/\btrace[_-]?id\s*[:=]/i.test(text)) {
+    text = `${text}\ntraceId: ${tid}`;
+  }
+  err.textContent = text;
+  err.className = text
     ? "taskplugin-result taskplugin-show taskplugin-result-error"
     : "taskplugin-result";
-  if (msg) {
+  if (text) {
     err.setAttribute("role", "alert");
     err.setAttribute("aria-live", "assertive");
   } else {
     err.removeAttribute("role");
     err.removeAttribute("aria-live");
   }
-  if (msg && traceId && typeof setDataTraceId === "function") {
-    setDataTraceId(err, traceId);
-  } else if (msg && traceId) {
-    err.setAttribute("data-traceId", String(traceId));
+  if (text && tid && typeof setDataTraceId === "function") {
+    setDataTraceId(err, tid);
+  } else if (text && tid) {
+    err.setAttribute("data-traceId", tid);
   } else {
     err.removeAttribute("data-traceId");
   }
@@ -359,8 +367,13 @@ function showPageAdvisorResourceError(payload) {
   const layer = ensurePageAdvisorLayer();
   const cards = document.getElementById("taskplugin-page-advisor-cards");
   const links = document.getElementById("taskplugin-page-advisor-links");
+  const tid = String(payload?.traceId || payload?.trace_id || "").trim();
+  const message =
+    payload?.message || (typeof tx === "function" ? tx("paNoAgentConfig") : "未配置智能体资源");
   if (cards) {
-    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card">${esc(payload?.message || (typeof tx === "function" ? tx("paNoAgentConfig") : "未配置智能体资源"))}</div>`;
+    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card"${
+      tid ? ` data-traceId="${esc(tid)}"` : ""
+    }>${esc(message)}</div>`;
   }
   if (links && Array.isArray(payload?.links)) {
     links.hidden = false;
@@ -373,7 +386,7 @@ function showPageAdvisorResourceError(payload) {
       })
       .join("");
   }
-  setPageAdvisorError(payload?.message || "", payload?.traceId);
+  setPageAdvisorError(message, tid);
   syncPageAdvisorFillButtons();
   collapseFloatPanelDuringAdvisor();
   layer.hidden = false;

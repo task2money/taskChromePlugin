@@ -77,6 +77,13 @@ describe('page-advisor error data-traceId', () => {
         if (tid) el.setAttribute('data-traceId', tid);
         else el.removeAttribute('data-traceId');
       },
+      extractTraceId(source) {
+        if (source == null || source === '') return '';
+        if (typeof source === 'string') return source.trim();
+        const tid = source.traceId ?? source.trace_id;
+        if (tid == null) return '';
+        return String(tid).trim();
+      },
       esc: (s) => String(s || '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -119,7 +126,8 @@ describe('page-advisor error data-traceId', () => {
       errorCode: 'PAGE_ADVISOR_TIMEOUT',
       traceId: 'timeout-trace-xyz',
     });
-    assert.equal(errorEl.textContent, '生成优化建议超时（75 秒），请重试');
+    assert.match(errorEl.textContent, /生成优化建议超时/);
+    assert.match(errorEl.textContent, /traceId:\s*timeout-trace-xyz/);
     assert.equal(errorEl.getAttribute('data-traceId'), 'timeout-trace-xyz');
   });
 
@@ -132,8 +140,23 @@ describe('page-advisor error data-traceId', () => {
       errorCode: 'LLM_FAILED',
       traceId: 'llm-fail-trace-abc',
     });
-    assert.equal(errorEl.textContent, msg);
+    assert.match(errorEl.textContent, /Insufficient Balance/);
+    assert.match(errorEl.textContent, /traceId:\s*llm-fail-trace-abc/);
     assert.equal(errorEl.getAttribute('data-traceId'), 'llm-fail-trace-abc');
+  });
+
+  it('parse suggestions json failure shows visible traceId for copy-paste', () => {
+    sandbox.handlePageAdvisorResultMessage({
+      ok: false,
+      error: "parse suggestions json: invalid character 'f' after object key:value pair",
+      errorCode: 'LLM_FAILED',
+      traceId: '87a7e674-a207-4542-a41f-4b5a1eafbbd7',
+    });
+    assert.match(
+      errorEl.textContent,
+      /parse suggestions json:[\s\S]*traceId:\s*87a7e674-a207-4542-a41f-4b5a1eafbbd7/,
+    );
+    assert.equal(errorEl.getAttribute('data-traceId'), '87a7e674-a207-4542-a41f-4b5a1eafbbd7');
   });
 
   it('error without traceId omits data-traceId attribute', () => {
@@ -144,6 +167,7 @@ describe('page-advisor error data-traceId', () => {
       traceId: '',
     });
     assert.equal(errorEl.getAttribute('data-traceId'), null);
+    assert.doesNotMatch(errorEl.textContent, /traceId:/);
   });
 });
 

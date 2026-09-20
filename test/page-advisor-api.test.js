@@ -62,6 +62,39 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
     assert.equal(seen.opts.credentials, 'omit');
   });
 
+  it('GET job prefers body.trace_id on _resolvedTraceId (not poll request id)', async () => {
+    let seenTraceHeader = '';
+    globalThis.fetch = async (_url, opts) => {
+      seenTraceHeader = String(opts?.headers?.['X-Trace-Id'] || '');
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => {
+            if (String(name).toLowerCase() === 'content-type') return 'application/json';
+            if (String(name).toLowerCase() === 'x-trace-id') return seenTraceHeader;
+            return '';
+          },
+        },
+        json: async () => ({
+          job_id: 'j1',
+          status: 'failed',
+          error_message: "parse suggestions json: invalid character 'f'",
+          trace_id: '87a7e674-a207-4542-a41f-4b5a1eafbbd7',
+        }),
+        text: async () => '',
+      };
+    };
+    const job = await PageAdvisorAPI.getSuggestJob('t1', 'j1', session);
+    assert.equal(job.trace_id, '87a7e674-a207-4542-a41f-4b5a1eafbbd7');
+    assert.equal(job._resolvedTraceId, '87a7e674-a207-4542-a41f-4b5a1eafbbd7');
+    assert.notEqual(job._resolvedTraceId, seenTraceHeader);
+    assert.equal(
+      PageAdvisorAPI.pickJobTraceId(job, ''),
+      '87a7e674-a207-4542-a41f-4b5a1eafbbd7',
+    );
+  });
+
   it('422 AGENT_RESOURCE_NOT_CONFIGURED surfaces errorCode', async () => {
     globalThis.fetch = async () => ({
       ok: false,

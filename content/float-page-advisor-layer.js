@@ -477,7 +477,8 @@ function handlePageAdvisorResultMessage(msg) {
     const cards = document.getElementById("taskplugin-page-advisor-cards");
     if (cards) cards.innerHTML = "";
     const errText = msg.error || (typeof tx === "function" ? tx("paFailed") : "页面优化建议失败");
-    setPageAdvisorError(errText, msg.traceId);
+    const failTid = String(msg.traceId || msg.trace_id || "").trim();
+    setPageAdvisorError(errText, failTid);
     collapseFloatPanelDuringAdvisor();
     const layer = document.getElementById("taskplugin-page-advisor-layer");
     if (layer) layer.hidden = false;
