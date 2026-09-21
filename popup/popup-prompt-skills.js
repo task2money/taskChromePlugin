@@ -111,10 +111,34 @@
     renderConflict();
   }
 
+  /**
+   * 采纳服务端回传的正文（OPT-20260922-005）。
+   *
+   * 服务端会把本次提交与远端按 skill_id 三方合并后落库（改的是不同 skill 时不再 409），
+   * 回传的 revision 因此对应的是**合并后**的正文。本机若只更新 revision、正文仍留着
+   * 旧的一份，下次保存就会带着合并后的 revision 提交旧正文 —— 合并进来的同事那半边
+   * 改动会被当成「本机的改动」又改回去，静默丢失。故成功落库后一律以服务端为准。
+   *
+   * @returns {boolean} 本机正文是否被改写（调用方据此重渲染）。
+   */
+  function adoptServerBundle(saved) {
+    if (!saved || typeof saved !== 'object') return false;
+    const remote = PageAdvisorPromptSkills.fromApiPayload(saved);
+    const before = JSON.stringify(PageAdvisorPromptSkills.toApiPayload(store));
+    const after = JSON.stringify(PageAdvisorPromptSkills.toApiPayload(remote));
+    if (before === after) return false;
+    store = remote;
+    return true;
+  }
+
   async function persist() {
     await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
     try {
-      await pushCloud(store);
+      const saved = await pushCloud(store);
+      if (adoptServerBundle(saved)) {
+        // 采纳后的正文也是本机正文，落盘保持与云端一致。
+        await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
+      }
       clearConflict();
       return true;
     } catch (e) {
@@ -359,7 +383,12 @@
         store = PageAdvisorPromptSkills.setActive(store, result.skill.id).store;
       }
       const ok = await persist();
-      fillEditor(result.skill);
+      // 服务端可能已把正文换成合并结果，故按 id 从 store 回读，而不是用本地旧对象。
+      const shown = store.skills.find((s) => s.id === result.skill.id)
+        || PageAdvisorPromptSkills.getActive(store)
+        || store.skills[0]
+        || result.skill;
+      fillEditor(shown);
       renderList();
       if (ok) {
         statusText(tx('paSkillSaved'));

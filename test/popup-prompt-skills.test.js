@@ -385,3 +385,99 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     ctx.sandbox.Storage = original;
   });
 });
+
+describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005）', () => {
+  let ctx;
+
+  const cloudOriginal = {
+    skills: [
+      { id: 'sk_seo', title: 'SEO 原文', tendency: 'seo', body: 'meta', updated_at: 1 },
+      { id: 'sk_conv', title: '转化 原文', tendency: 'conversion', body: 'cta', updated_at: 1 },
+    ],
+    active_skill_id: 'sk_seo',
+    revision: 'rev-1',
+  };
+  // 服务端把本机改的「转化」与自己改的「SEO」按 skill_id 合并后落库再回传。
+  const merged = {
+    skills: [
+      { id: 'sk_seo', title: 'SEO 同事改的', tendency: 'seo', body: 'meta', updated_at: 1 },
+      { id: 'sk_conv', title: '转化 本机改的', tendency: 'conversion', body: 'cta', updated_at: 1 },
+    ],
+    active_skill_id: 'sk_seo',
+    revision: 'rev-merged',
+  };
+
+  function bootMergingPopup() {
+    const puts = [];
+    const c = bootPopup({
+      api: {
+        getPromptSkills: async () => cloudOriginal,
+        putPromptSkills: async (_t, _w, payload) => { puts.push(payload); return merged; },
+      },
+    });
+    return { c, puts };
+  }
+
+  it('PUT 回传合并后的正文时本机采纳，下次保存不会把同事那半边改回去', async () => {
+    const { c, puts } = bootMergingPopup();
+    ctx = c;
+    ctx.api.loadSkills();
+    await flushAll();
+
+    ctx.byId.popupSkillEditingId.value = 'sk_conv';
+    ctx.byId.popupSkillTitle.value = '转化 本机改的';
+    ctx.byId.popupSkillTendency.value = 'conversion';
+    ctx.byId.popupSkillBody.value = 'cta';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    assert.equal(puts.length, 1, '应推送一次');
+    assert.equal(puts[0].base_revision, 'rev-1');
+
+    // 落盘必须是合并后的正文：本机改动与同事改动都在。
+    const written = ctx.lastSet().pageAdvisorPromptSkills;
+    assert.equal(written.find((s) => s.id === 'sk_conv').title, '转化 本机改的');
+    assert.equal(
+      written.find((s) => s.id === 'sk_seo').title,
+      'SEO 同事改的',
+      '合并进来的同事改动必须落到本机，否则下次保存会把它当成「本机改动」改回去',
+    );
+    assert.equal(ctx.byId.popupSkillTitle.value, '转化 本机改的', '编辑器应显示落库正文');
+
+    // 再存一次：带的是合并后的正文与合并后的 revision，不会回退同事的改动。
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+    assert.equal(puts.length, 2);
+    assert.equal(puts[1].base_revision, 'rev-merged');
+    assert.equal(puts[1].skills.find((s) => s.id === 'sk_seo').title, 'SEO 同事改的');
+  });
+
+  it('PUT 回传内容与本机一致时不重复落盘', async () => {
+    // 没有并发编辑时服务端原样落库：回传的正文 = 刚提交的那份（只换 revision）。
+    const echoed = [];
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => cloudOriginal,
+        putPromptSkills: async (_t, _w, payload) => {
+          echoed.push(payload);
+          return { ...payload, revision: 'rev-2' };
+        },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    const setsBefore = ctx.storageSets.length;
+
+    ctx.byId.popupSkillTitle.value = 'SEO 改了下';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    assert.equal(echoed.length, 1);
+    assert.equal(
+      ctx.storageSets.length,
+      setsBefore + 1,
+      '正文没被服务端改写时不该多落一次盘',
+    );
+    assert.equal(ctx.byId.popupSkillTitle.value, 'SEO 改了下');
+  });
+});
