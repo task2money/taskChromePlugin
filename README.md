@@ -2,7 +2,7 @@
 
 从 Chrome DevTools Network 面板捕获 HTTP 请求并创建任务的浏览器扩展。
 
-**使用说明**：扩展内浮窗 / DevTools「使用说明」Tab / 弹窗均可展开查看；完整文稿见 [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)。**新增用户可见功能须同步更新说明**（目录规则 [`ai.md`](./ai.md)）。
+**使用说明**：扩展弹窗与 DevTools「使用说明」Tab 可展开查看（页内浮窗不再展示，避免与弹窗重复）；完整文稿见 [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)。**新增用户可见功能须同步更新说明**（目录规则 [`ai.md`](./ai.md)）。
 
 ## 功能
 
@@ -104,7 +104,7 @@ taskChromePlugin/
     ├── create-task-payload.js     # 创建任务 payload（对齐 work-panel）
     ├── element-picker.js          # 指针选元素：快照/描述拼接（纯函数）
     ├── plugin-brand.js            # 用户可见插件名 SSOT（云端Coding: 自动创新助手）
-    ├── user-guide.js              # 使用说明 UI 渲染 SSOT（浮窗/面板/弹窗）
+    ├── user-guide.js              # 使用说明 UI 渲染 SSOT（弹窗/DevTools 面板）
     ├── har-request.js             # HAR 解析纯函数（DevTools + 单测）
     ├── capture-status.js          # 批量捕获状态码匹配
     └── storage.js                 # chrome.storage 封装

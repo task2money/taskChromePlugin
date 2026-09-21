@@ -45,21 +45,7 @@ if (__taskpluginOnAuthRoute && root) {
   } catch (_) { /* ignore */ }
 })();
 
-if (!__taskpluginFloatSkip && !__taskpluginOnAuthRoute) {
-// ---- 使用说明（SSOT: lib/user-guide.js）----
-(async function mountFloatUserGuide() {
-  const host = document.getElementById('taskplugin-user-guide');
-  if (!host) return;
-  if (typeof UserGuide === 'undefined') {
-    console.warn('[taskChromePlugin] UserGuide 未加载，浮窗使用说明跳过');
-    return;
-  }
-  // 快捷键说明动态插值用户当前选择的组合（OPT-20260806-017）
-  await UserGuide.loadShortcutModeFromStorage().catch(() => {});
-  UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'float', open: false }));
-})();
-}
-
+// 使用说明仅挂扩展弹窗 / DevTools，浮窗不再渲染（与 Popup 重复）。
 
 // ---- Refs ----
 var btn = document.getElementById('taskplugin-float-btn');

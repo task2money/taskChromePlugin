@@ -18,7 +18,7 @@
 
 | 入口 | 挂载约定 |
 |------|----------|
-| 页内浮窗 | `#taskplugin-user-guide` ← `UserGuide.renderCollapsibleHtml({ surface: 'float' })` |
+| 页内浮窗 | **不挂载**使用说明（与扩展弹窗重复；浮窗仅快速创建任务） |
 | DevTools 面板 | 「使用说明」Tab ← `UserGuide.renderFullGuideHtml({ surface: 'panel' })` |
 | 扩展弹窗 | `#popup-user-guide` ← `UserGuide.renderCollapsibleHtml({ surface: 'popup' })` |
 
@@ -26,15 +26,15 @@
 
 - [ ] `docs/USER_GUIDE.md` 已增加或修订对应小节
 - [ ] `lib/user-guide.js` 的 `SECTIONS` 已同步（`id` / `title` / `steps` / `surfaces`）
-- [ ] 若新功能仅出现在某一入口，已正确设置 `surfaces`（`popup` / `float` / `panel`）
+- [ ] 若新功能仅出现在某一入口，已正确设置 `surfaces`（`popup` / `panel`；`float` 不再作为 UI 入口）
 - [ ] `npm test` 中与 user-guide 相关的单测仍通过（章节 id 集合不意外丢失）
 - [ ] README「功能」摘要若对外宣传该能力，已一句话对齐（可选但推荐）
 
 ### 明确禁止
 
 - 禁止只在聊天或 PR 描述里写用法、不写入上述两份 SSOT
-- 禁止 UI 三处入口长期展示过时说明（改 `user-guide.js` 即应三处生效）
-- 禁止为「省事」删除使用说明区域；可折叠，不可移除挂载点
+- 禁止 Popup / DevTools 入口长期展示过时说明（改 `user-guide.js` 即应两处生效）
+- 禁止为「省事」删除 Popup / DevTools 使用说明区域；可折叠，不可移除这两处挂载点。页内浮窗按产品决策不展示使用说明。
 
 ## 其它约束（摘要）
 

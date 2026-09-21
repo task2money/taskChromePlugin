@@ -42,13 +42,13 @@ describe('UserGuide sections', () => {
 
   it('filters sections by surface', () => {
     const floatIds = UserGuide.getSectionsForSurface('float').map((s) => s.id);
-    assert.ok(floatIds.includes('element-pick'));
-    assert.ok(floatIds.includes('float-create'));
-    assert.ok(!floatIds.includes('popup-extras'));
+    assert.deepEqual(floatIds, [], '浮窗不再挂载使用说明，float surface 应无章节');
 
     const popupIds = UserGuide.getSectionsForSurface('popup').map((s) => s.id);
     assert.ok(popupIds.includes('popup-extras'));
     assert.ok(popupIds.includes('login'));
+    assert.ok(popupIds.includes('element-pick'), '指针选择说明须出现在 Popup');
+    assert.ok(popupIds.includes('float-create'));
 
     const panelIds = UserGuide.getSectionsForSurface('panel').map((s) => s.id);
     assert.ok(panelIds.includes('devtools-single'));
@@ -56,8 +56,8 @@ describe('UserGuide sections', () => {
   });
 
   it('renderCollapsibleHtml includes surface and section markers', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
-    assert.match(html, /data-guide-surface="float"/);
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
+    assert.match(html, /data-guide-surface="popup"/);
     assert.match(html, /data-guide-id="element-pick"/);
     assert.match(html, /使用说明/);
     assert.match(html, /Ctrl|⌘|多选/);
@@ -65,25 +65,25 @@ describe('UserGuide sections', () => {
   });
 
   it('login 说明插件会话与网页登录互相独立', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /插件登录与网页登录是两套会话/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /插件登录与网页登录是两套会话/);
   });
 
   it('float-create 说明包含同名工作空间按公司名区分', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /名称 · 公司名/);
   });
 
   it('float-create 说明包含项目是否可自动运行标注', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /可自动运行/);
     assert.match(html, /不可自动运行/);
   });
 
   it('T17 float-create 项目为单选且自动运行随项目能力', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /项目（单选）/);
     assert.doesNotMatch(html, /项目（可多选）/);
     assert.match(html, /所选项目是否允许自动运行/);
@@ -101,7 +101,7 @@ describe('UserGuide sections', () => {
   });
 
   it('page-optimization-suggest documents timeout data-traceId', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /data-traceId/);
     assert.match(html, /75\s*秒/);
     assert.match(html, /llm http 402|余额不足/);
@@ -123,7 +123,7 @@ describe('UserGuide sections', () => {
   });
 
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);
     assert.match(html, /关闭浮窗/);
     assert.doesNotMatch(html, /面板顶部[「"]×[」"].*关闭悬浮球/);
@@ -198,13 +198,13 @@ describe('UserGuide sections', () => {
 
     // 非法值忽略，回退默认 Alt+X 文案
     UserGuide.setShortcutMode('weird');
-    const fallback = UserGuide.renderCollapsibleHtml({ surface: 'float' });
+    const fallback = UserGuide.renderCollapsibleHtml({ surface: 'popup' });
     assert.match(fallback, /Alt\+X/);
     UserGuide.setShortcutMode('');
   });
 
   it('使用说明含标题列表、目录、关闭按钮与 ARIA 折叠', () => {
-    const html = UserGuide.renderCollapsibleHtml({ surface: 'float', open: false });
+    const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /<h4 class="tcp-guide-heading"[^>]*>插件能做什么<\/h4>/);
     assert.match(html, /<ul class="tcp-guide-steps">/);
     assert.match(html, /tcp-guide-toc/);
@@ -227,7 +227,7 @@ describe('UserGuide sections', () => {
     }
     const dom = new JSDOM('<!doctype html><div id="host"></div>');
     const host = dom.window.document.getElementById('host');
-    UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'float', open: true }));
+    UserGuide.mount(host, UserGuide.renderCollapsibleHtml({ surface: 'popup', open: true }));
     const toggle = host.querySelector('[data-guide-toggle]');
     const closeBtn = host.querySelector('[data-guide-close]');
     const panel = host.querySelector('.tcp-guide-body');
@@ -250,5 +250,37 @@ describe('USER_GUIDE.md sync', () => {
     for (const id of UserGuide.listSectionIds()) {
       assert.ok(md.includes(`\`${id}\``) || md.includes(id), `USER_GUIDE.md missing id ${id}`);
     }
+  });
+
+  it('documents that 使用说明 is popup + DevTools only, not float panel', () => {
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /扩展弹窗/);
+    assert.match(md, /浮窗不再|页内浮窗不.*使用说明|不在页内浮窗/);
+  });
+});
+
+describe('float surface does not mount UserGuide', () => {
+  it('float-boot.js 不再挂载 UserGuide', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../content/float-boot.js'), 'utf8');
+    assert.doesNotMatch(src, /UserGuide\.mount/);
+    assert.doesNotMatch(src, /renderCollapsibleHtml\(\{\s*surface:\s*['"]float['"]/);
+  });
+
+  it('content_scripts 主条目不再注入 user-guide', () => {
+    const manifest = JSON.parse(
+      fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'),
+    );
+    const entry = manifest.content_scripts[0];
+    assert.ok(!entry.js.includes('lib/user-guide.js'));
+    assert.ok(!entry.js.includes('lib/user-guide-en-sections.js'));
+    assert.ok(!(entry.css || []).includes('content/content-guide.css'));
+  });
+
+  it('popup 仍挂载使用说明', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
+    assert.match(html, /id="popup-user-guide"/);
+    const auth = fs.readFileSync(path.join(__dirname, '../popup/popup-auth.js'), 'utf8');
+    assert.match(auth, /UserGuide\.mount/);
+    assert.match(auth, /surface:\s*['"]popup['"]/);
   });
 });

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.54",
+  "version": "1.8.55",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -67,8 +67,6 @@
         "lib/create-task-payload.js",
         "lib/element-picker.js",
         "lib/plugin-brand.js",
-        "lib/user-guide.js",
-        "lib/user-guide-en-sections.js",
         "lib/float-workspace-select.js",
         "lib/workspace-list.js",
         "lib/workspace-members.js",
@@ -110,8 +108,7 @@
         "content/content.css",
         "content/content-form.css",
         "content/page-advisor.css",
-        "content/content-region.css",
-        "content/content-guide.css"
+        "content/content-region.css"
       ],
       "run_at": "document_end",
       "all_frames": false
