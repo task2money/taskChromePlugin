@@ -39,6 +39,17 @@
   var STATE_CHECK_TIMEOUT = 5000; // 登录状态检查最长 5 秒
   var STORAGE_READ_TIMEOUT = 2000; // storage 读取最长 2 秒
 
+  function renderPopupVersion() {
+    const el = $('#popupVersion');
+    const api = globalThis.PluginVersion;
+    if (!api || typeof api.applyExtensionVersionToElement !== 'function') return;
+    api.applyExtensionVersionToElement(
+      el,
+      typeof chrome !== 'undefined' ? chrome : undefined,
+      tx,
+    );
+  }
+
   function hideLoadingUI() {
     if (initRetryTimer) {
       clearTimeout(initRetryTimer);
@@ -96,6 +107,7 @@
         document.documentElement.lang = loc === 'en' ? 'en' : 'zh-CN';
       }
     } catch (_) { /* ignore */ }
+    renderPopupVersion();
 
     const watchdog = (typeof startWatchdog === 'function')
       ? startWatchdog(STATE_CHECK_TIMEOUT + 800, () => {

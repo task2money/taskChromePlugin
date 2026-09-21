@@ -9,7 +9,10 @@
 <body>
   <div class="popup-container">
     <header class="popup-header">
-      <h1>🔧 <span data-i18n="extTitle">云端Coding: 自动创新助手</span></h1>
+      <div class="popup-header-title">
+        <h1>🔧 <span data-i18n="extTitle">云端Coding: 自动创新助手</span></h1>
+        <span id="popupVersion" class="popup-version" aria-live="polite"></span>
+      </div>
       <div id="headerUserArea" style="display:none">
         <span id="headerUser" class="header-user"></span>
         <button id="btnLogout" class="btn btn-sm btn-danger">🚪</button>
@@ -182,6 +185,7 @@
   <script src="../lib/api.js"></script>
   <script src="../lib/async-timeout.js"></script>
   <script src="../lib/plugin-brand.js"></script>
+  <script src="../lib/plugin-version.js"></script>
   <script src="../lib/user-guide.js"></script>
   <script src="../lib/hot-path-guards.js"></script>
   <script src="../lib/visibility-interval.js"></script>

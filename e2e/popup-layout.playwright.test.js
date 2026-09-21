@@ -26,6 +26,7 @@ const POPUP_URL = pathToFileURL(POPUP_HTML).href;
 /** 最小 stub：未登录态（getAuthStatus 无 token → showLoginUI → 快捷键区可见但折叠） */
 async function installChromeStub(page) {
   await page.addInitScript(() => {
+    try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const store = {
       baseUrl: 'https://aidevpush.com',
       token: '',
@@ -34,6 +35,7 @@ async function installChromeStub(page) {
       username: '',
       userId: '',
       memberId: '',
+      'aidevpush.locale': 'zh-CN',
     };
     const area = {
       async get(keys) {
@@ -50,6 +52,7 @@ async function installChromeStub(page) {
     };
     window.chrome = {
       runtime: {
+        getManifest: () => ({ version: '1.8.54' }),
         sendMessage: async (msg) => {
           if (msg?.action === 'getAuthStatus') {
             return {
@@ -104,6 +107,14 @@ test.describe('Popup 面板布局', () => {
     await toggle.click();
     await expect(body).toBeHidden();
     await expect(toggle).toHaveText('展开');
+  });
+
+  test('顶栏可见插件版本（来自 getManifest）', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    const ver = page.locator('#popupVersion');
+    await expect(ver).toBeVisible({ timeout: 10000 });
+    await expect(ver).toHaveText('v1.8.54');
   });
 
   test('未登录态可见「显示悬浮球」开关，且不在请求预览区内', async ({ page }) => {
