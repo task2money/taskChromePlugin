@@ -32,6 +32,26 @@
       <p class="float-ball-hint" data-i18n="floatBallHint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
     </section>
 
+    <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
+    <section id="pageAdvisorLlmSection" class="section" style="display:none">
+      <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span></h3>
+      <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。</p>
+      <div class="form-row">
+        <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
+        <input type="url" id="popupLlmBaseUrl" class="form-input" data-i18n-placeholder="paLlmBaseUrlPh" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label for="popupLlmModel" data-i18n="paLlmModel">模型</label>
+        <input type="text" id="popupLlmModel" class="form-input" data-i18n-placeholder="paLlmModelPh" placeholder="deepseek-chat" autocomplete="off">
+      </div>
+      <div class="form-row">
+        <label for="popupLlmApiKey" data-i18n="paLlmApiKey">API Key</label>
+        <input type="password" id="popupLlmApiKey" class="form-input" data-i18n-placeholder="paLlmApiKeyPh" placeholder="sk-…" autocomplete="off">
+      </div>
+      <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
+      <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
+    </section>
+
     <!-- Alt+Shift+Z / Alt+Z 默认工作空间 / 项目；快捷键说明收在「!」 -->
     <section id="pageAdvisorDefaultsSection" class="section" style="display:none">
       <div class="advisor-defaults-heading">
@@ -198,7 +218,9 @@
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/project-auto-run-label.js"></script>
   <script src="../lib/page-advisor-defaults.js"></script>
+  <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-defaults-sync.js"></script>
+  <script src="popup-llm-config.js"></script>
   <script src="popup-auth.js"></script>
   <script src="popup-shortcut.js"></script>
   <script src="popup-defaults.js"></script>

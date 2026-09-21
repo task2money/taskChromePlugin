@@ -158,6 +158,53 @@ async function runPageOptimizationSuggest(tabId) {
     return;
   }
 
+  let llmCfg = { apiKey: '', baseUrl: '', model: '' };
+  if (typeof PageAdvisorLlmConfig !== 'undefined' && PageAdvisorLlmConfig.loadFromStorage) {
+    try {
+      llmCfg = await PageAdvisorLlmConfig.loadFromStorage();
+    } catch (e) {
+      console.warn('[taskChromePlugin] load page-advisor LLM config:', e?.message || e);
+    }
+  }
+  const directReady = typeof PageAdvisorLlmConfig !== 'undefined'
+    && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
+    && typeof PageAdvisorLLM !== 'undefined'
+    && typeof PageAdvisorLLM.suggest === 'function';
+  if (directReady) {
+    await notifyContentPageAdvisor(tabId, {
+      ok: true,
+      phase: 'loading',
+      message: tx('paDirectLlmGenerating'),
+    });
+    try {
+      const suggestions = await PageAdvisorLLM.suggest(llmCfg, {
+        url: data.url,
+        title: data.title,
+        pageText: data.pageText,
+        domOutline: Array.isArray(data.domOutline) ? data.domOutline : [],
+      });
+      await notifyContentPageAdvisor(tabId, {
+        ok: true,
+        phase: 'done',
+        jobId: '',
+        pageUrl: String(data.url || ''),
+        suggestions,
+        featureParamsSource: 'plugin_direct',
+      });
+    } catch (e) {
+      const tid = (typeof APIHttp !== 'undefined' && APIHttp.newRequestTraceId)
+        ? String(APIHttp.newRequestTraceId() || '').trim()
+        : `page-advisor-direct-${Date.now()}`;
+      await notifyContentPageAdvisor(tabId, {
+        ok: false,
+        error: e?.message || tx('paGenerateFailed'),
+        errorCode: 'PLUGIN_DIRECT_LLM_FAILED',
+        traceId: tid,
+      });
+    }
+    return;
+  }
+
   let screenshotUrl = '';
   try {
     screenshotUrl = await capturePageAdvisorScreenshotHook(tabId);

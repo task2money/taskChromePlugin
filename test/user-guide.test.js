@@ -112,6 +112,16 @@ describe('UserGuide sections', () => {
     assert.match(md, /75\s*秒/);
   });
 
+  it('page-optimization-suggest documents plugin-direct LLM API key', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
+    const blob = (section.steps || []).join('\n');
+    assert.match(blob, /API Key/);
+    assert.match(blob, /不再扣次|平台不再扣次/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /自动创新智能体/);
+    assert.match(md, /平台不再扣次/);
+  });
+
   it('page-optimization-suggest: 快速创建任务仅在填入后打开', () => {
     const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
     assert.ok(section);

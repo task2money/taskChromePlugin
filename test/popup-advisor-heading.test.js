@@ -31,6 +31,13 @@ describe('Popup advisor heading', () => {
     assert.equal(msg.en.altZDefaults, 'Alt+Shift+Z');
   });
 
+  it('exposes plugin-direct LLM config section', () => {
+    const html = popupHtml();
+    assert.match(html, /id="pageAdvisorLlmSection"/);
+    assert.match(html, /data-i18n="paLlmApiKey"/);
+    assert.match(html, /id="btnSaveLlmConfig"/);
+  });
+
   it('快捷键说明收在 ! 的 details/summary 内且默认不展开', () => {
     const html = popupHtml();
     const section = html.match(

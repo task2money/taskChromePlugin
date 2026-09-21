@@ -224,6 +224,12 @@
     if (reqSec) reqSec.style.display = 'none';
     setFloatBallSectionVisible(true);
     loadFloatBallConfig();
+    if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
+      window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
+    }
+    if (window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig) {
+      window.PopupPageAdvisorLlm.loadPageAdvisorLlmConfig();
+    }
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -295,6 +301,9 @@
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
     setFloatBallSectionVisible(true);
+    if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
+      window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
+    }
     setPopupGuideVisible(true);
     mountPopupUserGuide();
     if (window.PopupPageAdvisorDefaults?.setDefaultsSectionVisible) {
@@ -445,6 +454,9 @@
         loadCapturedRequests(),
         window.PopupPageAdvisorDefaults?.loadPageAdvisorDefaults
           ? window.PopupPageAdvisorDefaults.loadPageAdvisorDefaults()
+          : Promise.resolve(),
+        window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig
+          ? window.PopupPageAdvisorLlm.loadPageAdvisorLlmConfig()
           : Promise.resolve(),
       ]);
       for (const r of results) {
