@@ -230,6 +230,12 @@
     if (window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig) {
       window.PopupPageAdvisorLlm.loadPageAdvisorLlmConfig();
     }
+    if (window.PopupPageAdvisorSkills?.setSkillSectionVisible) {
+      window.PopupPageAdvisorSkills.setSkillSectionVisible(true);
+    }
+    if (window.PopupPageAdvisorSkills?.loadSkills) {
+      window.PopupPageAdvisorSkills.loadSkills();
+    }
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -303,6 +309,9 @@
     setFloatBallSectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
+    }
+    if (window.PopupPageAdvisorSkills?.setSkillSectionVisible) {
+      window.PopupPageAdvisorSkills.setSkillSectionVisible(true);
     }
     setPopupGuideVisible(true);
     mountPopupUserGuide();
@@ -457,6 +466,9 @@
           : Promise.resolve(),
         window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig
           ? window.PopupPageAdvisorLlm.loadPageAdvisorLlmConfig()
+          : Promise.resolve(),
+        window.PopupPageAdvisorSkills?.loadSkills
+          ? window.PopupPageAdvisorSkills.loadSkills()
           : Promise.resolve(),
       ]);
       for (const r of results) {

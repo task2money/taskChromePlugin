@@ -35,6 +35,8 @@ describe('Popup advisor heading', () => {
     const html = popupHtml();
     assert.match(html, /id="pageAdvisorLlmSection"/);
     assert.match(html, /data-i18n="paLlmApiKey"/);
+    assert.match(html, /id="pageAdvisorSkillSection"/);
+    assert.match(html, /data-i18n="paSkillBody"/);
     assert.match(html, /id="btnSaveLlmConfig"/);
   });
 

@@ -177,12 +177,25 @@ async function runPageOptimizationSuggest(tabId) {
       message: tx('paDirectLlmGenerating'),
     });
     try {
+      let skill = null;
+      if (typeof PageAdvisorPromptSkills !== 'undefined'
+        && PageAdvisorPromptSkills.loadFromStorage) {
+        try {
+          const skillStore = await PageAdvisorPromptSkills.loadFromStorage();
+          skill = PageAdvisorPromptSkills.getActive(skillStore);
+          if (skill) {
+            console.info('[taskChromePlugin] direct LLM applying prompt skill', skill.title);
+          }
+        } catch (skillErr) {
+          console.warn('[taskChromePlugin] load prompt skills:', skillErr?.message || skillErr);
+        }
+      }
       const suggestions = await PageAdvisorLLM.suggest(llmCfg, {
         url: data.url,
         title: data.title,
         pageText: data.pageText,
         domOutline: Array.isArray(data.domOutline) ? data.domOutline : [],
-      });
+      }, { skill });
       await notifyContentPageAdvisor(tabId, {
         ok: true,
         phase: 'done',

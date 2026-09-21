@@ -50,6 +50,7 @@ function loadSw(extra = {}) {
     'lib/page-advisor-api.js',
     'lib/page-advisor-fail-trace-id.js',
     'lib/page-advisor-llm-config.js',
+    'lib/page-advisor-prompt-skills.js',
     'lib/page-advisor-llm-client.js',
     'background/sw-page-advisor.js',
   ]) {
@@ -101,5 +102,41 @@ describe('sw-page-advisor direct LLM', () => {
     assert.ok(done, JSON.stringify(payloads));
     assert.equal(done.suggestions[0].title, 'Direct');
     assert.equal(done.featureParamsSource, 'plugin_direct');
+  });
+
+  it('passes active prompt skill into PageAdvisorLLM.suggest', async () => {
+    let seenSkill;
+    const sandbox = loadSw();
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({ job_id: 'no' });
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: 'sk-local',
+      baseUrl: 'https://llm.test',
+      model: 'm1',
+    });
+    sandbox.PageAdvisorPromptSkills.loadFromStorage = async () => ({
+      skills: [{ id: 'a', title: 'A11y', body: '优先无障碍' }],
+      activeSkillId: 'a',
+    });
+    sandbox.PageAdvisorLLM.suggest = async (_creds, _page, opts) => {
+      seenSkill = opts?.skill;
+      return [{ id: 's1', title: 'X' }];
+    };
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(seenSkill.body, '优先无障碍');
   });
 });
