@@ -17,6 +17,8 @@
     <header class="header">
       <h1>🔧 <span data-i18n="extTitle">云端Coding: 自动创新助手</span></h1>
       <span id="statusBadge" class="badge badge-disconnected" data-i18n="panelBadgeDisconnected">未连接</span>
+      <!-- OPT-20260921-023: 与 Popup 同源（lib/plugin-version.js），排障时可直接对照 GitHub Release -->
+      <span id="panelVersion" class="badge panel-version" aria-live="polite" hidden></span>
     </header>
 
     <!-- Tab 切换 -->
@@ -403,6 +405,7 @@
   <script src="../lib/create-task-payload.js"></script>
   <script src="../lib/panel-request-bootstrap.js"></script>
   <script src="../lib/plugin-brand.js"></script>
+  <script src="../lib/plugin-version.js"></script>
   <script src="../lib/user-guide.js"></script>
   <script src="../lib/user-guide-en-sections.js"></script>
   <script src="../lib/workspace-list.js"></script>

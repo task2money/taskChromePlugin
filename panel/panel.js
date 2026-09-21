@@ -33,9 +33,21 @@ const Panel = (() => {
     });
   }
 
+  // ---- 顶栏版本号（OPT-20260921-023，与 Popup 同源 helper）----
+  function renderPanelVersion() {
+    const api = globalThis.PluginVersion;
+    if (!api || typeof api.applyExtensionVersionToElement !== 'function') return;
+    api.applyExtensionVersionToElement(
+      P.$('#panelVersion'),
+      typeof chrome !== 'undefined' ? chrome : undefined,
+      P.t,
+    );
+  }
+
   // ---- Init ----
   async function init() {
     await P.initI18n();
+    renderPanelVersion();
     // 先挂请求列表管道，再做任何 await（修复卡在「正在加载请求列表...」）
     P.bindRequestMessagePipeline();
     P.mountUserGuide();
