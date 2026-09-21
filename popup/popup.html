@@ -109,7 +109,13 @@
       </div>
     </section>
 
-    <!-- 快捷键说明（默认收起，点击「展开」后显示） -->
+    <!--
+      快捷键说明（默认收起，点击「展开」后显示）。
+      OPT-20260921-029 评估：与上方「!」details 双入口并存是有意保留——
+      本区块承载改绑控件（kbd / 修改 / 恢复默认 / chrome://extensions 链接），
+      并入「!」会把交互控件埋进帮助浮层；一致性由
+      test/popup-advisor-heading.test.js「快捷键双入口不矛盾」锁定。
+    -->
     <section id="shortcutsSection" class="section shortcuts-section" style="display:none">
       <h3 class="shortcuts-title">⌨️ <span data-i18n="shortcuts">快捷键</span> <button id="btnToggleShortcuts" class="btn btn-sm btn-link"><span data-i18n="expand">展开</span></button></h3>
       <div id="shortcutsBody" style="display:none">

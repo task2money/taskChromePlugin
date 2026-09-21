@@ -50,3 +50,60 @@ describe('Popup advisor heading', () => {
     assert.doesNotMatch(hintOutside, /data-i18n="altZHint"/);
   });
 });
+
+/**
+ * OPT-20260921-029：快捷键说明有「!」details 与底部「快捷键」两处入口。
+ * 评估结论是保留双入口——底部区块承载可交互的改绑控件（kbd/修改/恢复默认/
+ * chrome://extensions 链接），并入「!」会把交互控件埋进帮助浮层；且底部区块
+ * 本身已默认收起（style="display:none" + 展开按钮）。因此本组测试锁定
+ * 「两处文案不得互相矛盾」：各自主张各自的键位，且默认拾取键三处一致。
+ */
+describe('Popup 快捷键双入口不矛盾（OPT-20260921-029）', () => {
+  const uiMessages = require('../lib/i18n-ui-messages.js');
+
+  function advisorSection() {
+    return popupHtml().match(/<section id="pageAdvisorDefaultsSection"[\s\S]*?<\/section>/)[0];
+  }
+
+  function shortcutsSection() {
+    return popupHtml().match(/<section id="shortcutsSection"[\s\S]*?<\/section>/)[0];
+  }
+
+  function kbdText(id) {
+    const m = popupHtml().match(new RegExp(`<kbd id="${id}"[^>]*>([^<]*)</kbd>`));
+    return m ? m[1].trim() : '';
+  }
+
+  it('altZHint 只主张 Alt+Z / Alt+Shift+Z，不主张拾取键 Alt+X', () => {
+    for (const locale of ['zh', 'en']) {
+      const hint = i18nMessages()[locale].altZHint;
+      assert.match(hint, /Alt\+Z/, `${locale} altZHint 应说明 Alt+Z`);
+      assert.match(hint, /Alt\+Shift\+Z/, `${locale} altZHint 应说明 Alt+Shift+Z`);
+      assert.doesNotMatch(hint, /Alt\+X(?!\w)/, `${locale} altZHint 不得主张 Alt+X`);
+    }
+  });
+
+  it('拾取区文案只主张 Alt+X，不重述 Alt+Z / Alt+Shift+Z', () => {
+    for (const locale of ['zh', 'en']) {
+      const note = uiMessages[locale].popupPickShortcutNote;
+      assert.match(note, /Alt\+X/, `${locale} popupPickShortcutNote 应给出默认 Alt+X`);
+      assert.doesNotMatch(note, /Alt\+Z|Alt\+Shift\+Z/, `${locale} 拾取区不得重述采集键位`);
+    }
+  });
+
+  it('默认拾取键三处 kbd 一致，且与 popupPickShortcutNote 声明的默认键一致', () => {
+    const keys = ['pickShortcutKey', 'pickShortcutCustomKey', 'pickShortcutHintKey']
+      .map(kbdText);
+    assert.equal(new Set(keys).size, 1, `三处默认拾取键不一致: ${keys.join(' / ')}`);
+    const note = uiMessages.zh.popupPickShortcutNote;
+    assert.ok(
+      note.includes(keys[0]),
+      `popupPickShortcutNote 未声明默认键 ${keys[0]}`,
+    );
+  });
+
+  it('两个区块各不越界：! 区不出现 Alt+X，快捷键区不出现 Alt+Z', () => {
+    assert.doesNotMatch(advisorSection(), /Alt\+X/);
+    assert.doesNotMatch(shortcutsSection(), /Alt\+Z/);
+  });
+});
