@@ -3,6 +3,10 @@
   const $ = (sel) => document.querySelector(sel);
   let store = { skills: [], activeSkillId: '' };
   let saveBusy = false;
+  // OPT-20260922-003: 云端当前版本（GET/PUT 回传），PUT 时作为 base_revision 做 CAS。
+  let cloudRevision = '';
+  // 409 时挂起的冲突：云端文档，供用户选择保留本机或云端。
+  let pendingConflict = null;
 
   function setSkillSectionVisible(visible) {
     const sec = $('#pageAdvisorSkillSection');
@@ -59,26 +63,90 @@
 
   async function pushCloud(st) {
     if (typeof PageAdvisorAPI === 'undefined' || typeof PageAdvisorAPI.putPromptSkills !== 'function') {
-      return;
+      return null;
     }
-    await PageAdvisorAPI.putPromptSkills(
-      PageAdvisorPromptSkills.toApiPayload(st),
+    const saved = await PageAdvisorAPI.putPromptSkills(
+      PageAdvisorPromptSkills.toApiPayload(st, cloudRevision),
       newIdempotencyKey(),
     );
+    // 服务端回传写入后的新版本，作为下次 PUT 的 base_revision。
+    const rev = String(saved?.revision || '').trim();
+    if (rev) cloudRevision = rev;
+    return saved;
+  }
+
+  function clearConflict() {
+    pendingConflict = null;
+    renderConflict();
   }
 
   async function persist() {
     await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
     try {
       await pushCloud(store);
+      clearConflict();
       return true;
     } catch (e) {
+      // 409：另一端已改。本机内容已存本机，交给用户决定保留哪一份。
+      if (e?.status === 409) {
+        pendingConflict = e?.body?.current || { skills: [], active_skill_id: '' };
+        renderConflict();
+        statusText(tx('paSkillConflictTitle'));
+        return false;
+      }
       const tid = e?.traceId || '';
       statusText(tid
         ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})`
         : tx('paSkillSavedLocalCloudFailed'));
       return false;
     }
+  }
+
+  /** 保留本机：以本机内容覆盖云端（此时不带 base_revision，等价用户确认的 LWW）。 */
+  async function resolveConflictKeepLocal() {
+    if (saveBusy) return;
+    saveBusy = true;
+    try {
+      cloudRevision = '';
+      const ok = await persist();
+      if (ok) {
+        renderList();
+        statusText(tx('paSkillSaved'));
+      }
+    } catch (e) {
+      statusText(e?.message || tx('popupSaveFailed'));
+    } finally {
+      saveBusy = false;
+    }
+  }
+
+  /** 使用云端：采纳 409 回传的云端文档并落本机。 */
+  async function resolveConflictUseCloud() {
+    if (saveBusy) return;
+    saveBusy = true;
+    try {
+      const remote = pendingConflict || { skills: [], active_skill_id: '' };
+      store = PageAdvisorPromptSkills.fromApiPayload(remote);
+      cloudRevision = String(remote?.revision || '').trim();
+      clearConflict();
+      await PageAdvisorPromptSkills.saveToStorage(
+        store,
+        typeof Storage !== 'undefined' ? Storage : null,
+      );
+      renderList();
+      fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
+      statusText(tx('paSkillSyncedPull'));
+    } catch (e) {
+      statusText(e?.message || tx('popupSaveFailed'));
+    } finally {
+      saveBusy = false;
+    }
+  }
+
+  function renderConflict() {
+    const box = $('#popupSkillConflict');
+    if (!box) return;
+    box.style.display = pendingConflict ? 'block' : 'none';
   }
 
   async function applyActive(id) {
@@ -102,6 +170,7 @@
         const remote = await PageAdvisorAPI.getPromptSkills();
         const rec = PageAdvisorPromptSkills.reconcileCloud(store, remote);
         store = rec.store;
+        cloudRevision = rec.revision || '';
         if (rec.action === 'upload') {
           await persist();
           statusText(tx('paSkillSyncedUpload'));
@@ -179,6 +248,15 @@
       clear.addEventListener('click', () => {
         applyActive('').catch((e) => statusText(e?.message || tx('popupSaveFailed')));
       });
+    }
+    // OPT-20260922-003: 冲突二选一
+    const keepLocal = $('#btnSkillConflictKeepLocal');
+    if (keepLocal) {
+      keepLocal.addEventListener('click', () => { resolveConflictKeepLocal().catch(() => {}); });
+    }
+    const useCloud = $('#btnSkillConflictUseCloud');
+    if (useCloud) {
+      useCloud.addEventListener('click', () => { resolveConflictUseCloud().catch(() => {}); });
     }
   }
 

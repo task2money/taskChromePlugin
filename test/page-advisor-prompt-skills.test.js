@@ -147,6 +147,40 @@ describe('PageAdvisorLLM skill messages', () => {
   });
 });
 
+describe('prompt skill bundle revision（OPT-20260922-003）', () => {
+  function sampleStore() {
+    return {
+      skills: [{ id: 's1', title: '甲', tendency: 'custom', body: 'a', updatedAt: 3 }],
+      activeSkillId: 's1',
+    };
+  }
+
+  it('toApiPayload 省略 base_revision 时保持旧 payload 形状', () => {
+    const payload = PageAdvisorPromptSkills.toApiPayload(sampleStore());
+    assert.equal('base_revision' in payload, false);
+    assert.equal(payload.active_skill_id, 's1');
+    assert.equal(payload.skills.length, 1);
+  });
+
+  it('toApiPayload 携带 base_revision 供服务端 CAS', () => {
+    const payload = PageAdvisorPromptSkills.toApiPayload(sampleStore(), ' rev-1 ');
+    assert.equal(payload.base_revision, 'rev-1');
+  });
+
+  it('reconcileCloud 回传云端 revision 供下次 PUT 使用', () => {
+    const rec = PageAdvisorPromptSkills.reconcileCloud(sampleStore(), {
+      skills: [],
+      active_skill_id: '',
+      revision: 'rev-cloud',
+    });
+    assert.equal(rec.action, 'upload');
+    assert.equal(rec.revision, 'rev-cloud');
+
+    const empty = PageAdvisorPromptSkills.reconcileCloud(PageAdvisorPromptSkills.emptyStore(), {});
+    assert.equal(empty.revision, '');
+  });
+});
+
 describe('create-task does not embed prompt skill fence', () => {
   it('T6 payload builder has no taskplugin-prompt-skill', () => {
     const src = fs.readFileSync(

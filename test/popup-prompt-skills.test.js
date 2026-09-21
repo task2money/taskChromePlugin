@@ -24,6 +24,9 @@ const popupSkillsSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill
 /** 被测脚本用到的 popup.html 元素 id。 */
 const SKILL_IDS = [
   'pageAdvisorSkillSection',
+  'popupSkillConflict',
+  'btnSkillConflictKeepLocal',
+  'btnSkillConflictUseCloud',
   'popupSkillList',
   'popupSkillEditingId',
   'popupSkillTitle',
@@ -77,7 +80,7 @@ async function flushAll() {
  * 装配沙箱：真实 lib（i18n + PageAdvisorPromptSkills）+ 真实 popup-prompt-skills.js。
  * 不注入 PageAdvisorAPI —— 云端同步/推送按 `typeof` 短路，用例只验本机绑定与落盘。
  */
-function bootPopup({ skills = [], activeSkillId = '' } = {}) {
+function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
   const byId = Object.create(null);
   SKILL_IDS.forEach((id) => { byId[id] = makeEl(id.startsWith('btn') ? 'button' : 'div', id); });
   const storageSets = [];
@@ -99,6 +102,7 @@ function bootPopup({ skills = [], activeSkillId = '' } = {}) {
     },
     Storage: storage,
   };
+  if (api) sandbox.PageAdvisorAPI = api;
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
@@ -177,6 +181,106 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, second.value);
     assert.equal(ctx.byId.popupSkillList.children[1].children[0].checked, true, '重渲染后第二个为 active');
     assert.equal(ctx.byId.popupSkillList.children[0].children[0].checked, false);
+  });
+
+  it('保存携带 GET 回传的 revision 作为 base_revision（CAS 接线）', async () => {
+    const puts = [];
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({
+          skills: [{ id: 'sk_cloud', title: '云端', tendency: 'custom', body: 'x', updated_at: 5 }],
+          active_skill_id: 'sk_cloud',
+          revision: 'rev-1',
+        }),
+        putPromptSkills: async (payload) => { puts.push(payload); return { revision: 'rev-2' }; },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+
+    ctx.byId.popupSkillTitle.value = '云端改';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    assert.equal(puts.length, 1, '应推送一次');
+    assert.equal(puts[0].base_revision, 'rev-1');
+  });
+
+  it('409 冲突：显示二选一面板，且不覆盖云端也不丢本机', async () => {
+    const puts = [];
+    const cloudBundle = {
+      skills: [{ id: 'sk_cloud', title: '另一台的', tendency: 'custom', body: 'y', updated_at: 7 }],
+      active_skill_id: 'sk_cloud',
+      revision: 'rev-cloud',
+    };
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({
+          skills: [], active_skill_id: '', revision: 'rev-empty',
+        }),
+        putPromptSkills: async (payload) => {
+          puts.push(payload);
+          const err = new Error('conflict');
+          err.status = 409;
+          err.body = { current: cloudBundle };
+          throw err;
+        },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+
+    ctx.byId.popupSkillTitle.value = '本机的';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    assert.equal(ctx.byId.popupSkillConflict.style.display, 'block', '冲突面板应显示');
+    assert.equal(puts[0].base_revision, 'rev-empty', '首次 PUT 用 GET 的 revision');
+    // 本机内容仍已落本机。
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills[0].title, '本机的');
+
+    // 选择「使用云端」→ 采纳云端文档并落本机、关闭面板。
+    ctx.byId.btnSkillConflictUseCloud.dispatch('click');
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillConflict.style.display, 'none', '选择后面板关闭');
+    const after = ctx.lastSet();
+    assert.equal(after.pageAdvisorPromptSkills[0].title, '另一台的');
+    assert.equal(after.pageAdvisorActiveSkillId, 'sk_cloud');
+    assert.equal(puts.length, 1, '采纳云端不应再 PUT');
+  });
+
+  it('409 冲突选「保留本机」：重试 PUT 不带 base_revision 覆盖云端', async () => {
+    const puts = [];
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'rev-empty' }),
+        putPromptSkills: async (payload) => {
+          puts.push(payload);
+          if (puts.length === 1) {
+            const err = new Error('conflict');
+            err.status = 409;
+            err.body = { current: { skills: [], active_skill_id: '', revision: 'rev-cloud' } };
+            throw err;
+          }
+          return { revision: 'rev-forced' };
+        },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+
+    ctx.byId.popupSkillTitle.value = '本机的';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillConflict.style.display, 'block');
+
+    ctx.byId.btnSkillConflictKeepLocal.dispatch('click');
+    await flushAll();
+
+    assert.equal(puts.length, 2, '应重试一次');
+    assert.equal('base_revision' in puts[1], false, '用户确认覆盖后不带 base_revision');
+    assert.equal(puts[1].skills[0].title, '本机的');
+    assert.equal(ctx.byId.popupSkillConflict.style.display, 'none', '成功后关闭面板');
   });
 
   it('保存失败（storage 不可用）不吞错：状态文本给出提示且不抛未捕获异常', async () => {

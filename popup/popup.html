@@ -55,6 +55,19 @@
     <section id="pageAdvisorSkillSection" class="section" style="display:none">
       <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill（倾向）</span></h3>
       <p class="float-ball-hint" data-i18n="paSkillSectionHint">登录后 Skill 同步到账号，换电脑会自动拉取。选中后仅 Alt+Z 直连智能体时追加到系统提示；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
+      <div
+        id="popupSkillConflict"
+        class="form-row skill-conflict"
+        role="alertdialog"
+        aria-live="assertive"
+        style="display:none"
+      >
+        <p class="float-ball-hint" data-i18n="paSkillConflictTitle">另一台设备已修改 Skill，请选择保留哪一份</p>
+        <div class="flex gap-2">
+          <button type="button" id="btnSkillConflictKeepLocal" class="btn btn-sm" data-i18n="paSkillConflictKeepLocal">保留本机并覆盖云端</button>
+          <button type="button" id="btnSkillConflictUseCloud" class="btn btn-sm btn-primary" data-i18n="paSkillConflictUseCloud">使用云端版本</button>
+        </div>
+      </div>
       <fieldset class="form-row">
         <legend data-i18n="paSkillListLabel">已保存的 Skill</legend>
         <div id="popupSkillList" role="radiogroup" data-i18n-aria-label="paSkillListLabel"></div>
