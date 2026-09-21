@@ -32,10 +32,15 @@
       <p class="float-ball-hint" data-i18n="floatBallHint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
     </section>
 
-    <!-- Alt+Z 默认工作空间 / 项目（登录后可见） -->
+    <!-- Alt+Shift+Z / Alt+Z 默认工作空间 / 项目；快捷键说明收在「!」 -->
     <section id="pageAdvisorDefaultsSection" class="section" style="display:none">
-      <h3>⌨️ <span data-i18n="altZDefaults">Alt+Z 默认上下文</span></h3>
-      <p class="float-ball-hint" data-i18n="altZHint">未打开浮窗时，Alt+Z 使用此处的默认工作空间；填入任务描述后也会预选默认项目。</p>
+      <div class="advisor-defaults-heading">
+        <h3>⌨️ <span data-i18n="altZDefaults">Alt+Shift+Z</span></h3>
+        <details class="shortcut-help">
+          <summary class="shortcut-help-mark" data-i18n-aria-label="altZHintToggleAria" aria-label="快捷键说明">!</summary>
+          <p class="float-ball-hint" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。未打开浮窗时两者都使用此处的默认工作空间与项目。</p>
+        </details>
+      </div>
       <div class="form-row">
         <label for="popupDefaultWorkspace" data-i18n="defaultWorkspace">默认工作空间</label>
         <select id="popupDefaultWorkspace" class="form-select" data-i18n-aria-label="defaultWorkspace">
