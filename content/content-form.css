@@ -207,6 +207,13 @@
   display: block !important;
   opacity: 1 !important;
   transform: translateY(0) !important;
+  pointer-events: auto !important;
+}
+#taskplugin-page-toast a.taskplugin-page-toast-link {
+  color: #89b4fa !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
 }
 
 /* 描述行：标签 + 重置 / 指针选择 */

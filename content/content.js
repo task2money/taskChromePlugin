@@ -26,19 +26,36 @@ function hideFloatPanel() {
   if (btn && typeof btn.focus === 'function') btn.focus();
 }
 
-function showPageToast(msg) {
+function showPageToast(msg, opts) {
+  const options = opts && typeof opts === 'object' ? opts : {};
   let toast = document.getElementById('taskplugin-page-toast');
   if (!toast) {
     toast = document.createElement('div');
     toast.id = 'taskplugin-page-toast';
     root.appendChild(toast);
   }
-  toast.textContent = msg;
+  toast.replaceChildren();
+  const parts = options.parts;
+  if (parts && parts.kind === 'link' && /^https?:\/\//i.test(String(parts.href || ''))) {
+    if (parts.before) toast.appendChild(document.createTextNode(parts.before));
+    const a = document.createElement('a');
+    a.href = String(parts.href);
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.className = 'taskplugin-page-toast-link';
+    a.textContent = String(parts.linkText || '');
+    toast.appendChild(a);
+    if (parts.after) toast.appendChild(document.createTextNode(parts.after));
+  } else {
+    toast.textContent = msg;
+  }
   toast.className = 'taskplugin-page-toast taskplugin-page-toast-show';
   if (pageToastTimer) clearTimeout(pageToastTimer);
+  const rawMs = Number(options.durationMs);
+  const hideMs = Number.isFinite(rawMs) && rawMs > 0 ? rawMs : 3000;
   pageToastTimer = setTimeout(() => {
     toast.classList.remove('taskplugin-page-toast-show');
-  }, 3000);
+  }, hideMs);
 }
 
 function esc(s) {

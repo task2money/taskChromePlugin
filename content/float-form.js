@@ -471,13 +471,12 @@ submitBtn.addEventListener('click', async () => {
       throw err;
     }
 
-    const AfterCreate = typeof FloatPanelAfterCreate !== 'undefined' ? FloatPanelAfterCreate : null;
-    const taskId = AfterCreate
-      ? AfterCreate.extractCreatedTaskId(resp.data)
-      : (resp.data?.id || resp.data?._id || (typeof tx === 'function' ? tx('floatCreatedNoId') : '(已创建)'));
-    const toastMsg = AfterCreate
-      ? AfterCreate.formatFloatCreateSuccessToast(taskId)
-      : typeof tx === 'function' ? tx('floatCreateSuccess', { id: taskId }) : `✅ 任务创建成功! ID: ${taskId}`;
+    const toastView = FloatPanelAfterCreate.buildFloatCreateSuccessToastView({
+      data: resp.data,
+      baseUrl: apiCfg.baseUrl,
+      workspaces: workspacesData,
+      workspaceId: wsId,
+    });
 
     hideFloatPanel();
     try {
@@ -488,7 +487,7 @@ submitBtn.addEventListener('click', async () => {
       descInput.value = '';
       syncDescResetButton();
     }
-    showPageToast(toastMsg);
+    showPageToast(toastView.text, { parts: toastView.parts, durationMs: toastView.durationMs });
   } catch (e) {
     const failMsg = typeof tx === 'function' ? tx('floatCreateFailedDetail', { msg: e.message }) : `❌ 创建失败: ${e.message}`;
     showResult(failMsg, 'error', e.traceId);
