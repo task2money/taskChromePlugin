@@ -129,6 +129,16 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(html, /面板顶部[「"]×[」"].*关闭悬浮球/);
   });
 
+  it('float-create 说明创建成功 toast 任务 ID 可点进详情', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'float-create');
+    const blob = (section.steps || []).join('\n');
+    assert.match(blob, /任务 ID 为链接/);
+    assert.match(blob, /任务详情/);
+    assert.match(blob, /5 秒/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /任务 ID 为链接/);
+  });
+
   it('renderFullGuideHtml for panel includes batch section', () => {
     const html = UserGuide.renderFullGuideHtml({ surface: 'panel' });
     assert.match(html, /data-guide-id="devtools-batch"/);
