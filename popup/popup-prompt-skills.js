@@ -1,4 +1,4 @@
-/** Popup：本机提示词 Skill CRUD（无 HTTP）。 */
+/** Popup：提示词 Skill CRUD + 登录后 SaaS 同步。 */
 (function () {
   const $ = (sel) => document.querySelector(sel);
   let store = { skills: [], activeSkillId: '' };
@@ -12,6 +12,13 @@
   function statusText(msg) {
     const el = $('#popupSkillStatus');
     if (el) el.textContent = msg || '';
+  }
+
+  function newIdempotencyKey() {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return crypto.randomUUID();
+    }
+    return `psk_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
   }
 
   function fillEditor(skill) {
@@ -50,8 +57,28 @@
     });
   }
 
+  async function pushCloud(st) {
+    if (typeof PageAdvisorAPI === 'undefined' || typeof PageAdvisorAPI.putPromptSkills !== 'function') {
+      return;
+    }
+    await PageAdvisorAPI.putPromptSkills(
+      PageAdvisorPromptSkills.toApiPayload(st),
+      newIdempotencyKey(),
+    );
+  }
+
   async function persist() {
     await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
+    try {
+      await pushCloud(store);
+      return true;
+    } catch (e) {
+      const tid = e?.traceId || '';
+      statusText(tid
+        ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})`
+        : tx('paSkillSavedLocalCloudFailed'));
+      return false;
+    }
   }
 
   async function applyActive(id) {
@@ -67,12 +94,31 @@
       store = await PageAdvisorPromptSkills.loadFromStorage(
         typeof Storage !== 'undefined' ? Storage : null,
       );
-      renderList();
-      const active = PageAdvisorPromptSkills.getActive(store);
-      fillEditor(active || store.skills[0] || null);
     } catch (e) {
       console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
     }
+    try {
+      if (typeof PageAdvisorAPI !== 'undefined' && typeof PageAdvisorAPI.getPromptSkills === 'function') {
+        const remote = await PageAdvisorAPI.getPromptSkills();
+        const rec = PageAdvisorPromptSkills.reconcileCloud(store, remote);
+        store = rec.store;
+        if (rec.action === 'upload') {
+          await persist();
+          statusText(tx('paSkillSyncedUpload'));
+        } else if (rec.action === 'pull') {
+          await PageAdvisorPromptSkills.saveToStorage(
+            store,
+            typeof Storage !== 'undefined' ? Storage : null,
+          );
+          statusText(tx('paSkillSyncedPull'));
+        }
+      }
+    } catch (e) {
+      console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
+    }
+    renderList();
+    const active = PageAdvisorPromptSkills.getActive(store);
+    fillEditor(active || store.skills[0] || null);
   }
 
   async function saveSkill() {
@@ -96,10 +142,10 @@
       if (!store.activeSkillId) {
         store = PageAdvisorPromptSkills.setActive(store, result.skill.id).store;
       }
-      await persist();
+      const ok = await persist();
       fillEditor(result.skill);
       renderList();
-      statusText(tx('paSkillSaved'));
+      if (ok) statusText(tx('paSkillSaved'));
     } catch (e) {
       statusText(e?.message || tx('popupSaveFailed'));
     } finally {
@@ -115,15 +161,14 @@
     const id = $('#popupSkillEditingId')?.value || '';
     if (!id) return;
     store = PageAdvisorPromptSkills.removeSkill(store, id).store;
-    await persist();
+    const ok = await persist();
     fillEditor(null);
     renderList();
-    statusText(tx('paSkillDeleted'));
+    if (ok) statusText(tx('paSkillDeleted'));
   }
 
   function bindEvents() {
     const save = $('#btnSkillSave');
-    // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (save) save.addEventListener('click', () => { saveSkill().catch(() => {}); });
     const neu = $('#btnSkillNew');
     if (neu) neu.addEventListener('click', () => fillEditor(null));

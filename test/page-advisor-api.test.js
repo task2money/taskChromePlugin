@@ -15,6 +15,7 @@ describe('page-advisor-api endpoints', () => {
     assert.match(PageAdvisorAPI.ENDPOINTS.suggestJobs, /tenant_id\/\{tenantId\}/);
     assert.match(PageAdvisorAPI.ENDPOINTS.suggestJob, /suggest-jobs\/\{jobId\}/);
     assert.match(PageAdvisorAPI.ENDPOINTS.agentResourceStatus, /agent-resource-status/);
+    assert.equal(PageAdvisorAPI.ENDPOINTS.promptSkills, '/api/page-advisor/v1/prompt-skills/');
   });
 });
 
@@ -222,6 +223,26 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
         return true;
       },
     );
+  });
+
+  it('PUT prompt-skills sends Idempotency-Key', async () => {
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+        },
+        json: async () => ({ skills: [], active_skill_id: '' }),
+        text: async () => '',
+      };
+    };
+    await PageAdvisorAPI.putPromptSkills({ skills: [], active_skill_id: '' }, 'ik-skill', session);
+    assert.match(seen.url, /\/api\/page-advisor\/v1\/prompt-skills\//);
+    assert.equal(seen.opts.method, 'PUT');
+    assert.equal(seen.opts.headers['Idempotency-Key'], 'ik-skill');
   });
 });
 

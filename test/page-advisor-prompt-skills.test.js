@@ -84,6 +84,22 @@ describe('PageAdvisorPromptSkills', () => {
     assert.equal(loaded.skills[0].body, 'hello');
     assert.equal(loaded.activeSkillId, 's1');
   });
+
+  it('reconcileCloud pulls remote when present; uploads when remote empty', () => {
+    const local = PageAdvisorPromptSkills.upsertSkill(
+      PageAdvisorPromptSkills.emptyStore(),
+      { id: 'l1', title: 'Local', body: 'only-local' },
+    ).store;
+    const pulled = PageAdvisorPromptSkills.reconcileCloud(local, {
+      skills: [{ id: 'r1', title: 'Cloud', body: 'from-saas', updated_at: 2 }],
+      active_skill_id: 'r1',
+    });
+    assert.equal(pulled.action, 'pull');
+    assert.equal(pulled.store.skills[0].body, 'from-saas');
+    const uploaded = PageAdvisorPromptSkills.reconcileCloud(local, { skills: [] });
+    assert.equal(uploaded.action, 'upload');
+    assert.equal(uploaded.store.skills[0].body, 'only-local');
+  });
 });
 
 describe('PageAdvisorLLM skill messages', () => {
