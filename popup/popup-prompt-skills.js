@@ -7,6 +7,27 @@
   let cloudRevision = '';
   // 409 时挂起的冲突：云端文档，供用户选择保留本机或云端。
   let pendingConflict = null;
+  let scopeProvider = null;
+
+  async function resolveSkillScope() {
+    if (typeof scopeProvider === 'function') {
+      return scopeProvider();
+    }
+    const wsEl = typeof document !== 'undefined' ? document.querySelector('#popupDefaultWorkspace') : null;
+    let workspaceId = String(wsEl?.value || '').trim();
+    if (!workspaceId && typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
+      workspaceId = String(await Storage.getLastWorkspace() || '').trim();
+    }
+    if (!workspaceId) return null;
+    if (typeof sendMessageWithTimeout !== 'function') return null;
+    const r = await sendMessageWithTimeout({ action: 'getWorkspaces' }, 12000);
+    const data = r?.data;
+    const rows = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
+    const ws = (rows || []).find((row) => String(row?.id || row?._id || '') === workspaceId);
+    const tenantId = String(ws?.company_id || ws?.companyId || '').trim();
+    if (!tenantId) return null;
+    return { tenantId, workspaceId };
+  }
 
   function setSkillSectionVisible(visible) {
     const sec = $('#pageAdvisorSkillSection');
@@ -65,7 +86,14 @@
     if (typeof PageAdvisorAPI === 'undefined' || typeof PageAdvisorAPI.putPromptSkills !== 'function') {
       return null;
     }
+    const scope = await resolveSkillScope();
+    if (!scope) {
+      statusText(tx('paSkillNeedWorkspace'));
+      return null;
+    }
     const saved = await PageAdvisorAPI.putPromptSkills(
+      scope.tenantId,
+      scope.workspaceId,
       PageAdvisorPromptSkills.toApiPayload(st, cloudRevision),
       newIdempotencyKey(),
     );
@@ -167,19 +195,24 @@
     }
     try {
       if (typeof PageAdvisorAPI !== 'undefined' && typeof PageAdvisorAPI.getPromptSkills === 'function') {
-        const remote = await PageAdvisorAPI.getPromptSkills();
-        const rec = PageAdvisorPromptSkills.reconcileCloud(store, remote);
-        store = rec.store;
-        cloudRevision = rec.revision || '';
-        if (rec.action === 'upload') {
-          await persist();
-          statusText(tx('paSkillSyncedUpload'));
-        } else if (rec.action === 'pull') {
-          await PageAdvisorPromptSkills.saveToStorage(
-            store,
-            typeof Storage !== 'undefined' ? Storage : null,
-          );
-          statusText(tx('paSkillSyncedPull'));
+        const scope = await resolveSkillScope();
+        if (!scope) {
+          statusText(tx('paSkillNeedWorkspace'));
+        } else {
+          const remote = await PageAdvisorAPI.getPromptSkills(scope.tenantId, scope.workspaceId);
+          const rec = PageAdvisorPromptSkills.reconcileCloud(store, remote);
+          store = rec.store;
+          cloudRevision = rec.revision || '';
+          if (rec.action === 'upload') {
+            await persist();
+            statusText(tx('paSkillSyncedUpload'));
+          } else if (rec.action === 'pull') {
+            await PageAdvisorPromptSkills.saveToStorage(
+              store,
+              typeof Storage !== 'undefined' ? Storage : null,
+            );
+            statusText(tx('paSkillSyncedPull'));
+          }
         }
       }
     } catch (e) {
@@ -264,6 +297,8 @@
     loadSkills,
     setSkillSectionVisible,
     bindEvents,
+    get scopeProvider() { return scopeProvider; },
+    set scopeProvider(fn) { scopeProvider = fn; },
   };
 
   if (document.readyState === 'loading') {

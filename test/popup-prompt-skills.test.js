@@ -109,6 +109,9 @@ function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
   installTxInSandbox(sandbox);
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
+  if (api && sandbox.PopupPageAdvisorSkills) {
+    sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
+  }
 
   const skill = (title, body) => ({ id: `sk_${title}`, title, tendency: 'custom', body, updatedAt: 1 });
   return {
@@ -192,7 +195,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
           active_skill_id: 'sk_cloud',
           revision: 'rev-1',
         }),
-        putPromptSkills: async (payload) => { puts.push(payload); return { revision: 'rev-2' }; },
+        putPromptSkills: async (_tid, _wid, payload) => { puts.push(payload); return { revision: 'rev-2' }; },
       },
     });
     ctx.api.loadSkills();
@@ -218,7 +221,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
         getPromptSkills: async () => ({
           skills: [], active_skill_id: '', revision: 'rev-empty',
         }),
-        putPromptSkills: async (payload) => {
+        putPromptSkills: async (_tid, _wid, payload) => {
           puts.push(payload);
           const err = new Error('conflict');
           err.status = 409;
@@ -254,7 +257,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     ctx = bootPopup({
       api: {
         getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'rev-empty' }),
-        putPromptSkills: async (payload) => {
+        putPromptSkills: async (_tid, _wid, payload) => {
           puts.push(payload);
           if (puts.length === 1) {
             const err = new Error('conflict');
