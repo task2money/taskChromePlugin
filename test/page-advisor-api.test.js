@@ -16,6 +16,15 @@ describe('page-advisor-api endpoints', () => {
     assert.match(PageAdvisorAPI.ENDPOINTS.suggestJob, /suggest-jobs\/\{jobId\}/);
     assert.match(PageAdvisorAPI.ENDPOINTS.agentResourceStatus, /agent-resource-status/);
     assert.equal(PageAdvisorAPI.ENDPOINTS.promptSkills, '/api/page-advisor/v1/tenant_id/{tenantId}/workspace_id/{workspaceId}/prompt-skills/');
+    // OPT-20260922-004: 修订历史是 prompt-skills 的子树，别写成同级路径。
+    assert.equal(
+      PageAdvisorAPI.ENDPOINTS.promptSkillRevisions,
+      '/api/page-advisor/v1/tenant_id/{tenantId}/workspace_id/{workspaceId}/prompt-skills/revisions/',
+    );
+    assert.equal(
+      PageAdvisorAPI.ENDPOINTS.promptSkillRestore,
+      '/api/page-advisor/v1/tenant_id/{tenantId}/workspace_id/{workspaceId}/prompt-skills/revisions/{revision}/restore/',
+    );
   });
 });
 
@@ -243,6 +252,74 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
     assert.match(seen.url, /\/api\/page-advisor\/v1\/tenant_id\/t1\/workspace_id\/w1\/prompt-skills\//);
     assert.equal(seen.opts.method, 'PUT');
     assert.equal(seen.opts.headers['Idempotency-Key'], 'ik-skill');
+  });
+
+  it('GET prompt-skill revisions returns items array', async () => {
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+        },
+        json: async () => ({ items: [{ revision: 'rev-1', skill_count: 2 }] }),
+        text: async () => '',
+      };
+    };
+    const items = await PageAdvisorAPI.listPromptSkillRevisions('t1', 'w1', session);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].revision, 'rev-1');
+    assert.match(seen.url, /\/prompt-skills\/revisions\/$/);
+    assert.equal(seen.opts.method, 'GET');
+  });
+
+  it('POST restore sends Idempotency-Key and base_revision', async () => {
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+        },
+        json: async () => ({ skills: [], active_skill_id: '', revision: 'rev-2' }),
+        text: async () => '',
+      };
+    };
+    const saved = await PageAdvisorAPI.restorePromptSkillRevision('t1', 'w1', 'rev-1', 'rev-0', 'ik-r', session);
+    assert.equal(saved.revision, 'rev-2');
+    assert.match(seen.url, /\/prompt-skills\/revisions\/rev-1\/restore\/$/);
+    assert.equal(seen.opts.method, 'POST');
+    assert.equal(seen.opts.headers['Idempotency-Key'], 'ik-r');
+    assert.equal(JSON.parse(seen.opts.body).base_revision, 'rev-0');
+  });
+
+  it('POST restore omits base_revision when caller has none', async () => {
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+        },
+        json: async () => ({ skills: [], active_skill_id: '', revision: 'rev-2' }),
+        text: async () => '',
+      };
+    };
+    await PageAdvisorAPI.restorePromptSkillRevision('t1', 'w1', 'rev-1', '', 'ik-r', session);
+    assert.equal('base_revision' in JSON.parse(seen.opts.body), false);
+  });
+
+  it('restore without Idempotency-Key is rejected before any request', async () => {
+    let called = false;
+    globalThis.fetch = async () => { called = true; return { ok: true, status: 200 }; };
+    await assert.rejects(() => PageAdvisorAPI.restorePromptSkillRevision('t1', 'w1', 'rev-1', '', '', session));
+    assert.equal(called, false, '缺幂等键不得发出请求');
   });
 });
 

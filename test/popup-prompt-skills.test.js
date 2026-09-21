@@ -27,6 +27,8 @@ const SKILL_IDS = [
   'popupSkillConflict',
   'btnSkillConflictKeepLocal',
   'btnSkillConflictUseCloud',
+  'btnSkillHistoryLoad',
+  'popupSkillRevisions',
   'popupSkillList',
   'popupSkillEditingId',
   'popupSkillTitle',
@@ -284,6 +286,90 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal('base_revision' in puts[1], false, '用户确认覆盖后不带 base_revision');
     assert.equal(puts[1].skills[0].title, '本机的');
     assert.equal(ctx.byId.popupSkillConflict.style.display, 'none', '成功后关闭面板');
+  });
+
+  it('修订列表：当前版本不可点，历史版本可回滚（OPT-20260922-004）', async () => {
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'rev-now' }),
+        listPromptSkillRevisions: async () => ([
+          { revision: 'rev-now', skill_count: 1, actor_user_id: 'u1', created_at: '2026-09-22T00:00:00Z' },
+          { revision: 'rev-old', skill_count: 1, actor_user_id: 'u2', created_at: '2026-09-21T00:00:00Z' },
+        ]),
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+
+    ctx.byId.btnSkillHistoryLoad.dispatch('click');
+    await flushAll();
+
+    const rows = ctx.byId.popupSkillRevisions.children;
+    assert.equal(rows.length, 2, '两条修订应各渲染一行');
+    assert.match(rows[0].children[0].textContent, /rev-now/, '展示版本号摘要');
+    assert.equal(rows[0].children[1].disabled, true, '当前版本不应可回滚');
+    assert.equal(rows[1].children[1].disabled, false, '历史版本应可回滚');
+  });
+
+  it('回滚：带 base_revision 调用 restore，并采纳返回的正文', async () => {
+    const calls = [];
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'rev-now' }),
+        listPromptSkillRevisions: async () => ([
+          { revision: 'rev-old', skill_count: 1, actor_user_id: 'u2', created_at: '2026-09-21T00:00:00Z' },
+        ]),
+        restorePromptSkillRevision: async (_tid, _wid, revision, baseRevision, ik) => {
+          calls.push({ revision, baseRevision, ik });
+          return {
+            skills: [{ id: 'sk_old', title: '上一版', tendency: 'custom', body: 'b', updated_at: 3 }],
+            active_skill_id: 'sk_old',
+            revision: 'rev-old',
+          };
+        },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    ctx.byId.btnSkillHistoryLoad.dispatch('click');
+    await flushAll();
+
+    const btn = ctx.byId.popupSkillRevisions.children[0].children[1];
+    btn.dispatch('click');
+    await flushAll();
+
+    assert.equal(calls.length, 1, '应调用一次回滚');
+    assert.equal(calls[0].revision, 'rev-old');
+    assert.equal(calls[0].baseRevision, 'rev-now', '回滚须带本机看到的云端版本做 CAS');
+    assert.ok(String(calls[0].ik || '').trim(), '回滚须带幂等键');
+    // 正文被采纳并落本机。
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills[0].title, '上一版');
+    assert.match(ctx.byId.popupSkillStatus.textContent, /回滚|Restored/);
+  });
+
+  it('回滚撞上并发编辑（409）走冲突二选一面板，不静默覆盖', async () => {
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'rev-now' }),
+        listPromptSkillRevisions: async () => ([
+          { revision: 'rev-old', skill_count: 1, actor_user_id: 'u2', created_at: '2026-09-21T00:00:00Z' },
+        ]),
+        restorePromptSkillRevision: async () => {
+          const err = new Error('conflict');
+          err.status = 409;
+          err.body = { current: { skills: [], active_skill_id: '', revision: 'rev-other' } };
+          throw err;
+        },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    ctx.byId.btnSkillHistoryLoad.dispatch('click');
+    await flushAll();
+    ctx.byId.popupSkillRevisions.children[0].children[1].dispatch('click');
+    await flushAll();
+
+    assert.equal(ctx.byId.popupSkillConflict.style.display, 'block', '409 应显示二选一面板');
   });
 
   it('保存失败（storage 不可用）不吞错：状态文本给出提示且不抛未捕获异常', async () => {

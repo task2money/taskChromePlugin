@@ -7,6 +7,9 @@
   let cloudRevision = '';
   // 409 时挂起的冲突：云端文档，供用户选择保留本机或云端。
   let pendingConflict = null;
+  // OPT-20260922-004: 云端修订列表（最新在前），供覆盖后回滚。
+  let revisionItems = [];
+  let revisionLoaded = false;
   let scopeProvider = null;
 
   async function resolveSkillScope() {
@@ -177,6 +180,117 @@
     box.style.display = pendingConflict ? 'block' : 'none';
   }
 
+  /** 修订列表：每行一个版本号摘要 + 回滚按钮，当前版本只做标记不可点。 */
+  function renderRevisions() {
+    const root = $('#popupSkillRevisions');
+    if (!root) return;
+    root.replaceChildren();
+    if (!revisionItems.length) {
+      const empty = document.createElement('p');
+      empty.className = 'float-ball-hint';
+      empty.textContent = tx('paSkillHistoryEmpty');
+      root.appendChild(empty);
+      return;
+    }
+    revisionItems.forEach((item) => {
+      const rev = String(item?.revision || '').trim();
+      if (!rev) return;
+      const row = document.createElement('div');
+      row.className = 'popup-skill-revision-row';
+      const meta = document.createElement('span');
+      const parts = [rev.slice(0, 8)];
+      const when = String(item?.created_at || '').trim();
+      if (when) parts.push(when);
+      const count = Number(item?.skill_count);
+      if (Number.isFinite(count)) parts.push(String(count));
+      const actor = String(item?.actor_user_id || '').trim();
+      if (actor) parts.push(actor);
+      meta.textContent = parts.join(' · ');
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-sm';
+      btn.value = rev;
+      if (rev === cloudRevision) {
+        btn.disabled = true;
+        btn.textContent = tx('paSkillHistoryCurrent');
+      } else {
+        btn.textContent = tx('paSkillHistoryRestore');
+        btn.addEventListener('click', () => { restoreRevision(rev).catch(() => {}); });
+      }
+      row.appendChild(meta);
+      row.appendChild(btn);
+      root.appendChild(row);
+    });
+  }
+
+  async function loadRevisions() {
+    if (typeof PageAdvisorAPI === 'undefined'
+      || typeof PageAdvisorAPI.listPromptSkillRevisions !== 'function') {
+      return;
+    }
+    const scope = await resolveSkillScope();
+    if (!scope) {
+      statusText(tx('paSkillNeedWorkspace'));
+      return;
+    }
+    try {
+      revisionItems = await PageAdvisorAPI.listPromptSkillRevisions(scope.tenantId, scope.workspaceId);
+      revisionLoaded = true;
+    } catch (e) {
+      statusText(tx('paSkillHistoryFailed'));
+      return;
+    }
+    renderRevisions();
+  }
+
+  /** 回滚：服务端按 base_revision 做 CAS，成功后采纳返回的正文并刷新本机。 */
+  async function restoreRevision(revision) {
+    if (saveBusy) return;
+    if (typeof PageAdvisorAPI === 'undefined'
+      || typeof PageAdvisorAPI.restorePromptSkillRevision !== 'function') {
+      return;
+    }
+    saveBusy = true;
+    try {
+      const scope = await resolveSkillScope();
+      if (!scope) {
+        statusText(tx('paSkillNeedWorkspace'));
+        return;
+      }
+      const saved = await PageAdvisorAPI.restorePromptSkillRevision(
+        scope.tenantId,
+        scope.workspaceId,
+        revision,
+        cloudRevision,
+        newIdempotencyKey(),
+      );
+      store = PageAdvisorPromptSkills.fromApiPayload(saved);
+      cloudRevision = String(saved?.revision || '').trim();
+      clearConflict();
+      await PageAdvisorPromptSkills.saveToStorage(
+        store,
+        typeof Storage !== 'undefined' ? Storage : null,
+      );
+      renderList();
+      fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
+      statusText(tx('paSkillHistoryRestored'));
+    } catch (e) {
+      // 回滚同样可能撞上并发编辑：复用冲突二选一面板。
+      if (e?.status === 409) {
+        pendingConflict = e?.body?.current || { skills: [], active_skill_id: '' };
+        renderConflict();
+        statusText(tx('paSkillConflictTitle'));
+        return;
+      }
+      statusText(e?.message || tx('paSkillHistoryFailed'));
+    } finally {
+      saveBusy = false;
+      if (revisionLoaded) {
+        await loadRevisions().catch(() => {});
+      }
+    }
+  }
+
   async function applyActive(id) {
     store = PageAdvisorPromptSkills.setActive(store, id).store;
     await persist();
@@ -247,7 +361,11 @@
       const ok = await persist();
       fillEditor(result.skill);
       renderList();
-      if (ok) statusText(tx('paSkillSaved'));
+      if (ok) {
+        statusText(tx('paSkillSaved'));
+        // 已打开历史面板时同步刷新，让新版本立刻可回滚。
+        if (revisionLoaded) await loadRevisions().catch(() => {});
+      }
     } catch (e) {
       statusText(e?.message || tx('popupSaveFailed'));
     } finally {
@@ -290,6 +408,11 @@
     const useCloud = $('#btnSkillConflictUseCloud');
     if (useCloud) {
       useCloud.addEventListener('click', () => { resolveConflictUseCloud().catch(() => {}); });
+    }
+    // OPT-20260922-004: 修订历史按需拉取，避免每次开弹窗都多打一次网络。
+    const historyLoad = $('#btnSkillHistoryLoad');
+    if (historyLoad) {
+      historyLoad.addEventListener('click', () => { loadRevisions().catch(() => {}); });
     }
   }
 
