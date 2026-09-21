@@ -266,7 +266,10 @@ describe('DevTools createSingleTask wires reset-then-success', () => {
     assert.ok(runAt >= 0, 'createSingleTask must call runAfterSuccess');
     assert.ok(resetAt > runAt, 'reset must be passed into runAfterSuccess');
     assert.match(fn, /reset:\s*\(\)\s*=>\s*P\.resetSingleCreateForm\(\)/);
-    assert.match(fn, /showSuccess:\s*\(msg\)\s*=>\s*P\.showR\('singleResult', 'success'/);
+    // OPT-20260921-028：可链接时走 showRLink，否则回退 showR 纯文本
+    assert.match(fn, /showSuccess:\s*\(msg,\s*parts\)\s*=>/);
+    assert.match(fn, /P\.showRLink\('singleResult', parts\)/);
+    assert.match(fn, /P\.showR\('singleResult', 'success', msg\)/);
     assert.doesNotMatch(
       fn.slice(0, runAt),
       /showR\('singleResult', 'success'/,
@@ -299,5 +302,54 @@ describe('DevTools createSingleTask wires reset-then-success', () => {
     const success = html.indexOf('panel-create-success.js');
     const tab = html.indexOf('tabs/single-request.js');
     assert.ok(success >= 0 && success < tab);
+  });
+});
+
+describe('PanelCreateSuccess 成功提示链接（OPT-20260921-028）', () => {
+  const HREF = 'https://www.aidevpush.com/tenant/c1/workspace/w2/task-detail/t1/';
+
+  it('buildCreateSuccessParts 把任务 ID 切成链接片段', () => {
+    const parts = PanelCreateSuccess.buildCreateSuccessParts('t1', HREF);
+    assert.equal(parts.kind, 'link');
+    assert.equal(parts.linkText, 't1');
+    assert.equal(parts.href, HREF);
+    assert.equal(parts.before, '✅ 任务创建成功! ID: ');
+    assert.equal(parts.after, '');
+  });
+
+  it('无可链接 href 时退回纯文本，文案与 formatCreateSuccessMessage 一致', () => {
+    const parts = PanelCreateSuccess.buildCreateSuccessParts('t1', '');
+    assert.equal(parts.kind, 'text');
+    assert.equal(parts.text, PanelCreateSuccess.formatCreateSuccessMessage('t1'));
+  });
+
+  it('runAfterSuccess 把 parts 透传给 showSuccess（第二个参数）', () => {
+    const seen = [];
+    const parts = { kind: 'link', href: HREF, linkText: 't1', before: 'ID: ', after: '' };
+    PanelCreateSuccess.runAfterSuccess({
+      reset: () => seen.push('reset'),
+      showSuccess: (msg, got) => seen.push(`success:${msg}:${got === parts}`),
+      message: '✅ 任务创建成功! ID: t1',
+      parts,
+    });
+    assert.deepEqual(seen, ['reset', 'success:✅ 任务创建成功! ID: t1:true']);
+  });
+
+  it('runAfterSuccess 未传 parts 时 showSuccess 第二参数为 undefined（批量路径兼容）', () => {
+    const seen = [];
+    PanelCreateSuccess.runAfterSuccess({
+      reset: () => {},
+      showSuccess: (msg, got) => seen.push(got),
+      message: 'm',
+    });
+    assert.deepEqual(seen, [undefined]);
+  });
+
+  it('panel.html 在 single-request.js 之前加载 task-detail-href.js', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'panel/panel.html'), 'utf8');
+    const href = html.indexOf('lib/task-detail-href.js');
+    const tab = html.indexOf('tabs/single-request.js');
+    assert.ok(href >= 0, 'panel.html 未加载 task-detail-href.js');
+    assert.ok(href < tab, 'task-detail-href.js 必须在 single-request.js 之前加载');
   });
 });

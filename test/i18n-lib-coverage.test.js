@@ -34,6 +34,7 @@ const {
 /** 已完成 lib/ 层 i18n 迁移、纳入防回退门禁的文件（直接 tx() 取词）。 */
 const MIGRATED = [
   // content_scripts 主组（cs0）与浮窗/面板共用
+  'lib/task-detail-href.js',
   'lib/float-panel-after-create.js',
   'lib/float-workspace-select.js',
   'lib/workspace-auto-schedule.js',

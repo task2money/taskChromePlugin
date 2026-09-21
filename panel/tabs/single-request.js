@@ -315,10 +315,24 @@
         throw err;
       }
       const Success = PanelCreateSuccess;
+      const taskId = Success.extractCreatedTaskId(r.data);
+      const Href = globalThis.TaskDetailHref;
+      const href = Href
+        ? Href.buildTaskDetailHref({
+          baseUrl: state.apiConfig.baseUrl,
+          companyId: Href.companyIdOfWorkspace(state.workspaces, wsId),
+          workspaceId: wsId,
+          taskId,
+        })
+        : '';
+      const linkParts = Success.buildCreateSuccessParts(taskId, href);
       Success.runAfterSuccess({
         reset: () => P.resetSingleCreateForm(),
-        showSuccess: (msg) => P.showR('singleResult', 'success', msg),
-        message: Success.formatCreateSuccessMessage(Success.extractCreatedTaskId(r.data)),
+        showSuccess: (msg, parts) => (parts && parts.kind === 'link'
+          ? P.showRLink('singleResult', parts)
+          : P.showR('singleResult', 'success', msg)),
+        message: Success.formatCreateSuccessMessage(taskId),
+        parts: linkParts,
       });
     } catch (e) {
       PanelCreateSuccess.runAfterFailure({

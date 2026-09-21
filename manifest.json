@@ -74,6 +74,7 @@
         "lib/project-auto-run-label.js",
         "lib/workspace-auto-schedule.js",
         "lib/float-panel-markup.js",
+        "lib/task-detail-href.js",
         "lib/float-panel-after-create.js",
         "lib/aidev-meta.js",
         "lib/hot-path-guards.js",

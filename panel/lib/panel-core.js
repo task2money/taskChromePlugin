@@ -425,6 +425,40 @@ window.PanelApp = (function () {
     const el = api.$(`#${target}`);
     if (!el) return;
     el.textContent = msg;
+    api._scheduleResultClear(el, type, traceId);
+  };
+
+  /**
+   * 成功结果区把任务 ID 渲染为任务详情链接（OPT-20260921-028）。
+   * parts 由 lib/panel-create-success.js buildCreateSuccessParts 产出；
+   * 非 link 形态或 href 非 http(s) 时退回 showR 纯文本。
+   */
+  api.showRLink = function (target, parts, traceId) {
+    const el = api.$(`#${target}`);
+    if (!el) return;
+    const linkable = parts && parts.kind === 'link'
+      && typeof parts.href === 'string' && /^https?:\/\//i.test(parts.href);
+    if (!linkable) {
+      api.showR(target, 'success', parts && parts.kind === 'text' ? parts.text : '', traceId);
+      return;
+    }
+    el.textContent = '';
+    el.append(
+      String(parts.before || ''),
+      (() => {
+        const a = document.createElement('a');
+        a.href = parts.href;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        a.textContent = String(parts.linkText || '');
+        return a;
+      })(),
+      String(parts.after || ''),
+    );
+    api._scheduleResultClear(el, 'success', traceId);
+  };
+
+  api._scheduleResultClear = function (el, type, traceId) {
     el.className = `result ${type}`;
     if (type === 'error') {
       setDataTraceId(el, traceId);
