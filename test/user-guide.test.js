@@ -141,7 +141,7 @@ describe('UserGuide sections', () => {
     assert.match(blob, /提示词 Skill/);
     assert.match(blob, /未登录也可/);
     assert.match(blob, /未登录时 Skill 只存本机/);
-    assert.match(blob, /预埋这五条系统预设/);
+    assert.match(blob, /平台目录」那五条/);
     assert.match(blob, /不应用/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /自动创新智能体/);
@@ -149,7 +149,7 @@ describe('UserGuide sections', () => {
     assert.match(md, /平台不再扣次/);
     assert.match(md, /未登录也可/);
     assert.match(md, /未登录时 Skill 只存本机/);
-    assert.match(md, /预埋这五条系统预设/);
+    assert.match(md, /平台目录」那五条/);
   });
 
   it('page-optimization-suggest: 快速创建任务仅在填入后打开', () => {

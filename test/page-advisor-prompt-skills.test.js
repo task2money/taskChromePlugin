@@ -320,6 +320,11 @@ describe('prompt skill per-item syncTarget', () => {
     ].sort());
     assert.equal(rec.store.activeSkillId, 'sys_default_auto_innovate');
     rec.store.skills.forEach((s) => assert.equal(s.readonly, true));
+    const a11y = rec.store.skills.find((s) => s.id === 'sys_tendency_a11y');
+    assert.match(a11y.body, /WCAG 2\.1 AA/);
+    assert.doesNotMatch(a11y.body, /你优先从无障碍（WCAG）角度改进当前页面/);
+    const custom = rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate');
+    assert.match(custom.body, /资深网页产品\+UIUX创新设计师/);
   });
 
   it('applySystemCatalogDefault inserts default and selects when local empty', () => {
@@ -372,6 +377,26 @@ describe('prompt skill per-item syncTarget', () => {
     assert.equal(rec.store.activeSkillId, '');
     assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').body, 'new');
     assert.equal(rec.store.skills.length, 5);
+  });
+
+  it('applySystemCatalogDefault 未登录也覆盖本机短稿且不改 active', () => {
+    const st = {
+      skills: [{
+        id: 'sys_tendency_a11y',
+        title: '系统默认·无障碍',
+        tendency: 'a11y',
+        body: '你优先从无障碍（WCAG）角度改进当前页面。',
+        syncTarget: 'local',
+        readonly: true,
+      }],
+      activeSkillId: '',
+    };
+    const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(st, { skills: [] }, 'local');
+    assert.equal(rec.action, 'applied');
+    assert.equal(rec.store.activeSkillId, '');
+    const a11y = rec.store.skills.find((s) => s.id === 'sys_tendency_a11y');
+    assert.match(a11y.body, /WCAG 2\.1 AA/);
+    assert.doesNotMatch(a11y.body, /你优先从无障碍（WCAG）角度改进当前页面/);
   });
 
   it('toApiPayload 剥离全部五条预埋稳定 id', () => {

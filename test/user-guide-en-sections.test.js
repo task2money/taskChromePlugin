@@ -18,7 +18,7 @@ describe('user-guide-en-sections', () => {
   it('documents system default skill fetch and reopen-popup recovery', () => {
     const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
     const blob = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
-    assert.match(blob, /preloaded even while signed out/);
+    assert.match(blob, /platform-catalog prompts from system-admin prompt-skills are preloaded even while signed out/);
     assert.match(blob, /Do not apply/);
   });
 });
