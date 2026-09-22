@@ -126,4 +126,33 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#floatBallSection')).toContainText('显示悬浮球');
     await expect(page.locator('#requestsSection')).toBeHidden();
   });
+
+  test('Auto-innovate 设置按钮展开 API Key 区，再点收起', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    const toggle = page.locator('#btnToggleLlmSettings');
+    const fields = page.locator('#pageAdvisorLlmFields');
+    await expect(toggle).toBeVisible();
+    await expect(fields).toBeHidden();
+    await toggle.click();
+    await expect(fields).toBeVisible();
+    await expect(page.locator('#popupLlmApiKey')).toBeVisible();
+    await toggle.click();
+    await expect(fields).toBeHidden();
+  });
+
+  test('保存智能体配置后收起 API Key 区', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    await page.locator('#btnToggleLlmSettings').click();
+    await expect(page.locator('#pageAdvisorLlmFields')).toBeVisible();
+    await page.locator('#popupLlmBaseUrl').fill('https://api.deepseek.com/v1');
+    await page.locator('#popupLlmModel').fill('deepseek-chat');
+    await page.locator('#popupLlmApiKey').fill('test-api-key-local');
+    await page.locator('#btnSaveLlmConfig').click();
+    await expect(page.locator('#pageAdvisorLlmFields')).toBeHidden();
+    await expect(page.locator('#popupLlmStatus')).toContainText(/已保存|saved/i);
+  });
 });

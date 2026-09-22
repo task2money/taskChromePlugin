@@ -55,6 +55,7 @@ describe('Popup advisor heading', () => {
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(llm, /Alt\+Shift\+Z/);
     assert.doesNotMatch(llm, /(?<!Shift\+)Alt\+Z/);
+    assert.match(llm, /id="btnToggleLlmSettings"/);
   });
 
   it('快捷键说明收在 ! 的 details/summary 内且默认不展开', () => {

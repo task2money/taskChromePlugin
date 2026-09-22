@@ -48,21 +48,26 @@
 
     <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
     <section id="pageAdvisorLlmSection" class="section" style="display:none">
-      <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span></h3>
-      <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。</p>
-      <div class="form-row">
-        <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
-        <input type="url" id="popupLlmBaseUrl" class="form-input" data-i18n-placeholder="paLlmBaseUrlPh" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+      <div class="advisor-defaults-heading llm-section-heading">
+        <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span></h3>
+        <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
       </div>
-      <div class="form-row">
-        <label for="popupLlmModel" data-i18n="paLlmModel">模型</label>
-        <input type="text" id="popupLlmModel" class="form-input" data-i18n-placeholder="paLlmModelPh" placeholder="deepseek-chat" autocomplete="off">
+      <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。点击「设置」填写 API Key。</p>
+      <div id="pageAdvisorLlmFields" style="display:none" hidden>
+        <div class="form-row">
+          <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
+          <input type="url" id="popupLlmBaseUrl" class="form-input" data-i18n-placeholder="paLlmBaseUrlPh" placeholder="https://api.deepseek.com/v1" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label for="popupLlmModel" data-i18n="paLlmModel">模型</label>
+          <input type="text" id="popupLlmModel" class="form-input" data-i18n-placeholder="paLlmModelPh" placeholder="deepseek-chat" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label for="popupLlmApiKey" data-i18n="paLlmApiKey">API Key</label>
+          <input type="password" id="popupLlmApiKey" class="form-input" data-i18n-placeholder="paLlmApiKeyPh" placeholder="sk-…" autocomplete="off">
+        </div>
+        <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
       </div>
-      <div class="form-row">
-        <label for="popupLlmApiKey" data-i18n="paLlmApiKey">API Key</label>
-        <input type="password" id="popupLlmApiKey" class="form-input" data-i18n-placeholder="paLlmApiKeyPh" placeholder="sk-…" autocomplete="off">
-      </div>
-      <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
       <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
     </section>
 
@@ -278,6 +283,7 @@
   <script src="../lib/project-auto-run-label.js"></script>
   <script src="../lib/page-advisor-defaults.js"></script>
   <script src="../lib/page-advisor-llm-config.js"></script>
+  <script src="../lib/popup-llm-settings-ui.js"></script>
   <script src="../lib/page-advisor-prompt-skills.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="../lib/popup-defaults-sync.js"></script>
