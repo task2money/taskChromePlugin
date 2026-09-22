@@ -1,5 +1,33 @@
 /* 云端Coding: 自动创新助手 页内浮窗 — 与宿主页面隔离，使用高 specificity + !important */
 
+/* ── 覆盖层细滚动条（OPT-20260922-007）────────────────────────────────────────
+   对齐工作台 DESIGN「Overlay scrollbars」：6px、半透明 thumb、悬浮才显形。
+   插件注入的页内样式不继承工作台 CSS（宿主页面多数没有 overlay 规则），故自带一份。
+   色值等价工作台 color-mix 规则的 #6c7086 35% 与 transparent 混合；扩展未声明
+   minimum_chrome_version，故此处写等价的 rgba 而非 color-mix 函数。
+   滚动容器不得相互嵌套（会出现双滚动条），清单 SSOT 见
+   test/content-overlay-scrollbar.test.js。 */
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body) {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(108, 112, 134, 0.4) transparent !important;
+}
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-thumb {
+  background-color: rgba(108, 112, 134, 0.35) !important;
+  border-radius: 999px !important;
+}
+@media (hover: hover) and (pointer: fine) {
+  :is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body):not(:hover):not(:focus-within)::-webkit-scrollbar-thumb {
+    background-color: transparent !important;
+  }
+}
+
 #taskplugin-float-root {
   /* 精确重置 — 替代 all:initial 避免容器零尺寸问题 */
   background: none !important;
