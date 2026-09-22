@@ -4,6 +4,8 @@
   const Ui = () => (typeof PopupLlmSettingsUi !== 'undefined' ? PopupLlmSettingsUi : null);
   let store = { skills: [], activeSkillId: '' };
   let saveBusy = false;
+  let deleteBusy = false;
+  let pendingDeleteId = '';
   let cloudRevisions = {};
   let pendingConflict = null;
   let pendingConflictWorkspaceId = '';
@@ -102,7 +104,7 @@
         changeSkillTarget(id, value).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
       },
       onEdit: fillEditor,
-      onDelete: (id) => { deleteSkill(id).catch((e) => statusText(e?.message || tx('popupSaveFailed'))); },
+      onDelete: (sk) => { openDeleteConfirm(sk); },
     });
   }
 
@@ -362,14 +364,63 @@
     }
   }
 
-  async function deleteSkill(skillId) {
-    const id = String(skillId || $('#popupSkillEditingId')?.value || '').trim();
+  function deleteConfirmDialog() {
+    return $('#popupSkillDeleteConfirm');
+  }
+
+  function openDeleteConfirm(skill) {
+    const id = String(skill?.id || '').trim();
     if (!id) return;
-    store = PageAdvisorPromptSkills.removeSkill(store, id).store;
-    const ok = await persist();
-    setEditorVisible(false);
-    renderList();
-    if (ok) statusText(tx('paSkillDeleted'));
+    pendingDeleteId = id;
+    const msg = $('#popupSkillDeleteConfirmMsg');
+    if (msg) msg.textContent = tx('paSkillDeleteConfirm', { title: skill.title || '' });
+    const dlg = deleteConfirmDialog();
+    if (!dlg) return;
+    if (typeof dlg.showModal === 'function') dlg.showModal();
+    else {
+      dlg.style.display = 'block';
+      dlg.hidden = false;
+    }
+  }
+
+  function closeDeleteConfirm() {
+    pendingDeleteId = '';
+    const dlg = deleteConfirmDialog();
+    if (!dlg) return;
+    if (typeof dlg.close === 'function') {
+      if (dlg.open) dlg.close();
+    } else {
+      dlg.style.display = 'none';
+      dlg.hidden = true;
+    }
+  }
+
+  async function deleteSkill(skillId) {
+    if (deleteBusy) return;
+    const id = String(skillId || pendingDeleteId || $('#popupSkillEditingId')?.value || '').trim();
+    if (!id) return;
+    deleteBusy = true;
+    const btn = $('#btnSkillDeleteConfirm');
+    if (btn) {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+    }
+    try {
+      store = PageAdvisorPromptSkills.removeSkill(store, id).store;
+      const ok = await persist();
+      setEditorVisible(false);
+      closeDeleteConfirm();
+      renderList();
+      if (ok) statusText(tx('paSkillDeleted'));
+    } catch (e) {
+      statusText(e?.message || tx('popupSaveFailed'));
+    } finally {
+      deleteBusy = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+      }
+    }
   }
 
   function bindEvents() {
@@ -386,11 +437,18 @@
     const neu = $('#btnSkillNew');
     // Anti-Replay-OK: ui-only empty editor, no HTTP until save.
     if (neu) neu.addEventListener('click', () => fillEditor(null));
-    const clear = $('#btnSkillClearActive');
-    if (clear) {
-      clear.addEventListener('click', () => {
-        applyActive('').catch((e) => statusText(e?.message || tx('popupSaveFailed')));
+    const delCancel = $('#btnSkillDeleteCancel');
+    // Anti-Replay-OK: ui-only dismiss confirm dialog, no HTTP.
+    if (delCancel) delCancel.addEventListener('click', () => closeDeleteConfirm());
+    const delOk = $('#btnSkillDeleteConfirm');
+    if (delOk) {
+      delOk.addEventListener('click', () => {
+        deleteSkill(pendingDeleteId).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
       });
+    }
+    const dlg = deleteConfirmDialog();
+    if (dlg) {
+      dlg.addEventListener('cancel', () => { pendingDeleteId = ''; });
     }
     const keepLocal = $('#btnSkillConflictKeepLocal');
     if (keepLocal) {

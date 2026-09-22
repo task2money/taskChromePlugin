@@ -236,12 +236,28 @@ body {
 }
 .popup-skill-saved-legend button { flex-shrink: 0; }
 .popup-skill-row {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
-  margin-bottom: 6px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  margin-bottom: 8px;
 }
-.popup-skill-row span { flex: 1 1 64px; min-width: 0; font-size: 12px; }
+.popup-skill-row-title {
+  display: flex; align-items: flex-start; gap: 6px; width: 100%;
+}
+.popup-skill-row-title span {
+  flex: 1 1 auto; min-width: 0; font-size: 12px; line-height: 1.35;
+  word-break: break-word;
+}
+.popup-skill-row-actions {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding-left: 22px;
+}
 .popup-skill-sync { flex: 1 1 72px; min-width: 0; font-size: 11px; }
 .popup-skill-row .btn { flex: 0 0 auto; }
+.popup-skill-delete-dialog {
+  max-width: 260px; border: 1px solid #45475a; border-radius: 8px;
+  background: #1e1e2e; color: #cdd6f4; padding: 12px;
+}
+.popup-skill-delete-dialog::backdrop { background: rgba(17, 17, 27, 0.55); }
+.popup-skill-delete-dialog p { margin: 0 0 10px; font-size: 12px; line-height: 1.4; }
 
 /* === Textarea === */
 .form-textarea {

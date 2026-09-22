@@ -50,22 +50,56 @@
       : tx('paSkillNoneActive');
   }
 
+  function appendTitleLine(row, radio, labelText) {
+    const title = document.createElement('div');
+    title.className = 'popup-skill-row-title';
+    const span = document.createElement('span');
+    span.textContent = labelText;
+    title.appendChild(radio);
+    title.appendChild(span);
+    row.appendChild(title);
+    return title;
+  }
+
+  function makeActiveRadio(id, value, checked, onChange) {
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'popupSkillActive';
+    radio.id = id;
+    radio.value = value;
+    radio.checked = checked;
+    radio.addEventListener('change', onChange);
+    return radio;
+  }
+
+  function renderNoneRow(root, store, handlers) {
+    const row = document.createElement('div');
+    row.className = 'popup-skill-row popup-skill-row-none';
+    const radio = makeActiveRadio(
+      'popupSkillRadio_none',
+      '',
+      !store.activeSkillId,
+      () => handlers.onActive(''),
+    );
+    appendTitleLine(row, radio, tx('paSkillClearActive'));
+    root.appendChild(row);
+  }
+
   function renderSkillList(root, store, syncLocal, workspaceRows, handlers) {
     if (!root) return;
     root.replaceChildren();
+    renderNoneRow(root, store, handlers);
     (store.skills || []).forEach((sk) => {
-      const id = `popupSkillRadio_${sk.id}`;
       const row = document.createElement('div');
       row.className = 'popup-skill-row';
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = 'popupSkillActive';
-      radio.id = id;
-      radio.value = sk.id;
-      radio.checked = store.activeSkillId === sk.id;
-      radio.addEventListener('change', () => handlers.onActive(sk.id));
-      const span = document.createElement('span');
-      span.textContent = `${sk.title}${store.activeSkillId === sk.id ? ` (${tx('paSkillActive')})` : ''}`;
+      const radio = makeActiveRadio(
+        `popupSkillRadio_${sk.id}`,
+        sk.id,
+        store.activeSkillId === sk.id,
+        () => handlers.onActive(sk.id),
+      );
+      const label = `${sk.title}${store.activeSkillId === sk.id ? ` (${tx('paSkillActive')})` : ''}`;
+      appendTitleLine(row, radio, label);
       const dest = document.createElement('select');
       dest.className = 'form-select popup-skill-sync';
       dest.setAttribute('aria-label', tx('paSkillSyncTarget'));
@@ -89,13 +123,14 @@
       del.textContent = tx('paSkillDelete');
       del.addEventListener('click', (ev) => {
         ev.stopPropagation();
-        handlers.onDelete(sk.id);
+        handlers.onDelete(sk);
       });
-      row.appendChild(radio);
-      row.appendChild(span);
-      row.appendChild(dest);
-      row.appendChild(edit);
-      row.appendChild(del);
+      const actions = document.createElement('div');
+      actions.className = 'popup-skill-row-actions';
+      actions.appendChild(dest);
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      row.appendChild(actions);
       root.appendChild(row);
     });
   }

@@ -109,8 +109,14 @@
             <button type="button" id="btnSkillNew" class="btn btn-sm" data-i18n="paSkillNew">新建</button>
           </legend>
           <div id="popupSkillList" role="radiogroup" data-i18n-aria-label="paSkillListLabel"></div>
-          <button type="button" id="btnSkillClearActive" class="btn btn-sm" data-i18n="paSkillClearActive">不应用 Skill</button>
         </fieldset>
+        <dialog id="popupSkillDeleteConfirm" class="popup-skill-delete-dialog">
+          <p id="popupSkillDeleteConfirmMsg"></p>
+          <div class="flex gap-2">
+            <button type="button" id="btnSkillDeleteCancel" class="btn btn-sm" data-i18n="paSkillDeleteCancel">取消</button>
+            <button type="button" id="btnSkillDeleteConfirm" class="btn btn-sm btn-danger" data-i18n="paSkillDeleteConfirmOk">确认删除</button>
+          </div>
+        </dialog>
         <div id="popupSkillEditor" style="display:none" hidden>
           <div class="form-row">
             <label for="popupSkillTitle" data-i18n="paSkillTitle">名称</label>

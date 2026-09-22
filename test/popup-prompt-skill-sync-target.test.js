@@ -32,7 +32,10 @@ const SKILL_IDS = [
   'popupSkillStatus',
   'btnSkillNew',
   'btnSkillSave',
-  'btnSkillClearActive',
+  'popupSkillDeleteConfirm',
+  'popupSkillDeleteConfirmMsg',
+  'btnSkillDeleteCancel',
+  'btnSkillDeleteConfirm',
   'btnToggleSkillSettings',
   'pageAdvisorSkillFields',
   'popupSkillSyncTarget',
@@ -62,6 +65,9 @@ function makeEl(tag, id) {
     setAttribute(k, v) { attrs[String(k)] = String(v); },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
     removeAttribute(k) { delete attrs[k]; },
+    open: false,
+    showModal() { this.open = true; this.style.display = 'block'; this.hidden = false; },
+    close() { this.open = false; this.style.display = 'none'; this.hidden = true; },
     options: [],
     querySelector() { return null; },
     querySelectorAll() { return []; },
@@ -74,6 +80,10 @@ function makeEl(tag, id) {
     get innerHTML() { return this._innerHTML || ''; },
   };
 }
+
+function noneRow(list) { return list.children[0]; }
+function skillRow(list, index) { return list.children[index + 1]; }
+function rowActions(row) { return row.children[1]; }
 
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -208,8 +218,7 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.popupSkillSyncTarget.value = 'local';
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
-    const row = ctx.byId.popupSkillList.children[0];
-    const dest = row.children[2];
+    const dest = rowActions(skillRow(ctx.byId.popupSkillList, 0)).children[0];
     assert.equal(dest.tagName, 'SELECT');
     dest.value = 'w2';
     dest.dispatch('change', { stopPropagation() {} });
@@ -231,14 +240,18 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
     assert.equal(ctx.byId.popupSkillEditor.style.display, 'none');
-    const row = ctx.byId.popupSkillList.children[0];
-    assert.equal(row.children[3].textContent, '编辑');
-    assert.equal(row.children[4].textContent, '删除');
-    row.children[3].dispatch('click', { stopPropagation() {} });
+    const row = skillRow(ctx.byId.popupSkillList, 0);
+    const actions = rowActions(row);
+    assert.equal(actions.children[1].textContent, '编辑');
+    assert.equal(actions.children[2].textContent, '删除');
+    actions.children[1].dispatch('click', { stopPropagation() {} });
     assert.equal(ctx.byId.popupSkillEditor.style.display, 'block');
     assert.equal(ctx.byId.popupSkillTitle.value, '待删');
-    row.children[4].dispatch('click', { stopPropagation() {} });
+    actions.children[2].dispatch('click', { stopPropagation() {} });
     await flushAll();
-    assert.equal(ctx.byId.popupSkillList.children.length, 0);
+    assert.equal(ctx.byId.popupSkillList.children.length, 2, '未确认删除前仍保留');
+    ctx.byId.btnSkillDeleteConfirm.dispatch('click');
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillList.children.length, 1);
   });
 });

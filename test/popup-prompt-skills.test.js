@@ -37,7 +37,10 @@ const SKILL_IDS = [
   'popupSkillStatus',
   'btnSkillNew',
   'btnSkillSave',
-  'btnSkillClearActive',
+  'popupSkillDeleteConfirm',
+  'popupSkillDeleteConfirmMsg',
+  'btnSkillDeleteCancel',
+  'btnSkillDeleteConfirm',
   'btnToggleSkillSettings',
   'pageAdvisorSkillFields',
   'popupSkillSyncTarget',
@@ -67,6 +70,10 @@ function makeEl(tag, id) {
     setAttribute(k, v) { attrs[String(k)] = String(v); },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
     removeAttribute(k) { delete attrs[k]; },
+    open: false,
+    hidden: false,
+    showModal() { this.open = true; this.style.display = 'block'; this.hidden = false; },
+    close() { this.open = false; this.style.display = 'none'; this.hidden = true; },
     options: [],
     querySelector() { return null; },
     querySelectorAll() { return []; },
@@ -79,6 +86,12 @@ function makeEl(tag, id) {
     get innerHTML() { return this._innerHTML || ''; },
   };
 }
+
+function noneRow(list) { return list.children[0]; }
+function skillRow(list, index) { return list.children[index + 1]; }
+function rowRadio(row) { return row.children[0].children[0]; }
+function rowTitle(row) { return row.children[0].children[1]; }
+function rowActions(row) { return row.children[1]; }
 
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
@@ -156,21 +169,23 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
   it('保存后列表出现新 Skill 的 radio 并被选中，落盘写入 activeSkillId', async () => {
     ctx.api.loadSkills();
     await flushAll();
-    assert.equal(ctx.byId.popupSkillList.children.length, 0, '初始无 Skill 应渲染空列表');
+    assert.equal(ctx.byId.popupSkillList.children.length, 1, '无 Skill 时仍有「不应用」Option');
+    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
 
     ctx.byId.popupSkillTitle.value = '严谨排障';
     ctx.byId.popupSkillBody.value = '先复现再下结论';
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
 
-    const rows = ctx.byId.popupSkillList.children;
-    assert.equal(rows.length, 1, '保存后列表应有一行');
-    const radio = rows[0].children[0];
-    const text = rows[0].children[1];
+    const list = ctx.byId.popupSkillList;
+    assert.equal(list.children.length, 2, '保存后为不应用 + 1 条 Skill');
+    const radio = rowRadio(skillRow(list, 0));
+    const text = rowTitle(skillRow(list, 0));
     assert.equal(radio.type, 'radio');
     assert.equal(radio.name, 'popupSkillActive');
     assert.match(text.textContent, /严谨排障/);
     assert.equal(radio.checked, true, '首个 Skill 自动成为 active');
+    assert.equal(rowRadio(noneRow(list)).checked, false);
     assert.equal(ctx.byId.popupSkillEditingId.value, radio.value, '保存后应进入编辑该 Skill');
 
     const written = ctx.lastSet();
@@ -187,17 +202,58 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     ctx.api.loadSkills();
     await flushAll();
 
-    const rows = ctx.byId.popupSkillList.children;
-    assert.equal(rows.length, 2);
-    assert.equal(rows[0].children[0].checked, true, '初始 active 为第一个');
-    const second = rows[1].children[0];
+    const list = ctx.byId.popupSkillList;
+    assert.equal(list.children.length, 3);
+    assert.equal(rowRadio(skillRow(list, 0)).checked, true, '初始 active 为第一个 Skill');
+    const second = rowRadio(skillRow(list, 1));
     second.checked = true;
     second.dispatch('change', { target: second });
     await flushAll();
 
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, second.value);
-    assert.equal(ctx.byId.popupSkillList.children[1].children[0].checked, true, '重渲染后第二个为 active');
-    assert.equal(ctx.byId.popupSkillList.children[0].children[0].checked, false);
+    assert.equal(rowRadio(skillRow(ctx.byId.popupSkillList, 1)).checked, true, '重渲染后第二个为 active');
+    assert.equal(rowRadio(skillRow(ctx.byId.popupSkillList, 0)).checked, false);
+    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, false);
+  });
+
+  it('勾选「不应用」后落盘 activeSkillId 为空', async () => {
+    ctx = bootPopup({
+      skills: [ctx.skill('甲', 'a')],
+      activeSkillId: 'sk_甲',
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    const none = rowRadio(noneRow(ctx.byId.popupSkillList));
+    none.checked = true;
+    none.dispatch('change', { target: none });
+    await flushAll();
+    assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, '');
+    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
+  });
+
+  it('Delete 先弹出确认；取消不删；确认后才删除', async () => {
+    ctx = bootPopup({
+      skills: [ctx.skill('待删', 'x')],
+      activeSkillId: 'sk_待删',
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    const del = rowActions(skillRow(ctx.byId.popupSkillList, 0)).children[2];
+    del.dispatch('click', { stopPropagation() {} });
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillDeleteConfirm.open, true);
+    assert.match(ctx.byId.popupSkillDeleteConfirmMsg.textContent, /待删/);
+    assert.equal(ctx.byId.popupSkillList.children.length, 2, '未确认前仍保留 Skill');
+    ctx.byId.btnSkillDeleteCancel.dispatch('click');
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillDeleteConfirm.open, false);
+    assert.equal(ctx.byId.popupSkillList.children.length, 2);
+
+    rowActions(skillRow(ctx.byId.popupSkillList, 0)).children[2].dispatch('click', { stopPropagation() {} });
+    ctx.byId.btnSkillDeleteConfirm.dispatch('click');
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillList.children.length, 1, '确认后只剩不应用 Option');
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 0);
   });
 
   it('保存携带 GET 回传的 revision 作为 base_revision（CAS 接线）', async () => {

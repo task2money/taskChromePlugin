@@ -34,6 +34,8 @@ describe('Popup Skill settings toggle', () => {
     assert.match(fieldsBlock, /id="popupSkillEditor"/);
     assert.doesNotMatch(skill, /id="btnSkillHistoryLoad"/);
     assert.doesNotMatch(skill, /id="btnSkillDelete"/);
+    assert.match(skill, /id="popupSkillDeleteConfirm"/);
+    assert.doesNotMatch(skill, /id="btnSkillClearActive"/);
     assert.match(skill, /data-i18n="paSkillListLabel"[\s\S]*id="btnSkillNew"/);
     assert.match(skill, /data-i18n="paSkillTendency">类别/);
     assert.match(skill, /id="popupSkillEditor"[^>]*style="display:none"/);
