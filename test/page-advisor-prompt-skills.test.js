@@ -183,6 +183,20 @@ describe('prompt skill bundle revision（OPT-20260922-003）', () => {
     assert.equal(payload.base_revision, 'rev-1');
   });
 
+  it('toApiPayload 剥离只读系统 skill 并回传 category_choices', () => {
+    const payload = PageAdvisorPromptSkills.toApiPayload({
+      skills: [
+        { id: 'sys_tendency_a11y', title: '系统默认·无障碍', tendency: 'a11y', body: '稿', readonly: true, updatedAt: 1 },
+        { id: 'c1', title: '我的', tendency: 'seo', body: 'x', updatedAt: 2 },
+      ],
+      activeSkillId: 'sys_tendency_a11y',
+      categoryChoices: [{ tendency: 'seo', source: 'custom', customSkillId: 'c1' }],
+    });
+    assert.deepEqual(payload.skills.map((s) => s.id), ['c1']);
+    assert.equal(payload.active_skill_id, 'sys_tendency_a11y');
+    assert.equal(payload.category_choices.find((c) => c.tendency === 'seo').source, 'custom');
+  });
+
   it('reconcileCloud 回传云端 revision 供下次 PUT 使用', () => {
     const rec = PageAdvisorPromptSkills.reconcileCloud(sampleStore(), {
       skills: [],
