@@ -16,8 +16,19 @@ const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
 const { installTxInSandbox } = require('./helpers/txRuntime.js');
+const {
+  skillRows,
+  noneRow,
+  skillRow,
+  skillRowByTitle,
+  rowRadio,
+  rowTitle,
+  rowActions,
+  groupEls,
+} = require('./helpers/popupSkillListDom.js');
 
 const popupHtml = fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
+const skillsPresetSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-preset-skills.js'), 'utf8');
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
 const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
@@ -90,12 +101,6 @@ function makeEl(tag, id) {
   };
 }
 
-function noneRow(list) { return list.children[0]; }
-function skillRow(list, index) { return list.children[index + 1]; }
-function rowRadio(row) { return row.children[0].children[0]; }
-function rowTitle(row) { return row.children[0].children[1]; }
-function rowActions(row) { return row.children[1]; }
-
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
@@ -142,6 +147,7 @@ function bootPopup({
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   installTxInSandbox(sandbox);
+  vm.runInContext(skillsPresetSrc, sandbox, { filename: 'lib/page-advisor-preset-skills.js' });
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
   vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
@@ -192,8 +198,8 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
   it('保存后列表出现新 Skill 的 radio 并被选中，落盘写入 activeSkillId', async () => {
     ctx.api.loadSkills();
     await flushAll();
-    assert.equal(ctx.byId.popupSkillList.children.length, 1, '无 Skill 时仍有「不应用」Option');
-    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
+    assert.equal(groupEls(ctx.byId.popupSkillList).length, 5);
+    assert.equal(skillRows(ctx.byId.popupSkillList).length, 5, '未登录预埋五条预设');
 
     ctx.byId.popupSkillTitle.value = '严谨排障';
     ctx.byId.popupSkillBody.value = '先复现再下结论';
@@ -201,20 +207,19 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     await flushAll();
 
     const list = ctx.byId.popupSkillList;
-    assert.equal(list.children.length, 2, '保存后为不应用 + 1 条 Skill');
-    const radio = rowRadio(skillRow(list, 0));
-    const text = rowTitle(skillRow(list, 0));
+    const custom = skillRowByTitle(list, /严谨排障/);
+    const radio = rowRadio(custom);
     assert.equal(radio.type, 'radio');
     assert.equal(radio.name, 'popupSkillActive');
-    assert.match(text.textContent, /严谨排障/);
-    assert.equal(radio.checked, true, '首个 Skill 自动成为 active');
+    assert.match(rowTitle(custom).textContent, /严谨排障/);
+    assert.equal(rowRadio(skillRowByTitle(list, /系统默认自动创新/)).checked, true, '预埋 custom 默认仍为 active');
+    assert.equal(radio.checked, false);
     assert.equal(rowRadio(noneRow(list)).checked, false);
-    assert.equal(ctx.byId.popupSkillEditingId.value, radio.value, '保存后应进入编辑该 Skill');
 
     const written = ctx.lastSet();
-    assert.equal(written.pageAdvisorActiveSkillId, radio.value);
-    assert.equal(written.pageAdvisorPromptSkills.length, 1);
-    assert.equal(written.pageAdvisorPromptSkills[0].title, '严谨排障');
+    assert.equal(written.pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
+    assert.equal(written.pageAdvisorPromptSkills.filter((s) => s.title === '严谨排障').length, 1);
+    assert.equal(written.pageAdvisorPromptSkills.length, 6);
   });
 
   it('切换 active radio 后 saveToStorage 写入新 pageAdvisorActiveSkillId', async () => {
@@ -226,16 +231,15 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     await flushAll();
 
     const list = ctx.byId.popupSkillList;
-    assert.equal(list.children.length, 3);
-    assert.equal(rowRadio(skillRow(list, 0)).checked, true, '初始 active 为第一个 Skill');
-    const second = rowRadio(skillRow(list, 1));
+    assert.equal(rowRadio(skillRowByTitle(list, /甲/)).checked, true, '初始 active 为甲');
+    const second = rowRadio(skillRowByTitle(list, /乙/));
     second.checked = true;
     second.dispatch('change', { target: second });
     await flushAll();
 
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, second.value);
-    assert.equal(rowRadio(skillRow(ctx.byId.popupSkillList, 1)).checked, true, '重渲染后第二个为 active');
-    assert.equal(rowRadio(skillRow(ctx.byId.popupSkillList, 0)).checked, false);
+    assert.equal(rowRadio(skillRowByTitle(ctx.byId.popupSkillList, /乙/)).checked, true, '重渲染后乙为 active');
+    assert.equal(rowRadio(skillRowByTitle(ctx.byId.popupSkillList, /甲/)).checked, false);
     assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, false);
   });
 
@@ -261,22 +265,23 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     });
     ctx.api.loadSkills();
     await flushAll();
-    const del = rowActions(skillRow(ctx.byId.popupSkillList, 0)).children[2];
+    const del = rowActions(skillRowByTitle(ctx.byId.popupSkillList, /待删/)).children[2];
     del.dispatch('click', { stopPropagation() {} });
     await flushAll();
     assert.equal(ctx.byId.popupSkillDeleteConfirm.open, true);
     assert.match(ctx.byId.popupSkillDeleteConfirmMsg.textContent, /待删/);
-    assert.equal(ctx.byId.popupSkillList.children.length, 2, '未确认前仍保留 Skill');
+    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /待删/), '未确认前仍保留 Skill');
     ctx.byId.btnSkillDeleteCancel.dispatch('click');
     await flushAll();
     assert.equal(ctx.byId.popupSkillDeleteConfirm.open, false);
-    assert.equal(ctx.byId.popupSkillList.children.length, 2);
+    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /待删/));
 
-    rowActions(skillRow(ctx.byId.popupSkillList, 0)).children[2].dispatch('click', { stopPropagation() {} });
+    rowActions(skillRowByTitle(ctx.byId.popupSkillList, /待删/)).children[2].dispatch('click', { stopPropagation() {} });
     ctx.byId.btnSkillDeleteConfirm.dispatch('click');
     await flushAll();
-    assert.equal(ctx.byId.popupSkillList.children.length, 1, '确认后只剩不应用 Option');
-    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 0);
+    assert.equal(skillRowByTitle(ctx.byId.popupSkillList, /待删/), undefined);
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.some((s) => s.title === '待删'), false);
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 5);
   });
 
   it('保存携带 GET 回传的 revision 作为 base_revision（CAS 接线）', async () => {
@@ -333,14 +338,17 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(ctx.byId.popupSkillConflict.style.display, 'block', '冲突面板应显示');
     assert.equal(puts[0].base_revision, 'rev-empty', '首次 PUT 用 GET 的 revision');
     // 本机内容仍已落本机。
-    assert.equal(ctx.lastSet().pageAdvisorPromptSkills[0].title, '本机的');
+    assert.equal(
+      ctx.lastSet().pageAdvisorPromptSkills.find((s) => s.title === '本机的').title,
+      '本机的',
+    );
 
     // 选择「使用云端」→ 采纳云端文档并落本机、关闭面板。
     ctx.byId.btnSkillConflictUseCloud.dispatch('click');
     await flushAll();
     assert.equal(ctx.byId.popupSkillConflict.style.display, 'none', '选择后面板关闭');
     const after = ctx.lastSet();
-    assert.equal(after.pageAdvisorPromptSkills[0].title, '另一台的');
+    assert.equal(after.pageAdvisorPromptSkills.find((s) => s.title === '另一台的').title, '另一台的');
     assert.equal(after.pageAdvisorActiveSkillId, 'sk_cloud');
     assert.equal(puts.length, 1, '采纳云端不应再 PUT');
   });
@@ -481,10 +489,10 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     await flushAll();
 
     assert.equal(echoed.length, 1);
-    assert.equal(
-      ctx.storageSets.length,
-      setsBefore + 1,
-      '正文没被服务端改写时不该多落一次盘',
+    assert.ok(
+      ctx.storageSets.length >= setsBefore + 1
+      && ctx.storageSets.length <= setsBefore + 2,
+      `正文没被服务端改写时至多再落一次盘（echo 剥离系统 id），实际 ${ctx.storageSets.length - setsBefore}`,
     );
     assert.equal(ctx.byId.popupSkillTitle.value, 'SEO 改了下');
   });
@@ -505,6 +513,9 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.equal(gets.length, 0);
     assert.equal(catalogs.length, 0);
     assert.match(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
+    assert.equal(groupEls(ctx.byId.popupSkillList).length, 5);
+    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认·无障碍/));
+    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认自动创新/));
   });
 
   it('登录后拉取管理员新空间默认并选中', async () => {
@@ -531,9 +542,11 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     await flushAll();
     assert.equal(catalogs.length, 1);
     const list = ctx.byId.popupSkillList;
-    assert.equal(list.children.length, 2);
-    assert.match(rowTitle(skillRow(list, 0)).textContent, /系统默认自动创新/);
-    assert.equal(rowRadio(skillRow(list, 0)).checked, true);
+    assert.equal(groupEls(list).length, 5);
+    assert.ok(skillRowByTitle(list, /系统默认·无障碍/));
+    const custom = skillRowByTitle(list, /系统默认自动创新/);
+    assert.match(rowTitle(custom).textContent, /系统默认自动创新/);
+    assert.equal(rowRadio(custom).checked, true);
     assert.equal(rowRadio(noneRow(list)).checked, false);
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
   });
@@ -622,7 +635,12 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     ctx.api.loadSkills();
     await flushAll();
     assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
-    assert.equal(ctx.lastSet(), null);
+    assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, '');
+    assert.equal(
+      ctx.lastSet().pageAdvisorPromptSkills.find((s) => s.id === 'sys_default_auto_innovate').body,
+      'new',
+    );
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 5);
   });
 
   it('T6 未登录保存只落本机、不 PUT', async () => {

@@ -27,11 +27,7 @@
     return labels[0] || wid;
   }
 
-  function fillTendencyDatalist(listEl, skills) {
-    if (!listEl) return;
-    const suggested = (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.TENDENCIES)
-      ? PageAdvisorPromptSkills.TENDENCIES
-      : ['a11y', 'conversion', 'perf', 'seo', 'custom'];
+  function tendencyLabel(value) {
     const i18nKey = {
       a11y: 'paSkillTendencyA11y',
       conversion: 'paSkillTendencyConversion',
@@ -39,11 +35,20 @@
       seo: 'paSkillTendencySeo',
       custom: 'paSkillTendencyCustom',
     };
+    const key = i18nKey[value];
+    return key && typeof tx === 'function' ? tx(key) : value;
+  }
+
+  function fillTendencyDatalist(listEl, skills) {
+    if (!listEl) return;
+    const suggested = (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.TENDENCIES)
+      ? PageAdvisorPromptSkills.TENDENCIES
+      : ['a11y', 'conversion', 'perf', 'seo', 'custom'];
     const seen = new Set();
     const opts = [];
     suggested.forEach((value) => {
       seen.add(value);
-      const label = i18nKey[value] && typeof tx === 'function' ? tx(i18nKey[value]) : value;
+      const label = tendencyLabel(value);
       opts.push(`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`);
     });
     (skills || []).forEach((sk) => {
@@ -161,63 +166,85 @@
     root.appendChild(row);
   }
 
+  function appendSkillRow(parent, sk, store, syncLocal, workspaceRows, handlers, ctx) {
+    const row = document.createElement('div');
+    row.className = 'popup-skill-row';
+    const radio = makeActiveRadio(
+      `popupSkillRadio_${sk.id}`,
+      sk.id,
+      store.activeSkillId === sk.id,
+      () => handlers.onActive(sk.id),
+    );
+    const label = `${sk.title}${store.activeSkillId === sk.id ? ` (${tx('paSkillActive')})` : ''}`;
+    const titleEl = appendTitleLine(row, radio, label);
+    appendSaasLink(titleEl, sk, workspaceRows, ctx || {}, handlers || {});
+    const dest = document.createElement('select');
+    dest.className = 'form-select popup-skill-sync';
+    dest.setAttribute('aria-label', tx('paSkillSyncTarget'));
+    fillSyncTargetSelect(dest, sk.syncTarget || syncLocal, workspaceRows, syncLocal);
+    const system = skillIsSystem(sk, ctx);
+    dest.disabled = system;
+    dest.addEventListener('change', (ev) => {
+      ev.stopPropagation();
+      handlers.onTarget(sk.id, dest.value);
+    });
+    const edit = document.createElement('button');
+    edit.type = 'button';
+    edit.className = 'btn btn-sm';
+    edit.textContent = tx('paSkillEdit');
+    // Anti-Replay-OK: ui-only reveal of editor, no HTTP.
+    edit.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      handlers.onEdit(sk);
+    });
+    const actions = document.createElement('div');
+    actions.className = 'popup-skill-row-actions';
+    actions.appendChild(dest);
+    actions.appendChild(edit);
+    if (!system) {
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn btn-sm';
+      del.textContent = tx('paSkillDelete');
+      del.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        handlers.onDelete(sk);
+      });
+      actions.appendChild(del);
+    } else {
+      const badge = document.createElement('span');
+      badge.className = 'popup-skill-system-badge';
+      badge.textContent = tx('paSkillSystemBadge');
+      titleEl.appendChild(badge);
+    }
+    row.appendChild(actions);
+    parent.appendChild(row);
+  }
+
   function renderSkillList(root, store, syncLocal, workspaceRows, handlers, ctx) {
     if (!root) return;
     root.replaceChildren();
     renderNoneRow(root, store, handlers);
-    (store.skills || []).forEach((sk) => {
-      const row = document.createElement('div');
-      row.className = 'popup-skill-row';
-      const radio = makeActiveRadio(
-        `popupSkillRadio_${sk.id}`,
-        sk.id,
-        store.activeSkillId === sk.id,
-        () => handlers.onActive(sk.id),
-      );
-      const label = `${sk.title}${store.activeSkillId === sk.id ? ` (${tx('paSkillActive')})` : ''}`;
-      const titleEl = appendTitleLine(row, radio, label);
-      appendSaasLink(titleEl, sk, workspaceRows, ctx || {}, handlers || {});
-      const dest = document.createElement('select');
-      dest.className = 'form-select popup-skill-sync';
-      dest.setAttribute('aria-label', tx('paSkillSyncTarget'));
-      fillSyncTargetSelect(dest, sk.syncTarget || syncLocal, workspaceRows, syncLocal);
-      const system = skillIsSystem(sk, ctx);
-      dest.disabled = system;
-      dest.addEventListener('change', (ev) => {
-        ev.stopPropagation();
-        handlers.onTarget(sk.id, dest.value);
-      });
-      const edit = document.createElement('button');
-      edit.type = 'button';
-      edit.className = 'btn btn-sm';
-      edit.textContent = tx('paSkillEdit');
-      // Anti-Replay-OK: ui-only reveal of editor, no HTTP.
-      edit.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        handlers.onEdit(sk);
-      });
-      const actions = document.createElement('div');
-      actions.className = 'popup-skill-row-actions';
-      actions.appendChild(dest);
-      actions.appendChild(edit);
-      if (!system) {
-        const del = document.createElement('button');
-        del.type = 'button';
-        del.className = 'btn btn-sm';
-        del.textContent = tx('paSkillDelete');
-        del.addEventListener('click', (ev) => {
-          ev.stopPropagation();
-          handlers.onDelete(sk);
-        });
-        actions.appendChild(del);
-      } else {
-        const badge = document.createElement('span');
-        badge.className = 'popup-skill-system-badge';
-        badge.textContent = tx('paSkillSystemBadge');
-        titleEl.appendChild(badge);
+    const Skills = typeof PageAdvisorPromptSkills !== 'undefined' ? PageAdvisorPromptSkills : null;
+    const groups = Skills && typeof Skills.groupSkillsByTendency === 'function'
+      ? Skills.groupSkillsByTendency(store.skills || [], { includeEmptyPresets: true })
+      : [{ tendency: '', skills: store.skills || [] }];
+    groups.forEach((g) => {
+      const section = document.createElement('div');
+      section.className = 'popup-skill-group';
+      if (g.tendency) {
+        section.setAttribute('data-tendency', g.tendency);
+        section.setAttribute('role', 'group');
+        section.setAttribute('aria-label', tendencyLabel(g.tendency));
+        const heading = document.createElement('h4');
+        heading.className = 'popup-skill-group-title';
+        heading.textContent = tendencyLabel(g.tendency);
+        section.appendChild(heading);
       }
-      row.appendChild(actions);
-      root.appendChild(row);
+      (g.skills || []).forEach((sk) => {
+        appendSkillRow(section, sk, store, syncLocal, workspaceRows, handlers, ctx);
+      });
+      root.appendChild(section);
     });
   }
 

@@ -217,30 +217,47 @@
       console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
     }
     try {
+      const bundledIds = typeof PageAdvisorPromptSkills.bundledPresetIds === 'function'
+        ? PageAdvisorPromptSkills.bundledPresetIds()
+        : [];
+      systemCatalogIds = bundledIds.slice();
+      let catalog = {
+        skills: typeof PageAdvisorPromptSkills.bundledPresetSkills === 'function'
+          ? PageAdvisorPromptSkills.bundledPresetSkills()
+          : [],
+      };
+      let overlayExisting = false;
       if (pluginLoggedIn() && api && typeof api.getSystemPromptSkills === 'function' && advisorSession) {
         const cat = await api.getSystemPromptSkills(advisorSession);
-        const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
-          store, cat, lastKnownWorkspaceId || syncLocalValue(),
-        );
-        store = rec.store;
-        systemCatalogIds = (cat?.skills || []).map((s) => String(s.id || '').trim()).filter(Boolean);
-        const ids = new Set(systemCatalogIds);
-        store = {
-          ...store,
-          skills: (store.skills || []).map((s) => (ids.has(String(s.id || '').trim()) ? { ...s, readonly: true } : s)),
-        };
-        if (rec.action === 'applied') {
-          await PageAdvisorPromptSkills.saveToStorage(
-            store, typeof Storage !== 'undefined' ? Storage : null,
-          );
-          statusText(tx('paSkillSyncedPull'));
-        } else if (!(cat?.skills || []).length) {
-          statusText(tx('paSkillCatalogEmpty'));
+        const live = (cat && cat.skills) || [];
+        if (live.length) {
+          catalog = cat;
+          overlayExisting = true;
         }
+        systemCatalogIds = [...new Set(bundledIds.concat(
+          live.map((s) => String(s.id || '').trim()).filter(Boolean),
+        ))];
+      }
+      const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
+        store, catalog, lastKnownWorkspaceId || syncLocalValue(), { overlayExisting },
+      );
+      store = rec.store;
+      const ids = new Set(systemCatalogIds);
+      store = {
+        ...store,
+        skills: (store.skills || []).map((s) => (ids.has(String(s.id || '').trim()) ? { ...s, readonly: true } : s)),
+      };
+      if (rec.action === 'applied') {
+        await PageAdvisorPromptSkills.saveToStorage(
+          store, typeof Storage !== 'undefined' ? Storage : null,
+        );
+        if (pluginLoggedIn()) statusText(tx('paSkillSyncedPull'));
+      } else if (pluginLoggedIn() && overlayExisting && !((catalog && catalog.skills) || []).length) {
+        statusText(tx('paSkillCatalogEmpty'));
       }
     } catch (e) {
       console.warn('[taskChromePlugin] system catalog:', e?.message || e);
-      statusText(e?.message || tx('paSkillCatalogNeedSession'));
+      if (pluginLoggedIn()) statusText(e?.message || tx('paSkillCatalogNeedSession'));
     }
     if (!pluginLoggedIn()) statusText(tx('paSkillLocalOnlyUntilLogin'));
     renderList();

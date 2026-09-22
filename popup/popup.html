@@ -92,7 +92,7 @@
         <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill（倾向）</span></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-i18n="paSkillSectionHint">点「设置」管理 Skill。每条可只存本机，或同步到指定工作空间（该空间成员可见可改）。选中后仅直连智能体时追加到系统提示；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
+          <p class="float-ball-hint" data-i18n="paSkillSectionHint">点「设置」管理 Skill。列表按无障碍/转化/性能/SEO/自定义分组，未登录也会预埋五条系统预设（只读）。每条可只存本机，或同步到指定工作空间（该空间成员可见可改）。选中后仅直连智能体时追加到系统提示；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
         </details>
         <button type="button" id="btnToggleSkillSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorSkillFields" aria-expanded="false" data-i18n-aria-label="paSkillSettingsAria" aria-label="打开提示词 Skill 管理">⚙️ <span data-i18n="paSkillSettings">设置</span></button>
       </div>
@@ -295,6 +295,7 @@
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-llm-settings-ui.js"></script>
+  <script src="../lib/page-advisor-preset-skills.js"></script>
   <script src="../lib/page-advisor-prompt-skills.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="popup-llm-config.js"></script>

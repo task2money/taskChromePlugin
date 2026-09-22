@@ -12,8 +12,15 @@ const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
 const { installTxInSandbox } = require('./helpers/txRuntime.js');
+const {
+  skillRow,
+  skillRowByTitle,
+  rowTitle,
+  rowActions,
+} = require('./helpers/popupSkillListDom.js');
 
 const llmUiSrc = fs.readFileSync(path.join(ROOT, 'lib/popup-llm-settings-ui.js'), 'utf8');
+const skillsPresetSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-preset-skills.js'), 'utf8');
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
 const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
@@ -84,10 +91,6 @@ function makeEl(tag, id) {
   };
 }
 
-function noneRow(list) { return list.children[0]; }
-function skillRow(list, index) { return list.children[index + 1]; }
-function rowActions(row) { return row.children[1]; }
-
 function flush() {
   return new Promise((resolve) => setImmediate(resolve));
 }
@@ -153,6 +156,7 @@ function bootPopup({ api = null } = {}) {
   vm.createContext(sandbox);
   installTxInSandbox(sandbox);
   vm.runInContext(llmUiSrc, sandbox, { filename: 'lib/popup-llm-settings-ui.js' });
+  vm.runInContext(skillsPresetSrc, sandbox, { filename: 'lib/page-advisor-preset-skills.js' });
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
   vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
@@ -203,7 +207,10 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.popupSkillSyncTarget.value = 'local';
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
-    assert.equal(ctx.storageSets.at(-1).pageAdvisorPromptSkills[0].syncTarget, 'local');
+    assert.equal(
+      ctx.storageSets.at(-1).pageAdvisorPromptSkills.find((s) => s.title === '仅本机').syncTarget,
+      'local',
+    );
     const w1Puts = ctx.puts.filter((p) => p.wid === 'w1');
     assert.ok(w1Puts.length >= 1, '应对默认空间做 GET-merge PUT');
     const lastW1 = w1Puts[w1Puts.length - 1];
@@ -223,7 +230,10 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.popupSkillSyncTarget.value = 'w2';
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
-    assert.equal(ctx.storageSets.at(-1).pageAdvisorPromptSkills[0].syncTarget, 'w2');
+    assert.equal(
+      ctx.storageSets.at(-1).pageAdvisorPromptSkills.find((s) => s.title === '给B空间').syncTarget,
+      'w2',
+    );
     const w2Puts = ctx.puts.filter((p) => p.wid === 'w2');
     assert.equal(w2Puts.length, 1);
     assert.equal(w2Puts[0].payload.skills[0].title, '给B空间');
@@ -238,12 +248,15 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.popupSkillSyncTarget.value = 'local';
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
-    const dest = rowActions(skillRow(ctx.byId.popupSkillList, 0)).children[0];
+    const dest = rowActions(skillRowByTitle(ctx.byId.popupSkillList, /可改目标/)).children[0];
     assert.equal(dest.tagName, 'SELECT');
     dest.value = 'w2';
     dest.dispatch('change', { stopPropagation() {} });
     await flushAll();
-    assert.equal(ctx.storageSets.at(-1).pageAdvisorPromptSkills[0].syncTarget, 'w2');
+    assert.equal(
+      ctx.storageSets.at(-1).pageAdvisorPromptSkills.find((s) => s.title === '可改目标').syncTarget,
+      'w2',
+    );
     assert.ok(ctx.puts.some((p) => p.wid === 'w2' && p.payload.skills.some((s) => s.title === '可改目标')));
   });
 
@@ -260,7 +273,7 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
     assert.equal(ctx.byId.popupSkillEditor.style.display, 'none');
-    const row = skillRow(ctx.byId.popupSkillList, 0);
+    const row = skillRowByTitle(ctx.byId.popupSkillList, /待删/);
     const actions = rowActions(row);
     assert.equal(actions.children[1].textContent, '编辑');
     assert.equal(actions.children[2].textContent, '删除');
@@ -269,9 +282,9 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     assert.equal(ctx.byId.popupSkillTitle.value, '待删');
     actions.children[2].dispatch('click', { stopPropagation() {} });
     await flushAll();
-    assert.equal(ctx.byId.popupSkillList.children.length, 2, '未确认删除前仍保留');
+    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /待删/), '未确认删除前仍保留');
     ctx.byId.btnSkillDeleteConfirm.dispatch('click');
     await flushAll();
-    assert.equal(ctx.byId.popupSkillList.children.length, 1);
+    assert.equal(skillRowByTitle(ctx.byId.popupSkillList, /待删/), undefined);
   });
 });

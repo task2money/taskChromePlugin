@@ -18,7 +18,7 @@ describe('user-guide-en-sections', () => {
   it('documents system default skill fetch and reopen-popup recovery', () => {
     const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
     const blob = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
-    assert.match(blob, /new workspace default/);
-    assert.match(blob, /reopen the popup/);
+    assert.match(blob, /preloaded even while signed out/);
+    assert.match(blob, /Do not apply/);
   });
 });

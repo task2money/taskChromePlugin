@@ -303,6 +303,25 @@ describe('prompt skill per-item syncTarget', () => {
     assert.equal(PageAdvisorPromptSkills.workspaceIdForSkill({ syncTarget: 'ws-b' }, 'ws-a'), 'ws-b');
   });
 
+  it('applySystemCatalogDefault 空本机无目录时预埋五条稳定 id 并选中 custom', () => {
+    const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
+      PageAdvisorPromptSkills.emptyStore(),
+      { skills: [] },
+      'local',
+    );
+    assert.equal(rec.action, 'applied');
+    const ids = rec.store.skills.map((s) => s.id).sort();
+    assert.deepEqual(ids, [
+      'sys_default_auto_innovate',
+      'sys_tendency_a11y',
+      'sys_tendency_conversion',
+      'sys_tendency_perf',
+      'sys_tendency_seo',
+    ].sort());
+    assert.equal(rec.store.activeSkillId, 'sys_default_auto_innovate');
+    rec.store.skills.forEach((s) => assert.equal(s.readonly, true));
+  });
+
   it('applySystemCatalogDefault inserts default and selects when local empty', () => {
     const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
       PageAdvisorPromptSkills.emptyStore(),
@@ -317,6 +336,9 @@ describe('prompt skill per-item syncTarget', () => {
     assert.equal(rec.action, 'applied');
     assert.equal(rec.store.activeSkillId, 'sys_default_auto_innovate');
     assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').body, '平台提示');
+    assert.equal(rec.store.skills.find((s) => s.id === 'sys_tendency_a11y').title, '系统默认·无障碍');
+    assert.equal(rec.store.skills.some((s) => s.id === 'other'), false);
+    assert.equal(rec.store.skills.length, 5);
     assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').readonly, true);
   });
 
@@ -332,16 +354,36 @@ describe('prompt skill per-item syncTarget', () => {
   });
 
   it('applySystemCatalogDefault does not override 不应用 when default id already local', () => {
-    let st = PageAdvisorPromptSkills.upsertSkill(
-      PageAdvisorPromptSkills.emptyStore(),
-      { id: 'sys_default_auto_innovate', title: '系统默认自动创新', body: 'old', syncTarget: 'local' },
-    ).store;
+    const st = {
+      skills: [{
+        id: 'sys_default_auto_innovate',
+        title: '系统默认自动创新',
+        tendency: 'custom',
+        body: 'old',
+        syncTarget: 'local',
+        readonly: true,
+      }],
+      activeSkillId: '',
+    };
     const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(st, {
       skills: [{ id: 'sys_default_auto_innovate', title: '系统默认自动创新', body: 'new', is_default: true }],
-    }, 'local');
-    assert.equal(rec.action, 'noop');
+    }, 'local', { overlayExisting: true });
+    assert.equal(rec.action, 'applied');
     assert.equal(rec.store.activeSkillId, '');
-    assert.equal(rec.store.skills[0].body, 'old');
+    assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').body, 'new');
+    assert.equal(rec.store.skills.length, 5);
+  });
+
+  it('toApiPayload 剥离全部五条预埋稳定 id', () => {
+    const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
+      PageAdvisorPromptSkills.emptyStore(), { skills: [] }, 'local',
+    );
+    rec.store.skills.push({
+      id: 'c1', title: '我的', tendency: 'seo', body: 'x', updatedAt: 2, syncTarget: 'local',
+    });
+    rec.store.activeSkillId = 'c1';
+    const payload = PageAdvisorPromptSkills.toApiPayload(rec.store);
+    assert.deepEqual(payload.skills.map((s) => s.id), ['c1']);
   });
 
   it('mergeWorkspaceBundle adopts remote active only on first sight', () => {
