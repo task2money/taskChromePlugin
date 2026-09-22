@@ -172,6 +172,28 @@
 .taskplugin-badge-critical { background: rgba(243, 139, 168, 0.25) !important; color: #f38ba8 !important; }
 .taskplugin-badge-err { background: rgba(243, 139, 168, 0.2) !important; color: #f38ba8 !important; }
 
+/* 浮窗顶栏语言选择器（OPT-20260922-037）：300px 顶栏内保持紧凑 */
+.taskplugin-locale-wrap {
+  display: inline-flex !important;
+  align-items: center !important;
+  flex: 0 0 auto !important;
+}
+.taskplugin-locale-select {
+  width: auto !important;
+  max-width: 84px !important;
+  padding: 2px 4px !important;
+  font-size: 11px !important;
+  line-height: 1.2 !important;
+}
+.taskplugin-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+}
+
 /* 面板滚动区 */
 .taskplugin-panel-body {
   padding: 12px 14px !important;

@@ -60,6 +60,7 @@
         "lib/i18n-messages.js",
         "lib/i18n-ui-messages.js",
         "lib/i18n-tx.js",
+      "lib/locale-switcher-ui.js",
         "lib/storage.js",
         "lib/dom-trace.js",
         "lib/create-task-git-identity.js",

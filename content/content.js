@@ -12,6 +12,27 @@ function bindFloatPanelCloseButton() {
   });
 }
 
+/**
+ * 浮窗顶栏语言选择器（OPT-20260922-037）：复用 lib/locale-switcher-ui.js，
+ * 与 Popup / DevTools Panel 同一取词与同步入口（aidevpush.locale）。
+ */
+function bindFloatLocaleSwitcher() {
+  const select = document.getElementById('taskplugin-float-locale');
+  if (!select) return;
+  if (typeof PluginLocaleSwitcher === 'undefined' || !PluginLocaleSwitcher.bind) return;
+  const i18n = globalThis.AidevpushI18n;
+  if (!i18n) return;
+  // Anti-Replay-OK: locale switch; syncPreferredLocale 为既有 best-effort PATCH（ADR-0089）
+  PluginLocaleSwitcher.bind({
+    select,
+    i18n,
+    sendMessage: (msg) => chrome.runtime.sendMessage(msg),
+    onApplied: () => {
+      if (typeof renderShortcutHints === 'function') renderShortcutHints();
+    },
+  });
+}
+
 function hideFloatPanel() {
   isOpen = false;
   panel.classList.remove('taskplugin-open');
@@ -265,6 +286,7 @@ if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
     //    防止 Service Worker 延迟 / 启动失败导致按钮无响应
     setupDrag();
     bindFloatPanelCloseButton();
+    bindFloatLocaleSwitcher();
     setupElementPicker();
     setupDescReset();
     bindStorageListeners();
