@@ -10,6 +10,13 @@
       .replace(/"/g, '&quot;');
   }
 
+  function skillIsSystem(sk, ctx) {
+    if (typeof PageAdvisorPromptSkills !== 'undefined' && typeof PageAdvisorPromptSkills.isSystemPromptSkill === 'function') {
+      return PageAdvisorPromptSkills.isSystemPromptSkill(sk, ctx && ctx.systemSkillIds);
+    }
+    return Boolean(sk && sk.readonly);
+  }
+
   function workspaceLabelOf(workspaceRows, workspaceId) {
     const wid = String(workspaceId || '').trim();
     const ws = (workspaceRows || []).find((row) => String(row?.id || row?._id || '') === wid);
@@ -174,6 +181,8 @@
       dest.className = 'form-select popup-skill-sync';
       dest.setAttribute('aria-label', tx('paSkillSyncTarget'));
       fillSyncTargetSelect(dest, sk.syncTarget || syncLocal, workspaceRows, syncLocal);
+      const system = skillIsSystem(sk, ctx);
+      dest.disabled = system;
       dest.addEventListener('change', (ev) => {
         ev.stopPropagation();
         handlers.onTarget(sk.id, dest.value);
@@ -187,19 +196,26 @@
         ev.stopPropagation();
         handlers.onEdit(sk);
       });
-      const del = document.createElement('button');
-      del.type = 'button';
-      del.className = 'btn btn-sm';
-      del.textContent = tx('paSkillDelete');
-      del.addEventListener('click', (ev) => {
-        ev.stopPropagation();
-        handlers.onDelete(sk);
-      });
       const actions = document.createElement('div');
       actions.className = 'popup-skill-row-actions';
       actions.appendChild(dest);
       actions.appendChild(edit);
-      actions.appendChild(del);
+      if (!system) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'btn btn-sm';
+        del.textContent = tx('paSkillDelete');
+        del.addEventListener('click', (ev) => {
+          ev.stopPropagation();
+          handlers.onDelete(sk);
+        });
+        actions.appendChild(del);
+      } else {
+        const badge = document.createElement('span');
+        badge.className = 'popup-skill-system-badge';
+        badge.textContent = tx('paSkillSystemBadge');
+        titleEl.appendChild(badge);
+      }
       row.appendChild(actions);
       root.appendChild(row);
     });
@@ -220,6 +236,11 @@
     fillTendencyDatalist(q('#popupSkillTendencyList'), store && store.skills);
     q('#popupSkillBody').value = skill?.body || '';
     fillSyncTargetSelect(q('#popupSkillSyncTarget'), skill?.syncTarget || defaultSyncTarget, workspaceRows, syncLocal);
+    const ro = skillIsSystem(skill, { systemSkillIds: [] });
+    ['#popupSkillTitle', '#popupSkillTendency', '#popupSkillBody', '#popupSkillSyncTarget'].forEach((sel) => {
+      const el = q(sel);
+      if (el) el.disabled = Boolean(skill?.readonly) || ro;
+    });
     setEditorVisible(true);
   }
 

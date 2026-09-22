@@ -303,6 +303,18 @@ describe('prompt skill per-item syncTarget', () => {
     assert.equal(rec.action, 'applied');
     assert.equal(rec.store.activeSkillId, 'sys_default_auto_innovate');
     assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').body, '平台提示');
+    assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').readonly, true);
+  });
+
+  it('removeSkill rejects readonly system copies', () => {
+    const st = {
+      skills: [{ id: 'sys_default_auto_innovate', title: '系统默认自动创新', body: 'p', readonly: true }],
+      activeSkillId: '',
+    };
+    assert.throws(
+      () => PageAdvisorPromptSkills.removeSkill(st, 'sys_default_auto_innovate'),
+      /read-only/,
+    );
   });
 
   it('applySystemCatalogDefault does not override 不应用 when default id already local', () => {

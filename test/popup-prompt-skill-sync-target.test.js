@@ -17,6 +17,7 @@ const llmUiSrc = fs.readFileSync(path.join(ROOT, 'lib/popup-llm-settings-ui.js')
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
 const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
+const popupSkillCloudSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-cloud.js'), 'utf8');
 const popupSkillsSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skills.js'), 'utf8');
 
 const SKILL_IDS = [
@@ -155,6 +156,7 @@ function bootPopup({ api = null } = {}) {
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
   vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
+  vm.runInContext(popupSkillCloudSrc, sandbox, { filename: 'popup/popup-prompt-skill-cloud.js' });
   if (sandbox.PopupPromptSkillSession) {
     sandbox.PopupPromptSkillSession.loggedInProvider = async () => true;
   }

@@ -103,6 +103,32 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     assert.deepEqual(deleted, ['s1']);
   });
 
+  it('系统 Skill 不渲染删除并带系统徽章', () => {
+    const root = makeEl('div');
+    const deleted = [];
+    SkillUi.renderSkillList(root, {
+      skills: [{
+        id: 'sys_default_auto_innovate',
+        title: '系统默认自动创新',
+        tendency: 'custom',
+        body: 'p',
+        readonly: true,
+      }],
+      activeSkillId: 'sys_default_auto_innovate',
+    }, 'local', [], {
+      onActive() {},
+      onTarget() {},
+      onEdit() {},
+      onDelete: (sk) => deleted.push(sk.id),
+    }, { systemSkillIds: ['sys_default_auto_innovate'] });
+    const skillRow = root.children[1];
+    const actions = actionsLine(skillRow);
+    assert.equal(actions.children.length, 2, '仅同步下拉与编辑，无删除');
+    assert.equal(actions.children[0].disabled, true);
+    assert.match(titleLine(skillRow).children[titleLine(skillRow).children.length - 1].textContent, /系统|System/);
+    assert.equal(deleted.length, 0);
+  });
+
   it('已有 active Skill 时「不应用」radio 未勾选', () => {
     const root = makeEl('div');
     SkillUi.renderSkillList(root, {
