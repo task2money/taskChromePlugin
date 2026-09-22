@@ -180,7 +180,7 @@
     for (const b of builtin) {
       if (!seen.has(b)) {
         seen.add(b);
-        datalist.innerHTML += `<option value="${b}">${b}  [内置]</option>`;
+        datalist.innerHTML += `<option value="${P.escHtml(b)}">${P.escHtml(b)}  [内置]</option>`;
       }
     }
 

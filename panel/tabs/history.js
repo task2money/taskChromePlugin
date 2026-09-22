@@ -50,20 +50,20 @@
         h += `<div class="history-item">
           <div class="hi-header">
             <span class="hi-title">${icon} ${P.escHtml(item.title)}${retries}</span>
-            <span class="hi-status ${sc}">${item.status === 'success' ? P.t('panelStatusSuccess') : (item.status === 'failed' ? P.t('panelStatusFailed') : P.t('panelStatusPending'))}</span>
+            <span class="hi-status ${sc}">${P.escHtml(item.status === 'success' ? P.t('panelStatusSuccess') : (item.status === 'failed' ? P.t('panelStatusFailed') : P.t('panelStatusPending')))}</span>
           </div>
           <div class="hi-meta">
-            <span>${P.t('panelHistoryTypeLabel', { type: item.type === 'batch' ? P.t('panelTypeBatch', { n: item.count || '?' }) : P.t('panelTypeSingle') })}</span>
-            <span>${P.t('panelHistoryTimeLabel', { time: timeStr })}</span>
-            ${item.resultId ? `<span>ID: ${item.resultId}</span>` : ''}
+            <span>${P.escHtml(P.t('panelHistoryTypeLabel', { type: item.type === 'batch' ? P.t('panelTypeBatch', { n: item.count || '?' }) : P.t('panelTypeSingle') }))}</span>
+            <span>${P.escHtml(P.t('panelHistoryTimeLabel', { time: timeStr }))}</span>
+            ${item.resultId ? `<span>ID: ${P.escHtml(item.resultId)}</span>` : ''}
           </div>
           ${item.error ? `<div class="hi-error">${P.escHtml(item.error)}</div>` : ''}
           <div class="hi-actions">`;
 
         if (item.status === 'failed') {
-          h += `<button class="btn btn-sm retry-single" data-id="${item.id}">${P.t('panelRetry')}</button>`;
+          h += `<button class="btn btn-sm retry-single" data-id="${P.escHtml(item.id)}">${P.escHtml(P.t('panelRetry'))}</button>`;
         }
-        h += `<button class="btn btn-sm copy-task" data-id="${item.id}">${P.t('panelCopyData')}</button>
+        h += `<button class="btn btn-sm copy-task" data-id="${P.escHtml(item.id)}">${P.escHtml(P.t('panelCopyData'))}</button>
           </div></div>`;
       }
       c.innerHTML = h;

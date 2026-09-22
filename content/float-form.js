@@ -23,7 +23,7 @@ async function loadWorkspaces() {
     for (let i = 0; i < workspacesData.length; i++) {
       const ws = workspacesData[i];
       const id = ws.id || ws._id;
-      wsSelect.innerHTML += `<option value="${id}">${esc(labels[i])}</option>`;
+      wsSelect.innerHTML += `<option value="${esc(id)}">${esc(labels[i])}</option>`;
     }
     await applyAidevMetaAfterWorkspacesLoaded();
     // 无 aidev 自动选中时，恢复弹窗/上次保存的默认工作空间
@@ -50,7 +50,8 @@ async function loadWorkspaces() {
       if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
       return;
     }
-    wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : `加载失败: ${e.message}`}</option>`;
+    const failMsg = typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : ('加载失败: ' + e.message);
+    wsSelect.innerHTML = `<option value="">${esc(failMsg)}</option>`;
     if (typeof setDataTraceId === 'function') setDataTraceId(wsSelect, e);
   }
 }
@@ -169,7 +170,8 @@ async function loadProjects(wsId) {
     projectsData = [];
     syncFloatAutoRun(false);
     if (handleApiAuthFailure(e)) return;
-    projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">${typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : `加载失败: ${e.message}`}</span>`;
+    const failMsg = typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : ('加载失败: ' + e.message);
+    projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">${esc(failMsg)}</span>`;
     if (typeof setDataTraceId === 'function') setDataTraceId(projectsDiv, e);
   }
 }

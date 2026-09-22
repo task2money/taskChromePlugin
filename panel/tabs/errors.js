@@ -22,9 +22,10 @@
       let h = '';
       for (const e of [...only5xx].reverse()) {
         const s = (e.url || '').length > 100 ? e.url.slice(0, 100) + '...' : e.url;
+        const method = P.escHtml(e.method);
         h += `<div class="error-item">
-          <div class="err-url"><span class="req-method ${e.method}">${e.method}</span><span class="err-status">${e.canceled ? 'Canceled' : e.statusCode}</span>${P.escHtml(s)}</div>
-          <div class="err-meta"><span>${e.type}</span><span>${new Date(e.capturedAt).toLocaleString()}</span></div>
+          <div class="err-url"><span class="req-method ${method}">${method}</span><span class="err-status">${e.canceled ? 'Canceled' : P.escHtml(e.statusCode)}</span>${P.escHtml(s)}</div>
+          <div class="err-meta"><span>${P.escHtml(e.type)}</span><span>${P.escHtml(new Date(e.capturedAt).toLocaleString())}</span></div>
         </div>`;
       }
       c.innerHTML = h;

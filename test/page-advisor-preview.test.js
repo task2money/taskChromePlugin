@@ -57,6 +57,23 @@ describe('page-advisor-preview sanitize', () => {
     assert.equal(ops.length, 2);
     assert.equal(ops[1].value, 'taskplugin-preview-x');
   });
+
+  it('drops javascript: href setAttr', () => {
+    const ops = PageAdvisorPreview.sanitizePreviewOps([
+      { op: 'setAttr', nid: 'n1', attr: 'href', value: 'javascript:alert(1)' },
+      { op: 'setAttr', nid: 'n1', attr: 'href', value: 'https://example.com' },
+    ]);
+    assert.equal(ops.length, 1);
+    assert.equal(ops[0].value, 'https://example.com');
+  });
+
+  it('insert html attrs: allow class/aria, deny onclick/style/href', () => {
+    assert.equal(PageAdvisorPreview.htmlAttrAllowedForInsert('class'), true);
+    assert.equal(PageAdvisorPreview.htmlAttrAllowedForInsert('aria-label'), true);
+    assert.equal(PageAdvisorPreview.htmlAttrAllowedForInsert('onclick'), false);
+    assert.equal(PageAdvisorPreview.htmlAttrAllowedForInsert('style'), false);
+    assert.equal(PageAdvisorPreview.htmlAttrAllowedForInsert('href'), false);
+  });
 });
 
 describe('page-advisor-preview apply/undo', () => {

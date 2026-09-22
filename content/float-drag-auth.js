@@ -274,7 +274,7 @@ function applyWorkspaceSelectFromAuth({ loggedIn, mode, invalidated = false }) {
   });
   const text = FloatWorkspaceSelect.floatWorkspaceSelectPlaceholder(action);
   if (text == null) return;
-  wsSelect.innerHTML = `<option value="">${text}</option>`;
+  wsSelect.innerHTML = `<option value="">${typeof esc === 'function' ? esc(text) : String(text)}</option>`;
 }
 
 /**

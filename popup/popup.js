@@ -224,7 +224,7 @@
 
     const container = $('#requestList');
     if (display.length === 0) {
-      container.innerHTML = tx('popupNoMatchingRequests');
+      container.textContent = tx('popupNoMatchingRequests');
       return;
     }
 
@@ -233,9 +233,10 @@
       const scCls = isRequestCanceled(req) ? 'err-4xx' : (req.statusCode >= 500 ? 'err-5xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok'));
       const sel = selectedReqId === req.id ? ' selected' : '';
       const urlShort = (req.url || '').length > 60 ? req.url.slice(0, 60) + '…' : (req.url || '');
-      html += `<div class="popup-req-item${sel}" data-id="${req.id}">
-        <span class="req-method ${req.method}">${req.method}</span>
-        <span class="req-status ${scCls}">${formatRequestStatusLabel(req)}</span>
+      const method = escHtml(req.method);
+      html += `<div class="popup-req-item${sel}" data-id="${escHtml(req.id)}">
+        <span class="req-method ${method}">${method}</span>
+        <span class="req-status ${scCls}">${escHtml(formatRequestStatusLabel(req))}</span>
         <span class="req-url">${escHtml(urlShort)}</span>
       </div>`;
     }
@@ -261,7 +262,7 @@
 
     let reqHdrHtml = '';
     if (req.requestHeaders && Object.keys(req.requestHeaders).length) {
-      reqHdrHtml = '<div class="detail-section"><h4>' + tx('popupReqHeaders') + '</h4>' +
+      reqHdrHtml = '<div class="detail-section"><h4>' + escHtml(tx('popupReqHeaders')) + '</h4>' +
         Object.entries(req.requestHeaders).map(([k, v]) =>
           `<span class="hdr-pair"><strong>${escHtml(k)}:</strong> ${escHtml(String(v))}</span>`
         ).join('<br>') + '</div>';
@@ -269,23 +270,24 @@
 
     let resHdrHtml = '';
     if (req.responseHeaders && Object.keys(req.responseHeaders).length) {
-      resHdrHtml = '<div class="detail-section"><h4>' + tx('popupResHeaders') + '</h4>' +
+      resHdrHtml = '<div class="detail-section"><h4>' + escHtml(tx('popupResHeaders')) + '</h4>' +
         Object.entries(req.responseHeaders).map(([k, v]) =>
           `<span class="hdr-pair"><strong>${escHtml(k)}:</strong> ${escHtml(String(v))}</span>`
         ).join('<br>') + '</div>';
     }
 
+    const method = escHtml(req.method);
     el.innerHTML = `<div style="margin-bottom:6px">
-      <span class="req-method ${req.method}">${req.method}</span>
-      <span class="req-status ${isRequestCanceled(req) ? 'err-4xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok')}">${formatRequestStatusLabel(req)}</span>
+      <span class="req-method ${method}">${method}</span>
+      <span class="req-status ${isRequestCanceled(req) ? 'err-4xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok')}">${escHtml(formatRequestStatusLabel(req))}</span>
       <span style="font-size:10px;color:#6c7086;margin-left:6px">${escHtml(req.url)}</span>
     </div>
     ${reqHdrHtml}
-    ${req.requestBody ? `<div class="detail-section"><h4>${tx('popupReqBody')}</h4><pre class="body-pre">${escHtml(String(req.requestBody))}</pre></div>` : ''}
+    ${req.requestBody ? `<div class="detail-section"><h4>${escHtml(tx('popupReqBody'))}</h4><pre class="body-pre">${escHtml(String(req.requestBody))}</pre></div>` : ''}
     ${resHdrHtml}
-    ${req.responseBody ? `<div class="detail-section"><h4>${tx('popupResBody')}</h4><pre class="body-pre">${escHtml(String(req.responseBody))}</pre></div>` : ''}
+    ${req.responseBody ? `<div class="detail-section"><h4>${escHtml(tx('popupResBody'))}</h4><pre class="body-pre">${escHtml(String(req.responseBody))}</pre></div>` : ''}
     <div class="dt-hint" style="margin-top:8px;padding:6px 8px;background:#252536;border-radius:4px;text-align:center">
-      <span style="font-size:10px;color:#89b4fa;">${tx('popupReqDetailHint', { brand: globalThis.PLUGIN_DISPLAY_NAME || '' })}</span>
+      <span style="font-size:10px;color:#89b4fa;">${escHtml(tx('popupReqDetailHint', { brand: globalThis.PLUGIN_DISPLAY_NAME || '' }))}</span>
     </div>`;
   }
 
