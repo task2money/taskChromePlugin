@@ -53,6 +53,15 @@ window.PanelApp = (function () {
   api.initI18n = async function initPanelI18n() {
     if (!globalThis.AidevpushI18n) return;
     await globalThis.AidevpushI18n.hydrateFromStorage().catch(() => {});
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        const r = await Promise.race([
+          chrome.runtime.sendMessage({ action: 'hydratePreferredLocale' }),
+          new Promise((resolve) => setTimeout(() => resolve(null), 3000)),
+        ]);
+        if (r && r.locale) globalThis.AidevpushI18n.setLocale(r.locale);
+      }
+    } catch (_) { /* ignore — fail-open to storage locale */ }
     globalThis.AidevpushI18n.applyDom(document);
     const loc = globalThis.AidevpushI18n.getLocale();
     document.documentElement.lang = loc === 'en' ? 'en' : 'zh-CN';

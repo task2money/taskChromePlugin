@@ -59,6 +59,24 @@ async function completeLoginAndRespond(baseUrl, token, expiresIn, refreshToken, 
   };
 
   try {
+    if (globalThis.ProfileLocale && globalThis.AidevpushI18n && typeof API.getUserProfile === 'function') {
+      await withTimeout(
+        globalThis.ProfileLocale.hydratePreferredLocaleFromProfile({
+          getProfile: () => API.getUserProfile(),
+          applyPreferredLocaleFromProfile: (p) => globalThis.AidevpushI18n.applyPreferredLocaleFromProfile(p),
+          warn: (err) => console.warn('[taskChromePlugin] preferred_locale hydrate:', err?.message || err),
+        }),
+        2000,
+        'preferredLocale',
+      ).catch((err) => {
+        console.warn('[taskChromePlugin] preferred_locale hydrate skipped:', err?.message || err);
+      });
+    }
+  } catch (e) {
+    console.warn('[taskChromePlugin] preferred_locale hydrate skipped:', e?.message || e);
+  }
+
+  try {
     await finalizeLoginSuccess(persistOpts);
   } catch (e) {
     console.warn('[taskChromePlugin] 保存登录态失败/超时，后台重试:', e?.message || e);

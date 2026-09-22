@@ -224,6 +224,25 @@ async function handleMessage(message, sender) {
         }
       }
 
+    case 'hydratePreferredLocale':
+      try {
+        await initApiFromMessage(message);
+        if (typeof API.getToken === 'function' && !API.getToken()) {
+          return { success: true, locale: null };
+        }
+        if (!globalThis.ProfileLocale || !globalThis.AidevpushI18n) {
+          return { success: true, locale: null };
+        }
+        const locale = await globalThis.ProfileLocale.hydratePreferredLocaleFromProfile({
+          getProfile: () => API.getUserProfile(),
+          applyPreferredLocaleFromProfile: (p) => globalThis.AidevpushI18n.applyPreferredLocaleFromProfile(p),
+        });
+        return { success: true, locale: locale || null };
+      } catch (e) {
+        console.warn('[taskChromePlugin] hydratePreferredLocale skipped:', e?.message || e);
+        return { success: true, locale: null, traceId: e?.traceId || '' };
+      }
+
     case 'logout':
       try {
         await Storage.clearAuth();

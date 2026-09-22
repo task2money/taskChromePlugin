@@ -21,6 +21,7 @@ importScripts(
   '../lib/workspace-list.js',
   '../lib/api-http.js',
   '../lib/api.js',
+  '../lib/profile-locale.js',
   '../lib/capture-status.js',
   '../lib/captured-entries.js',
   '../lib/captured-buffer.js',

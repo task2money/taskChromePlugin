@@ -1,6 +1,16 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 
+test('applyPreferredLocaleFromProfile uses profile then ignores empty', () => {
+  delete require.cache[require.resolve('../lib/i18n.js')]
+  const i18n = require('../lib/i18n.js')
+  i18n.setLocale('zh-CN')
+  assert.equal(i18n.applyPreferredLocaleFromProfile({ preferred_locale: 'en' }), 'en')
+  assert.equal(i18n.getLocale(), 'en')
+  assert.equal(i18n.applyPreferredLocaleFromProfile({ preferred_locale: '' }), null)
+  assert.equal(i18n.getLocale(), 'en')
+})
+
 test('plugin i18n switches login label', () => {
   // fresh load
   delete require.cache[require.resolve('../lib/i18n.js')]

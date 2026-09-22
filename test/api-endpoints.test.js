@@ -23,6 +23,11 @@ describe('API default endpoints follow current gateway convention', () => {
     assert.equal(ep.workspaces, '/api/projects/workspaces/tenant_id/{companyId}');
   });
 
+  it('userProfile GET uses accounts users profile', () => {
+    const ep = API.getDefaultEndpoints();
+    assert.equal(ep.userProfile, '/api/accounts/users/profile/');
+  });
+
   it('T2 project/task/cloud defaults no longer use retired /api/tenant/{companyId}/workspaces', () => {
     const ep = API.getDefaultEndpoints();
     assert.equal(ep.projects, '/api/projects/tenant_id/{companyId}?workspace_id={workspaceId}');

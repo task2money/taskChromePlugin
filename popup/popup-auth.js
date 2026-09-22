@@ -333,6 +333,25 @@
     mountPopupUserGuide();
   }
 
+  /**
+   * 已登录后从账号 preferred_locale 水合，再重挂使用说明（ADR-0089）。
+   * 失败不阻断已登录 UI。
+   */
+  async function refreshPopupLocaleFromProfile() {
+    try {
+      const r = await sendMessageWithTimeout({ action: 'hydratePreferredLocale' }, 3000);
+      const loc = r && r.locale;
+      if (loc && globalThis.AidevpushI18n) {
+        globalThis.AidevpushI18n.setLocale(loc);
+        globalThis.AidevpushI18n.applyDom(document);
+        document.documentElement.lang = loc === 'en' ? 'en' : 'zh-CN';
+      }
+    } catch (e) {
+      console.warn('[TaskPlugin] preferred_locale hydrate skipped:', e.message || e);
+    }
+    mountPopupUserGuide();
+  }
+
   async function loadStateFromStorage() {
     const cfg = await Storage.getApiConfig();
     const cred = await Storage.getCredentials();
@@ -393,6 +412,7 @@
       showLoggedInUI(cred.username);
       applyExpiryHintToPopup(expiryHint);
       startAuthBadgeTimer();
+      void refreshPopupLocaleFromProfile();
 
       // 子模块异步延迟加载 — 不阻塞登录状态检查
       loadSubModules();

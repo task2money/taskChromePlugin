@@ -81,6 +81,14 @@ describe('UserGuide sections', () => {
     assert.match(loginMd, /未登录.*旁.*登录/);
   });
 
+  it('login 说明登录后拉取个人中心默认语言', () => {
+    const login = UserGuide.SECTIONS.find((s) => s.id === 'login');
+    const blob = (login.steps || []).join('\n');
+    assert.match(blob, /默认语言/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md.split('## 页内浮窗')[0], /默认语言/);
+  });
+
   it('float-create 说明包含同名工作空间按公司名区分', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /名称 · 公司名/);
