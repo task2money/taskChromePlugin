@@ -59,6 +59,54 @@ describe('PageAdvisorLLM URL and JSON', () => {
     assert.equal(items[0].title, 'T');
   });
 
+  it('parseSuggestionsJSON repairs missing comma between object fields (V8 Expected "," or "}")', () => {
+    const raw = '[{"id":"s1","title":"A" "summary":"s","detail":"d","category":"ux"}]';
+    assert.throws(
+      () => JSON.parse(raw),
+      (err) => /Expected ',' or '}' after property value/.test(String(err && err.message)),
+    );
+    const items = PageAdvisorLLM.parseSuggestionsJSON(raw);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].title, 'A');
+    assert.equal(items[0].summary, 's');
+  });
+
+  it('parseSuggestionsJSON drops stray false after a completed value', () => {
+    const raw = '[{"id":"s1","title":"A","summary":"s","detail":"d","category":"ux","target_nid":"n1","preview":{"ops":[{"op":"setText","nid":"n1","value":"X"}]}false}]';
+    const items = PageAdvisorLLM.parseSuggestionsJSON(raw);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].title, 'A');
+    assert.equal(items[0].preview.ops.length, 1);
+  });
+
+  it('parseSuggestionsJSON prefers the suggestions array when prose has an object first', () => {
+    const raw = 'Seen {"nid":"n1"} from outline.\n[{"id":"s1","title":"A","summary":"s","detail":"d","category":"ux"}]';
+    const items = PageAdvisorLLM.parseSuggestionsJSON(raw);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].title, 'A');
+  });
+
+  it('parseSuggestionsJSON keeps trailing prose after a fenced array', () => {
+    const raw = '```json\n[{"id":"s1","title":"A","summary":"s","detail":"d","category":"ux"}]\n```\nfor operators: ignore';
+    const items = PageAdvisorLLM.parseSuggestionsJSON(raw);
+    assert.equal(items.length, 1);
+    assert.equal(items[0].title, 'A');
+  });
+
+  it('parseSuggestionsJSON reads wrapped {suggestions:[]}', () => {
+    const items = PageAdvisorLLM.parseSuggestionsJSON(
+      '{"suggestions":[{"title":"B","summary":"s","detail":"d","category":"perf"}]}',
+    );
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, 's1');
+    assert.equal(items[0].title, 'B');
+  });
+
+  it('repairLLMJSON drops stray false after completed object value', () => {
+    const out = PageAdvisorLLM.repairLLMJSON('{"preview":{"ops":[]}false}');
+    assert.equal(out, '{"preview":{"ops":[]}}');
+  });
+
   it('extractChatContent then parse', () => {
     const content = PageAdvisorLLM.extractChatContent(JSON.stringify({
       choices: [{ message: { content: '[{"title":"Hello","summary":"x"}]' } }],
@@ -89,5 +137,36 @@ describe('PageAdvisorLLM URL and JSON', () => {
     assert.equal(seen.opts.headers.Authorization, 'Bearer sk-abc');
     assert.equal(items[0].title, 'Idea');
     assert.doesNotMatch(JSON.stringify(seen.opts.body), /sk-abc/);
+  });
+
+  it('suggest logs truncated snippet without api key when JSON parse still fails', async () => {
+    const warns = [];
+    const orig = console.warn;
+    console.warn = (...args) => { warns.push(args); };
+    try {
+      await assert.rejects(
+        () => PageAdvisorLLM.suggest(
+          { apiKey: 'sk-secret-key', baseUrl: 'https://llm.test/v1', model: 'm' },
+          { url: 'https://p', title: 'Hi', pageText: 'body' },
+          {
+            fetchImpl: async () => ({
+              ok: true,
+              status: 200,
+              text: async () => JSON.stringify({
+                choices: [{ message: { content: 'not-json sk-secret-key leftover' } }],
+              }),
+            }),
+          },
+        ),
+        /parse suggestions json/,
+      );
+    } finally {
+      console.warn = orig;
+    }
+    const rec = warns.find((a) => a[0] === '[taskChromePlugin] page_advisor_llm_json_parse_failed');
+    assert.ok(rec, 'expected parse-failed warn');
+    assert.equal(rec[1].model, 'm');
+    assert.doesNotMatch(JSON.stringify(rec[1]), /sk-secret-key/);
+    assert.match(rec[1].content_snippet, /\[redacted-api-key\]/);
   });
 });
