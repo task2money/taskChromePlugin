@@ -58,6 +58,26 @@
     }
   }
 
+  /** 打开弹窗时最多补拉的工作空间数（OPT-20260922-015）：成员空间逐个 GET 是只读且限量的。 */
+  const MAX_PULL_WORKSPACES = 10;
+
+  /**
+   * 除本机已标记的目标外，还要补拉的成员空间（OPT-20260922-015）。
+   * 用户从未在本机给某空间打标时，其它电脑写入该空间的 Skill 不会自动出现，
+   * 「同步到工作空间 B」换电脑后看起来像丢了。默认空间优先，其余按列表序截断。
+   */
+  function memberWorkspaceIdsForPull(legacyWorkspaceId) {
+    const legacy = String(legacyWorkspaceId || '').trim();
+    const ids = [];
+    (workspaceRows || []).forEach((row) => {
+      const id = String(row?.id || row?._id || '').trim();
+      if (!id || ids.includes(id) || !tenantForWorkspace(id)) return;
+      ids.push(id);
+    });
+    ids.sort((a, b) => (a === legacy ? -1 : 0) - (b === legacy ? -1 : 0));
+    return ids.slice(0, MAX_PULL_WORKSPACES);
+  }
+
   function tenantForWorkspace(workspaceId) {
     const ws = workspaceRows.find((row) => String(row?.id || row?._id || '') === String(workspaceId || '').trim());
     return String(ws?.company_id || ws?.companyId || '').trim();
@@ -204,6 +224,7 @@
         const legacy = scope?.workspaceId || '';
         const wids = new Set(collectPushWorkspaceIds(legacy));
         if (legacy) wids.add(legacy);
+        memberWorkspaceIdsForPull(legacy).forEach((id) => wids.add(id));
         let needUpload = false;
         let didPull = false;
         for (const wid of wids) {

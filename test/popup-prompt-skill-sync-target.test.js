@@ -325,3 +325,66 @@ describe('Popup Skill 保存路径与会话源同源（OPT-20260922-039）', () 
     assert.equal(w2Gets.at(-1).session?.token, 'sess-tok', 'GET 与 PUT 用同一会话源');
   });
 });
+
+/**
+ * OPT-20260922-015：本机从未给某工作空间打标时，其它电脑写进该空间的 Skill 会看起来丢失。
+ * 打开弹窗须把成员空间（限量、默认空间优先）也各 GET 一次并入本机并集。
+ */
+describe('Popup Skill 拉取成员工作空间包（OPT-20260922-015）', () => {
+  it('本机空、默认空间空、另一成员空间有包时并入本机', async () => {
+    const gets = [];
+    const api = {
+      getPromptSkills: async (tid, wid, session) => {
+        gets.push({ wid, session });
+        if (wid === 'w2') {
+          return {
+            revision: 'rev-w2',
+            active_skill_id: '',
+            skills: [{ id: 'sk_other', title: '同事那条', body: '同事正文', sync_target: 'w2' }],
+          };
+        }
+        return { skills: [], active_skill_id: '', revision: '' };
+      },
+      putPromptSkills: async () => ({}),
+    };
+    const ctx = bootPopup({ api });
+    ctx.api.loadSkills();
+    await flushAll();
+
+    const targets = gets.map((g) => g.wid).sort();
+    assert.ok(targets.includes('w1'), '默认空间须 GET');
+    assert.ok(targets.includes('w2'), '未打标的成员空间也须 GET');
+    const saved = ctx.storageSets.at(-1);
+    assert.ok(saved, '拉到的包须落盘');
+    assert.ok(
+      saved.pageAdvisorPromptSkills.some((sk) => sk.title === '同事那条'),
+      `另一成员空间的 Skill 须并入本机：${JSON.stringify(saved.pageAdvisorPromptSkills.map((sk) => sk.title))}`,
+    );
+  });
+
+  it('成员空间数量超上限时只拉有限个（默认空间优先）', async () => {
+    const gets = [];
+    const api = {
+      getPromptSkills: async (_tid, wid) => {
+        gets.push(wid);
+        return { skills: [], active_skill_id: '', revision: '' };
+      },
+      putPromptSkills: async () => ({}),
+    };
+    const ctx = bootPopup({ api });
+    const originalSend = ctx.sandbox.sendMessageWithTimeout;
+    ctx.sandbox.sendMessageWithTimeout = async (msg) => {
+      if (msg && msg.action === 'getWorkspaces') {
+        const rows = [{ id: 'w1', name: '默认空间', company_id: 't1' }];
+        for (let i = 2; i <= 20; i += 1) rows.push({ id: `w${i}`, name: `空间${i}`, company_id: 't1' });
+        return { data: rows };
+      }
+      return originalSend(msg);
+    };
+    ctx.api.loadSkills();
+    await flushAll();
+
+    assert.ok(gets.length <= 10, `最多补拉 10 个空间，实际 ${gets.length}`);
+    assert.ok(gets.includes('w1'), '默认空间须在内');
+  });
+});
