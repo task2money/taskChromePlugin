@@ -161,6 +161,12 @@ test.describe('Popup 面板布局', () => {
     await expect(fields).toBeHidden();
     await toggle.click();
     await expect(fields).toBeVisible();
+    await expect(page.locator('#popupSkillEditor')).toBeHidden();
+    await expect(page.locator('#btnSkillHistoryLoad')).toHaveCount(0);
+    await expect(page.locator('#pageAdvisorSkillFields legend.popup-skill-saved-legend #btnSkillNew')).toBeVisible();
+    await expect(page.locator('label[for="popupSkillTendency"]')).toHaveText(/类别|Category/);
+    await page.locator('#btnSkillNew').click();
+    await expect(page.locator('#popupSkillEditor')).toBeVisible();
     await expect(page.locator('#popupSkillSyncTarget')).toBeVisible();
     await expect(page.locator('#popupSkillSyncTarget option[value="local"]')).toHaveCount(1);
     await expect(page.locator('#popupSkillSyncTarget option[value="ws-a"]')).toHaveCount(1);
@@ -172,8 +178,15 @@ test.describe('Popup 面板布局', () => {
     await expect(fields).toBeHidden();
     await toggle.click();
     await expect(fields).toBeVisible();
+    await expect(page.locator('#popupSkillEditor')).toBeHidden();
     await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveCount(1);
     await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('local');
+    const row = page.locator('#popupSkillList .popup-skill-row').first();
+    await expect(row.getByRole('button', { name: /编辑|Edit/ })).toBeVisible();
+    await expect(row.getByRole('button', { name: /删除|Delete/ })).toBeVisible();
+    await row.getByRole('button', { name: /编辑|Edit/ }).click();
+    await expect(page.locator('#popupSkillEditor')).toBeVisible();
+    await expect(page.locator('#popupSkillTitle')).toHaveValue('e2e-skill');
     await page.locator('#popupSkillList select.popup-skill-sync').selectOption('ws-b');
     await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('ws-b');
     await toggle.click();

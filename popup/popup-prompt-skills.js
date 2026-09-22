@@ -7,8 +7,6 @@
   let cloudRevisions = {};
   let pendingConflict = null;
   let pendingConflictWorkspaceId = '';
-  let revisionItems = [];
-  let revisionLoaded = false;
   let scopeProvider = null;
   let workspaceRows = [];
   let lwwWorkspaceIds = new Set();
@@ -73,12 +71,20 @@
     return ws || syncLocalValue();
   }
 
+  function setEditorVisible(open) {
+    const el = $('#popupSkillEditor');
+    if (!el) return;
+    el.style.display = open ? 'block' : 'none';
+    el.hidden = !open;
+  }
+
   function fillEditor(skill) {
     $('#popupSkillEditingId').value = skill?.id || '';
     $('#popupSkillTitle').value = skill?.title || '';
     $('#popupSkillTendency').value = skill?.tendency || 'custom';
     $('#popupSkillBody').value = skill?.body || '';
     fillSyncTargetSelect($('#popupSkillSyncTarget'), skill?.syncTarget || defaultSyncTarget());
+    setEditorVisible(true);
   }
   function renderList() {
     const SkillUi = globalThis.PopupPromptSkillUi;
@@ -92,6 +98,7 @@
         changeSkillTarget(id, value).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
       },
       onEdit: fillEditor,
+      onDelete: (id) => { deleteSkill(id).catch((e) => statusText(e?.message || tx('popupSaveFailed'))); },
     });
   }
 
@@ -221,7 +228,7 @@
         typeof Storage !== 'undefined' ? Storage : null,
       );
       renderList();
-      fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
+      setEditorVisible(false);
       statusText(tx('paSkillSyncedPull'));
     } catch (e) {
       statusText(e?.message || tx('popupSaveFailed'));
@@ -234,94 +241,6 @@
     const box = $('#popupSkillConflict');
     if (!box) return;
     box.style.display = pendingConflict ? 'block' : 'none';
-  }
-
-  function renderRevisions() {
-    const SkillUi = globalThis.PopupPromptSkillUi;
-    const editing = store.skills.find((s) => s.id === ($('#popupSkillEditingId')?.value || ''));
-    const currentRev = cloudRevisions[editing?.syncTarget]
-      || cloudRevisions[(Object.keys(cloudRevisions)[0] || '')]
-      || '';
-    if (SkillUi) {
-      SkillUi.renderRevisions($('#popupSkillRevisions'), revisionItems, currentRev, (rev) => {
-        restoreRevision(rev).catch(() => {});
-      });
-    }
-  }
-
-  function historyWorkspaceId() {
-    const editingId = $('#popupSkillEditingId')?.value || '';
-    const sk = store.skills.find((s) => s.id === editingId);
-    const t = String(sk?.syncTarget || '').trim();
-    if (t && t !== syncLocalValue()) return t;
-    return String($('#popupDefaultWorkspace')?.value || '').trim();
-  }
-
-  async function loadRevisions() {
-    if (typeof PageAdvisorAPI === 'undefined'
-      || typeof PageAdvisorAPI.listPromptSkillRevisions !== 'function') {
-      return;
-    }
-    const wid = historyWorkspaceId();
-    const tenantId = tenantForWorkspace(wid) || (await resolveSkillScope())?.tenantId;
-    if (!wid || !tenantId) {
-      statusText(tx('paSkillNeedWorkspace'));
-      return;
-    }
-    try {
-      await refreshWorkspaceRows();
-      revisionItems = await PageAdvisorAPI.listPromptSkillRevisions(tenantId, wid);
-      revisionLoaded = true;
-    } catch (e) {
-      statusText(tx('paSkillHistoryFailed'));
-      return;
-    }
-    renderRevisions();
-  }
-
-  async function restoreRevision(revision) {
-    if (saveBusy) return;
-    if (typeof PageAdvisorAPI === 'undefined'
-      || typeof PageAdvisorAPI.restorePromptSkillRevision !== 'function') {
-      return;
-    }
-    saveBusy = true;
-    try {
-      const wid = historyWorkspaceId();
-      await refreshWorkspaceRows();
-      const tenantId = tenantForWorkspace(wid) || (await resolveSkillScope())?.tenantId;
-      if (!wid || !tenantId) {
-        statusText(tx('paSkillNeedWorkspace'));
-        return;
-      }
-      const saved = await PageAdvisorAPI.restorePromptSkillRevision(
-        tenantId, wid, revision, cloudRevisions[wid] || '', newIdempotencyKey(),
-      );
-      const scope = await resolveSkillScope();
-      store = PageAdvisorPromptSkills.mergeWorkspaceBundle(
-        store, saved, wid, scope?.workspaceId || '',
-      ).store;
-      cloudRevisions[wid] = String(saved?.revision || '').trim();
-      clearConflict();
-      await PageAdvisorPromptSkills.saveToStorage(
-        store, typeof Storage !== 'undefined' ? Storage : null,
-      );
-      renderList();
-      fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
-      statusText(tx('paSkillHistoryRestored'));
-    } catch (e) {
-      if (e?.status === 409) {
-        pendingConflict = e?.body?.current || { skills: [], active_skill_id: '' };
-        pendingConflictWorkspaceId = historyWorkspaceId();
-        renderConflict();
-        statusText(tx('paSkillConflictTitle'));
-        return;
-      }
-      statusText(e?.message || tx('paSkillHistoryFailed'));
-    } finally {
-      saveBusy = false;
-      if (revisionLoaded) await loadRevisions().catch(() => {});
-    }
   }
 
   async function applyActive(id) {
@@ -385,9 +304,8 @@
     } catch (e) {
       console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
     }
-    fillSyncTargetSelect($('#popupSkillSyncTarget'), syncLocalValue());
     renderList();
-    fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
+    setEditorVisible(false);
   }
 
   async function saveSkill() {
@@ -420,12 +338,12 @@
         || PageAdvisorPromptSkills.getActive(store)
         || store.skills[0]
         || result.skill;
-      fillEditor(shown);
+      $('#popupSkillEditingId').value = shown.id || '';
       renderList();
       if (ok) {
         const localOnly = shown.syncTarget === syncLocalValue();
         statusText(localOnly ? tx('paSkillSavedLocal') : tx('paSkillSaved'));
-        if (revisionLoaded) await loadRevisions().catch(() => {});
+        setEditorVisible(false);
       }
     } catch (e) {
       statusText(e?.message || tx('popupSaveFailed'));
@@ -439,12 +357,12 @@
     }
   }
 
-  async function deleteSkill() {
-    const id = $('#popupSkillEditingId')?.value || '';
+  async function deleteSkill(skillId) {
+    const id = String(skillId || $('#popupSkillEditingId')?.value || '').trim();
     if (!id) return;
     store = PageAdvisorPromptSkills.removeSkill(store, id).store;
     const ok = await persist();
-    fillEditor(null);
+    setEditorVisible(false);
     renderList();
     if (ok) statusText(tx('paSkillDeleted'));
   }
@@ -461,9 +379,8 @@
     const save = $('#btnSkillSave');
     if (save) save.addEventListener('click', () => { saveSkill().catch(() => {}); });
     const neu = $('#btnSkillNew');
+    // Anti-Replay-OK: ui-only empty editor, no HTTP until save.
     if (neu) neu.addEventListener('click', () => fillEditor(null));
-    const del = $('#btnSkillDelete');
-    if (del) del.addEventListener('click', () => { deleteSkill().catch(() => {}); });
     const clear = $('#btnSkillClearActive');
     if (clear) {
       clear.addEventListener('click', () => {
@@ -477,10 +394,6 @@
     const useCloud = $('#btnSkillConflictUseCloud');
     if (useCloud) {
       useCloud.addEventListener('click', () => { resolveConflictUseCloud().catch(() => {}); });
-    }
-    const historyLoad = $('#btnSkillHistoryLoad');
-    if (historyLoad) {
-      historyLoad.addEventListener('click', () => { loadRevisions().catch(() => {}); });
     }
   }
 

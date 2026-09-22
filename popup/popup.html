@@ -103,41 +103,39 @@
           </div>
         </div>
         <fieldset class="form-row">
-          <legend data-i18n="paSkillHistoryLabel">历史版本（可回滚）</legend>
-          <button type="button" id="btnSkillHistoryLoad" class="btn btn-sm" data-i18n="paSkillHistoryLoad">查看历史版本</button>
-          <div id="popupSkillRevisions" class="popup-skill-revisions"></div>
-        </fieldset>
-        <fieldset class="form-row">
-          <legend data-i18n="paSkillListLabel">已保存的 Skill</legend>
+          <legend class="popup-skill-saved-legend">
+            <span data-i18n="paSkillListLabel">已保存的 Skill</span>
+            <button type="button" id="btnSkillNew" class="btn btn-sm" data-i18n="paSkillNew">新建</button>
+          </legend>
           <div id="popupSkillList" role="radiogroup" data-i18n-aria-label="paSkillListLabel"></div>
           <button type="button" id="btnSkillClearActive" class="btn btn-sm" data-i18n="paSkillClearActive">不应用 Skill</button>
         </fieldset>
-        <div class="form-row">
-          <label for="popupSkillTitle" data-i18n="paSkillTitle">名称</label>
-          <input type="text" id="popupSkillTitle" class="form-input" maxlength="80" autocomplete="off">
+        <div id="popupSkillEditor" style="display:none" hidden>
+          <div class="form-row">
+            <label for="popupSkillTitle" data-i18n="paSkillTitle">名称</label>
+            <input type="text" id="popupSkillTitle" class="form-input" maxlength="80" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label for="popupSkillTendency" data-i18n="paSkillTendency">类别</label>
+            <select id="popupSkillTendency" class="form-select">
+              <option value="a11y" data-i18n="paSkillTendencyA11y">无障碍</option>
+              <option value="conversion" data-i18n="paSkillTendencyConversion">转化</option>
+              <option value="perf" data-i18n="paSkillTendencyPerf">性能</option>
+              <option value="seo" data-i18n="paSkillTendencySeo">SEO</option>
+              <option value="custom" data-i18n="paSkillTendencyCustom">自定义</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="popupSkillSyncTarget" data-i18n="paSkillSyncTarget">存储位置</label>
+            <select id="popupSkillSyncTarget" class="form-select"></select>
+          </div>
+          <div class="form-row">
+            <label for="popupSkillBody" data-i18n="paSkillBody">提示词</label>
+            <textarea id="popupSkillBody" class="form-input" rows="4" maxlength="8000"></textarea>
+          </div>
+          <input type="hidden" id="popupSkillEditingId" value="">
+          <button type="button" id="btnSkillSave" class="btn btn-sm btn-primary" data-i18n="paSkillSave">保存 Skill</button>
         </div>
-        <div class="form-row">
-          <label for="popupSkillTendency" data-i18n="paSkillTendency">倾向</label>
-          <select id="popupSkillTendency" class="form-select">
-            <option value="a11y" data-i18n="paSkillTendencyA11y">无障碍</option>
-            <option value="conversion" data-i18n="paSkillTendencyConversion">转化</option>
-            <option value="perf" data-i18n="paSkillTendencyPerf">性能</option>
-            <option value="seo" data-i18n="paSkillTendencySeo">SEO</option>
-            <option value="custom" data-i18n="paSkillTendencyCustom">自定义</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label for="popupSkillSyncTarget" data-i18n="paSkillSyncTarget">存储位置</label>
-          <select id="popupSkillSyncTarget" class="form-select"></select>
-        </div>
-        <div class="form-row">
-          <label for="popupSkillBody" data-i18n="paSkillBody">提示词</label>
-          <textarea id="popupSkillBody" class="form-input" rows="4" maxlength="8000"></textarea>
-        </div>
-        <input type="hidden" id="popupSkillEditingId" value="">
-        <button type="button" id="btnSkillNew" class="btn btn-sm" data-i18n="paSkillNew">新建</button>
-        <button type="button" id="btnSkillSave" class="btn btn-sm btn-primary" data-i18n="paSkillSave">保存 Skill</button>
-        <button type="button" id="btnSkillDelete" class="btn btn-sm" data-i18n="paSkillDelete">删除</button>
       </div>
       <p id="popupSkillStatus" class="hint" aria-live="polite"></p>
     </section>

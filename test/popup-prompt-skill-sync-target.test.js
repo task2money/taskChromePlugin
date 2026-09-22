@@ -23,9 +23,8 @@ const SKILL_IDS = [
   'popupSkillConflict',
   'btnSkillConflictKeepLocal',
   'btnSkillConflictUseCloud',
-  'btnSkillHistoryLoad',
-  'popupSkillRevisions',
   'popupSkillList',
+  'popupSkillEditor',
   'popupSkillEditingId',
   'popupSkillTitle',
   'popupSkillTendency',
@@ -33,7 +32,6 @@ const SKILL_IDS = [
   'popupSkillStatus',
   'btnSkillNew',
   'btnSkillSave',
-  'btnSkillDelete',
   'btnSkillClearActive',
   'btnToggleSkillSettings',
   'pageAdvisorSkillFields',
@@ -50,8 +48,8 @@ function makeEl(tag, id) {
     tagName: String(tag || 'div').toUpperCase(),
     id: id || '',
     children: [],
-    style: id === 'pageAdvisorSkillFields' ? { display: 'none' } : {},
-    hidden: id === 'pageAdvisorSkillFields',
+    style: (id === 'pageAdvisorSkillFields' || id === 'popupSkillEditor') ? { display: 'none' } : {},
+    hidden: id === 'pageAdvisorSkillFields' || id === 'popupSkillEditor',
     className: '',
     value: '',
     checked: false,
@@ -160,6 +158,7 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     const ctx = bootPopup();
     ctx.api.loadSkills();
     await flushAll();
+    ctx.byId.btnSkillNew.dispatch('click');
     const values = ctx.byId.popupSkillSyncTarget.options.map((o) => o.value);
     assert.ok(values.includes('local'));
     assert.ok(values.includes('w1'));
@@ -218,5 +217,29 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     await flushAll();
     assert.equal(ctx.storageSets.at(-1).pageAdvisorPromptSkills[0].syncTarget, 'w2');
     assert.ok(ctx.puts.some((p) => p.wid === 'w2' && p.payload.skills.some((s) => s.title === '可改目标')));
+  });
+
+  it('加载后编辑区隐藏；点新建才展开；点编辑展开；条目后可删除', async () => {
+    const ctx = bootPopup();
+    ctx.api.loadSkills();
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillEditor.style.display, 'none');
+    ctx.byId.btnSkillNew.dispatch('click');
+    assert.equal(ctx.byId.popupSkillEditor.style.display, 'block');
+    ctx.byId.popupSkillTitle.value = '待删';
+    ctx.byId.popupSkillBody.value = 'x';
+    ctx.byId.popupSkillSyncTarget.value = 'local';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillEditor.style.display, 'none');
+    const row = ctx.byId.popupSkillList.children[0];
+    assert.equal(row.children[3].textContent, '编辑');
+    assert.equal(row.children[4].textContent, '删除');
+    row.children[3].dispatch('click', { stopPropagation() {} });
+    assert.equal(ctx.byId.popupSkillEditor.style.display, 'block');
+    assert.equal(ctx.byId.popupSkillTitle.value, '待删');
+    row.children[4].dispatch('click', { stopPropagation() {} });
+    await flushAll();
+    assert.equal(ctx.byId.popupSkillList.children.length, 0);
   });
 });

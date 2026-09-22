@@ -217,12 +217,18 @@ body {
 .popup-project-list .hint.err { color: #f38ba8; }
 #popupDefaultsStatus { margin-top: 6px; min-height: 14px; }
 
+.popup-skill-saved-legend {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; width: 100%; padding: 0; float: none;
+}
+.popup-skill-saved-legend button { flex-shrink: 0; }
 .popup-skill-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   margin-bottom: 6px;
 }
-.popup-skill-row span { flex: 1 1 80px; min-width: 0; font-size: 12px; }
-.popup-skill-sync { flex: 1 1 100%; font-size: 11px; }
+.popup-skill-row span { flex: 1 1 64px; min-width: 0; font-size: 12px; }
+.popup-skill-sync { flex: 1 1 72px; min-width: 0; font-size: 11px; }
+.popup-skill-row .btn { flex: 0 0 auto; }
 
 /* === Textarea === */
 .form-textarea {

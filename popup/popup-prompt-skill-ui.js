@@ -55,8 +55,8 @@
     root.replaceChildren();
     (store.skills || []).forEach((sk) => {
       const id = `popupSkillRadio_${sk.id}`;
-      const label = document.createElement('label');
-      label.className = 'popup-skill-row';
+      const row = document.createElement('div');
+      row.className = 'popup-skill-row';
       const radio = document.createElement('input');
       radio.type = 'radio';
       radio.name = 'popupSkillActive';
@@ -74,49 +74,28 @@
         ev.stopPropagation();
         handlers.onTarget(sk.id, dest.value);
       });
-      label.appendChild(radio);
-      label.appendChild(span);
-      label.appendChild(dest);
-      label.addEventListener('click', (ev) => {
-        if (ev.target === radio || ev.target === dest) return;
+      const edit = document.createElement('button');
+      edit.type = 'button';
+      edit.className = 'btn btn-sm';
+      edit.textContent = tx('paSkillEdit');
+      // Anti-Replay-OK: ui-only reveal of editor, no HTTP.
+      edit.addEventListener('click', (ev) => {
+        ev.stopPropagation();
         handlers.onEdit(sk);
       });
-      root.appendChild(label);
-    });
-  }
-
-  function renderRevisions(root, revisionItems, currentRev, onRestore) {
-    if (!root) return;
-    root.replaceChildren();
-    if (!revisionItems.length) {
-      const empty = document.createElement('p');
-      empty.className = 'float-ball-hint';
-      empty.textContent = tx('paSkillHistoryEmpty');
-      root.appendChild(empty);
-      return;
-    }
-    revisionItems.forEach((item) => {
-      const rev = String(item?.revision || '').trim();
-      if (!rev) return;
-      const row = document.createElement('div');
-      row.className = 'popup-skill-revision-row';
-      const meta = document.createElement('span');
-      const parts = [rev.slice(0, 8)];
-      const when = String(item?.created_at || '').trim();
-      if (when) parts.push(when);
-      meta.textContent = parts.join(' · ');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-sm';
-      if (rev === currentRev) {
-        btn.disabled = true;
-        btn.textContent = tx('paSkillHistoryCurrent');
-      } else {
-        btn.textContent = tx('paSkillHistoryRestore');
-        btn.addEventListener('click', () => { onRestore(rev); });
-      }
-      row.appendChild(meta);
-      row.appendChild(btn);
+      const del = document.createElement('button');
+      del.type = 'button';
+      del.className = 'btn btn-sm';
+      del.textContent = tx('paSkillDelete');
+      del.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        handlers.onDelete(sk.id);
+      });
+      row.appendChild(radio);
+      row.appendChild(span);
+      row.appendChild(dest);
+      row.appendChild(edit);
+      row.appendChild(del);
       root.appendChild(row);
     });
   }
@@ -127,7 +106,6 @@
     fillSyncTargetSelect,
     renderActiveSummary,
     renderSkillList,
-    renderRevisions,
   };
 
   if (typeof module !== 'undefined' && module.exports) {
