@@ -66,6 +66,15 @@ async function installChromeStub(page) {
               },
             };
           }
+          if (msg?.action === 'getWorkspaces') {
+            return {
+              success: true,
+              data: [
+                { id: 'ws-a', name: '空间A', company_id: 'co1' },
+                { id: 'ws-b', name: '空间B', company_id: 'co1' },
+              ],
+            };
+          }
           return { success: true };
         },
         lastError: null,
@@ -153,6 +162,20 @@ test.describe('Popup 面板布局', () => {
     await toggle.click();
     await expect(fields).toBeVisible();
     await expect(page.locator('#popupSkillSyncTarget')).toBeVisible();
+    await expect(page.locator('#popupSkillSyncTarget option[value="local"]')).toHaveCount(1);
+    await expect(page.locator('#popupSkillSyncTarget option[value="ws-a"]')).toHaveCount(1);
+    await expect(page.locator('#popupSkillSyncTarget option[value="ws-b"]')).toHaveCount(1);
+    await page.locator('#popupSkillTitle').fill('e2e-skill');
+    await page.locator('#popupSkillBody').fill('body');
+    await page.locator('#popupSkillSyncTarget').selectOption('local');
+    await page.locator('#btnSkillSave').click();
+    await expect(fields).toBeHidden();
+    await toggle.click();
+    await expect(fields).toBeVisible();
+    await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveCount(1);
+    await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('local');
+    await page.locator('#popupSkillList select.popup-skill-sync').selectOption('ws-b');
+    await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('ws-b');
     await toggle.click();
     await expect(fields).toBeHidden();
   });
