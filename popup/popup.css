@@ -260,6 +260,14 @@ body {
   display: flex; flex-direction: column; align-items: stretch; gap: 4px;
   margin-bottom: 8px;
 }
+/* 预设类别的系统/自行定制单选（OPT-20260922-043） */
+.popup-skill-category-source {
+  display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+  margin: 2px 0 4px; font-size: 11px; color: var(--color-text-muted, #6c7086);
+}
+.popup-skill-category-source input[type="radio"] { margin: 0; }
+.popup-skill-category-source-label { margin-right: 6px; cursor: pointer; }
+
 .popup-skill-row-title {
   display: flex; align-items: flex-start; gap: 6px; width: 100%;
 }

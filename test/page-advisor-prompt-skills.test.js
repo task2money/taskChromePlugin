@@ -439,3 +439,57 @@ describe('create-task does not embed prompt skill fence', () => {
     assert.doesNotMatch(src, /taskplugin-prompt-skill/);
   });
 });
+
+/**
+ * OPT-20260922-043：预设类别可选「系统默认 / 自行定制」。系统目录条只读，
+ * 定制必须 clone 成本机新 id，且选择记入 categoryChoices（PUT 上行 category_choices）。
+ */
+describe('预设类别来源选择 selectCategorySource（OPT-20260922-043）', () => {
+  const S = require('../lib/page-advisor-prompt-skills.js');
+  const base = {
+    skills: [{
+      id: 'sys_tendency_a11y', title: '系统默认·无障碍', tendency: 'a11y', body: '目录正文', readonly: true,
+    }],
+    activeSkillId: '',
+  };
+
+  it('定制：clone 成新 id 的本机草稿，正文同目录稿，记入 categoryChoices', () => {
+    const rec = S.selectCategorySource(base, 'a11y', 'custom');
+    assert.equal(rec.created, true);
+    assert.ok(rec.customSkillId && rec.customSkillId !== 'sys_tendency_a11y');
+    const clone = rec.store.skills.find((s) => s.id === rec.customSkillId);
+    assert.equal(clone.body, '目录正文');
+    assert.equal(clone.title, '系统默认·无障碍');
+    assert.equal(clone.tendency, 'a11y');
+    assert.notEqual(clone.readonly, true, '草稿必须可编辑');
+    const choice = rec.store.categoryChoices.find((c) => c.tendency === 'a11y');
+    assert.deepEqual({ source: choice.source, customSkillId: choice.customSkillId },
+      { source: 'custom', customSkillId: rec.customSkillId });
+    assert.equal(rec.store.skills.filter((s) => s.id === 'sys_tendency_a11y').length, 1, '系统条保持原样');
+  });
+
+  it('已存在本机草稿时再点定制不重复 clone', () => {
+    const first = S.selectCategorySource(base, 'a11y', 'custom');
+    const second = S.selectCategorySource(first.store, 'a11y', 'custom');
+    assert.equal(second.created, false);
+    assert.equal(second.customSkillId, first.customSkillId);
+    assert.equal(second.store.skills.length, first.store.skills.length);
+  });
+
+  it('切回系统默认：来源记 system，草稿保留（不删用户内容）', () => {
+    const custom = S.selectCategorySource(base, 'a11y', 'custom');
+    const back = S.selectCategorySource(custom.store, 'a11y', 'system');
+    const choice = back.store.categoryChoices.find((c) => c.tendency === 'a11y');
+    assert.equal(choice.source, 'system');
+    assert.equal(back.store.skills.some((s) => s.id === custom.customSkillId), true);
+    assert.equal(S.categorySourceOf(back.store, 'a11y'), 'system');
+  });
+
+  it('无对应系统稿时不动 store', () => {
+    const empty = { skills: [], activeSkillId: '' };
+    const rec = S.selectCategorySource(empty, 'a11y', 'custom');
+    assert.equal(rec.created, false);
+    assert.deepEqual(rec.store.skills, []);
+    assert.equal(S.categorySourceOf(empty, 'a11y'), 'system');
+  });
+});
