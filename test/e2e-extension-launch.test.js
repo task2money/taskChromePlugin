@@ -37,6 +37,7 @@ function codeOnly(src) {
 const EXT_E2E_FILES = [
   'e2e/oauth-pkce-login.playwright.test.js',
   'e2e/real-extension-messaging.playwright.test.js',
+  'e2e/popup-prompt-skill-login-gate.playwright.test.js',
 ];
 
 describe('e2e 扩展启动路径（OPT-20260918-027）', () => {
