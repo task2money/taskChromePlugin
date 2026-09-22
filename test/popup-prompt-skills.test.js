@@ -477,17 +477,80 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
 
   it('T5 未登录不拉取工作空间 Skill', async () => {
     const gets = [];
+    const catalogs = [];
     ctx = bootPopup({
       loggedIn: false,
       api: {
         getPromptSkills: async () => { gets.push(1); return { skills: [], active_skill_id: '', revision: 'x' }; },
         putPromptSkills: async () => ({ revision: 'y', skills: [], active_skill_id: '' }),
+        getSystemPromptSkills: async () => { catalogs.push(1); return { skills: [] }; },
       },
     });
     ctx.api.loadSkills();
     await flushAll();
     assert.equal(gets.length, 0);
+    assert.equal(catalogs.length, 0);
     assert.match(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
+  });
+
+  it('登录后拉取管理员新空间默认并选中', async () => {
+    const catalogs = [];
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'empty' }),
+        putPromptSkills: async () => ({ revision: 'y' }),
+        getSystemPromptSkills: async () => {
+          catalogs.push(1);
+          return {
+            skills: [{
+              id: 'sys_default_auto_innovate',
+              title: '系统默认自动创新',
+              tendency: 'custom',
+              body: '平台提示',
+              is_default: true,
+            }],
+          };
+        },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    assert.equal(catalogs.length, 1);
+    const list = ctx.byId.popupSkillList;
+    assert.equal(list.children.length, 2);
+    assert.match(rowTitle(skillRow(list, 0)).textContent, /系统默认自动创新/);
+    assert.equal(rowRadio(skillRow(list, 0)).checked, true);
+    assert.equal(rowRadio(noneRow(list)).checked, false);
+    assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
+  });
+
+  it('本机已有目录 default 且不应用时不覆盖', async () => {
+    ctx = bootPopup({
+      skills: [{
+        id: 'sys_default_auto_innovate',
+        title: '系统默认自动创新',
+        tendency: 'custom',
+        body: 'old',
+        updatedAt: 1,
+        syncTarget: 'local',
+      }],
+      activeSkillId: '',
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'empty' }),
+        getSystemPromptSkills: async () => ({
+          skills: [{
+            id: 'sys_default_auto_innovate',
+            title: '系统默认自动创新',
+            body: 'new',
+            is_default: true,
+          }],
+        }),
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
+    assert.equal(ctx.lastSet(), null);
   });
 
   it('T6 未登录保存只落本机、不 PUT', async () => {

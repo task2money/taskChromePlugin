@@ -284,6 +284,53 @@ describe('prompt skill per-item syncTarget', () => {
     assert.equal(PageAdvisorPromptSkills.workspaceIdForSkill({ syncTarget: 'local' }, 'ws-a'), 'ws-a');
     assert.equal(PageAdvisorPromptSkills.workspaceIdForSkill({ syncTarget: 'ws-b' }, 'ws-a'), 'ws-b');
   });
+
+  it('applySystemCatalogDefault inserts default and selects when local empty', () => {
+    const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
+      PageAdvisorPromptSkills.emptyStore(),
+      {
+        skills: [
+          { id: 'other', title: '其它', body: 'x', is_default: false },
+          { id: 'sys_default_auto_innovate', title: '系统默认自动创新', body: '平台提示', is_default: true },
+        ],
+      },
+      'local',
+    );
+    assert.equal(rec.action, 'applied');
+    assert.equal(rec.store.activeSkillId, 'sys_default_auto_innovate');
+    assert.equal(rec.store.skills.find((s) => s.id === 'sys_default_auto_innovate').body, '平台提示');
+  });
+
+  it('applySystemCatalogDefault does not override 不应用 when default id already local', () => {
+    let st = PageAdvisorPromptSkills.upsertSkill(
+      PageAdvisorPromptSkills.emptyStore(),
+      { id: 'sys_default_auto_innovate', title: '系统默认自动创新', body: 'old', syncTarget: 'local' },
+    ).store;
+    const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(st, {
+      skills: [{ id: 'sys_default_auto_innovate', title: '系统默认自动创新', body: 'new', is_default: true }],
+    }, 'local');
+    assert.equal(rec.action, 'noop');
+    assert.equal(rec.store.activeSkillId, '');
+    assert.equal(rec.store.skills[0].body, 'old');
+  });
+
+  it('mergeWorkspaceBundle adopts remote active only on first sight', () => {
+    const first = PageAdvisorPromptSkills.mergeWorkspaceBundle(
+      PageAdvisorPromptSkills.emptyStore(),
+      {
+        skills: [{ id: 'sys_default_auto_innovate', title: '默认', body: 'p', updated_at: 1 }],
+        active_skill_id: 'sys_default_auto_innovate',
+      },
+      'ws-a',
+    );
+    assert.equal(first.store.activeSkillId, 'sys_default_auto_innovate');
+    const cleared = PageAdvisorPromptSkills.setActive(first.store, '').store;
+    const second = PageAdvisorPromptSkills.mergeWorkspaceBundle(cleared, {
+      skills: [{ id: 'sys_default_auto_innovate', title: '默认', body: 'p', updated_at: 1 }],
+      active_skill_id: 'sys_default_auto_innovate',
+    }, 'ws-a');
+    assert.equal(second.store.activeSkillId, '');
+  });
 });
 
 describe('create-task does not embed prompt skill fence', () => {

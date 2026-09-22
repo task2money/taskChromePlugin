@@ -205,6 +205,24 @@
     });
   }
 
+  function setEditorVisible(open) {
+    const el = document.querySelector('#popupSkillEditor');
+    if (!el) return;
+    el.style.display = open ? 'block' : 'none';
+    el.hidden = !open;
+  }
+
+  function fillEditor(skill, store, defaultSyncTarget, workspaceRows, syncLocal) {
+    const q = (id) => document.querySelector(id);
+    q('#popupSkillEditingId').value = skill?.id || '';
+    q('#popupSkillTitle').value = skill?.title || '';
+    q('#popupSkillTendency').value = skill?.tendency || 'custom';
+    fillTendencyDatalist(q('#popupSkillTendencyList'), store && store.skills);
+    q('#popupSkillBody').value = skill?.body || '';
+    fillSyncTargetSelect(q('#popupSkillSyncTarget'), skill?.syncTarget || defaultSyncTarget, workspaceRows, syncLocal);
+    setEditorVisible(true);
+  }
+
   const PopupPromptSkillUi = {
     escapeHtml,
     workspaceLabelOf,
@@ -212,6 +230,8 @@
     fillTendencyDatalist,
     renderActiveSummary,
     renderSkillList,
+    setEditorVisible,
+    fillEditor,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

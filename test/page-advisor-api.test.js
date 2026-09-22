@@ -25,6 +25,10 @@ describe('page-advisor-api endpoints', () => {
       PageAdvisorAPI.ENDPOINTS.promptSkillRestore,
       '/api/page-advisor/v1/tenant_id/{tenantId}/workspace_id/{workspaceId}/prompt-skills/revisions/{revision}/restore/',
     );
+    assert.equal(
+      PageAdvisorAPI.ENDPOINTS.systemPromptSkills,
+      '/api/page-advisor/v1/system-prompt-skills/',
+    );
   });
 });
 

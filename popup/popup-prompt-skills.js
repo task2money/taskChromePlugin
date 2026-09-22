@@ -1,4 +1,3 @@
-/** Popup：提示词 Skill CRUD + 按条选择本机或工作空间同步。 */
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const Ui = () => (typeof PopupLlmSettingsUi !== 'undefined' ? PopupLlmSettingsUi : null);
@@ -15,7 +14,6 @@
 
   let lastKnownWorkspaceId = '';
   let cachedBaseUrl = '';
-
   const skillFields = () => $('#pageAdvisorSkillFields');
   const skillToggleBtn = () => $('#btnToggleSkillSettings');
   const Session = () => (typeof PopupPromptSkillSession !== 'undefined' ? PopupPromptSkillSession : null);
@@ -30,12 +28,11 @@
     }
   }
   async function refreshBaseUrl() {
-    if (typeof Storage !== 'undefined' && typeof Storage.getApiConfig === 'function') {
-      try {
-        const cfg = await Storage.getApiConfig();
-        cachedBaseUrl = String((cfg && cfg.baseUrl) || '').trim();
-      } catch (_) { /* keep previous */ }
-    }
+    try {
+      if (typeof Storage !== 'undefined' && typeof Storage.getApiConfig === 'function') {
+        cachedBaseUrl = String((await Storage.getApiConfig())?.baseUrl || '').trim();
+      }
+    } catch (_) { /* keep previous */ }
   }
 
   async function resolveSkillScope() {
@@ -67,10 +64,6 @@
     return String(ws?.company_id || ws?.companyId || '').trim();
   }
 
-  function fillSyncTargetSelect(selectEl, selected) {
-    const SkillUi = globalThis.PopupPromptSkillUi;
-    if (SkillUi) SkillUi.fillSyncTargetSelect(selectEl, selected, workspaceRows, syncLocalValue());
-  }
   function setSkillSectionVisible(visible) {
     const sec = $('#pageAdvisorSkillSection');
     if (sec) sec.style.display = visible ? 'block' : 'none';
@@ -82,8 +75,7 @@
 
   function newIdempotencyKey() {
     return (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
-      ? crypto.randomUUID()
-      : `psk_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+      ? crypto.randomUUID() : `psk_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
   }
 
   function defaultSyncTarget() {
@@ -92,22 +84,13 @@
       : (lastKnownWorkspaceId || syncLocalValue());
   }
 
-  function setEditorVisible(open) {
-    const el = $('#popupSkillEditor');
-    if (!el) return;
-    el.style.display = open ? 'block' : 'none';
-    el.hidden = !open;
-  }
-
   function fillEditor(skill) {
-    $('#popupSkillEditingId').value = skill?.id || '';
-    $('#popupSkillTitle').value = skill?.title || '';
-    $('#popupSkillTendency').value = skill?.tendency || 'custom';
     const SkillUi = globalThis.PopupPromptSkillUi;
-    if (SkillUi) SkillUi.fillTendencyDatalist($('#popupSkillTendencyList'), store.skills);
-    $('#popupSkillBody').value = skill?.body || '';
-    fillSyncTargetSelect($('#popupSkillSyncTarget'), skill?.syncTarget || defaultSyncTarget());
-    setEditorVisible(true);
+    if (SkillUi) SkillUi.fillEditor(skill, store, defaultSyncTarget(), workspaceRows, syncLocalValue());
+  }
+  function setEditorVisible(open) {
+    const SkillUi = globalThis.PopupPromptSkillUi;
+    if (SkillUi) SkillUi.setEditorVisible(open);
   }
   function renderList() {
     const SkillUi = globalThis.PopupPromptSkillUi;
@@ -301,8 +284,9 @@
     } catch (e) {
       console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
     }
+    const api = typeof PageAdvisorAPI !== 'undefined' ? PageAdvisorAPI : null;
     try {
-      if (pluginLoggedIn() && typeof PageAdvisorAPI !== 'undefined' && typeof PageAdvisorAPI.getPromptSkills === 'function') {
+      if (pluginLoggedIn() && api && typeof api.getPromptSkills === 'function') {
         const scope = await resolveSkillScope();
         const legacy = scope?.workspaceId || '';
         const wids = new Set(collectPushWorkspaceIds(legacy));
@@ -312,7 +296,7 @@
         for (const wid of wids) {
           const tenantId = tenantForWorkspace(wid) || (wid === legacy ? scope?.tenantId : '');
           if (!tenantId) continue;
-          const remote = await PageAdvisorAPI.getPromptSkills(tenantId, wid);
+          const remote = await api.getPromptSkills(tenantId, wid);
           const rec = PageAdvisorPromptSkills.mergeWorkspaceBundle(store, remote, wid, legacy);
           store = rec.store;
           if (rec.revision) cloudRevisions[wid] = rec.revision;
@@ -331,6 +315,23 @@
       }
     } catch (e) {
       console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
+    }
+    try {
+      if (pluginLoggedIn() && api && typeof api.getSystemPromptSkills === 'function') {
+        const cat = await api.getSystemPromptSkills();
+        const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
+          store, cat, lastKnownWorkspaceId || syncLocalValue(),
+        );
+        if (rec.action === 'applied') {
+          store = rec.store;
+          await PageAdvisorPromptSkills.saveToStorage(
+            store, typeof Storage !== 'undefined' ? Storage : null,
+          );
+          statusText(tx('paSkillSyncedPull'));
+        }
+      }
+    } catch (e) {
+      console.warn('[taskChromePlugin] system catalog:', e?.message || e);
     }
     if (!pluginLoggedIn()) statusText(tx('paSkillLocalOnlyUntilLogin'));
     renderList();
