@@ -194,3 +194,34 @@ describe('PageAdvisorLLM URL and JSON', () => {
     assert.match(rec[1].content_snippet, /\[redacted-api-key\]/);
   });
 });
+
+// OPT-20260922-038: locale=en 时系统提示整段英文化，避免模型混用中文。
+describe('PageAdvisorLLM locale system prompt', () => {
+  it('buildChatMessages swaps in the English system prompt for locale=en', () => {
+    const msgs = PageAdvisorLLM.buildChatMessages(
+      { url: 'https://p', title: 'Hi', pageText: 'body' },
+      null,
+      'en',
+    );
+    assert.equal(msgs[0].role, 'system');
+    assert.equal(msgs[0].content.includes('你是网页体验'), false);
+    assert.match(msgs[0].content, /web experience and accessibility/);
+    assert.match(msgs.at(-1).content, /页面 URL/);
+  });
+
+  it('buildChatMessages keeps the built-in Chinese prompt for zh/default', () => {
+    const zh = PageAdvisorLLM.buildChatMessages({ url: 'https://p', title: 'Hi' }, null, 'zh-CN');
+    assert.equal(zh[0].content, PageAdvisorLLM.SYSTEM_PROMPT);
+    const def = PageAdvisorLLM.buildChatMessages({ url: 'https://p', title: 'Hi' }, null, undefined);
+    assert.equal(def[0].content, PageAdvisorLLM.SYSTEM_PROMPT);
+  });
+
+  it('buildChatMessages reads page.locale when locale arg is absent', () => {
+    const msgs = PageAdvisorLLM.buildChatMessages(
+      { url: 'https://p', title: 'Hi', locale: 'en-US' },
+      null,
+      undefined,
+    );
+    assert.equal(msgs[0].content.includes('你是网页体验'), false);
+  });
+});
