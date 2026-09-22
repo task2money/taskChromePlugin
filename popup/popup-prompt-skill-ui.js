@@ -20,6 +20,34 @@
     return labels[0] || wid;
   }
 
+  function fillTendencyDatalist(listEl, skills) {
+    if (!listEl) return;
+    const suggested = (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.TENDENCIES)
+      ? PageAdvisorPromptSkills.TENDENCIES
+      : ['a11y', 'conversion', 'perf', 'seo', 'custom'];
+    const i18nKey = {
+      a11y: 'paSkillTendencyA11y',
+      conversion: 'paSkillTendencyConversion',
+      perf: 'paSkillTendencyPerf',
+      seo: 'paSkillTendencySeo',
+      custom: 'paSkillTendencyCustom',
+    };
+    const seen = new Set();
+    const opts = [];
+    suggested.forEach((value) => {
+      seen.add(value);
+      const label = i18nKey[value] && typeof tx === 'function' ? tx(i18nKey[value]) : value;
+      opts.push(`<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`);
+    });
+    (skills || []).forEach((sk) => {
+      const value = String(sk && sk.tendency ? sk.tendency : '').trim();
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      opts.push(`<option value="${escapeHtml(value)}"></option>`);
+    });
+    listEl.innerHTML = opts.join('');
+  }
+
   function fillSyncTargetSelect(selectEl, selected, workspaceRows, syncLocal) {
     if (!selectEl) return;
     const want = String(selected || syncLocal);
@@ -61,6 +89,47 @@
     return title;
   }
 
+  function tenantIdOf(workspaceRows, workspaceId) {
+    const wid = String(workspaceId || '').trim();
+    const ws = (workspaceRows || []).find((row) => String((row && (row.id || row._id)) || '') === wid);
+    return String((ws && (ws.company_id || ws.companyId)) || '').trim();
+  }
+
+  function appendSaasLink(titleEl, skill, workspaceRows, ctx, handlers) {
+    const Skills = globalThis.PageAdvisorPromptSkills;
+    const link = document.createElement('a');
+    link.className = 'btn btn-sm popup-skill-saas-link';
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    link.textContent = tx('paSkillOpenWorkspacePage');
+    link.setAttribute('aria-label', tx('paSkillOpenWorkspacePageAria'));
+    const lastWs = ctx && ctx.lastWorkspaceId;
+    const wid = Skills
+      ? Skills.workspaceIdForSkill(skill, lastWs)
+      : String((skill && skill.syncTarget && skill.syncTarget !== 'local' ? skill.syncTarget : lastWs) || '').trim();
+    const href = Skills
+      ? Skills.buildPromptSkillsPageHref({
+        baseUrl: ctx && ctx.baseUrl,
+        tenantId: tenantIdOf(workspaceRows, wid),
+        workspaceId: wid,
+      })
+      : '';
+    if (href) {
+      link.href = href;
+      // Anti-Replay-OK: real <a href> navigation to SaaS page, no write API.
+    } else {
+      link.href = '#';
+      link.setAttribute('aria-disabled', 'true');
+      link.title = tx('paSkillNeedWorkspace');
+      link.addEventListener('click', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (handlers && handlers.onMissingWorkspace) handlers.onMissingWorkspace();
+      });
+    }
+    titleEl.appendChild(link);
+  }
+
   function makeActiveRadio(id, value, checked, onChange) {
     const radio = document.createElement('input');
     radio.type = 'radio';
@@ -85,7 +154,7 @@
     root.appendChild(row);
   }
 
-  function renderSkillList(root, store, syncLocal, workspaceRows, handlers) {
+  function renderSkillList(root, store, syncLocal, workspaceRows, handlers, ctx) {
     if (!root) return;
     root.replaceChildren();
     renderNoneRow(root, store, handlers);
@@ -99,7 +168,8 @@
         () => handlers.onActive(sk.id),
       );
       const label = `${sk.title}${store.activeSkillId === sk.id ? ` (${tx('paSkillActive')})` : ''}`;
-      appendTitleLine(row, radio, label);
+      const titleEl = appendTitleLine(row, radio, label);
+      appendSaasLink(titleEl, sk, workspaceRows, ctx || {}, handlers || {});
       const dest = document.createElement('select');
       dest.className = 'form-select popup-skill-sync';
       dest.setAttribute('aria-label', tx('paSkillSyncTarget'));
@@ -139,6 +209,7 @@
     escapeHtml,
     workspaceLabelOf,
     fillSyncTargetSelect,
+    fillTendencyDatalist,
     renderActiveSummary,
     renderSkillList,
   };

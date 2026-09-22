@@ -100,6 +100,18 @@ describe('PageAdvisorPromptSkills', () => {
     assert.equal(uploaded.action, 'upload');
     assert.equal(uploaded.store.skills[0].body, 'only-local');
   });
+
+  it('keeps user-defined tendency instead of coercing to custom', () => {
+    const rec = PageAdvisorPromptSkills.upsertSkill(PageAdvisorPromptSkills.emptyStore(), {
+      title: '品牌',
+      tendency: '品牌调性',
+      body: 'x',
+    });
+    assert.equal(rec.skill.tendency, '品牌调性');
+    assert.equal(PageAdvisorPromptSkills.normalizeStore({
+      skills: [{ id: 'a', title: 'A', tendency: '品牌调性', body: 'x' }],
+    }).skills[0].tendency, '品牌调性');
+  });
 });
 
 describe('PageAdvisorLLM skill messages', () => {
@@ -254,6 +266,23 @@ describe('prompt skill per-item syncTarget', () => {
       PageAdvisorPromptSkills.skillTargetsWorkspace(skill, 'ws-other', 'ws-default'),
       false,
     );
+  });
+
+  it('buildPromptSkillsPageHref 对齐 SaaS 独立页路径', () => {
+    assert.equal(
+      PageAdvisorPromptSkills.buildPromptSkillsPageHref({
+        baseUrl: 'https://aidevpush.com/api',
+        tenantId: 'tid-1',
+        workspaceId: 'ws-b',
+      }),
+      'https://aidevpush.com/tenant/tid-1/settings/workspace/ws-b/prompt-skills/',
+    );
+    assert.equal(
+      PageAdvisorPromptSkills.buildPromptSkillsPageHref({ baseUrl: 'https://aidevpush.com', tenantId: '', workspaceId: 'ws-b' }),
+      '',
+    );
+    assert.equal(PageAdvisorPromptSkills.workspaceIdForSkill({ syncTarget: 'local' }, 'ws-a'), 'ws-a');
+    assert.equal(PageAdvisorPromptSkills.workspaceIdForSkill({ syncTarget: 'ws-b' }, 'ws-a'), 'ws-b');
   });
 });
 

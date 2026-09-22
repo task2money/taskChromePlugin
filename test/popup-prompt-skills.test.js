@@ -20,6 +20,7 @@ const { installTxInSandbox } = require('./helpers/txRuntime.js');
 const popupHtml = fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
+const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
 const popupSkillsSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skills.js'), 'utf8');
 
 /** 被测脚本用到的 popup.html 元素 id。 */
@@ -33,6 +34,7 @@ const SKILL_IDS = [
   'popupSkillEditingId',
   'popupSkillTitle',
   'popupSkillTendency',
+  'popupSkillTendencyList',
   'popupSkillBody',
   'popupSkillStatus',
   'btnSkillNew',
@@ -105,7 +107,7 @@ async function flushAll() {
  * 装配沙箱：真实 lib（i18n + PageAdvisorPromptSkills）+ 真实 popup-prompt-skills.js。
  * 不注入 PageAdvisorAPI —— 云端同步/推送按 `typeof` 短路，用例只验本机绑定与落盘。
  */
-function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
+function bootPopup({ skills = [], activeSkillId = '', api = null, loggedIn = !!api } = {}) {
   const byId = Object.create(null);
   SKILL_IDS.forEach((id) => { byId[id] = makeEl(id.startsWith('btn') ? 'button' : 'div', id); });
   const storageSets = [];
@@ -135,9 +137,16 @@ function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
   installTxInSandbox(sandbox);
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
+  vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
+  if (sandbox.PopupPromptSkillSession) {
+    sandbox.PopupPromptSkillSession.loggedInProvider = async () => loggedIn;
+  }
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
-  if (api && sandbox.PopupPageAdvisorSkills) {
-    sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
+  if (sandbox.PopupPageAdvisorSkills) {
+    sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => loggedIn;
+    if (api) {
+      sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
+    }
   }
 
   const skill = (title, body) => ({ id: `sk_${title}`, title, tendency: 'custom', body, updatedAt: 1 });
@@ -464,5 +473,42 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
       '正文没被服务端改写时不该多落一次盘',
     );
     assert.equal(ctx.byId.popupSkillTitle.value, 'SEO 改了下');
+  });
+
+  it('T5 未登录不拉取工作空间 Skill', async () => {
+    const gets = [];
+    ctx = bootPopup({
+      loggedIn: false,
+      api: {
+        getPromptSkills: async () => { gets.push(1); return { skills: [], active_skill_id: '', revision: 'x' }; },
+        putPromptSkills: async () => ({ revision: 'y', skills: [], active_skill_id: '' }),
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    assert.equal(gets.length, 0);
+    assert.match(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
+  });
+
+  it('T6 未登录保存只落本机、不 PUT', async () => {
+    const puts = [];
+    ctx = bootPopup({
+      loggedIn: false,
+      skills: [],
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'x' }),
+        putPromptSkills: async () => { puts.push(1); return { revision: 'y', skills: [], active_skill_id: '' }; },
+      },
+    });
+    ctx.api.loadSkills();
+    await flushAll();
+    ctx.byId.btnSkillNew.dispatch('click');
+    ctx.byId.popupSkillTitle.value = '本机草稿';
+    ctx.byId.popupSkillBody.value = 'body';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+    assert.equal(puts.length, 0);
+    assert.ok(ctx.storageSets.some((s) => Array.isArray(s.pageAdvisorPromptSkills)
+      && s.pageAdvisorPromptSkills.some((sk) => sk.title === '本机草稿')));
   });
 });

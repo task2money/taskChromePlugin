@@ -14,14 +14,29 @@
   let lwwWorkspaceIds = new Set();
 
   let lastKnownWorkspaceId = '';
+  let cachedBaseUrl = '';
 
   const skillFields = () => $('#pageAdvisorSkillFields');
   const skillToggleBtn = () => $('#btnToggleSkillSettings');
+  const Session = () => (typeof PopupPromptSkillSession !== 'undefined' ? PopupPromptSkillSession : null);
   const syncLocalValue = () => (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.SYNC_LOCAL) || 'local';
+  const pluginLoggedIn = () => !!(Session() && Session().isLoggedIn());
+  async function refreshPluginLoggedIn() {
+    const s = Session();
+    return s ? s.refreshPluginLoggedIn() : false;
+  }
 
   async function refreshLastWorkspace() {
     if (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
       lastKnownWorkspaceId = String(await Storage.getLastWorkspace() || '').trim();
+    }
+  }
+  async function refreshBaseUrl() {
+    if (typeof Storage !== 'undefined' && typeof Storage.getApiConfig === 'function') {
+      try {
+        const cfg = await Storage.getApiConfig();
+        cachedBaseUrl = String((cfg && cfg.baseUrl) || '').trim();
+      } catch (_) { /* keep previous */ }
     }
   }
 
@@ -74,7 +89,9 @@
   }
 
   function defaultSyncTarget() {
-    return lastKnownWorkspaceId || syncLocalValue();
+    const s = Session();
+    return s ? s.defaultSyncTarget(lastKnownWorkspaceId, syncLocalValue())
+      : (lastKnownWorkspaceId || syncLocalValue());
   }
 
   function setEditorVisible(open) {
@@ -88,6 +105,8 @@
     $('#popupSkillEditingId').value = skill?.id || '';
     $('#popupSkillTitle').value = skill?.title || '';
     $('#popupSkillTendency').value = skill?.tendency || 'custom';
+    const SkillUi = globalThis.PopupPromptSkillUi;
+    if (SkillUi) SkillUi.fillTendencyDatalist($('#popupSkillTendencyList'), store.skills);
     $('#popupSkillBody').value = skill?.body || '';
     fillSyncTargetSelect($('#popupSkillSyncTarget'), skill?.syncTarget || defaultSyncTarget());
     setEditorVisible(true);
@@ -105,7 +124,8 @@
       },
       onEdit: fillEditor,
       onDelete: (sk) => { openDeleteConfirm(sk); },
-    });
+      onMissingWorkspace: () => statusText(tx('paSkillNeedWorkspace')),
+    }, { baseUrl: cachedBaseUrl, lastWorkspaceId: lastKnownWorkspaceId });
   }
 
   function collectPushWorkspaceIds(legacyWorkspaceId) {
@@ -180,6 +200,7 @@
 
   async function persist() {
     await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
+    if (!pluginLoggedIn()) return true;
     const before = JSON.stringify(store);
     const scope = await resolveSkillScope();
     try {
@@ -275,13 +296,15 @@
       store = await PageAdvisorPromptSkills.loadFromStorage(
         typeof Storage !== 'undefined' ? Storage : null,
       );
+      await refreshPluginLoggedIn();
       await refreshLastWorkspace();
+      await refreshBaseUrl();
+      await refreshWorkspaceRows();
     } catch (e) {
       console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
     }
     try {
-      if (typeof PageAdvisorAPI !== 'undefined' && typeof PageAdvisorAPI.getPromptSkills === 'function') {
-        await refreshWorkspaceRows();
+      if (pluginLoggedIn() && typeof PageAdvisorAPI !== 'undefined' && typeof PageAdvisorAPI.getPromptSkills === 'function') {
         const scope = await resolveSkillScope();
         const legacy = scope?.workspaceId || '';
         const wids = new Set(collectPushWorkspaceIds(legacy));
@@ -311,6 +334,7 @@
     } catch (e) {
       console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
     }
+    if (!pluginLoggedIn()) statusText(tx('paSkillLocalOnlyUntilLogin'));
     renderList();
     setEditorVisible(false);
   }
@@ -466,6 +490,8 @@
     bindEvents,
     get scopeProvider() { return scopeProvider; },
     set scopeProvider(fn) { scopeProvider = fn; },
+    get loggedInProvider() { return Session() ? Session().loggedInProvider : null; },
+    set loggedInProvider(fn) { if (Session()) Session().loggedInProvider = fn; },
   };
 
   if (document.readyState === 'loading') {

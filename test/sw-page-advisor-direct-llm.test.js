@@ -139,4 +139,64 @@ describe('sw-page-advisor direct LLM', () => {
     await sandbox.runPageOptimizationSuggest(1);
     assert.equal(seenSkill.body, '优先无障碍');
   });
+
+  it('T1 guest + direct LLM: no login error, no getWorkspaces, no suggest-jobs', async () => {
+    const payloads = [];
+    let created = 0;
+    let listed = 0;
+    const sandbox = loadSw({
+      Storage: {
+        migrateStaleTokenExpiryOnce: async () => {},
+        getApiConfig: async () => ({ token: '', baseUrl: 'https://example.test' }),
+        getEndpointMapping: async () => ({}),
+        getCredentials: async () => ({}),
+        isTokenExpired: async () => false,
+        getLastWorkspace: async () => 'ws-stale',
+      },
+    });
+    sandbox.API.getWorkspaces = async () => { listed += 1; return []; };
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return { success: true, data: { url: 'https://example.test/page', title: 'T', pageText: 'x', domOutline: [] } };
+      }
+      if (msg.action === 'pageAdvisorResult') payloads.push(msg);
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => { created += 1; return { job_id: 'no' }; };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: 'sk-local', baseUrl: 'https://llm.test', model: 'm1' });
+    sandbox.PageAdvisorLLM.suggest = async () => ([{ id: 's1', title: 'Guest' }]);
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(created, 0);
+    assert.equal(listed, 0);
+    const done = payloads.find((p) => p.ok && p.phase === 'done');
+    assert.ok(done, JSON.stringify(payloads));
+    assert.equal(done.featureParamsSource, 'plugin_direct');
+  });
+
+  it('T2 guest without LLM config: asks for key or login, no job', async () => {
+    const payloads = [];
+    let created = 0;
+    const sandbox = loadSw({
+      Storage: {
+        migrateStaleTokenExpiryOnce: async () => {},
+        getApiConfig: async () => ({ token: '', baseUrl: 'https://example.test' }),
+        getEndpointMapping: async () => ({}),
+        getCredentials: async () => ({}),
+        isTokenExpired: async () => false,
+        getLastWorkspace: async () => '',
+      },
+    });
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'pageAdvisorResult') payloads.push(msg);
+      return { success: true, data: {} };
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => { created += 1; return { job_id: 'no' }; };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: '', baseUrl: '', model: '' });
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(created, 0);
+    const fail = payloads.find((p) => p.ok === false);
+    assert.ok(fail, JSON.stringify(payloads));
+    assert.match(String(fail.error || ''), /API Key|本机智能体|signed out/i);
+    assert.equal(fail.traceId, undefined);
+  });
 });

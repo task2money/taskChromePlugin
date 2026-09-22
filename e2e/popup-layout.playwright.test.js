@@ -202,6 +202,10 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#popupSkillTitle')).toHaveValue('e2e-skill');
     await page.locator('#popupSkillList select.popup-skill-sync').selectOption('ws-b');
     await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('ws-b');
+    await expect(row.locator('.popup-skill-saas-link')).toHaveAttribute(
+      'href',
+      'https://aidevpush.com/tenant/co1/settings/workspace/ws-b/prompt-skills/',
+    );
     await toggle.click();
     await expect(fields).toBeHidden();
   });

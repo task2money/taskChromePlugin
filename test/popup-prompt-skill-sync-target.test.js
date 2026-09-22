@@ -16,6 +16,7 @@ const { installTxInSandbox } = require('./helpers/txRuntime.js');
 const llmUiSrc = fs.readFileSync(path.join(ROOT, 'lib/popup-llm-settings-ui.js'), 'utf8');
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
+const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
 const popupSkillsSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skills.js'), 'utf8');
 
 const SKILL_IDS = [
@@ -28,6 +29,7 @@ const SKILL_IDS = [
   'popupSkillEditingId',
   'popupSkillTitle',
   'popupSkillTendency',
+  'popupSkillTendencyList',
   'popupSkillBody',
   'popupSkillStatus',
   'btnSkillNew',
@@ -141,8 +143,13 @@ function bootPopup({ api = null } = {}) {
   vm.runInContext(llmUiSrc, sandbox, { filename: 'lib/popup-llm-settings-ui.js' });
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
+  vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
+  if (sandbox.PopupPromptSkillSession) {
+    sandbox.PopupPromptSkillSession.loggedInProvider = async () => true;
+  }
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
   sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
+  sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => true;
   return { byId, storageSets, puts, api: sandbox.PopupPageAdvisorSkills };
 }
 

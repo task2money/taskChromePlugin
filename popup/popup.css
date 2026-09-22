@@ -246,6 +246,10 @@ body {
   flex: 1 1 auto; min-width: 0; font-size: 12px; line-height: 1.35;
   word-break: break-word;
 }
+.popup-skill-saas-link {
+  flex: 0 0 auto; margin-left: auto; text-decoration: none;
+}
+.popup-skill-saas-link[aria-disabled="true"] { opacity: 0.55; cursor: not-allowed; }
 .popup-skill-row-actions {
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   padding-left: 22px;

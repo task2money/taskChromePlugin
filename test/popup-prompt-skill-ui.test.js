@@ -24,6 +24,9 @@ function makeEl(tag) {
     type: '',
     name: '',
     id: '',
+    href: '',
+    target: '',
+    rel: '',
     get textContent() { return text; },
     set textContent(v) { text = String(v); },
     appendChild(child) { this.children.push(child); return child; },
@@ -32,6 +35,7 @@ function makeEl(tag) {
     dispatch(type, ev) { (handlers[type] || []).forEach((fn) => fn(ev || {})); },
     setAttribute(k, v) { attrs[String(k)] = String(v); },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
+    innerHTML: '',
   };
   return el;
 }
@@ -44,6 +48,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
 
   beforeEach(() => {
     installTxRuntime();
+    require('../lib/page-advisor-prompt-skills.js');
     global.document = { createElement: makeEl };
     delete require.cache[require.resolve('../popup/popup-prompt-skill-ui.js')];
     SkillUi = require('../popup/popup-prompt-skill-ui.js');
@@ -106,5 +111,37 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     }, 'local', [], { onActive() {}, onTarget() {}, onEdit() {}, onDelete() {} });
     assert.equal(titleLine(root.children[0]).children[0].checked, false);
     assert.equal(titleLine(root.children[1]).children[0].checked, true);
+  });
+
+  it('fillTendencyDatalist 含建议值与已用自定义类别', () => {
+    const list = makeEl('datalist');
+    SkillUi.fillTendencyDatalist(list, [{ tendency: '品牌' }]);
+    assert.match(list.innerHTML, /value="a11y"/);
+    assert.match(list.innerHTML, /value="品牌"/);
+  });
+
+  it('标题行末尾链接指向对应工作空间提示词管理页；不应用行没有该按钮', () => {
+    const root = makeEl('div');
+    const missing = [];
+    SkillUi.renderSkillList(root, {
+      skills: [{ id: 's1', title: '云端条', tendency: 'custom', body: 'x', syncTarget: 'ws-b' }],
+      activeSkillId: 's1',
+    }, 'local', [{ id: 'ws-b', name: '空间B', company_id: 'co1' }], {
+      onActive() {},
+      onTarget() {},
+      onEdit() {},
+      onDelete() {},
+      onMissingWorkspace: () => missing.push(1),
+    }, { baseUrl: 'https://aidevpush.com', lastWorkspaceId: 'ws-a' });
+    const title = titleLine(root.children[1]);
+    const link = title.children[2];
+    assert.equal(link.tagName, 'A');
+    assert.equal(
+      link.href,
+      'https://aidevpush.com/tenant/co1/settings/workspace/ws-b/prompt-skills/',
+    );
+    assert.match(link.textContent, /管理|Manage/);
+    assert.equal(titleLine(root.children[0]).children.length, 2, '不应用行标题末尾无跳转');
+    assert.equal(missing.length, 0);
   });
 });

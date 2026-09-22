@@ -124,13 +124,14 @@
           </div>
           <div class="form-row">
             <label for="popupSkillTendency" data-i18n="paSkillTendency">类别</label>
-            <select id="popupSkillTendency" class="form-select">
+            <input type="text" id="popupSkillTendency" class="form-input" list="popupSkillTendencyList" maxlength="32" autocomplete="off" data-i18n-title="paSkillTendencyHint">
+            <datalist id="popupSkillTendencyList">
               <option value="a11y" data-i18n="paSkillTendencyA11y">无障碍</option>
               <option value="conversion" data-i18n="paSkillTendencyConversion">转化</option>
               <option value="perf" data-i18n="paSkillTendencyPerf">性能</option>
               <option value="seo" data-i18n="paSkillTendencySeo">SEO</option>
               <option value="custom" data-i18n="paSkillTendencyCustom">自定义</option>
-            </select>
+            </datalist>
           </div>
           <div class="form-row">
             <label for="popupSkillSyncTarget" data-i18n="paSkillSyncTarget">存储位置</label>
@@ -287,6 +288,7 @@
   <script src="../lib/page-advisor-api.js"></script>
   <script src="popup-llm-config.js"></script>
   <script src="popup-prompt-skill-ui.js"></script>
+  <script src="popup-prompt-skill-session.js"></script>
   <script src="popup-prompt-skills.js"></script>
   <script src="popup-auth.js"></script>
   <script src="popup-auth-badge.js"></script>

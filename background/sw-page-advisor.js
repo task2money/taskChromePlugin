@@ -85,23 +85,43 @@ function autoInnovateQuotaExceededMessage(baseUrl, tenantId) {
  * Alt+Z 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
  * @param {number} tabId
  */
+async function loadPageAdvisorDirectReady() {
+  let llmCfg = { apiKey: '', baseUrl: '', model: '' };
+  if (typeof PageAdvisorLlmConfig !== 'undefined' && PageAdvisorLlmConfig.loadFromStorage) {
+    try {
+      llmCfg = await PageAdvisorLlmConfig.loadFromStorage();
+    } catch (e) {
+      console.warn('[taskChromePlugin] load page-advisor LLM config:', e?.message || e);
+    }
+  }
+  const directReady = typeof PageAdvisorLlmConfig !== 'undefined'
+    && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
+    && typeof PageAdvisorLLM !== 'undefined'
+    && typeof PageAdvisorLLM.suggest === 'function';
+  return { llmCfg, directReady };
+}
+
 async function runPageOptimizationSuggest(tabId) {
   await Storage.migrateStaleTokenExpiryOnce();
   const cfg = await Storage.getApiConfig();
   const mapping = await Storage.getEndpointMapping();
   const cred = await Storage.getCredentials();
   const expired = cfg.token ? await Storage.isTokenExpired() : false;
+  const { llmCfg, directReady } = await loadPageAdvisorDirectReady();
+  const sessionOk = !!(cfg.token && !expired);
 
-  if (!cfg.token || expired) {
+  if (!directReady && !sessionOk) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
-      error: tx('paLoginFirstAltZ'),
+      error: tx('paGuestNeedLlmOrLogin'),
     });
     return;
   }
 
-  API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
-  if (mapping.owner) API.setOwner(mapping.owner);
+  if (sessionOk) {
+    API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
+    if (mapping.owner) API.setOwner(mapping.owner);
+  }
 
   await notifyContentPageAdvisor(tabId, { ok: true, phase: 'loading', message: tx('paCollecting') });
 
@@ -125,51 +145,6 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   const data = ctxResp.data;
-  let workspaceId = String(data.workspaceId || '').trim();
-  let tenantId = String(data.companyId || data.tenantId || '').trim();
-
-  if (!workspaceId || !tenantId) {
-    let workspaces = [];
-    try {
-      const list = await API.getWorkspaces();
-      workspaces = Array.isArray(list) ? list : (list?.results || list?.items || list?.data || []);
-    } catch (e) {
-      console.warn('[taskChromePlugin] page advisor getWorkspaces for defaults:', e?.message || e);
-    }
-    const lastWorkspaceId = await Storage.getLastWorkspace();
-    const resolved = (typeof PageAdvisorDefaults !== 'undefined'
-      && PageAdvisorDefaults.resolvePageAdvisorWorkspace)
-      ? PageAdvisorDefaults.resolvePageAdvisorWorkspace({
-        floatWorkspaceId: workspaceId,
-        floatCompanyId: tenantId,
-        lastWorkspaceId,
-        workspaces,
-      })
-      : { workspaceId: '', companyId: '', source: '' };
-    workspaceId = resolved.workspaceId;
-    tenantId = resolved.companyId;
-  }
-
-  if (!workspaceId || !tenantId) {
-    await notifyContentPageAdvisor(tabId, {
-      ok: false,
-      error: tx('paSelectWorkspaceAltZ'),
-    });
-    return;
-  }
-
-  let llmCfg = { apiKey: '', baseUrl: '', model: '' };
-  if (typeof PageAdvisorLlmConfig !== 'undefined' && PageAdvisorLlmConfig.loadFromStorage) {
-    try {
-      llmCfg = await PageAdvisorLlmConfig.loadFromStorage();
-    } catch (e) {
-      console.warn('[taskChromePlugin] load page-advisor LLM config:', e?.message || e);
-    }
-  }
-  const directReady = typeof PageAdvisorLlmConfig !== 'undefined'
-    && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
-    && typeof PageAdvisorLLM !== 'undefined'
-    && typeof PageAdvisorLLM.suggest === 'function';
   if (directReady) {
     await notifyContentPageAdvisor(tabId, {
       ok: true,
@@ -215,6 +190,39 @@ async function runPageOptimizationSuggest(tabId) {
         traceId: tid,
       });
     }
+    return;
+  }
+
+  let workspaceId = String(data.workspaceId || '').trim();
+  let tenantId = String(data.companyId || data.tenantId || '').trim();
+
+  if (!workspaceId || !tenantId) {
+    let workspaces = [];
+    try {
+      const list = await API.getWorkspaces();
+      workspaces = Array.isArray(list) ? list : (list?.results || list?.items || list?.data || []);
+    } catch (e) {
+      console.warn('[taskChromePlugin] page advisor getWorkspaces for defaults:', e?.message || e);
+    }
+    const lastWorkspaceId = await Storage.getLastWorkspace();
+    const resolved = (typeof PageAdvisorDefaults !== 'undefined'
+      && PageAdvisorDefaults.resolvePageAdvisorWorkspace)
+      ? PageAdvisorDefaults.resolvePageAdvisorWorkspace({
+        floatWorkspaceId: workspaceId,
+        floatCompanyId: tenantId,
+        lastWorkspaceId,
+        workspaces,
+      })
+      : { workspaceId: '', companyId: '', source: '' };
+    workspaceId = resolved.workspaceId;
+    tenantId = resolved.companyId;
+  }
+
+  if (!workspaceId || !tenantId) {
+    await notifyContentPageAdvisor(tabId, {
+      ok: false,
+      error: tx('paSelectWorkspaceAltZ'),
+    });
     return;
   }
 
