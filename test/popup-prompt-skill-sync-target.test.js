@@ -126,6 +126,17 @@ function bootPopup({ api = null } = {}) {
           ],
         };
       }
+      if (msg?.action === 'getAuthStatus') {
+        return {
+          success: true,
+          data: {
+            loggedIn: true,
+            expired: false,
+            token: 'tok',
+            baseUrl: 'https://saas.example',
+          },
+        };
+      }
       return { success: true };
     },
   };

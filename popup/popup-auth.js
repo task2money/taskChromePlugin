@@ -405,8 +405,22 @@
 
     if (cfg.token) {
       if (isExpired) {
+        if (typeof API !== 'undefined' && typeof API.clearSession === 'function') API.clearSession();
         showTokenExpiredUI(cred.username);
         return;
+      }
+
+      try {
+        const mapping = (typeof Storage !== 'undefined' && Storage.getEndpointMapping)
+          ? await Storage.getEndpointMapping()
+          : null;
+        if (typeof API !== 'undefined' && typeof API.init === 'function') {
+          API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
+        }
+      } catch (_) {
+        if (typeof API !== 'undefined' && typeof API.init === 'function') {
+          API.init(cfg.baseUrl, cfg.token, null, cred.userId || '');
+        }
       }
 
       // 立即显示已登录 UI（不等待子模块）
@@ -418,6 +432,7 @@
       // 子模块异步延迟加载 — 不阻塞登录状态检查
       loadSubModules();
     } else {
+      if (typeof API !== 'undefined' && typeof API.clearSession === 'function') API.clearSession();
       stopAuthBadgeTimer();
       showLoginUI();
     }

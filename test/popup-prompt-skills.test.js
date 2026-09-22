@@ -146,6 +146,10 @@ function bootPopup({ skills = [], activeSkillId = '', api = null, loggedIn = !!a
     sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => loggedIn;
     if (api) {
       sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
+      sandbox.PopupPageAdvisorSkills.sessionProvider = async () => ({
+        baseUrl: 'https://saas.example',
+        token: 'tok',
+      });
     }
   }
 
@@ -521,6 +525,37 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.match(rowTitle(skillRow(list, 0)).textContent, /系统默认自动创新/);
     assert.equal(rowRadio(skillRow(list, 0)).checked, true);
     assert.equal(rowRadio(noneRow(list)).checked, false);
+    assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
+  });
+
+  it('T10 sessionOverride 不依赖 Popup 内存 API token', async () => {
+    const seen = [];
+    ctx = bootPopup({
+      api: {
+        getPromptSkills: async (_t, _w, session) => {
+          seen.push(['ws', session]);
+          return { skills: [], active_skill_id: '', revision: 'empty' };
+        },
+        getSystemPromptSkills: async (session) => {
+          seen.push(['cat', session]);
+          return {
+            skills: [{
+              id: 'sys_default_auto_innovate',
+              title: '系统默认自动创新',
+              body: '平台提示',
+              is_default: true,
+            }],
+          };
+        },
+      },
+    });
+    ctx.sandbox.API = { getBaseUrl: () => '', getToken: () => '' };
+    ctx.api.sessionProvider = async () => ({ baseUrl: 'https://saas.example', token: 'override-tok' });
+    ctx.api.loadSkills();
+    await flushAll();
+    assert.equal(seen[seen.length - 1][0], 'cat');
+    assert.equal(seen[seen.length - 1][1].baseUrl, 'https://saas.example');
+    assert.equal(seen[seen.length - 1][1].token, 'override-tok');
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
   });
 

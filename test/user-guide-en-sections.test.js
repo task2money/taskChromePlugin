@@ -14,4 +14,11 @@ describe('user-guide-en-sections', () => {
     assert.match(src, /traceId:/);
     assert.match(src, /data-traceId/);
   });
+
+  it('documents system default skill fetch and reopen-popup recovery', () => {
+    const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
+    const blob = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
+    assert.match(blob, /new workspace default/);
+    assert.match(blob, /reopen the popup/);
+  });
 });

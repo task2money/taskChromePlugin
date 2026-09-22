@@ -418,3 +418,64 @@ describe('page-advisor wiring contracts', () => {
     assert.doesNotMatch(ui, /\.createTask\s*\(/);
   });
 });
+
+describe('system catalog session gate (T8/T9)', () => {
+  let origFetch;
+  let origAPI;
+
+  beforeEach(() => {
+    origFetch = globalThis.fetch;
+    origAPI = globalThis.API;
+  });
+
+  afterEach(() => {
+    globalThis.fetch = origFetch;
+    if (origAPI === undefined) delete globalThis.API;
+    else globalThis.API = origAPI;
+  });
+
+  it('T8 empty API session does not fetch catalog', async () => {
+    let fetched = 0;
+    globalThis.API = { getBaseUrl: () => '', getToken: () => '' };
+    globalThis.fetch = async () => {
+      fetched += 1;
+      throw new Error('catalog must not fetch without session');
+    };
+    await assert.rejects(
+      () => PageAdvisorAPI.getSystemPromptSkills(),
+      (err) => err && err.errorCode === 'PA_SESSION_MISSING',
+    );
+    assert.equal(fetched, 0);
+  });
+
+  it('T9 API.init then catalog GET uses host and Authorization', async () => {
+    const apiMod = require('../lib/api.js');
+    globalThis.API = apiMod;
+    apiMod.init('https://api.example.com/', 'at_test');
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+        },
+        json: async () => ({ skills: [] }),
+        text: async () => '',
+      };
+    };
+    await PageAdvisorAPI.getSystemPromptSkills();
+    assert.equal(seen.url, 'https://api.example.com/api/page-advisor/v1/system-prompt-skills/');
+    assert.match(String(seen.opts.headers.Authorization || ''), /Bearer at_test/);
+    apiMod.clearSession();
+  });
+
+  it('popup-auth inits API before loadSubModules', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'popup/popup-auth.js'), 'utf8');
+    const initAt = src.indexOf('API.init(');
+    const subAt = src.indexOf('loadSubModules()');
+    assert.ok(initAt >= 0, 'popup-auth 须 API.init');
+    assert.ok(subAt > initAt, 'API.init 须在 loadSubModules 之前');
+  });
+});

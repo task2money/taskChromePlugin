@@ -11,7 +11,6 @@
   let scopeProvider = null;
   let workspaceRows = [];
   let lwwWorkspaceIds = new Set();
-
   let lastKnownWorkspaceId = '';
   let cachedBaseUrl = '';
   const skillFields = () => $('#pageAdvisorSkillFields');
@@ -19,9 +18,7 @@
   const Session = () => (typeof PopupPromptSkillSession !== 'undefined' ? PopupPromptSkillSession : null);
   const syncLocalValue = () => (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.SYNC_LOCAL) || 'local';
   const pluginLoggedIn = () => !!(Session() && Session().isLoggedIn());
-  async function refreshPluginLoggedIn() {
-    return Session() ? Session().refreshPluginLoggedIn() : false;
-  }
+  const refreshPluginLoggedIn = () => (Session() ? Session().refreshPluginLoggedIn() : Promise.resolve(false));
   async function refreshLastWorkspace() {
     if (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
       lastKnownWorkspaceId = String(await Storage.getLastWorkspace() || '').trim();
@@ -72,6 +69,11 @@
     const el = $('#popupSkillStatus');
     if (el) el.textContent = msg || '';
   }
+  function statusCloudFail(e) {
+    const tid = e?.traceId || '';
+    if (tid && $('#popupSkillStatus')) $('#popupSkillStatus').setAttribute('data-traceId', tid);
+    statusText(tid ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})` : tx('paSkillSavedLocalCloudFailed'));
+  }
 
   function newIdempotencyKey() {
     return (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
@@ -80,8 +82,7 @@
 
   function defaultSyncTarget() {
     const s = Session();
-    return s ? s.defaultSyncTarget(lastKnownWorkspaceId, syncLocalValue())
-      : (lastKnownWorkspaceId || syncLocalValue());
+    return s ? s.defaultSyncTarget(lastKnownWorkspaceId, syncLocalValue()) : (lastKnownWorkspaceId || syncLocalValue());
   }
 
   function fillEditor(skill) {
@@ -160,13 +161,7 @@
           statusText(tx('paSkillConflictTitle'));
           return { ok: false, conflict: true };
         }
-        const tid = e?.traceId || '';
-        if (tid && $('#popupSkillStatus')) {
-          $('#popupSkillStatus').setAttribute('data-traceId', tid);
-        }
-        statusText(tid
-          ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})`
-          : tx('paSkillSavedLocalCloudFailed'));
+        statusCloudFail(e);
         ok = false;
       }
     }
@@ -193,10 +188,7 @@
       }
       return pushed.ok;
     } catch (e) {
-      const tid = e?.traceId || '';
-      statusText(tid
-        ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})`
-        : tx('paSkillSavedLocalCloudFailed'));
+      statusCloudFail(e);
       return false;
     }
   }
@@ -285,8 +277,9 @@
       console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
     }
     const api = typeof PageAdvisorAPI !== 'undefined' ? PageAdvisorAPI : null;
+    const advisorSession = Session() ? await Session().resolveAdvisorSession() : null;
     try {
-      if (pluginLoggedIn() && api && typeof api.getPromptSkills === 'function') {
+      if (pluginLoggedIn() && api && typeof api.getPromptSkills === 'function' && advisorSession) {
         const scope = await resolveSkillScope();
         const legacy = scope?.workspaceId || '';
         const wids = new Set(collectPushWorkspaceIds(legacy));
@@ -296,7 +289,7 @@
         for (const wid of wids) {
           const tenantId = tenantForWorkspace(wid) || (wid === legacy ? scope?.tenantId : '');
           if (!tenantId) continue;
-          const remote = await api.getPromptSkills(tenantId, wid);
+          const remote = await api.getPromptSkills(tenantId, wid, advisorSession);
           const rec = PageAdvisorPromptSkills.mergeWorkspaceBundle(store, remote, wid, legacy);
           store = rec.store;
           if (rec.revision) cloudRevisions[wid] = rec.revision;
@@ -312,13 +305,15 @@
           );
           statusText(tx('paSkillSyncedPull'));
         }
+      } else if (pluginLoggedIn() && !advisorSession) {
+        statusText(tx('paSkillCatalogNeedSession'));
       }
     } catch (e) {
       console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
     }
     try {
-      if (pluginLoggedIn() && api && typeof api.getSystemPromptSkills === 'function') {
-        const cat = await api.getSystemPromptSkills();
+      if (pluginLoggedIn() && api && typeof api.getSystemPromptSkills === 'function' && advisorSession) {
+        const cat = await api.getSystemPromptSkills(advisorSession);
         const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
           store, cat, lastKnownWorkspaceId || syncLocalValue(),
         );
@@ -328,10 +323,13 @@
             store, typeof Storage !== 'undefined' ? Storage : null,
           );
           statusText(tx('paSkillSyncedPull'));
+        } else if (!(cat?.skills || []).length) {
+          statusText(tx('paSkillCatalogEmpty'));
         }
       }
     } catch (e) {
       console.warn('[taskChromePlugin] system catalog:', e?.message || e);
+      statusText(e?.message || tx('paSkillCatalogNeedSession'));
     }
     if (!pluginLoggedIn()) statusText(tx('paSkillLocalOnlyUntilLogin'));
     renderList();
@@ -489,6 +487,8 @@
     set scopeProvider(fn) { scopeProvider = fn; },
     get loggedInProvider() { return Session() ? Session().loggedInProvider : null; },
     set loggedInProvider(fn) { if (Session()) Session().loggedInProvider = fn; },
+    get sessionProvider() { return Session() ? Session().sessionProvider : null; },
+    set sessionProvider(fn) { if (Session()) Session().sessionProvider = fn; },
   };
 
   if (document.readyState === 'loading') {
