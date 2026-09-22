@@ -34,6 +34,7 @@ const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skil
 const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
 const popupSkillCloudSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-cloud.js'), 'utf8');
 const popupSkillsSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skills.js'), 'utf8');
+const popupAuthSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-auth.js'), 'utf8');
 
 /** 被测脚本用到的 popup.html 元素 id。 */
 const SKILL_IDS = [
@@ -59,6 +60,9 @@ const SKILL_IDS = [
   'pageAdvisorSkillFields',
   'popupSkillSyncTarget',
   'popupSkillActiveSummary',
+  // 未登录自动展开登录表单（OPT-20260922-040）：setLoginFormExpanded 读写这两个元素
+  'loginSection',
+  'btnToggleLogin',
 ];
 
 function makeEl(tag, id) {
@@ -119,6 +123,7 @@ function bootPopup({
   api = null,
   loggedIn = !!api,
   omitLoggedInProvider = false,
+  withAuth = false,
 } = {}) {
   const byId = Object.create(null);
   SKILL_IDS.forEach((id) => { byId[id] = makeEl(id.startsWith('btn') ? 'button' : 'div', id); });
@@ -156,6 +161,8 @@ function bootPopup({
     sandbox.PopupPromptSkillSession.loggedInProvider = async () => loggedIn;
   }
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
+  // popup-auth.js 与 Popup 同构地共享 var/function 全局；装载后 setLoginFormExpanded 才可解析
+  if (withAuth) vm.runInContext(popupAuthSrc, sandbox, { filename: 'popup/popup-auth.js' });
   if (sandbox.PopupPageAdvisorSkills) {
     if (!omitLoggedInProvider) {
       sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => loggedIn;
@@ -399,6 +406,32 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
 
     assert.match(ctx.byId.popupSkillStatus.textContent, /会失败|保存|storage unavailable/);
     ctx.sandbox.Storage = original;
+  });
+
+  it('未登录 bootPopup 后自动展开登录表单，登录按钮同屏可点（OPT-20260922-040）', async () => {
+    ctx = bootPopup({ withAuth: true });
+    // 前置：popup-auth 的 showLoginUI() 无错误时会先把登录表单折叠
+    ctx.byId.loginSection.style.display = 'none';
+    await ctx.api.loadSkills();
+    await flushAll();
+
+    assert.equal(ctx.byId.loginSection.style.display, 'block', '未登录须展开 #loginSection');
+    assert.equal(ctx.byId.btnToggleLogin.getAttribute('aria-expanded'), 'true');
+    assert.match(ctx.byId.popupSkillStatus.textContent, /本机|device|登录|Sign/i);
+  });
+
+  it('已登录时不误展开登录表单（OPT-20260922-040）', async () => {
+    const api = {
+      getPromptSkills: async () => ({ skills: [], revision: 1 }),
+      getSystemPromptSkills: async () => ({ skills: [] }),
+      putPromptSkills: async () => ({}),
+    };
+    ctx = bootPopup({ api, withAuth: true });
+    ctx.byId.loginSection.style.display = 'none';
+    await ctx.api.loadSkills();
+    await flushAll();
+
+    assert.equal(ctx.byId.loginSection.style.display, 'none', '已登录不得展开登录表单');
   });
 });
 
