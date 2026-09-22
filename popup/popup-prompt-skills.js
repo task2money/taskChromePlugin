@@ -1,16 +1,21 @@
-/** Popup：提示词 Skill CRUD + 登录后 SaaS 同步。 */
+/** Popup：提示词 Skill CRUD + 按条选择本机或工作空间同步。 */
 (function () {
   const $ = (sel) => document.querySelector(sel);
+  const Ui = () => (typeof PopupLlmSettingsUi !== 'undefined' ? PopupLlmSettingsUi : null);
   let store = { skills: [], activeSkillId: '' };
   let saveBusy = false;
-  // OPT-20260922-003: 云端当前版本（GET/PUT 回传），PUT 时作为 base_revision 做 CAS。
-  let cloudRevision = '';
-  // 409 时挂起的冲突：云端文档，供用户选择保留本机或云端。
+  let cloudRevisions = {};
   let pendingConflict = null;
-  // OPT-20260922-004: 云端修订列表（最新在前），供覆盖后回滚。
+  let pendingConflictWorkspaceId = '';
   let revisionItems = [];
   let revisionLoaded = false;
   let scopeProvider = null;
+  let workspaceRows = [];
+  let lwwWorkspaceIds = new Set();
+
+  const skillFields = () => $('#pageAdvisorSkillFields');
+  const skillToggleBtn = () => $('#btnToggleSkillSettings');
+  const syncLocalValue = () => (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.SYNC_LOCAL) || 'local';
 
   async function resolveSkillScope() {
     if (typeof scopeProvider === 'function') {
@@ -21,32 +26,51 @@
     if (!workspaceId && typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
       workspaceId = String(await Storage.getLastWorkspace() || '').trim();
     }
-    if (!workspaceId) return null;
-    if (typeof sendMessageWithTimeout !== 'function') return null;
-    const r = await sendMessageWithTimeout({ action: 'getWorkspaces' }, 12000);
-    const data = r?.data;
-    const rows = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
-    const ws = (rows || []).find((row) => String(row?.id || row?._id || '') === workspaceId);
+    await refreshWorkspaceRows();
+    const ws = workspaceRows.find((row) => String(row?.id || row?._id || '') === workspaceId);
     const tenantId = String(ws?.company_id || ws?.companyId || '').trim();
-    if (!tenantId) return null;
+    if (!workspaceId || !tenantId) return null;
     return { tenantId, workspaceId };
   }
 
+  async function refreshWorkspaceRows() {
+    if (typeof sendMessageWithTimeout !== 'function') return;
+    try {
+      const r = await sendMessageWithTimeout({ action: 'getWorkspaces' }, 12000);
+      const data = r?.data;
+      workspaceRows = Array.isArray(data) ? data : (data?.results || data?.items || data?.data || []);
+    } catch (_) {
+      workspaceRows = workspaceRows || [];
+    }
+  }
+
+  function tenantForWorkspace(workspaceId) {
+    const ws = workspaceRows.find((row) => String(row?.id || row?._id || '') === String(workspaceId || '').trim());
+    return String(ws?.company_id || ws?.companyId || '').trim();
+  }
+
+  function fillSyncTargetSelect(selectEl, selected) {
+    const SkillUi = globalThis.PopupPromptSkillUi;
+    if (SkillUi) SkillUi.fillSyncTargetSelect(selectEl, selected, workspaceRows, syncLocalValue());
+  }
   function setSkillSectionVisible(visible) {
     const sec = $('#pageAdvisorSkillSection');
     if (sec) sec.style.display = visible ? 'block' : 'none';
   }
-
   function statusText(msg) {
     const el = $('#popupSkillStatus');
     if (el) el.textContent = msg || '';
   }
 
   function newIdempotencyKey() {
-    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-      return crypto.randomUUID();
-    }
-    return `psk_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+    return (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : `psk_${Date.now()}_${Math.random().toString(16).slice(2, 10)}`;
+  }
+
+  function defaultSyncTarget() {
+    const ws = String($('#popupDefaultWorkspace')?.value || '').trim();
+    return ws || syncLocalValue();
   }
 
   function fillEditor(skill) {
@@ -54,101 +78,106 @@
     $('#popupSkillTitle').value = skill?.title || '';
     $('#popupSkillTendency').value = skill?.tendency || 'custom';
     $('#popupSkillBody').value = skill?.body || '';
+    fillSyncTargetSelect($('#popupSkillSyncTarget'), skill?.syncTarget || defaultSyncTarget());
   }
-
   function renderList() {
-    const root = $('#popupSkillList');
-    if (!root) return;
-    root.replaceChildren();
-    store.skills.forEach((sk) => {
-      const id = `popupSkillRadio_${sk.id}`;
-      const label = document.createElement('label');
-      label.className = 'popup-skill-row';
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = 'popupSkillActive';
-      radio.id = id;
-      radio.value = sk.id;
-      radio.checked = store.activeSkillId === sk.id;
-      radio.addEventListener('change', () => {
-        applyActive(sk.id).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
-      });
-      const span = document.createElement('span');
-      span.textContent = `${sk.title}${store.activeSkillId === sk.id ? ` (${tx('paSkillActive')})` : ''}`;
-      label.appendChild(radio);
-      label.appendChild(span);
-      label.addEventListener('click', (ev) => {
-        if (ev.target === radio) return;
-        fillEditor(sk);
-      });
-      root.appendChild(label);
+    const SkillUi = globalThis.PopupPromptSkillUi;
+    if (SkillUi) SkillUi.renderActiveSummary($('#popupSkillActiveSummary'), store);
+    if (!SkillUi) return;
+    SkillUi.renderSkillList($('#popupSkillList'), store, syncLocalValue(), workspaceRows, {
+      onActive: (id) => {
+        applyActive(id).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
+      },
+      onTarget: (id, value) => {
+        changeSkillTarget(id, value).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
+      },
+      onEdit: fillEditor,
     });
   }
 
-  async function pushCloud(st) {
+  function collectPushWorkspaceIds(legacyWorkspaceId) {
+    const ids = new Set(Object.keys(cloudRevisions));
+    const legacy = String(legacyWorkspaceId || '').trim();
+    store.skills.forEach((s) => {
+      const t = String(s.syncTarget || '').trim();
+      if (t && t !== syncLocalValue()) ids.add(t);
+      else if (!t && legacy) ids.add(legacy);
+    });
+    return [...ids];
+  }
+
+  async function pushWorkspaces(scope) {
     if (typeof PageAdvisorAPI === 'undefined' || typeof PageAdvisorAPI.putPromptSkills !== 'function') {
-      return null;
+      return { ok: true, localOnly: true };
     }
-    const scope = await resolveSkillScope();
-    if (!scope) {
-      statusText(tx('paSkillNeedWorkspace'));
-      return null;
+    await refreshWorkspaceRows();
+    const legacyWorkspaceId = String(scope?.workspaceId || '').trim();
+    const fallbackTenant = String(scope?.tenantId || '').trim();
+    const wids = collectPushWorkspaceIds(legacyWorkspaceId);
+    if (!wids.length) return { ok: true, localOnly: true };
+    let ok = true;
+    for (const wid of wids) {
+      const tenantId = tenantForWorkspace(wid) || (wid === legacyWorkspaceId ? fallbackTenant : '');
+      if (!tenantId) {
+        statusText(tx('paSkillNeedWorkspace'));
+        ok = false;
+        continue;
+      }
+      try {
+        const remote = await PageAdvisorAPI.getPromptSkills(tenantId, wid);
+        const gotRev = String(remote?.revision || '').trim();
+        const lww = lwwWorkspaceIds.delete(wid);
+        if (!lww && gotRev && !cloudRevisions[wid]) cloudRevisions[wid] = gotRev;
+        const putStore = PageAdvisorPromptSkills.buildWorkspacePutStore(store, remote, wid, legacyWorkspaceId);
+        const saved = await PageAdvisorAPI.putPromptSkills(
+          tenantId, wid,
+          PageAdvisorPromptSkills.toApiPayload(putStore, lww ? '' : (cloudRevisions[wid] || '')),
+          newIdempotencyKey(),
+        );
+        const rec = PageAdvisorPromptSkills.mergeWorkspaceBundle(store, saved, wid, legacyWorkspaceId);
+        store = rec.store;
+        const rev = String(saved?.revision || '').trim();
+        if (rev) cloudRevisions[wid] = rev;
+      } catch (e) {
+        if (e?.status === 409) {
+          pendingConflict = e?.body?.current || { skills: [], active_skill_id: '' };
+          pendingConflictWorkspaceId = wid;
+          renderConflict();
+          statusText(tx('paSkillConflictTitle'));
+          return { ok: false, conflict: true };
+        }
+        const tid = e?.traceId || '';
+        if (tid && $('#popupSkillStatus')) {
+          $('#popupSkillStatus').setAttribute('data-traceId', tid);
+        }
+        statusText(tid
+          ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})`
+          : tx('paSkillSavedLocalCloudFailed'));
+        ok = false;
+      }
     }
-    const saved = await PageAdvisorAPI.putPromptSkills(
-      scope.tenantId,
-      scope.workspaceId,
-      PageAdvisorPromptSkills.toApiPayload(st, cloudRevision),
-      newIdempotencyKey(),
-    );
-    // 服务端回传写入后的新版本，作为下次 PUT 的 base_revision。
-    const rev = String(saved?.revision || '').trim();
-    if (rev) cloudRevision = rev;
-    return saved;
+    return { ok };
   }
 
   function clearConflict() {
     pendingConflict = null;
+    pendingConflictWorkspaceId = '';
     renderConflict();
-  }
-
-  /**
-   * 采纳服务端回传的正文（OPT-20260922-005）。
-   *
-   * 服务端会把本次提交与远端按 skill_id 三方合并后落库（改的是不同 skill 时不再 409），
-   * 回传的 revision 因此对应的是**合并后**的正文。本机若只更新 revision、正文仍留着
-   * 旧的一份，下次保存就会带着合并后的 revision 提交旧正文 —— 合并进来的同事那半边
-   * 改动会被当成「本机的改动」又改回去，静默丢失。故成功落库后一律以服务端为准。
-   *
-   * @returns {boolean} 本机正文是否被改写（调用方据此重渲染）。
-   */
-  function adoptServerBundle(saved) {
-    if (!saved || typeof saved !== 'object') return false;
-    const remote = PageAdvisorPromptSkills.fromApiPayload(saved);
-    const before = JSON.stringify(PageAdvisorPromptSkills.toApiPayload(store));
-    const after = JSON.stringify(PageAdvisorPromptSkills.toApiPayload(remote));
-    if (before === after) return false;
-    store = remote;
-    return true;
   }
 
   async function persist() {
     await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
+    const before = JSON.stringify(store);
+    const scope = await resolveSkillScope();
     try {
-      const saved = await pushCloud(store);
-      if (adoptServerBundle(saved)) {
-        // 采纳后的正文也是本机正文，落盘保持与云端一致。
+      const pushed = await pushWorkspaces(scope);
+      if (pushed.conflict) return false;
+      if (pushed.ok) clearConflict();
+      if (JSON.stringify(store) !== before) {
         await PageAdvisorPromptSkills.saveToStorage(store, typeof Storage !== 'undefined' ? Storage : null);
       }
-      clearConflict();
-      return true;
+      return pushed.ok;
     } catch (e) {
-      // 409：另一端已改。本机内容已存本机，交给用户决定保留哪一份。
-      if (e?.status === 409) {
-        pendingConflict = e?.body?.current || { skills: [], active_skill_id: '' };
-        renderConflict();
-        statusText(tx('paSkillConflictTitle'));
-        return false;
-      }
       const tid = e?.traceId || '';
       statusText(tid
         ? `${tx('paSkillSavedLocalCloudFailed')} (${tid})`
@@ -157,12 +186,12 @@
     }
   }
 
-  /** 保留本机：以本机内容覆盖云端（此时不带 base_revision，等价用户确认的 LWW）。 */
   async function resolveConflictKeepLocal() {
     if (saveBusy) return;
     saveBusy = true;
     try {
-      cloudRevision = '';
+      if (pendingConflictWorkspaceId) lwwWorkspaceIds.add(pendingConflictWorkspaceId);
+      clearConflict();
       const ok = await persist();
       if (ok) {
         renderList();
@@ -175,14 +204,17 @@
     }
   }
 
-  /** 使用云端：采纳 409 回传的云端文档并落本机。 */
   async function resolveConflictUseCloud() {
     if (saveBusy) return;
     saveBusy = true;
     try {
       const remote = pendingConflict || { skills: [], active_skill_id: '' };
-      store = PageAdvisorPromptSkills.fromApiPayload(remote);
-      cloudRevision = String(remote?.revision || '').trim();
+      const wid = pendingConflictWorkspaceId;
+      const scope = await resolveSkillScope();
+      store = PageAdvisorPromptSkills.mergeWorkspaceBundle(
+        store, remote, wid, scope?.workspaceId || '',
+      ).store;
+      cloudRevisions[wid] = String(remote?.revision || '').trim();
       clearConflict();
       await PageAdvisorPromptSkills.saveToStorage(
         store,
@@ -204,47 +236,25 @@
     box.style.display = pendingConflict ? 'block' : 'none';
   }
 
-  /** 修订列表：每行一个版本号摘要 + 回滚按钮，当前版本只做标记不可点。 */
   function renderRevisions() {
-    const root = $('#popupSkillRevisions');
-    if (!root) return;
-    root.replaceChildren();
-    if (!revisionItems.length) {
-      const empty = document.createElement('p');
-      empty.className = 'float-ball-hint';
-      empty.textContent = tx('paSkillHistoryEmpty');
-      root.appendChild(empty);
-      return;
+    const SkillUi = globalThis.PopupPromptSkillUi;
+    const editing = store.skills.find((s) => s.id === ($('#popupSkillEditingId')?.value || ''));
+    const currentRev = cloudRevisions[editing?.syncTarget]
+      || cloudRevisions[(Object.keys(cloudRevisions)[0] || '')]
+      || '';
+    if (SkillUi) {
+      SkillUi.renderRevisions($('#popupSkillRevisions'), revisionItems, currentRev, (rev) => {
+        restoreRevision(rev).catch(() => {});
+      });
     }
-    revisionItems.forEach((item) => {
-      const rev = String(item?.revision || '').trim();
-      if (!rev) return;
-      const row = document.createElement('div');
-      row.className = 'popup-skill-revision-row';
-      const meta = document.createElement('span');
-      const parts = [rev.slice(0, 8)];
-      const when = String(item?.created_at || '').trim();
-      if (when) parts.push(when);
-      const count = Number(item?.skill_count);
-      if (Number.isFinite(count)) parts.push(String(count));
-      const actor = String(item?.actor_user_id || '').trim();
-      if (actor) parts.push(actor);
-      meta.textContent = parts.join(' · ');
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'btn btn-sm';
-      btn.value = rev;
-      if (rev === cloudRevision) {
-        btn.disabled = true;
-        btn.textContent = tx('paSkillHistoryCurrent');
-      } else {
-        btn.textContent = tx('paSkillHistoryRestore');
-        btn.addEventListener('click', () => { restoreRevision(rev).catch(() => {}); });
-      }
-      row.appendChild(meta);
-      row.appendChild(btn);
-      root.appendChild(row);
-    });
+  }
+
+  function historyWorkspaceId() {
+    const editingId = $('#popupSkillEditingId')?.value || '';
+    const sk = store.skills.find((s) => s.id === editingId);
+    const t = String(sk?.syncTarget || '').trim();
+    if (t && t !== syncLocalValue()) return t;
+    return String($('#popupDefaultWorkspace')?.value || '').trim();
   }
 
   async function loadRevisions() {
@@ -252,13 +262,15 @@
       || typeof PageAdvisorAPI.listPromptSkillRevisions !== 'function') {
       return;
     }
-    const scope = await resolveSkillScope();
-    if (!scope) {
+    const wid = historyWorkspaceId();
+    const tenantId = tenantForWorkspace(wid) || (await resolveSkillScope())?.tenantId;
+    if (!wid || !tenantId) {
       statusText(tx('paSkillNeedWorkspace'));
       return;
     }
     try {
-      revisionItems = await PageAdvisorAPI.listPromptSkillRevisions(scope.tenantId, scope.workspaceId);
+      await refreshWorkspaceRows();
+      revisionItems = await PageAdvisorAPI.listPromptSkillRevisions(tenantId, wid);
       revisionLoaded = true;
     } catch (e) {
       statusText(tx('paSkillHistoryFailed'));
@@ -267,7 +279,6 @@
     renderRevisions();
   }
 
-  /** 回滚：服务端按 base_revision 做 CAS，成功后采纳返回的正文并刷新本机。 */
   async function restoreRevision(revision) {
     if (saveBusy) return;
     if (typeof PageAdvisorAPI === 'undefined'
@@ -276,32 +287,32 @@
     }
     saveBusy = true;
     try {
-      const scope = await resolveSkillScope();
-      if (!scope) {
+      const wid = historyWorkspaceId();
+      await refreshWorkspaceRows();
+      const tenantId = tenantForWorkspace(wid) || (await resolveSkillScope())?.tenantId;
+      if (!wid || !tenantId) {
         statusText(tx('paSkillNeedWorkspace'));
         return;
       }
       const saved = await PageAdvisorAPI.restorePromptSkillRevision(
-        scope.tenantId,
-        scope.workspaceId,
-        revision,
-        cloudRevision,
-        newIdempotencyKey(),
+        tenantId, wid, revision, cloudRevisions[wid] || '', newIdempotencyKey(),
       );
-      store = PageAdvisorPromptSkills.fromApiPayload(saved);
-      cloudRevision = String(saved?.revision || '').trim();
+      const scope = await resolveSkillScope();
+      store = PageAdvisorPromptSkills.mergeWorkspaceBundle(
+        store, saved, wid, scope?.workspaceId || '',
+      ).store;
+      cloudRevisions[wid] = String(saved?.revision || '').trim();
       clearConflict();
       await PageAdvisorPromptSkills.saveToStorage(
-        store,
-        typeof Storage !== 'undefined' ? Storage : null,
+        store, typeof Storage !== 'undefined' ? Storage : null,
       );
       renderList();
       fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
       statusText(tx('paSkillHistoryRestored'));
     } catch (e) {
-      // 回滚同样可能撞上并发编辑：复用冲突二选一面板。
       if (e?.status === 409) {
         pendingConflict = e?.body?.current || { skills: [], active_skill_id: '' };
+        pendingConflictWorkspaceId = historyWorkspaceId();
         renderConflict();
         statusText(tx('paSkillConflictTitle'));
         return;
@@ -309,9 +320,7 @@
       statusText(e?.message || tx('paSkillHistoryFailed'));
     } finally {
       saveBusy = false;
-      if (revisionLoaded) {
-        await loadRevisions().catch(() => {});
-      }
+      if (revisionLoaded) await loadRevisions().catch(() => {});
     }
   }
 
@@ -321,9 +330,22 @@
     renderList();
   }
 
+  async function changeSkillTarget(skillId, syncTarget) {
+    const sk = store.skills.find((s) => s.id === skillId);
+    if (!sk) return;
+    store = PageAdvisorPromptSkills.upsertSkill(store, { ...sk, syncTarget }).store;
+    const ok = await persist();
+    renderList();
+    if (ok) {
+      statusText(syncTarget === syncLocalValue() ? tx('paSkillSavedLocal') : tx('paSkillSaved'));
+    }
+  }
+
   async function loadSkills() {
     if (typeof PageAdvisorPromptSkills === 'undefined') return;
     setSkillSectionVisible(true);
+    const ui = Ui();
+    if (ui) ui.setLlmSettingsExpanded(skillFields(), skillToggleBtn(), false);
     try {
       store = await PageAdvisorPromptSkills.loadFromStorage(
         typeof Storage !== 'undefined' ? Storage : null,
@@ -333,32 +355,39 @@
     }
     try {
       if (typeof PageAdvisorAPI !== 'undefined' && typeof PageAdvisorAPI.getPromptSkills === 'function') {
+        await refreshWorkspaceRows();
         const scope = await resolveSkillScope();
-        if (!scope) {
-          statusText(tx('paSkillNeedWorkspace'));
-        } else {
-          const remote = await PageAdvisorAPI.getPromptSkills(scope.tenantId, scope.workspaceId);
-          const rec = PageAdvisorPromptSkills.reconcileCloud(store, remote);
+        const legacy = scope?.workspaceId || '';
+        const wids = new Set(collectPushWorkspaceIds(legacy));
+        if (legacy) wids.add(legacy);
+        let needUpload = false;
+        let didPull = false;
+        for (const wid of wids) {
+          const tenantId = tenantForWorkspace(wid) || (wid === legacy ? scope?.tenantId : '');
+          if (!tenantId) continue;
+          const remote = await PageAdvisorAPI.getPromptSkills(tenantId, wid);
+          const rec = PageAdvisorPromptSkills.mergeWorkspaceBundle(store, remote, wid, legacy);
           store = rec.store;
-          cloudRevision = rec.revision || '';
-          if (rec.action === 'upload') {
-            await persist();
-            statusText(tx('paSkillSyncedUpload'));
-          } else if (rec.action === 'pull') {
-            await PageAdvisorPromptSkills.saveToStorage(
-              store,
-              typeof Storage !== 'undefined' ? Storage : null,
-            );
-            statusText(tx('paSkillSyncedPull'));
-          }
+          if (rec.revision) cloudRevisions[wid] = rec.revision;
+          if (rec.action === 'upload') needUpload = true;
+          if (rec.action === 'pull') didPull = true;
+        }
+        if (needUpload) {
+          await persist();
+          statusText(tx('paSkillSyncedUpload'));
+        } else if (didPull) {
+          await PageAdvisorPromptSkills.saveToStorage(
+            store, typeof Storage !== 'undefined' ? Storage : null,
+          );
+          statusText(tx('paSkillSyncedPull'));
         }
       }
     } catch (e) {
       console.warn('[taskChromePlugin] sync prompt skills:', e?.message || e);
     }
+    fillSyncTargetSelect($('#popupSkillSyncTarget'), syncLocalValue());
     renderList();
-    const active = PageAdvisorPromptSkills.getActive(store);
-    fillEditor(active || store.skills[0] || null);
+    fillEditor(PageAdvisorPromptSkills.getActive(store) || store.skills[0] || null);
   }
 
   async function saveSkill() {
@@ -370,6 +399,8 @@
       btn.disabled = true;
       btn.setAttribute('aria-busy', 'true');
     }
+    const ui = Ui();
+    let savedOk = false;
     try {
       const editingId = $('#popupSkillEditingId')?.value || '';
       const result = PageAdvisorPromptSkills.upsertSkill(store, {
@@ -377,13 +408,14 @@
         title: $('#popupSkillTitle')?.value || '',
         tendency: $('#popupSkillTendency')?.value || 'custom',
         body: $('#popupSkillBody')?.value || '',
+        syncTarget: $('#popupSkillSyncTarget')?.value || defaultSyncTarget(),
       });
       store = result.store;
       if (!store.activeSkillId) {
         store = PageAdvisorPromptSkills.setActive(store, result.skill.id).store;
       }
       const ok = await persist();
-      // 服务端可能已把正文换成合并结果，故按 id 从 store 回读，而不是用本地旧对象。
+      savedOk = ok;
       const shown = store.skills.find((s) => s.id === result.skill.id)
         || PageAdvisorPromptSkills.getActive(store)
         || store.skills[0]
@@ -391,8 +423,8 @@
       fillEditor(shown);
       renderList();
       if (ok) {
-        statusText(tx('paSkillSaved'));
-        // 已打开历史面板时同步刷新，让新版本立刻可回滚。
+        const localOnly = shown.syncTarget === syncLocalValue();
+        statusText(localOnly ? tx('paSkillSavedLocal') : tx('paSkillSaved'));
         if (revisionLoaded) await loadRevisions().catch(() => {});
       }
     } catch (e) {
@@ -403,6 +435,7 @@
         btn.disabled = false;
         btn.removeAttribute('aria-busy');
       }
+      if (ui) ui.collapseLlmSettingsAfterSave(savedOk, skillFields(), skillToggleBtn());
     }
   }
 
@@ -417,6 +450,14 @@
   }
 
   function bindEvents() {
+    const toggle = skillToggleBtn();
+    const ui = Ui();
+    // Anti-Replay-OK: ui-only expand/collapse of skill management, no HTTP.
+    if (toggle && ui) {
+      toggle.addEventListener('click', () => {
+        ui.toggleLlmSettingsExpanded(skillFields(), toggle);
+      });
+    }
     const save = $('#btnSkillSave');
     if (save) save.addEventListener('click', () => { saveSkill().catch(() => {}); });
     const neu = $('#btnSkillNew');
@@ -429,7 +470,6 @@
         applyActive('').catch((e) => statusText(e?.message || tx('popupSaveFailed')));
       });
     }
-    // OPT-20260922-003: 冲突二选一
     const keepLocal = $('#btnSkillConflictKeepLocal');
     if (keepLocal) {
       keepLocal.addEventListener('click', () => { resolveConflictKeepLocal().catch(() => {}); });
@@ -438,7 +478,6 @@
     if (useCloud) {
       useCloud.addEventListener('click', () => { resolveConflictUseCloud().catch(() => {}); });
     }
-    // OPT-20260922-004: 修订历史按需拉取，避免每次开弹窗都多打一次网络。
     const historyLoad = $('#btnSkillHistoryLoad');
     if (historyLoad) {
       historyLoad.addEventListener('click', () => { loadRevisions().catch(() => {}); });

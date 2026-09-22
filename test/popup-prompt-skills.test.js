@@ -19,6 +19,7 @@ const { installTxInSandbox } = require('./helpers/txRuntime.js');
 
 const popupHtml = fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
+const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
 const popupSkillsSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skills.js'), 'utf8');
 
 /** 被测脚本用到的 popup.html 元素 id。 */
@@ -39,6 +40,11 @@ const SKILL_IDS = [
   'btnSkillSave',
   'btnSkillDelete',
   'btnSkillClearActive',
+  'btnToggleSkillSettings',
+  'pageAdvisorSkillFields',
+  'popupSkillSyncTarget',
+  'popupSkillActiveSummary',
+  'popupDefaultWorkspace',
 ];
 
 function makeEl(tag, id) {
@@ -64,9 +70,16 @@ function makeEl(tag, id) {
     setAttribute(k, v) { attrs[String(k)] = String(v); },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
     removeAttribute(k) { delete attrs[k]; },
+    options: [],
     querySelector() { return null; },
     querySelectorAll() { return []; },
     focus() {},
+    set innerHTML(html) {
+      const values = [...String(html).matchAll(/value="([^"]*)"/g)].map((x) => x[1]);
+      this.options = values.map((value) => ({ value }));
+      this._innerHTML = String(html);
+    },
+    get innerHTML() { return this._innerHTML || ''; },
   };
 }
 
@@ -110,9 +123,11 @@ function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
   vm.createContext(sandbox);
   installTxInSandbox(sandbox);
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
+  vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
   if (api && sandbox.PopupPageAdvisorSkills) {
     sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
+    if (byId.popupDefaultWorkspace) byId.popupDefaultWorkspace.value = 'w1';
   }
 
   const skill = (title, body) => ({ id: `sk_${title}`, title, tendency: 'custom', body, updatedAt: 1 });

@@ -142,6 +142,21 @@ test.describe('Popup 面板布局', () => {
     await expect(fields).toBeHidden();
   });
 
+  test('提示词 Skill 设置按钮展开管理区，再点收起', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorSkillSection')).toBeVisible({ timeout: 10000 });
+    const toggle = page.locator('#btnToggleSkillSettings');
+    const fields = page.locator('#pageAdvisorSkillFields');
+    await expect(toggle).toBeVisible();
+    await expect(fields).toBeHidden();
+    await toggle.click();
+    await expect(fields).toBeVisible();
+    await expect(page.locator('#popupSkillSyncTarget')).toBeVisible();
+    await toggle.click();
+    await expect(fields).toBeHidden();
+  });
+
   test('保存智能体配置后收起 API Key 区', async ({ page }) => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);

@@ -181,6 +181,82 @@ describe('prompt skill bundle revision（OPT-20260922-003）', () => {
   });
 });
 
+describe('prompt skill per-item syncTarget', () => {
+  it('new skill defaults to local storage', () => {
+    const st = PageAdvisorPromptSkills.upsertSkill(
+      PageAdvisorPromptSkills.emptyStore(),
+      { title: '本机', body: 'x' },
+    ).store;
+    assert.equal(st.skills[0].syncTarget, PageAdvisorPromptSkills.SYNC_LOCAL);
+  });
+
+  it('upsert keeps existing syncTarget when omitted', () => {
+    let st = PageAdvisorPromptSkills.upsertSkill(
+      PageAdvisorPromptSkills.emptyStore(),
+      { id: 's1', title: 'A', body: 'a', syncTarget: 'ws-1' },
+    ).store;
+    st = PageAdvisorPromptSkills.upsertSkill(st, { id: 's1', title: 'A2', body: 'b' }).store;
+    assert.equal(st.skills[0].syncTarget, 'ws-1');
+    assert.equal(st.skills[0].title, 'A2');
+  });
+
+  it('mergeWorkspaceBundle keeps local-only and other workspace skills', () => {
+    let st = PageAdvisorPromptSkills.upsertSkill(
+      PageAdvisorPromptSkills.emptyStore(),
+      { id: 'loc', title: 'L', body: 'local', syncTarget: 'local' },
+    ).store;
+    st = PageAdvisorPromptSkills.upsertSkill(st, {
+      id: 'b', title: 'B', body: 'other', syncTarget: 'ws-b',
+    }).store;
+    st = PageAdvisorPromptSkills.upsertSkill(st, {
+      id: 'a', title: 'oldA', body: 'stale', syncTarget: 'ws-a',
+    }).store;
+    const rec = PageAdvisorPromptSkills.mergeWorkspaceBundle(st, {
+      skills: [{ id: 'a', title: 'cloudA', body: 'from-a', updated_at: 9 }],
+      active_skill_id: 'a',
+      revision: 'rev-a',
+    }, 'ws-a');
+    assert.equal(rec.action, 'pull');
+    assert.equal(rec.revision, 'rev-a');
+    const byId = Object.fromEntries(rec.store.skills.map((s) => [s.id, s]));
+    assert.equal(byId.loc.body, 'local');
+    assert.equal(byId.b.syncTarget, 'ws-b');
+    assert.equal(byId.a.body, 'from-a');
+    assert.equal(byId.a.syncTarget, 'ws-a');
+  });
+
+  it('buildWorkspacePutStore drops unshared local skills and keeps colleague ids', () => {
+    let st = PageAdvisorPromptSkills.upsertSkill(
+      PageAdvisorPromptSkills.emptyStore(),
+      { id: 'mine', title: 'Mine', body: 'm', syncTarget: 'ws-a' },
+    ).store;
+    st = PageAdvisorPromptSkills.upsertSkill(st, {
+      id: 'priv', title: 'Priv', body: 'p', syncTarget: 'local',
+    }).store;
+    const put = PageAdvisorPromptSkills.buildWorkspacePutStore(st, {
+      skills: [
+        { id: 'colleague', title: 'C', body: 'c' },
+        { id: 'mine', title: 'old', body: 'old' },
+      ],
+    }, 'ws-a');
+    const ids = put.skills.map((s) => s.id).sort();
+    assert.deepEqual(ids, ['colleague', 'mine']);
+    assert.equal(put.skills.find((s) => s.id === 'mine').body, 'm');
+  });
+
+  it('empty syncTarget follows legacy default workspace only', () => {
+    const skill = { id: 'x', syncTarget: '' };
+    assert.equal(
+      PageAdvisorPromptSkills.skillTargetsWorkspace(skill, 'ws-default', 'ws-default'),
+      true,
+    );
+    assert.equal(
+      PageAdvisorPromptSkills.skillTargetsWorkspace(skill, 'ws-other', 'ws-default'),
+      false,
+    );
+  });
+});
+
 describe('create-task does not embed prompt skill fence', () => {
   it('T6 payload builder has no taskplugin-prompt-skill', () => {
     const src = fs.readFileSync(
