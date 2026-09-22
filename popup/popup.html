@@ -42,17 +42,24 @@
           <span class="toggle-slider"></span>
         </label>
         <span class="float-ball-label" data-i18n="showFloatBall">显示悬浮球</span>
+        <!-- Anti-Replay-OK: native details; ui-only expand of help copy; no HTTP -->
+        <details class="region-help">
+          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+          <p class="float-ball-hint" data-i18n="floatBallHint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
+        </details>
       </div>
-      <p class="float-ball-hint" data-i18n="floatBallHint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
     </section>
 
     <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
     <section id="pageAdvisorLlmSection" class="section" style="display:none">
       <div class="advisor-defaults-heading llm-section-heading">
         <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span></h3>
+        <details class="region-help">
+          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+          <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。点击「设置」填写 API Key。</p>
+        </details>
         <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
       </div>
-      <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。点击「设置」填写 API Key。</p>
       <div id="pageAdvisorLlmFields" style="display:none" hidden>
         <div class="form-row">
           <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
@@ -72,8 +79,13 @@
     </section>
 
     <section id="pageAdvisorSkillSection" class="section" style="display:none">
-      <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill（倾向）</span></h3>
-      <p class="float-ball-hint" data-i18n="paSkillSectionHint">登录后 Skill 同步到当前默认工作空间，换电脑选同一空间会自动拉取。选中后仅 Alt+Z 直连智能体时追加到系统提示；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。该工作空间的成员可见并可改这些 Skill。</p>
+      <div class="advisor-defaults-heading">
+        <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill（倾向）</span></h3>
+        <details class="region-help">
+          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+          <p class="float-ball-hint" data-i18n="paSkillSectionHint">登录后 Skill 同步到当前默认工作空间，换电脑选同一空间会自动拉取。选中后仅 Alt+Z 直连智能体时追加到系统提示；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。该工作空间的成员可见并可改这些 Skill。</p>
+        </details>
+      </div>
       <div
         id="popupSkillConflict"
         class="form-row skill-conflict"
@@ -126,8 +138,8 @@
     <section id="pageAdvisorDefaultsSection" class="section" style="display:none">
       <div class="advisor-defaults-heading">
         <h3>⌨️ <span data-i18n="altZDefaults">Alt+Shift+Z</span></h3>
-        <details class="shortcut-help">
-          <summary class="shortcut-help-mark" data-i18n-aria-label="altZHintToggleAria" aria-label="快捷键说明">!</summary>
+        <details class="region-help">
+          <summary class="region-help-mark" data-i18n-aria-label="altZHintToggleAria" aria-label="快捷键说明">!</summary>
           <p class="float-ball-hint" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。未打开浮窗时两者都使用此处的默认工作空间与项目。</p>
         </details>
       </div>

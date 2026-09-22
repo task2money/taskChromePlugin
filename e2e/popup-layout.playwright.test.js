@@ -155,4 +155,14 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#pageAdvisorLlmFields')).toBeHidden();
     await expect(page.locator('#popupLlmStatus')).toContainText(/已保存|saved/i);
   });
+
+  test('区域说明默认收在 ! 内，点击后再展开', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    const hint = page.locator('#pageAdvisorLlmSection [data-i18n="paLlmSectionHint"]');
+    await expect(hint).toBeHidden();
+    await page.locator('#pageAdvisorLlmSection summary.region-help-mark').click();
+    await expect(hint).toBeVisible();
+  });
 });

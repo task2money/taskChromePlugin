@@ -40,6 +40,7 @@
 
 - 纯函数优先落 `lib/`，并配 `test/*.test.js`（与 element-picker / create-task-payload 一致）
 - **content script 词法作用域（硬）**：同一 `manifest.json` `content_scripts` 条目内多个 `.js` 共享 isolated world；**禁止**跨文件重复行首 `const`/`let` 绑定名（见仓库元规则第 60 条 / ADR-0077）。改名示例：`PREVIEW_NID_ATTR` vs `NID_ATTR`。验收：`python3 db/scripts/ci/check_chrome_content_script_lexical_scope.py`
+- **区域功能说明收在「!」内（硬）**：Popup / Panel 区块 `float-ball-hint` 不得默认展开占空间；须标题旁 `<details class="region-help"><summary>!</summary>` 且禁止 `open`（约束 65 / ADR-0100）。验收：`python3 db/scripts/ci/check_chrome_plugin_region_help.py`
 - content script 改动注意 `manifest.json` `content_scripts` 注入顺序
 - **热重载幂等**：`lib/content-boot-gate.js` 须为 `content_scripts` 首文件；各脚本用 `if (!globalThis.__taskpluginContentBoot?.skip) { … }` 包裹，扩展 Reload 且不刷新页面时避免顶层 `const`/`let` 重复声明
 - 版本号：用户可见行为变更时 bump `manifest.json` `version`
