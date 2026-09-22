@@ -361,4 +361,53 @@ describe('sw-page-advisor 直连补拉系统目录默认 Skill（OPT-20260922-03
     assert.equal(listed, 0, '未登录不得请求系统目录');
     assert.equal(seenSkill, null);
   });
+  // OPT-20260922-035: 直连不经过 taskPageAdvisor，失败时须把用户看到的 traceId
+  // 送到观测口，否则 Loki 按 traceId 检索为空。
+  it('直连失败：把用户看到的 traceId 上报到观测口', async () => {
+    const { sandbox, payloads } = boot();
+    let seen = null;
+    sandbox.APIHttp.newRequestTraceId = () => 'sw-mint-trace';
+    sandbox.PageAdvisorAPI.reportDirectLlmFailure = async (deps) => {
+      seen = deps;
+      return true;
+    };
+    sandbox.PageAdvisorLLM.suggest = async () => {
+      const err = new Error('llm http 401: sk-local rejected');
+      err.snippet = 'sk-local rejected';
+      throw err;
+    };
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    const failed = payloads.find((p) => p.ok === false && p.errorCode === 'PLUGIN_DIRECT_LLM_FAILED');
+    assert.ok(failed, JSON.stringify(payloads));
+    assert.equal(failed.traceId, 'sw-mint-trace');
+    assert.ok(seen, '失败须 best-effort 上报观测口');
+    assert.equal(seen.sessionOk, true);
+    assert.equal(seen.tenantId, 'ten1');
+    assert.equal(seen.traceId, failed.traceId, '展示的 traceId 必须与上报一致');
+    assert.equal(seen.model, 'm1');
+    assert.equal(seen.err?.snippet, 'sk-local rejected');
+    // 上报报文由 lib 构造：键不得出现在出站 JSON 里。
+    const payload = sandbox.PageAdvisorAPI.buildClientLlmFailurePayload({
+      traceId: seen.traceId,
+      errorCode: 'PLUGIN_DIRECT_LLM_FAILED',
+      errorMessage: seen.err?.message,
+      contentSnippet: seen.err?.snippet,
+      model: seen.model,
+      apiKey: seen.apiKey,
+    });
+    assert.equal(JSON.stringify(payload).includes('sk-local'), false);
+  });
+
+  it('未登录：直连失败不上报观测口', async () => {
+    const { sandbox } = boot({ token: '' });
+    let called = 0;
+    sandbox.PageAdvisorAPI.reportClientLlmFailure = async () => { called += 1; return true; };
+    sandbox.PageAdvisorLLM.suggest = async () => { throw new Error('boom'); };
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    assert.equal(called, 0, '未登录无 tenant/凭据，不得上报');
+  });
 });

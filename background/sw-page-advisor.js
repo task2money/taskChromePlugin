@@ -234,6 +234,19 @@ async function runPageOptimizationSuggest(tabId) {
         errorCode: 'PLUGIN_DIRECT_LLM_FAILED',
         traceId: tid,
       });
+      // OPT-20260922-035: 把用户看到的 traceId best-effort 送到观测口，
+      // 让 Loki 能按同一 ID 重建直连失败现场（未登录/无 tenant 由 lib 内部跳过）。
+      if (typeof PageAdvisorAPI !== 'undefined'
+        && typeof PageAdvisorAPI.reportDirectLlmFailure === 'function') {
+        await PageAdvisorAPI.reportDirectLlmFailure({
+          sessionOk,
+          tenantId: data.companyId || data.tenantId,
+          err: e,
+          traceId: tid,
+          model: llmCfg?.model,
+          apiKey: llmCfg?.apiKey,
+        });
+      }
     }
     return;
   }
