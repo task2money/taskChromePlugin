@@ -137,10 +137,12 @@ describe('PageAdvisorLLM skill messages', () => {
     return seen.messages;
   }
 
-  it('T1 no skill: single platform system prompt', async () => {
+  it('T1 no skill: platform system plus locale instruction', async () => {
     const msgs = await captureMessages(null);
-    assert.equal(msgs.filter((m) => m.role === 'system').length, 1);
+    const sys = msgs.filter((m) => m.role === 'system');
+    assert.equal(sys.length, 2);
     assert.equal(msgs[0].content, PageAdvisorLLM.SYSTEM_PROMPT);
+    assert.match(sys[1].content, /locale=zh-CN/);
   });
 
   it('T2/T3/T4 skill appends second system; platform prompt stays first', async () => {
@@ -153,6 +155,8 @@ describe('PageAdvisorLLM skill messages', () => {
     assert.equal(msgsA[1].role, 'system');
     assert.match(msgsA[1].content, /## User skill: A11y/);
     assert.match(msgsA[1].content, /不要输出 JSON/);
+    const localeMsg = msgsA.filter((m) => m.role === 'system').at(-1);
+    assert.match(localeMsg.content, /locale=zh-CN/);
     const msgsB = await captureMessages({ title: 'Conv', body: '转化优先' });
     assert.match(msgsB[1].content, /转化优先/);
     assert.doesNotMatch(msgsB[1].content, /不要输出 JSON/);

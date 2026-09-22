@@ -51,6 +51,7 @@ function loadSw(extra = {}) {
     'lib/page-advisor-fail-trace-id.js',
     'lib/page-advisor-llm-config.js',
     'lib/page-advisor-prompt-skills.js',
+    'lib/page-advisor-locale-prompt.js',
     'lib/page-advisor-llm-client.js',
     'background/sw-page-advisor.js',
   ]) {
@@ -198,5 +199,57 @@ describe('sw-page-advisor direct LLM', () => {
     assert.ok(fail, JSON.stringify(payloads));
     assert.match(String(fail.error || ''), /API Key|本机智能体|signed out/i);
     assert.equal(fail.traceId, undefined);
+  });
+
+  it('passes AidevpushI18n locale to direct LLM suggest', async () => {
+    const sandbox = loadSw();
+    sandbox.AidevpushI18n.setLocale('en');
+    let seen;
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: { url: 'https://example.test/page', title: 'T', pageText: 'x', domOutline: [] },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: 'sk-local',
+      baseUrl: 'https://llm.test',
+      model: 'm1',
+    });
+    sandbox.PageAdvisorLLM.suggest = async (_creds, _page, opts) => {
+      seen = opts;
+      return [{ id: 's1', title: 'Direct' }];
+    };
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(seen.locale, 'en');
+  });
+
+  it('cloud createSuggestJob body includes locale', async () => {
+    const sandbox = loadSw();
+    sandbox.AidevpushI18n.setLocale('en');
+    let body;
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: { url: 'https://example.test/page', title: 'T', pageText: 'x', domOutline: [] },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: '', baseUrl: '', model: '' });
+    sandbox.PageAdvisorAPI.createSuggestJob = async (_t, b) => {
+      body = b;
+      return { job_id: 'j1', status: 'queued' };
+    };
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({
+      status: 'succeeded',
+      suggestions: [],
+    });
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(body.locale, 'en');
   });
 });

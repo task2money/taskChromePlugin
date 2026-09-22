@@ -159,6 +159,16 @@ describe('UserGuide sections', () => {
     assert.match(md, /仅在点击上述任一填入按钮后/);
   });
 
+  it('page-optimization-suggest documents card copy follows plugin language', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
+    const steps = (section.steps || []).join('\n');
+    assert.match(steps, /跟随插件顶栏语言/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /跟随插件顶栏语言/);
+    const en = fs.readFileSync(path.join(__dirname, '../lib/user-guide-en-sections.js'), 'utf8');
+    assert.match(en, /follow the popup language switch/);
+  });
+
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /面板顶部[「"]×[」"]/);

@@ -101,6 +101,16 @@ async function loadPageAdvisorDirectReady() {
   return { llmCfg, directReady };
 }
 
+function resolvePageAdvisorLocale() {
+  try {
+    if (typeof AidevpushI18n !== 'undefined' && typeof AidevpushI18n.getLocale === 'function') {
+      const loc = String(AidevpushI18n.getLocale() || '').trim();
+      if (loc) return loc;
+    }
+  } catch (_) { /* ignore */ }
+  return 'zh-CN';
+}
+
 async function runPageOptimizationSuggest(tabId) {
   await Storage.migrateStaleTokenExpiryOnce();
   const cfg = await Storage.getApiConfig();
@@ -145,6 +155,7 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   const data = ctxResp.data;
+  const locale = resolvePageAdvisorLocale();
   if (directReady) {
     await notifyContentPageAdvisor(tabId, {
       ok: true,
@@ -170,7 +181,7 @@ async function runPageOptimizationSuggest(tabId) {
         title: data.title,
         pageText: data.pageText,
         domOutline: Array.isArray(data.domOutline) ? data.domOutline : [],
-      }, { skill });
+      }, { skill, locale });
       await notifyContentPageAdvisor(tabId, {
         ok: true,
         phase: 'done',
@@ -244,6 +255,7 @@ async function runPageOptimizationSuggest(tabId) {
     page_text: String(data.pageText || ''),
     screenshot_url: screenshotUrl || '',
     dom_outline: Array.isArray(data.domOutline) ? data.domOutline : [],
+    locale,
   };
 
   let created;

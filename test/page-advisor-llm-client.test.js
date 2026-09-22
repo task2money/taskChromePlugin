@@ -139,6 +139,30 @@ describe('PageAdvisorLLM URL and JSON', () => {
     assert.doesNotMatch(JSON.stringify(seen.opts.body), /sk-abc/);
   });
 
+  it('suggest appends locale=en system instruction', async () => {
+    let body;
+    await PageAdvisorLLM.suggest(
+      { apiKey: 'sk-abc', baseUrl: 'https://llm.test/v1', model: 'm' },
+      { url: 'https://p', title: 'Hi', pageText: 'body' },
+      {
+        locale: 'en',
+        fetchImpl: async (_url, opts) => {
+          body = JSON.parse(opts.body);
+          return {
+            ok: true,
+            status: 200,
+            text: async () => JSON.stringify({
+              choices: [{ message: { content: '[{"title":"Idea","summary":"ok"}]' } }],
+            }),
+          };
+        },
+      },
+    );
+    const sys = (body.messages || []).filter((m) => m.role === 'system').map((m) => m.content).join('\n');
+    assert.match(sys, /locale=en/);
+    assert.match(sys, /title, summary, and detail in English/);
+  });
+
   it('suggest logs truncated snippet without api key when JSON parse still fails', async () => {
     const warns = [];
     const orig = console.warn;

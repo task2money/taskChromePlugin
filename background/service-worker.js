@@ -37,6 +37,7 @@ importScripts(
   '../lib/page-advisor-fail-trace-id.js',
   '../lib/page-advisor-llm-config.js',
   '../lib/page-advisor-prompt-skills.js',
+  '../lib/page-advisor-locale-prompt.js',
   '../lib/page-advisor-llm-client.js',
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-site-pending.js',
