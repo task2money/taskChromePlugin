@@ -64,6 +64,7 @@
   function isStillShowingLoadingOnly() {
     const spinner = $('#loadingSpinner');
     const loginSec = $('#loginSection');
+    const loginToggle = $('#btnToggleLogin');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
     const floatSec = $('#floatBallSection');
@@ -71,12 +72,13 @@
     const userGuideSec = $('#popupGuideSection');
     const spinnerVisible = spinner && spinner.style.display !== 'none';
     const loginHidden = !loginSec || loginSec.style.display === 'none';
+    const loginToggleHidden = !loginToggle || loginToggle.style.display === 'none';
     const guideHidden = !devGuide || devGuide.style.display === 'none';
     const shortcutsHidden = !shortcutsSec || shortcutsSec.style.display === 'none';
     const floatHidden = !floatSec || floatSec.style.display === 'none';
     const reqHidden = !reqSec || reqSec.style.display === 'none';
     const userGuideHidden = !userGuideSec || userGuideSec.style.display === 'none';
-    return spinnerVisible && loginHidden && guideHidden && shortcutsHidden && floatHidden && reqHidden && userGuideHidden;
+    return spinnerVisible && loginHidden && loginToggleHidden && guideHidden && shortcutsHidden && floatHidden && reqHidden && userGuideHidden;
   }
 
   async function restoreRememberedFormFields() {
@@ -184,6 +186,26 @@
     if (section) section.style.display = visible ? 'block' : 'none';
   }
 
+  function setLoginToggleVisible(visible) {
+    const btn = $('#btnToggleLogin');
+    if (!btn) return;
+    btn.style.display = visible ? 'inline-block' : 'none';
+    if (!visible) {
+      btn.setAttribute('aria-expanded', 'false');
+      btn.textContent = tx('login');
+    }
+  }
+
+  function setLoginFormExpanded(expanded) {
+    const loginSec = $('#loginSection');
+    const btn = $('#btnToggleLogin');
+    if (loginSec) loginSec.style.display = expanded ? 'block' : 'none';
+    if (btn) {
+      btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      btn.textContent = expanded ? tx('commonCollapse') : tx('login');
+    }
+  }
+
   async function retryInit() {
     const spinner = $('#loadingSpinner');
     const retryBtn = $('#btnRetryInit');
@@ -193,6 +215,7 @@
     const reqSec = $('#requestsSection');
     if (spinner) spinner.style.display = 'flex';
     if (retryBtn) retryBtn.style.display = 'none';
+    setLoginToggleVisible(false);
     if (loginSec) loginSec.style.display = 'none';
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'none';
@@ -209,7 +232,6 @@
     }
     const status = $('#popupStatus');
     const headerArea = $('#headerUserArea');
-    const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
@@ -218,7 +240,8 @@
 
     if (status) { status.style.display = 'inline'; status.textContent = tx('panelBadgeNotLoggedIn'); status.className = 'badge badge-disconnected'; }
     if (headerArea) headerArea.style.display = 'none';
-    if (loginSec) loginSec.style.display = 'block';
+    setLoginToggleVisible(true);
+    setLoginFormExpanded(!!errorMessage);
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
@@ -262,11 +285,11 @@
     if (status) { status.style.display = 'inline'; status.textContent = tx('popupSessionExpiredBadge'); status.className = 'badge badge-disconnected'; }
 
     // 显示重新登录按钮
-    const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
-    if (loginSec) loginSec.style.display = 'block';
+    setLoginToggleVisible(true);
+    setLoginFormExpanded(true);
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
@@ -295,14 +318,14 @@
     const status = $('#popupStatus');
     const headerArea = $('#headerUserArea');
     const headerUser = $('#headerUser');
-    const loginSec = $('#loginSection');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
     const reqSec = $('#requestsSection');
     if (status) status.style.display = 'none';
     if (headerArea) headerArea.style.display = 'flex';
     if (headerUser) headerUser.textContent = '👤 ' + (username || tx('popupLoggedInFallback'));
-    if (loginSec) loginSec.style.display = 'none';
+    setLoginToggleVisible(false);
+    setLoginFormExpanded(false);
     if (devGuide) devGuide.style.display = 'block';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
@@ -386,68 +409,6 @@
     } else {
       stopAuthBadgeTimer();
       showLoginUI();
-    }
-  }
-
-  function applyExpiryHintToPopup(expiryHint) {
-    const status = $('#popupStatus');
-    if (!status) return;
-    if (!expiryHint?.text) {
-      // 已登录且无临近过期时保持隐藏（header 已显示用户）
-      if ($('#headerUserArea')?.style.display !== 'none') {
-        status.style.display = 'none';
-        status.textContent = '';
-        status.title = '';
-      }
-      return;
-    }
-    status.style.display = 'inline';
-    status.textContent = expiryHint.text;
-    status.className = expiryHint.level === 'critical' ? 'badge badge-disconnected' : 'badge badge-warning';
-    status.title = tx('panelBadgeExpiringTitle');
-  }
-
-  async function refreshAuthBadgeOnly() {
-    try {
-      const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, 5000);
-      if (!r?.success || !r.data) return;
-      if (!r.data.token) {
-        stopAuthBadgeTimer();
-        showLoginUI();
-        return;
-      }
-      if (r.data.expired) {
-        stopAuthBadgeTimer();
-        showTokenExpiredUI(r.data.username);
-        return;
-      }
-      const hint = r.data.expiryHint || Storage.formatTokenExpiryHint(r.data.remainingSeconds);
-      applyExpiryHintToPopup(hint);
-    } catch (e) {
-      console.warn('[TaskPlugin] popup 定时刷新登录态失败:', e.message);
-    }
-  }
-
-  function startAuthBadgeTimer() {
-    stopAuthBadgeTimer();
-    if (typeof startDocumentVisibilityInterval === 'function') {
-      authBadgeTimer = startDocumentVisibilityInterval(AUTH_BADGE_REFRESH_MS, () => refreshAuthBadgeOnly());
-      return;
-    }
-    authBadgeTimer = setInterval(() => {
-      refreshAuthBadgeOnly();
-    }, AUTH_BADGE_REFRESH_MS);
-  }
-
-  function stopAuthBadgeTimer() {
-    if (authBadgeTimer && typeof authBadgeTimer.stop === 'function') {
-      authBadgeTimer.stop();
-      authBadgeTimer = null;
-      return;
-    }
-    if (authBadgeTimer) {
-      clearInterval(authBadgeTimer);
-      authBadgeTimer = null;
     }
   }
 

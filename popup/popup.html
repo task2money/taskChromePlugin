@@ -17,8 +17,22 @@
         <span id="headerUser" class="header-user"></span>
         <button id="btnLogout" class="btn btn-sm btn-danger">🚪</button>
       </div>
-      <span id="popupStatus" class="badge badge-disconnected" data-i18n="statusLoading">加载中...</span>
+      <div class="header-auth-status">
+        <span id="popupStatus" class="badge badge-disconnected" data-i18n="statusLoading">加载中...</span>
+        <button type="button" id="btnToggleLogin" class="btn btn-sm btn-primary" style="display:none" aria-controls="loginSection" aria-expanded="false" data-i18n="login">登录</button>
+      </div>
     </header>
+
+    <!-- 登录区域置顶：默认折叠，点顶栏「登录」再展开 -->
+    <section id="loginSection" class="section" style="display:none">
+      <p id="loginHint" class="hint" style="margin-bottom:12px" data-i18n="loginHint">通过网页端授权登录（OAuth2+PKCE）。</p>
+      <div class="form-row">
+        <label data-i18n="serverUrl">服务器地址</label>
+        <input type="text" id="baseUrl" class="form-input" placeholder="https://aidevpush.com" autocomplete="url">
+      </div>
+      <button id="btnLogin" class="btn btn-primary btn-full">🔓 <span data-i18n="oauthLogin">OAuth 登录</span></button>
+      <div id="loginResult" class="result"></div>
+    </section>
 
     <!-- 悬浮球开关：登录与未登录均可见，便于浮窗 × 关闭后重新打开 -->
     <section id="floatBallSection" class="section" style="display:none">
@@ -35,7 +49,7 @@
     <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
     <section id="pageAdvisorLlmSection" class="section" style="display:none">
       <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span></h3>
-      <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。</p>
+      <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。</p>
       <div class="form-row">
         <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
         <input type="url" id="popupLlmBaseUrl" class="form-input" data-i18n-placeholder="paLlmBaseUrlPh" placeholder="https://api.deepseek.com/v1" autocomplete="off">
@@ -133,18 +147,6 @@
       <p id="loadingText" data-i18n="checkingLogin">正在检查登录状态...</p>
       <button id="btnRetryInit" class="btn btn-sm" style="display:none;margin-top:8px;">🔄 <span data-i18n="retry">重试</span></button>
     </div>
-
-    <!-- 登录区域 — OAuth2+PKCE（OPT-20260808-024）-->
-    <section id="loginSection" class="section" style="display:none">
-      <h3>🔐 <span data-i18n="login">登录</span></h3>
-      <p id="loginHint" class="hint" style="margin-bottom:12px" data-i18n="loginHint">通过网页端授权登录（OAuth2+PKCE）。</p>
-      <div class="form-row">
-        <label data-i18n="serverUrl">服务器地址</label>
-        <input type="text" id="baseUrl" class="form-input" placeholder="https://aidevpush.com" autocomplete="url">
-      </div>
-      <button id="btnLogin" class="btn btn-primary btn-full">🔓 <span data-i18n="oauthLogin">OAuth 登录</span></button>
-      <div id="loginResult" class="result"></div>
-    </section>
 
     <!-- DevTools 引导横幅 -->
     <section id="devtoolsGuide" class="section devtools-guide" style="display:none">
@@ -282,6 +284,7 @@
   <script src="popup-llm-config.js"></script>
   <script src="popup-prompt-skills.js"></script>
   <script src="popup-auth.js"></script>
+  <script src="popup-auth-badge.js"></script>
   <script src="popup-shortcut.js"></script>
   <script src="popup-defaults.js"></script>
   <script src="popup.js"></script>

@@ -40,6 +40,23 @@ describe('Popup advisor heading', () => {
     assert.match(html, /id="btnSaveLlmConfig"/);
   });
 
+  it('T5 Auto-innovate agent 文案快捷键为 Alt+Shift+Z', () => {
+    const msg = i18nMessages();
+    for (const locale of ['zh', 'en']) {
+      const hint = msg[locale].paLlmSectionHint;
+      assert.match(hint, /Alt\+Shift\+Z/, `${locale} paLlmSectionHint 应写 Alt+Shift+Z`);
+      assert.doesNotMatch(
+        hint,
+        /(?<!Shift\+)Alt\+Z/,
+        `${locale} paLlmSectionHint 不得把直连快捷键写成单独的 Alt+Z`,
+      );
+    }
+    const html = popupHtml();
+    const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
+    assert.match(llm, /Alt\+Shift\+Z/);
+    assert.doesNotMatch(llm, /(?<!Shift\+)Alt\+Z/);
+  });
+
   it('快捷键说明收在 ! 的 details/summary 内且默认不展开', () => {
     const html = popupHtml();
     const section = html.match(

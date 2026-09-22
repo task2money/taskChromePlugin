@@ -71,6 +71,16 @@ describe('UserGuide sections', () => {
     assert.match(md, /插件登录与网页登录是两套会话/);
   });
 
+  it('T6 登录说明提到顶部未登录旁点登录再展开', () => {
+    const login = UserGuide.SECTIONS.find((s) => s.id === 'login');
+    assert.ok(login, 'missing login section');
+    const blob = (login.steps || []).join('\n');
+    assert.match(blob, /未登录.*旁.*登录/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    const loginMd = md.split('## 页内浮窗')[0];
+    assert.match(loginMd, /未登录.*旁.*登录/);
+  });
+
   it('float-create 说明包含同名工作空间按公司名区分', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /名称 · 公司名/);

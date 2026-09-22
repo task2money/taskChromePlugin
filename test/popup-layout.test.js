@@ -72,6 +72,44 @@ describe('Popup 悬浮球开关不再跨 tab 扇出', () => {
   });
 });
 
+describe('Popup 未登录：登录入口置顶并可折叠', () => {
+  it('T1 #loginSection 紧随 header，且在悬浮球区之前', () => {
+    const headerEnd = popupHtml.indexOf('</header>');
+    const loginIdx = popupHtml.indexOf('id="loginSection"');
+    const floatIdx = popupHtml.indexOf('id="floatBallSection"');
+    assert.ok(headerEnd > 0 && loginIdx > 0 && floatIdx > 0, '缺少 header / login / float 锚点');
+    assert.ok(loginIdx > headerEnd, '登录区必须在 </header> 之后');
+    assert.ok(loginIdx < floatIdx, '登录区必须在 #floatBallSection 之前（最上方功能区）');
+  });
+
+  it('T2 顶栏 ⚠️ 未登录旁有 #btnToggleLogin；登录区默认折叠', () => {
+    const header = popupHtml.match(/<header[\s\S]*?<\/header>/)[0];
+    assert.match(header, /id="popupStatus"/);
+    assert.match(header, /id="btnToggleLogin"/);
+    const statusIdx = header.indexOf('id="popupStatus"');
+    const btnIdx = header.indexOf('id="btnToggleLogin"');
+    assert.ok(btnIdx > statusIdx, '登录按钮须紧挨未登录徽标之后');
+    const m = popupHtml.match(/<section id="loginSection"[^>]*>/);
+    assert.ok(m && m[0].includes('display:none'), '未展开时登录表单不得占位');
+  });
+
+  it('T3 popup 绑定点击展开/收起，错误与过期自动展开', () => {
+    assert.match(popupJs, /btnToggleLogin/, '未绑定顶栏登录按钮');
+    assert.match(popupJs, /aria-expanded/, '折叠态须暴露 aria-expanded');
+    const loginFn = popupJs.slice(
+      popupJs.indexOf('function showLoginUI'),
+      popupJs.indexOf('function showTokenExpiredUI'),
+    );
+    assert.match(loginFn, /errorMessage/, 'showLoginUI 须区分错误自动展开');
+    const expiredFn = popupJs.slice(
+      popupJs.indexOf('function showTokenExpiredUI'),
+      popupJs.indexOf('function showLoggedInUI'),
+    );
+    assert.match(expiredFn, /setLoginFormExpanded\(\s*true\s*\)|loginSec\.style\.display = 'block'/,
+      '会话过期须展开登录表单');
+  });
+});
+
 describe('Popup 面板布局', () => {
   it('面板收窄：body 宽度为 300px（不需要那么宽）', () => {
     assert.match(popupCss, /width:\s*300px/, 'popup.css body 宽度应收窄为 300px');

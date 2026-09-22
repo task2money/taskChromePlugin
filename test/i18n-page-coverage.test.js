@@ -31,6 +31,7 @@ const MIGRATED = [
   // popup 层：取词入口为全局 tx()（popup.html 先加载 lib/i18n-tx.js）
   'popup/popup.js',
   'popup/popup-auth.js',
+  'popup/popup-auth-badge.js',
   'popup/popup-defaults.js',
   'popup/popup-shortcut.js',
   // panel 层：取词入口为既有封装 P.t()（panel-core.js:api.t）

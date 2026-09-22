@@ -18,6 +18,16 @@
       });
     } catch (_) { /* ignore */ }
 
+    // Anti-Replay-OK: ui-only（展开/收起登录表单，无 HTTP 写）
+    const btnToggleLogin = $('#btnToggleLogin');
+    if (btnToggleLogin) {
+      btnToggleLogin.addEventListener('click', () => {
+        const loginSec = $('#loginSection');
+        if (!loginSec) return;
+        setLoginFormExpanded(loginSec.style.display === 'none');
+      });
+    }
+
     // 登录按钮 — OAuth2+PKCE（OPT-20260808-024）
     const btnLogin = $('#btnLogin');
     if (btnLogin) btnLogin.addEventListener('click', handleOAuthLogin);
@@ -314,13 +324,17 @@ document.addEventListener('DOMContentLoaded', () => {
     console.error('[TaskPlugin] Popup.init 未捕获异常:', e);
     const spinner = document.querySelector('#loadingSpinner');
     if (spinner) spinner.style.display = 'none';
-    const loginSec = document.querySelector('#loginSection');
-    if (loginSec) loginSec.style.display = 'block';
-    const status = document.querySelector('#popupStatus');
-    if (status) {
-      status.style.display = 'inline';
-      status.textContent = tx('panelBadgeNotLoggedIn');
-      status.className = 'badge badge-disconnected';
+    if (typeof showLoginUI === 'function') {
+      showLoginUI(e.message || undefined);
+    } else {
+      const loginSec = document.querySelector('#loginSection');
+      if (loginSec) loginSec.style.display = 'block';
+      const status = document.querySelector('#popupStatus');
+      if (status) {
+        status.style.display = 'inline';
+        status.textContent = tx('panelBadgeNotLoggedIn');
+        status.className = 'badge badge-disconnected';
+      }
     }
   });
 });

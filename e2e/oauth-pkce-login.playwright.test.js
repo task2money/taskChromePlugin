@@ -72,7 +72,9 @@ test.describe('OAuth2+PKCE 登录全链路', () => {
       // ---- 2. popup 打开（chrome-extension 页直接导航）----
       const popup = await context.newPage();
       await popup.goto(`chrome-extension://${extId}/popup/popup.html`, { waitUntil: 'domcontentloaded' });
-      await popup.waitForSelector('#loginSection', { state: 'visible', timeout: 10000 });
+      await popup.waitForSelector('#btnToggleLogin', { state: 'visible', timeout: 10000 });
+      await popup.locator('#btnToggleLogin').click();
+      await popup.waitForSelector('#loginSection', { state: 'visible', timeout: 5000 });
 
       const baseUrlInput = popup.locator('#baseUrl');
       await baseUrlInput.fill(BASE_URL);
