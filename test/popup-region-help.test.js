@@ -16,16 +16,29 @@ function popupHtml() {
   return fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 }
 
+/**
+ * 区域说明段落：class 含 float-ball-hint，或带稳定标识 data-region-help
+ * （OPT-20260922-014：class 名漂移后仅靠 class 会漏检）。同一段落两种标记按位置去重。
+ */
 function hintStarts(html) {
-  const out = [];
-  const re = /<p\b[^>]*\bclass="[^"]*\bfloat-ball-hint\b[^"]*"[^>]*>/gi;
-  let m;
-  while ((m = re.exec(html))) {
-    const tag = m[0];
-    const i18n = (tag.match(/data-i18n="([^"]+)"/) || [])[1] || '';
-    out.push({ index: m.index, tag, i18n });
+  const byPos = new Map();
+  for (const re of [
+    /<p\b[^>]*\bclass="[^"]*\bfloat-ball-hint\b[^"]*"[^>]*>/gi,
+    /<p\b[^>]*\bdata-region-help\b[^>]*>/gi,
+  ]) {
+    let m;
+    while ((m = re.exec(html))) {
+      if (!byPos.has(m.index)) byPos.set(m.index, m[0]);
+    }
   }
-  return out;
+  return [...byPos.entries()]
+    .sort((a, b) => a[0] - b[0])
+    .map(([index, tag]) => ({
+      index,
+      tag,
+      i18n: (tag.match(/data-i18n="([^"]+)"/) || [])[1] || '',
+      hasRegionHelpAttr: /\bdata-region-help\b/.test(tag),
+    }));
 }
 
 function insideBangDetails(html, pos) {
@@ -53,6 +66,17 @@ describe('Popup 区域说明收在 ! 内（默认折叠）', () => {
       bad.map((h) => h.i18n || h.tag),
       [],
       '区域说明不得常显：须放进 <details><summary>!</summary>',
+    );
+  });
+
+  it('每个区域说明段落都带稳定标识 data-region-help（OPT-20260922-014）', () => {
+    const hints = hintStarts(popupHtml()).filter((h) => !EXEMPT_I18N.has(h.i18n));
+    assert.ok(hints.length >= 4, `应至少有 4 处区域说明，实际 ${hints.length}`);
+    const missing = hints.filter((h) => !h.hasRegionHelpAttr);
+    assert.deepEqual(
+      missing.map((h) => h.i18n || h.tag),
+      [],
+      '区域说明须带 data-region-help：class 名可漂移，属性才是门禁可依赖的稳定标识',
     );
   });
 
