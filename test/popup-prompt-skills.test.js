@@ -107,7 +107,13 @@ async function flushAll() {
  * 装配沙箱：真实 lib（i18n + PageAdvisorPromptSkills）+ 真实 popup-prompt-skills.js。
  * 不注入 PageAdvisorAPI —— 云端同步/推送按 `typeof` 短路，用例只验本机绑定与落盘。
  */
-function bootPopup({ skills = [], activeSkillId = '', api = null, loggedIn = !!api } = {}) {
+function bootPopup({
+  skills = [],
+  activeSkillId = '',
+  api = null,
+  loggedIn = !!api,
+  omitLoggedInProvider = false,
+} = {}) {
   const byId = Object.create(null);
   SKILL_IDS.forEach((id) => { byId[id] = makeEl(id.startsWith('btn') ? 'button' : 'div', id); });
   const storageSets = [];
@@ -138,12 +144,14 @@ function bootPopup({ skills = [], activeSkillId = '', api = null, loggedIn = !!a
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
   vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
-  if (sandbox.PopupPromptSkillSession) {
+  if (sandbox.PopupPromptSkillSession && !omitLoggedInProvider) {
     sandbox.PopupPromptSkillSession.loggedInProvider = async () => loggedIn;
   }
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
   if (sandbox.PopupPageAdvisorSkills) {
-    sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => loggedIn;
+    if (!omitLoggedInProvider) {
+      sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => loggedIn;
+    }
     if (api) {
       sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
       sandbox.PopupPageAdvisorSkills.sessionProvider = async () => ({
@@ -557,6 +565,33 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.equal(seen[seen.length - 1][1].baseUrl, 'https://saas.example');
     assert.equal(seen[seen.length - 1][1].token, 'override-tok');
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
+  });
+
+  it('getAuthStatus 失败时仍用 sessionProvider 拉系统默认 Skill', async () => {
+    const catalogs = [];
+    ctx = bootPopup({
+      omitLoggedInProvider: true,
+      api: {
+        getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'empty' }),
+        getSystemPromptSkills: async () => {
+          catalogs.push(1);
+          return {
+            skills: [{
+              id: 'sys_default_auto_innovate',
+              title: '系统默认自动创新',
+              body: '平台提示',
+              is_default: true,
+            }],
+          };
+        },
+      },
+    });
+    ctx.sandbox.sendMessageWithTimeout = async () => { throw new Error('sw down'); };
+    ctx.api.loadSkills();
+    await flushAll();
+    assert.equal(catalogs.length, 1);
+    assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
+    assert.doesNotMatch(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
   });
 
   it('本机已有目录 default 且不应用时不覆盖', async () => {

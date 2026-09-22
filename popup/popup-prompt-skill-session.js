@@ -18,15 +18,8 @@
       pluginLoggedIn = !!(await loggedInProvider());
       return pluginLoggedIn;
     }
-    try {
-      if (typeof sendMessageWithTimeout === 'function') {
-        const r = await sendMessageWithTimeout({ action: 'getAuthStatus' }, 4000);
-        pluginLoggedIn = !!(r?.success && r.data?.loggedIn && !r.data?.expired && r.data?.token);
-        return pluginLoggedIn;
-      }
-    } catch (_) { /* keep previous */ }
-    pluginLoggedIn = false;
-    return false;
+    pluginLoggedIn = !!(await resolveAdvisorSession());
+    return pluginLoggedIn;
   }
 
   async function resolveAdvisorSession() {

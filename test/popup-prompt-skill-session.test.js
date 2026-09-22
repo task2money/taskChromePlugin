@@ -37,4 +37,21 @@ describe('popup-prompt-skill-session', () => {
     assert.equal(s.baseUrl, 'https://saas.example');
     assert.equal(s.token, 'tok');
   });
+
+  it('refreshPluginLoggedIn 在 getAuthStatus 失败时回退 Storage 会话', async () => {
+    const sandbox = { console };
+    sandbox.globalThis = sandbox;
+    sandbox.window = sandbox;
+    sandbox.sendMessageWithTimeout = async () => { throw new Error('sw down'); };
+    sandbox.Storage = {
+      isTokenExpired: async () => false,
+      getApiConfig: async () => ({ baseUrl: 'https://saas.example', token: 'tok' }),
+    };
+    vm.createContext(sandbox);
+    vm.runInContext(SRC, sandbox, { filename: 'popup-prompt-skill-session.js' });
+    const api = sandbox.PopupPromptSkillSession;
+    const ok = await api.refreshPluginLoggedIn();
+    assert.equal(ok, true);
+    assert.equal(api.isLoggedIn(), true);
+  });
 });
