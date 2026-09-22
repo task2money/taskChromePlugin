@@ -33,6 +33,8 @@ const MIGRATED = [
   'popup/popup-auth.js',
   'popup/popup-auth-badge.js',
   'popup/popup-shortcut.js',
+  'popup/popup-prompt-skill-ui.js',
+  'popup/popup-prompt-skills.js',
   // panel 层：取词入口为既有封装 P.t()（panel-core.js:api.t）
   'panel/lib/workspace.js',
   'panel/lib/workspace-projects.js',

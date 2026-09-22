@@ -36,7 +36,8 @@
       custom: 'paSkillTendencyCustom',
     };
     const key = i18nKey[value];
-    return key && typeof tx === 'function' ? tx(key) : value;
+    // popup.html 保证 lib/i18n-tx.js 先于本脚本加载，故直接取词，不加 content 层兜底
+    return key ? tx(key) : value;
   }
 
   function fillTendencyDatalist(listEl, skills) {
