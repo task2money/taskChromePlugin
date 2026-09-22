@@ -346,6 +346,7 @@
         globalThis.AidevpushI18n.applyDom(document);
         document.documentElement.lang = loc === 'en' ? 'en' : 'zh-CN';
       }
+      if (globalThis.PluginLocaleSwitcher) globalThis.PluginLocaleSwitcher.syncSelect();
     } catch (e) {
       console.warn('[TaskPlugin] preferred_locale hydrate skipped:', e.message || e);
     }

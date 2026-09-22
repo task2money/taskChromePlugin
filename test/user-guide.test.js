@@ -85,8 +85,10 @@ describe('UserGuide sections', () => {
     const login = UserGuide.SECTIONS.find((s) => s.id === 'login');
     const blob = (login.steps || []).join('\n');
     assert.match(blob, /默认语言/);
+    assert.match(blob, /顶部也可切换语言/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md.split('## 页内浮窗')[0], /默认语言/);
+    assert.match(md.split('## 页内浮窗')[0], /顶部也可切换语言/);
   });
 
   it('float-create 说明包含同名工作空间按公司名区分', () => {

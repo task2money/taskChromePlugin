@@ -108,6 +108,17 @@
     if (reqStatusFilter) reqStatusFilter.addEventListener('change', renderRequestList);
     const reqSort = $('#reqSort');
     if (reqSort) reqSort.addEventListener('change', renderRequestList);
+
+    if (globalThis.PluginLocaleSwitcher) {
+      globalThis.PluginLocaleSwitcher.bind({
+        select: $('#pluginLocaleSelect'),
+        i18n: globalThis.AidevpushI18n,
+        sendMessage: (msg) => sendMessageWithTimeout(msg, 3000),
+        onApplied: () => {
+          if (typeof mountPopupUserGuide === 'function') mountPopupUserGuide();
+        },
+      });
+    }
   }
 
   // ---- OAuth2+PKCE 登录（OPT-20260808-024）----

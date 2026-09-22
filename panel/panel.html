@@ -16,9 +16,19 @@
     <!-- 头部状态 -->
     <header class="header">
       <h1>🔧 <span data-i18n="extTitle">云端Coding: 自动创新助手</span></h1>
-      <span id="statusBadge" class="badge badge-disconnected" data-i18n="panelBadgeDisconnected">未连接</span>
-      <!-- OPT-20260921-023: 与 Popup 同源（lib/plugin-version.js），排障时可直接对照 GitHub Release -->
-      <span id="panelVersion" class="badge panel-version" aria-live="polite" hidden></span>
+      <div class="header-right">
+        <!-- Anti-Replay-OK: locale switch; PATCH profile is best-effort (ADR-0089) -->
+        <label class="plugin-locale-wrap">
+          <span class="visually-hidden" data-i18n="pluginLocaleLabel">语言</span>
+          <select id="pluginLocaleSelect" class="form-select plugin-locale-select" data-testid="plugin-locale-select" data-i18n-aria-label="pluginLocaleLabel" aria-label="语言">
+            <option value="zh-CN" data-i18n="pluginLocaleZh">中文</option>
+            <option value="en" data-i18n="pluginLocaleEn">English</option>
+          </select>
+        </label>
+        <span id="statusBadge" class="badge badge-disconnected" data-i18n="panelBadgeDisconnected">未连接</span>
+        <!-- OPT-20260921-023: 与 Popup 同源（lib/plugin-version.js），排障时可直接对照 GitHub Release -->
+        <span id="panelVersion" class="badge panel-version" aria-live="polite" hidden></span>
+      </div>
     </header>
 
     <!-- Tab 切换 -->
@@ -395,7 +405,9 @@
   <script src="../lib/i18n.js"></script>
   <script src="../lib/i18n-messages.js"></script>
   <script src="../lib/i18n-ui-messages.js"></script>
+  <script src="../lib/i18n-locale-messages.js"></script>
   <script src="../lib/i18n-tx.js"></script>
+  <script src="../lib/locale-switcher-ui.js"></script>
   <script src="../lib/aidev-meta.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/dom-trace.js"></script>

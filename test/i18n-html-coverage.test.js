@@ -128,9 +128,13 @@ function loadMessageTables(withUi = true) {
   delete require.cache[require.resolve('../lib/i18n.js')];
   delete require.cache[require.resolve('../lib/i18n-messages.js')];
   delete require.cache[require.resolve('../lib/i18n-ui-messages.js')];
+  delete require.cache[require.resolve('../lib/i18n-locale-messages.js')];
   const i18n = require('../lib/i18n.js');
   require('../lib/i18n-messages.js');
-  if (withUi) require('../lib/i18n-ui-messages.js');
+  if (withUi) {
+    require('../lib/i18n-ui-messages.js');
+    require('../lib/i18n-locale-messages.js');
+  }
   return { i18n, tables: i18n.getMessageTables() };
 }
 
@@ -191,6 +195,10 @@ describe('panel/popup HTML 双语覆盖门禁', () => {
       if (!usesUiKey.length) continue;
       if (!/<script src="[^"]*lib\/i18n-ui-messages\.js">/.test(html)) {
         problems.push(`${rel} 引用了 ui 键（如 ${usesUiKey[0]}）但未加载 i18n-ui-messages.js`);
+      }
+      if (usesUiKey.some((k) => k.startsWith('pluginLocale'))
+          && !/<script src="[^"]*lib\/i18n-locale-messages\.js">/.test(html)) {
+        problems.push(`${rel} 引用了 pluginLocale 键但未加载 i18n-locale-messages.js`);
       }
     }
     assert.deepEqual(problems, [], problems.join('\n'));

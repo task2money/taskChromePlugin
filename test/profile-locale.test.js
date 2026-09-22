@@ -42,3 +42,52 @@ describe('hydratePreferredLocaleFromProfile', () => {
     assert.equal(warned, true);
   });
 });
+
+describe('persistPreferredLocaleToProfile', () => {
+  const { persistPreferredLocaleToProfile } = require('../lib/profile-locale.js');
+
+  it('skips PATCH when hasToken is false', async () => {
+    let patched = 0;
+    const ok = await persistPreferredLocaleToProfile({
+      locale: 'en',
+      normalize: (raw) => raw,
+      hasToken: () => false,
+      patchProfile: async () => {
+        patched += 1;
+      },
+    });
+    assert.equal(ok, true);
+    assert.equal(patched, 0);
+  });
+
+  it('PATCHes preferred_locale when token present', async () => {
+    const bodies = [];
+    const ok = await persistPreferredLocaleToProfile({
+      locale: 'en',
+      normalize: (raw) => raw,
+      hasToken: () => true,
+      patchProfile: async (body) => {
+        bodies.push(body);
+      },
+    });
+    assert.equal(ok, true);
+    assert.deepEqual(bodies, [{ preferred_locale: 'en' }]);
+  });
+
+  it('PATCH failure returns false and does not throw', async () => {
+    let warned = false;
+    const ok = await persistPreferredLocaleToProfile({
+      locale: 'zh-CN',
+      normalize: (raw) => raw,
+      hasToken: () => true,
+      patchProfile: async () => {
+        throw new Error('500');
+      },
+      warn: () => {
+        warned = true;
+      },
+    });
+    assert.equal(ok, false);
+    assert.equal(warned, true);
+  });
+});

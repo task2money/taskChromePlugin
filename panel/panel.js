@@ -47,6 +47,14 @@ const Panel = (() => {
   // ---- Init ----
   async function init() {
     await P.initI18n();
+    if (globalThis.PluginLocaleSwitcher) {
+      globalThis.PluginLocaleSwitcher.bind({
+        select: P.$('#pluginLocaleSelect'),
+        i18n: globalThis.AidevpushI18n,
+        sendMessage: (msg) => P.sendMessage(msg),
+        onApplied: () => P.mountUserGuide(),
+      });
+    }
     renderPanelVersion();
     // 先挂请求列表管道，再做任何 await（修复卡在「正在加载请求列表...」）
     P.bindRequestMessagePipeline();

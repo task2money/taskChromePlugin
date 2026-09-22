@@ -18,6 +18,14 @@
         <button id="btnLogout" class="btn btn-sm btn-danger">🚪</button>
       </div>
       <div class="header-auth-status">
+        <!-- Anti-Replay-OK: locale switch; PATCH profile is best-effort (ADR-0089) -->
+        <label class="plugin-locale-wrap">
+          <span class="visually-hidden" data-i18n="pluginLocaleLabel">语言</span>
+          <select id="pluginLocaleSelect" class="form-select plugin-locale-select" data-testid="plugin-locale-select" data-i18n-aria-label="pluginLocaleLabel" aria-label="语言">
+            <option value="zh-CN" data-i18n="pluginLocaleZh">中文</option>
+            <option value="en" data-i18n="pluginLocaleEn">English</option>
+          </select>
+        </label>
         <span id="popupStatus" class="badge badge-disconnected" data-i18n="statusLoading">加载中...</span>
         <button type="button" id="btnToggleLogin" class="btn btn-sm btn-primary" style="display:none" aria-controls="loginSection" aria-expanded="false" data-i18n="login">登录</button>
       </div>
@@ -269,7 +277,9 @@
   <script src="../lib/i18n.js"></script>
   <script src="../lib/i18n-messages.js"></script>
   <script src="../lib/i18n-ui-messages.js"></script>
+  <script src="../lib/i18n-locale-messages.js"></script>
   <script src="../lib/i18n-tx.js"></script>
+  <script src="../lib/locale-switcher-ui.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/dom-trace.js"></script>
   <script src="../lib/api-http.js"></script>

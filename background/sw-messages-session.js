@@ -243,6 +243,28 @@ async function handleMessage(message, sender) {
         return { success: true, locale: null, traceId: e?.traceId || '' };
       }
 
+    case 'syncPreferredLocale':
+      try {
+        await initApiFromMessage(message);
+        if (!globalThis.ProfileLocale || !globalThis.AidevpushI18n) {
+          return { success: true, persisted: false };
+        }
+        const loc = globalThis.AidevpushI18n.normalize(message.locale)
+          || globalThis.AidevpushI18n.getLocale();
+        if (loc) globalThis.AidevpushI18n.setLocale(loc);
+        const persisted = await globalThis.ProfileLocale.persistPreferredLocaleToProfile({
+          locale: loc,
+          normalize: (raw) => globalThis.AidevpushI18n.normalize(raw),
+          hasToken: () => typeof API.getToken === 'function' && !!API.getToken(),
+          patchProfile: (body) => API.patchUserProfile(body),
+          warn: (err) => console.warn('[taskChromePlugin] preferred_locale PATCH:', err?.message || err),
+        });
+        return { success: true, persisted: !!persisted, locale: loc || null };
+      } catch (e) {
+        console.warn('[taskChromePlugin] syncPreferredLocale skipped:', e?.message || e);
+        return { success: true, persisted: false, traceId: e?.traceId || '' };
+      }
+
     case 'logout':
       try {
         await Storage.clearAuth();

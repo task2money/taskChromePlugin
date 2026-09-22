@@ -41,14 +41,21 @@ const MATCHER_LITERALS = [
   '/您不是该公司的成员/',
 ];
 
-/** 载入插件消息表（基础表 + panel/float 的 ui 表）。 */
+/** 载入插件消息表（基础表 + panel/float 的 ui 表 + 语言选择器表）。 */
 function loadMessageTables() {
-  for (const rel of ['lib/i18n.js', 'lib/i18n-messages.js', 'lib/i18n-ui-messages.js']) {
+  const rels = [
+    'lib/i18n.js',
+    'lib/i18n-messages.js',
+    'lib/i18n-ui-messages.js',
+    'lib/i18n-locale-messages.js',
+  ];
+  for (const rel of rels) {
     delete require.cache[require.resolve(path.join(ROOT, rel))];
   }
   const i18n = require(path.join(ROOT, 'lib/i18n.js'));
   require(path.join(ROOT, 'lib/i18n-messages.js'));
   require(path.join(ROOT, 'lib/i18n-ui-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-locale-messages.js'));
   return i18n.getMessageTables();
 }
 

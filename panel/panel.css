@@ -17,6 +17,16 @@ body {
   border-bottom: 1px solid #313244;
 }
 .header h1 { font-size: 15px; font-weight: 600; line-height: 1.3; white-space: normal; }
+.header-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.plugin-locale-select {
+  font-size: 11px; padding: 2px 6px; max-width: 100px;
+  background: #313244; color: #cdd6f4;
+  border: 1px solid #45475a; border-radius: 6px;
+}
 
 /* === Badges === */
 .badge {
