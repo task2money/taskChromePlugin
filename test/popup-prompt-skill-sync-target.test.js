@@ -105,6 +105,7 @@ function bootPopup({ api = null } = {}) {
   byId.btnToggleSkillSettings.setAttribute('aria-expanded', 'false');
   const storageSets = [];
   const puts = [];
+  const gets = [];
   const sandbox = {
     console,
     document: {
@@ -145,9 +146,12 @@ function bootPopup({ api = null } = {}) {
     },
   };
   sandbox.PageAdvisorAPI = api || {
-    getPromptSkills: async () => ({ skills: [], active_skill_id: '', revision: 'rev-empty' }),
-    putPromptSkills: async (_tid, wid, payload) => {
-      puts.push({ wid, payload });
+    getPromptSkills: async (_tid, wid, session) => {
+      gets.push({ wid, session });
+      return { skills: [], active_skill_id: '', revision: 'rev-empty' };
+    },
+    putPromptSkills: async (_tid, wid, payload, key, session) => {
+      puts.push({ wid, payload, key, session });
       return { revision: `rev-${wid}-2`, skills: payload.skills, active_skill_id: payload.active_skill_id };
     },
   };
@@ -167,7 +171,7 @@ function bootPopup({ api = null } = {}) {
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
   sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
   sandbox.PopupPageAdvisorSkills.loggedInProvider = async () => true;
-  return { byId, storageSets, puts, api: sandbox.PopupPageAdvisorSkills };
+  return { byId, storageSets, puts, gets, sandbox, api: sandbox.PopupPageAdvisorSkills };
 }
 
 describe('Popup Skill 设置展开与按条同步目标', () => {
@@ -286,5 +290,38 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.btnSkillDeleteConfirm.dispatch('click');
     await flushAll();
     assert.equal(skillRowByTitle(ctx.byId.popupSkillList, /待删/), undefined);
+  });
+});
+
+/**
+ * OPT-20260922-039：保存路径此前只用 PageAdvisorAPI 内部 session（API.init 的令牌）。
+ * init 失败/未覆盖时 PUT 报 PA_SESSION_MISSING，与本机能拉列表不一致。
+ * 本沙箱不注入全局 API（等价于 API 令牌为空），会话只由 sessionProvider 提供。
+ */
+describe('Popup Skill 保存路径与会话源同源（OPT-20260922-039）', () => {
+  it('API 无令牌但 sessionProvider 有会话时，GET/PUT 都带上该会话', async () => {
+    const ctx = bootPopup();
+    // 沙箱内建对象的原型与宿主不同，逐字段断言（deepStrictEqual 会比较原型）
+    ctx.sandbox.PopupPromptSkillSession.sessionProvider = async () => ({
+      baseUrl: 'https://saas.example',
+      token: 'sess-tok',
+    });
+    assert.equal(typeof ctx.sandbox.API, 'undefined', '前提：沙箱无 API 全局令牌');
+
+    ctx.api.loadSkills();
+    await flushAll();
+    ctx.byId.popupSkillTitle.value = '会话同源';
+    ctx.byId.popupSkillBody.value = 'x';
+    ctx.byId.popupSkillSyncTarget.value = 'w2';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    const w2Puts = ctx.puts.filter((p) => p.wid === 'w2');
+    assert.equal(w2Puts.length, 1, '保存须仍 PUT 到 w2');
+    assert.equal(w2Puts[0].session?.token, 'sess-tok', 'PUT 须带 resolveAdvisorSession 的会话');
+    assert.equal(w2Puts[0].session?.baseUrl, 'https://saas.example');
+    assert.ok(w2Puts[0].key, 'PUT 须带 Idempotency-Key');
+    const w2Gets = ctx.gets.filter((g) => g.wid === 'w2');
+    assert.equal(w2Gets.at(-1).session?.token, 'sess-tok', 'GET 与 PUT 用同一会话源');
   });
 });

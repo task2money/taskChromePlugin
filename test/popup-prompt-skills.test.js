@@ -408,6 +408,26 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     ctx.sandbox.Storage = original;
   });
 
+  it('未登录保存只落本机：不发任何云请求（OPT-20260922-039 守卫）', async () => {
+    const puts = [];
+    const gets = [];
+    const api = {
+      getPromptSkills: async (...a) => { gets.push(a); return { skills: [], revision: 'r1' }; },
+      putPromptSkills: async (...a) => { puts.push(a); return {}; },
+    };
+    ctx = bootPopup({ api, loggedIn: false });
+    await ctx.api.loadSkills();
+    ctx.byId.popupSkillTitle.value = '仅本机';
+    ctx.byId.popupSkillBody.value = 'x';
+    ctx.byId.popupSkillSyncTarget.value = 'w1';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    assert.equal(puts.length, 0, '未登录不得 PUT');
+    assert.equal(gets.length, 0, '未登录不得拉取工作空间 Skill');
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.some((sk) => sk.title === '仅本机'), true);
+  });
+
   it('未登录 bootPopup 后自动展开登录表单，登录按钮同屏可点（OPT-20260922-040）', async () => {
     ctx = bootPopup({ withAuth: true });
     // 前置：popup-auth 的 showLoginUI() 无错误时会先把登录表单折叠

@@ -21,6 +21,11 @@
     box.style.display = pendingConflict ? 'block' : 'none';
   }
 
+  /**
+   * @param {object} ctx 需含 session（resolveAdvisorSession 的结果，可为 null）：
+   *   读写须用同一会话源——否则 PUT 回落到 PageAdvisorAPI 内部 `API.init` 令牌，
+   *   init 未覆盖时报 PA_SESSION_MISSING，出现「列表能拉、保存不能推」(OPT-20260922-039)。
+   */
   async function pushWorkspaces(ctx) {
     if (typeof PageAdvisorAPI === 'undefined' || typeof PageAdvisorAPI.putPromptSkills !== 'function') {
       return { ok: true, localOnly: true };
@@ -43,7 +48,7 @@
         continue;
       }
       try {
-        const remote = await PageAdvisorAPI.getPromptSkills(tenantId, wid);
+        const remote = await PageAdvisorAPI.getPromptSkills(tenantId, wid, ctx.session);
         const gotRev = String(remote?.revision || '').trim();
         const lww = ctx.lwwWorkspaceIds.delete(wid);
         if (!lww && gotRev && !ctx.cloudRevisions[wid]) ctx.cloudRevisions[wid] = gotRev;
@@ -54,6 +59,7 @@
           tenantId, wid,
           PageAdvisorPromptSkills.toApiPayload(putStore, lww ? '' : (ctx.cloudRevisions[wid] || '')),
           ctx.newIdempotencyKey(),
+          ctx.session,
         );
         const rec = PageAdvisorPromptSkills.mergeWorkspaceBundle(store, saved, wid, legacyWorkspaceId);
         ctx.setStore(rec.store);
@@ -78,8 +84,12 @@
     if (!ctx.pluginLoggedIn()) return true;
     const before = JSON.stringify(ctx.getStore());
     const scope = await ctx.resolveSkillScope();
+    // 与 loadSkills 的 GET 同源：先解析插件登录会话再交给 GET/PUT (OPT-20260922-039)
+    const session = typeof ctx.resolveAdvisorSession === 'function'
+      ? await ctx.resolveAdvisorSession()
+      : null;
     try {
-      const pushed = await pushWorkspaces({ ...ctx, scope });
+      const pushed = await pushWorkspaces({ ...ctx, scope, session });
       if (pushed.conflict) return false;
       if (pushed.ok) {
         ctx.setPendingConflict(null, '');

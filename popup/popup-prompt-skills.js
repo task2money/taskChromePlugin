@@ -137,6 +137,7 @@
       refreshWorkspaceRows,
       tenantForWorkspace,
       resolveSkillScope,
+      resolveAdvisorSession: () => (Session() ? Session().resolveAdvisorSession() : Promise.resolve(null)),
       newIdempotencyKey,
       statusText,
       statusCloudFail,
