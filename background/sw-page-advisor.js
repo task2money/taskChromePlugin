@@ -111,6 +111,47 @@ function resolvePageAdvisorLocale() {
   return 'zh-CN';
 }
 
+/**
+ * 直连 LLM 用的 active Skill（OPT-20260922-031）。
+ * 用户登录后直接按 Alt+Z、从未打开过 Popup 时，本机 storage 还没有系统目录默认，
+ * 直连只能用硬编码 SYSTEM_PROMPT，与管理员设置的默认不一致。
+ * 这里在「已登录 + 本机无 active」时补拉一次系统目录（失败回退打包快照）并落盘；
+ * 未登录不发请求，与 Popup loadSkills 的登录门闩一致。
+ * @param {boolean} sessionOk 调用方判定的登录态（cfg.token 存在且未过期）
+ */
+async function loadDirectLlmSkill(sessionOk) {
+  if (typeof PageAdvisorPromptSkills === 'undefined'
+    || typeof PageAdvisorPromptSkills.loadFromStorage !== 'function') {
+    return null;
+  }
+  const store = await PageAdvisorPromptSkills.loadFromStorage();
+  const existing = PageAdvisorPromptSkills.getActive(store);
+  if (existing) return existing;
+  if (!sessionOk) return null;
+  if (typeof PageAdvisorAPI === 'undefined'
+    || typeof PageAdvisorAPI.getSystemPromptSkills !== 'function') {
+    return null;
+  }
+  const catalog = await PageAdvisorAPI.getSystemPromptSkills();
+  const live = (catalog && catalog.skills) || [];
+  const lastWs = (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function')
+    ? String(await Storage.getLastWorkspace() || '').trim()
+    : '';
+  const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
+    store,
+    live.length ? catalog : { skills: [] },
+    lastWs || PageAdvisorPromptSkills.SYNC_LOCAL,
+    { overlayExisting: live.length > 0 },
+  );
+  if (rec.action !== 'applied') return null;
+  await PageAdvisorPromptSkills.saveToStorage(rec.store);
+  const active = PageAdvisorPromptSkills.getActive(rec.store);
+  if (active) {
+    console.info('[taskChromePlugin] direct LLM applying system catalog skill', active.title);
+  }
+  return active;
+}
+
 async function runPageOptimizationSuggest(tabId) {
   await Storage.migrateStaleTokenExpiryOnce();
   const cfg = await Storage.getApiConfig();
@@ -164,17 +205,10 @@ async function runPageOptimizationSuggest(tabId) {
     });
     try {
       let skill = null;
-      if (typeof PageAdvisorPromptSkills !== 'undefined'
-        && PageAdvisorPromptSkills.loadFromStorage) {
-        try {
-          const skillStore = await PageAdvisorPromptSkills.loadFromStorage();
-          skill = PageAdvisorPromptSkills.getActive(skillStore);
-          if (skill) {
-            console.info('[taskChromePlugin] direct LLM applying prompt skill', skill.title);
-          }
-        } catch (skillErr) {
-          console.warn('[taskChromePlugin] load prompt skills:', skillErr?.message || skillErr);
-        }
+      try {
+        skill = await loadDirectLlmSkill(sessionOk);
+      } catch (skillErr) {
+        console.warn('[taskChromePlugin] load prompt skills:', skillErr?.message || skillErr);
       }
       const suggestions = await PageAdvisorLLM.suggest(llmCfg, {
         url: data.url,

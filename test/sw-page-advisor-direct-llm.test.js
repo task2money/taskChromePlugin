@@ -254,3 +254,111 @@ describe('sw-page-advisor direct LLM', () => {
     assert.equal(body.locale, 'en');
   });
 });
+
+/**
+ * OPT-20260922-031：已登录用户直接按 Alt+Z（从未打开过 Popup）时，本机还没有系统
+ * 目录默认 Skill，直连只能用硬编码 SYSTEM_PROMPT。SW 须补拉一次系统目录并落盘。
+ */
+describe('sw-page-advisor 直连补拉系统目录默认 Skill（OPT-20260922-031）', () => {
+  function boot({ token = 't' } = {}) {
+    const payloads = [];
+    const sandbox = loadSw({
+      Storage: {
+        migrateStaleTokenExpiryOnce: async () => {},
+        getApiConfig: async () => ({ token, baseUrl: 'https://example.test' }),
+        getEndpointMapping: async () => ({}),
+        getCredentials: async () => ({}),
+        isTokenExpired: async () => false,
+        getLastWorkspace: async () => '',
+      },
+    });
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      if (msg.action === 'pageAdvisorResult') payloads.push(msg);
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({ job_id: 'no' });
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: 'sk-local',
+      baseUrl: 'https://llm.test',
+      model: 'm1',
+    });
+    return { sandbox, payloads };
+  }
+
+  it('本机无 active 且已登录：拉系统目录、落盘并用于直连', async () => {
+    let listed = 0;
+    let saved = null;
+    let seenSkill;
+    const { sandbox } = boot();
+    sandbox.PageAdvisorPromptSkills.loadFromStorage = async () => ({ skills: [], activeSkillId: '' });
+    sandbox.PageAdvisorPromptSkills.saveToStorage = async (store) => { saved = store; };
+    sandbox.PageAdvisorAPI.getSystemPromptSkills = async () => {
+      listed += 1;
+      return { skills: [] };
+    };
+    sandbox.PageAdvisorLLM.suggest = async (_creds, _page, opts) => {
+      seenSkill = opts?.skill;
+      return [{ id: 's1', title: 'X' }];
+    };
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    assert.equal(listed, 1, '须拉一次系统目录');
+    assert.ok(seenSkill, '直连须带上系统目录默认 Skill');
+    const expected = sandbox.PageAdvisorPresetSkills.PRESET_CATEGORY_DEFAULTS.custom;
+    assert.equal(seenSkill.id, expected.id);
+    assert.equal(seenSkill.body, expected.body);
+    assert.ok(saved, '须落盘供后续 Alt+Z 直接复用');
+    assert.equal(saved.activeSkillId, expected.id);
+    assert.equal(saved.skills.length, 5, '预埋五类系统 Skill');
+  });
+
+  it('本机已有 active：不重复拉目录', async () => {
+    let listed = 0;
+    let seenSkill;
+    const { sandbox } = boot();
+    sandbox.PageAdvisorPromptSkills.loadFromStorage = async () => ({
+      skills: [{ id: 'a', title: 'A11y', body: '优先无障碍' }],
+      activeSkillId: 'a',
+    });
+    sandbox.PageAdvisorAPI.getSystemPromptSkills = async () => { listed += 1; return { skills: [] }; };
+    sandbox.PageAdvisorLLM.suggest = async (_creds, _page, opts) => {
+      seenSkill = opts?.skill;
+      return [{ id: 's1', title: 'X' }];
+    };
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    assert.equal(listed, 0);
+    assert.equal(seenSkill.body, '优先无障碍');
+  });
+
+  it('未登录：不发系统目录请求', async () => {
+    let listed = 0;
+    let seenSkill = 'unset';
+    const { sandbox } = boot({ token: '' });
+    sandbox.PageAdvisorPromptSkills.loadFromStorage = async () => ({ skills: [], activeSkillId: '' });
+    sandbox.PageAdvisorAPI.getSystemPromptSkills = async () => { listed += 1; return { skills: [] }; };
+    sandbox.PageAdvisorLLM.suggest = async (_creds, _page, opts) => {
+      seenSkill = opts?.skill || null;
+      return [{ id: 's1', title: 'Guest' }];
+    };
+
+    await sandbox.runPageOptimizationSuggest(1);
+
+    assert.equal(listed, 0, '未登录不得请求系统目录');
+    assert.equal(seenSkill, null);
+  });
+});
