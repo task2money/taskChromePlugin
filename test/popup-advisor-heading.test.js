@@ -132,8 +132,37 @@ describe('Popup 快捷键双入口不矛盾（OPT-20260921-029）', () => {
     );
   });
 
-  it('两个区块各不越界：智能体 ! 区不出现 Alt+X，快捷键区不出现 Alt+Z', () => {
+  it('两个区块各不越界：智能体 ! 区不出现 Alt+X，快捷键区不出现 Alt+Z（含 OPT-20260922-011 Skill 提示）', () => {
     assert.doesNotMatch(advisorSection(), /Alt\+X/);
     assert.doesNotMatch(shortcutsSection(), /Alt\+Z/);
+  });
+});
+
+/**
+ * OPT-20260922-011：Skill 只在「直连智能体」路径追加，而直连同时服务 Alt+Z（整页）
+ * 与 Alt+Shift+Z（区域点选）。提示只写任一键都会让用户以为另一条路径不带倾向。
+ */
+describe('Prompt Skill 提示的快捷键主张（OPT-20260922-011）', () => {
+  it('paSkillSectionHint 在 zh/en 同时写明 Alt+Z 与 Alt+Shift+Z', () => {
+    for (const locale of ['zh', 'en']) {
+      const hint = i18nMessages()[locale].paSkillSectionHint;
+      assert.match(hint, /Alt\+Z/, `${locale} 应说明整页直连 Alt+Z`);
+      assert.match(hint, /Alt\+Shift\+Z/, `${locale} 应说明区域直连 Alt+Shift+Z`);
+    }
+  });
+
+  it('popup.html 的 data-i18n 兜底文案与消息表同源主张两键', () => {
+    const m = popupHtml().match(/data-i18n="paSkillSectionHint"[^>]*>([^<]*)</);
+    assert.ok(m, 'popup.html 缺少 paSkillSectionHint 兜底文案');
+    assert.match(m[1], /Alt\+Z/, 'HTML 兜底文案应说明整页直连 Alt+Z');
+    assert.match(m[1], /Alt\+Shift\+Z/, 'HTML 兜底文案应说明区域直连 Alt+Shift+Z');
+  });
+
+  it('用户指南 Skill 步骤同时写明 Alt+Z 与 Alt+Shift+Z', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'lib/user-guide.js'), 'utf8');
+    const step = src.split('\n').find((line) => line.includes('提示词 Skill（倾向）'));
+    assert.ok(step, '未找到用户指南 Prompt Skill 步骤');
+    assert.match(step, /Alt\+Z/);
+    assert.match(step, /Alt\+Shift\+Z/);
   });
 });
