@@ -22,10 +22,8 @@
   const syncLocalValue = () => (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.SYNC_LOCAL) || 'local';
   const pluginLoggedIn = () => !!(Session() && Session().isLoggedIn());
   async function refreshPluginLoggedIn() {
-    const s = Session();
-    return s ? s.refreshPluginLoggedIn() : false;
+    return Session() ? Session().refreshPluginLoggedIn() : false;
   }
-
   async function refreshLastWorkspace() {
     if (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
       lastKnownWorkspaceId = String(await Storage.getLastWorkspace() || '').trim();
@@ -465,11 +463,9 @@
     // Anti-Replay-OK: ui-only dismiss confirm dialog, no HTTP.
     if (delCancel) delCancel.addEventListener('click', () => closeDeleteConfirm());
     const delOk = $('#btnSkillDeleteConfirm');
-    if (delOk) {
-      delOk.addEventListener('click', () => {
-        deleteSkill(pendingDeleteId).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
-      });
-    }
+    if (delOk) delOk.addEventListener('click', () => {
+      deleteSkill(pendingDeleteId).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
+    });
     const dlg = deleteConfirmDialog();
     if (dlg) {
       dlg.addEventListener('cancel', () => { pendingDeleteId = ''; });
