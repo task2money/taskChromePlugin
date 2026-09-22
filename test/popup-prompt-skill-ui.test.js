@@ -148,6 +148,24 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     assert.equal(titleLine(customGroup.children[1]).children[0].checked, true);
   });
 
+  it('标题文案用 <label for> 关联 radio，点标题即选中（WCAG 标签关联）', () => {
+    const root = makeEl('div');
+    SkillUi.renderSkillList(root, {
+      skills: [{ id: 's1', title: '严谨', tendency: 'custom', body: 'x' }],
+      activeSkillId: '',
+    }, 'local', [], { onActive() {}, onTarget() {}, onEdit() {}, onDelete() {} });
+    const noneTitle = titleLine(root.children[0]);
+    assert.equal(noneTitle.children[1].tagName, 'LABEL', '不应用行标题为 label');
+    assert.equal(noneTitle.children[0].id, 'popupSkillRadio_none');
+    assert.equal(noneTitle.children[1].htmlFor, noneTitle.children[0].id, 'label for 与 radio id 对齐');
+    const customGroup = root.children.find((c) => c.getAttribute && c.getAttribute('data-tendency') === 'custom');
+    const skillTitle = titleLine(customGroup.children[1]);
+    assert.equal(skillTitle.children[1].tagName, 'LABEL', 'Skill 行标题为 label');
+    assert.equal(skillTitle.children[0].id, 'popupSkillRadio_s1');
+    assert.equal(skillTitle.children[1].htmlFor, skillTitle.children[0].id);
+    assert.match(skillTitle.children[1].textContent, /严谨/);
+  });
+
   it('fillTendencyDatalist 含建议值与已用自定义类别', () => {
     const list = makeEl('datalist');
     SkillUi.fillTendencyDatalist(list, [{ tendency: '品牌' }]);

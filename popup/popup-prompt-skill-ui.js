@@ -93,10 +93,13 @@
   function appendTitleLine(row, radio, labelText) {
     const title = document.createElement('div');
     title.className = 'popup-skill-row-title';
-    const span = document.createElement('span');
-    span.textContent = labelText;
+    // label[for] 与 radio.id 对齐：点标题文案即选中，也满足 WCAG 标签关联（300px 宽列表热区过小）
+    const label = document.createElement('label');
+    label.className = 'popup-skill-row-label';
+    label.htmlFor = String(radio.id || '');
+    label.textContent = labelText;
     title.appendChild(radio);
-    title.appendChild(span);
+    title.appendChild(label);
     row.appendChild(title);
     return title;
   }
