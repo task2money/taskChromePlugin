@@ -11,19 +11,24 @@
   let workspaceRows = [];
   let lwwWorkspaceIds = new Set();
 
+  let lastKnownWorkspaceId = '';
+
   const skillFields = () => $('#pageAdvisorSkillFields');
   const skillToggleBtn = () => $('#btnToggleSkillSettings');
   const syncLocalValue = () => (typeof PageAdvisorPromptSkills !== 'undefined' && PageAdvisorPromptSkills.SYNC_LOCAL) || 'local';
+
+  async function refreshLastWorkspace() {
+    if (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
+      lastKnownWorkspaceId = String(await Storage.getLastWorkspace() || '').trim();
+    }
+  }
 
   async function resolveSkillScope() {
     if (typeof scopeProvider === 'function') {
       return scopeProvider();
     }
-    const wsEl = typeof document !== 'undefined' ? document.querySelector('#popupDefaultWorkspace') : null;
-    let workspaceId = String(wsEl?.value || '').trim();
-    if (!workspaceId && typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
-      workspaceId = String(await Storage.getLastWorkspace() || '').trim();
-    }
+    await refreshLastWorkspace();
+    let workspaceId = lastKnownWorkspaceId;
     await refreshWorkspaceRows();
     const ws = workspaceRows.find((row) => String(row?.id || row?._id || '') === workspaceId);
     const tenantId = String(ws?.company_id || ws?.companyId || '').trim();
@@ -67,8 +72,7 @@
   }
 
   function defaultSyncTarget() {
-    const ws = String($('#popupDefaultWorkspace')?.value || '').trim();
-    return ws || syncLocalValue();
+    return lastKnownWorkspaceId || syncLocalValue();
   }
 
   function setEditorVisible(open) {
@@ -269,6 +273,7 @@
       store = await PageAdvisorPromptSkills.loadFromStorage(
         typeof Storage !== 'undefined' ? Storage : null,
       );
+      await refreshLastWorkspace();
     } catch (e) {
       console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
     }

@@ -53,10 +53,11 @@
     <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
     <section id="pageAdvisorLlmSection" class="section" style="display:none">
       <div class="advisor-defaults-heading llm-section-heading">
-        <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span></h3>
+        <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span> <kbd class="llm-shortcut" data-i18n="altZDefaults">Alt+Shift+Z</kbd></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
           <p class="float-ball-hint" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。点击「设置」填写 API Key。</p>
+          <p class="float-ball-hint" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。</p>
         </details>
         <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
       </div>
@@ -138,30 +139,6 @@
         </div>
       </div>
       <p id="popupSkillStatus" class="hint" aria-live="polite"></p>
-    </section>
-
-    <!-- Alt+Shift+Z / Alt+Z 默认工作空间 / 项目；快捷键说明收在「!」 -->
-    <section id="pageAdvisorDefaultsSection" class="section" style="display:none">
-      <div class="advisor-defaults-heading">
-        <h3>⌨️ <span data-i18n="altZDefaults">Alt+Shift+Z</span></h3>
-        <details class="region-help">
-          <summary class="region-help-mark" data-i18n-aria-label="altZHintToggleAria" aria-label="快捷键说明">!</summary>
-          <p class="float-ball-hint" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。未打开浮窗时两者都使用此处的默认工作空间与项目。</p>
-        </details>
-      </div>
-      <div class="form-row">
-        <label for="popupDefaultWorkspace" data-i18n="defaultWorkspace">默认工作空间</label>
-        <select id="popupDefaultWorkspace" class="form-select" data-i18n-aria-label="defaultWorkspace">
-          <option value="" data-i18n="statusLoading">加载中...</option>
-        </select>
-      </div>
-      <div class="form-row">
-        <label data-i18n="defaultProject">默认项目</label>
-        <div id="popupDefaultProjects" class="popup-project-list" role="radiogroup" data-i18n-aria-label="defaultProject">
-          <span class="hint" data-i18n="pickWorkspaceFirst">请先选择工作空间</span>
-        </div>
-      </div>
-      <p id="popupDefaultsStatus" class="hint" aria-live="polite"></p>
     </section>
 
     <!-- 加载中 -->
@@ -298,20 +275,16 @@
   <script src="../lib/visibility-interval.js"></script>
   <script src="../lib/request-list-query.js"></script>
   <script src="../lib/workspace-list.js"></script>
-  <script src="../lib/project-auto-run-label.js"></script>
-  <script src="../lib/page-advisor-defaults.js"></script>
   <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-llm-settings-ui.js"></script>
   <script src="../lib/page-advisor-prompt-skills.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
-  <script src="../lib/popup-defaults-sync.js"></script>
   <script src="popup-llm-config.js"></script>
   <script src="popup-prompt-skill-ui.js"></script>
   <script src="popup-prompt-skills.js"></script>
   <script src="popup-auth.js"></script>
   <script src="popup-auth-badge.js"></script>
   <script src="popup-shortcut.js"></script>
-  <script src="popup-defaults.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

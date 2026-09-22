@@ -140,6 +140,8 @@ test.describe('Popup 面板布局', () => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
     await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#pageAdvisorDefaultsSection')).toHaveCount(0);
+    await expect(page.locator('#pageAdvisorLlmSection kbd.llm-shortcut')).toHaveText('Alt+Shift+Z');
     const toggle = page.locator('#btnToggleLlmSettings');
     const fields = page.locator('#pageAdvisorLlmFields');
     await expect(toggle).toBeVisible();

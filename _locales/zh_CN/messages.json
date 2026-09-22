@@ -18,7 +18,7 @@
     "message": "Alt+Shift+Z"
   },
   "altZHint": {
-    "message": "Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。未打开浮窗时两者都使用此处的默认工作空间与项目。"
+    "message": "Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。"
   },
   "defaultWorkspace": {
     "message": "默认工作空间"

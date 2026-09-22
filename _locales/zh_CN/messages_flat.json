@@ -5,7 +5,7 @@
   "showFloatBall": "显示悬浮球",
   "floatBallHint": "关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。",
   "altZDefaults": "Alt+Shift+Z",
-  "altZHint": "Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。未打开浮窗时两者都使用此处的默认工作空间与项目。",
+  "altZHint": "Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。",
   "defaultWorkspace": "默认工作空间",
   "defaultProject": "默认项目",
   "pickWorkspaceFirst": "请先选择工作空间",

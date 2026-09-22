@@ -5,7 +5,7 @@
   "showFloatBall": "Show floating ball",
   "floatBallHint": "When off, hides the in-page floating ball. The panel × only collapses the panel; it does not turn off the ball.",
   "altZDefaults": "Alt+Shift+Z",
-  "altZHint": "Alt+Z suggests for the whole page; Alt+Shift+Z picks a region first. When the float panel is closed, both use this default workspace and project.",
+  "altZHint": "Alt+Z suggests for the whole page; Alt+Shift+Z picks a region first. Pick workspace and project in the float panel; those last choices apply when the panel is closed.",
   "defaultWorkspace": "Default workspace",
   "defaultProject": "Default project",
   "pickWorkspaceFirst": "Select a workspace first",

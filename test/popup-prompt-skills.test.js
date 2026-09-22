@@ -42,7 +42,6 @@ const SKILL_IDS = [
   'pageAdvisorSkillFields',
   'popupSkillSyncTarget',
   'popupSkillActiveSummary',
-  'popupDefaultWorkspace',
 ];
 
 function makeEl(tag, id) {
@@ -100,6 +99,7 @@ function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
   const storage = {
     get: async () => ({ pageAdvisorPromptSkills: skills, pageAdvisorActiveSkillId: activeSkillId }),
     set: async (obj) => { storageSets.push(obj); },
+    getLastWorkspace: async () => (api ? 'w1' : ''),
   };
 
   const sandbox = {
@@ -125,7 +125,6 @@ function bootPopup({ skills = [], activeSkillId = '', api = null } = {}) {
   vm.runInContext(popupSkillsSrc, sandbox, { filename: 'popup/popup-prompt-skills.js' });
   if (api && sandbox.PopupPageAdvisorSkills) {
     sandbox.PopupPageAdvisorSkills.scopeProvider = async () => ({ tenantId: 't1', workspaceId: 'w1' });
-    if (byId.popupDefaultWorkspace) byId.popupDefaultWorkspace.value = 'w1';
   }
 
   const skill = (title, body) => ({ id: `sk_${title}`, title, tendency: 'custom', body, updatedAt: 1 });

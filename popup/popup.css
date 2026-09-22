@@ -57,6 +57,19 @@ body {
 }
 .llm-section-heading { margin-bottom: 6px; }
 .llm-section-heading h3 { flex: 1 1 auto; min-width: 0; }
+.llm-shortcut {
+  display: inline-block;
+  margin-left: 4px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 600;
+  color: #cdd6f4;
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  vertical-align: middle;
+}
 
 /* === Tracking Toggle Switch === */
 .tracking-toggle {

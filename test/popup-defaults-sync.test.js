@@ -170,27 +170,11 @@ describe('createDefaultsStorageSync', () => {
   });
 });
 
-describe('popup-defaults.js 接线（源码契约）', () => {
-  const src = read('popup/popup-defaults.js');
+describe('Popup 不再接线默认工作空间 UI', () => {
   const html = read('popup/popup.html');
 
-  it('popup.html 在 popup-defaults.js 之前加载 lib/popup-defaults-sync.js', () => {
-    const syncAt = html.indexOf('lib/popup-defaults-sync.js');
-    const popupAt = html.indexOf('src="popup-defaults.js"');
-    assert.ok(syncAt > 0, '缺少 lib/popup-defaults-sync.js script 标签');
-    assert.ok(syncAt < popupAt, 'popup-defaults-sync.js 须先于 popup-defaults.js 加载');
-  });
-
-  it('同步路径以 persist:false 重载项目（防写回环）', () => {
-    assert.match(src, /loadProjects:\s*\(wsId\)\s*=>\s*loadPopupProjects\(wsId,\s*\{\s*persist:\s*false\s*\}\)/);
-    assert.match(src, /const persist = opts\?\.persist !== false/);
-  });
-
-  it('applyProjectSelection 为只读渲染（不含 Storage 写调用）', () => {
-    const start = src.indexOf('function applyProjectSelection');
-    assert.ok(start > 0, '缺少 applyProjectSelection');
-    const end = src.indexOf('\n  }', src.indexOf('return Array.from(radios)', start));
-    const body = src.slice(start, end);
-    assert.doesNotMatch(body, /Storage\.save/, 'applyProjectSelection 不得写 storage');
+  it('popup.html 不加载 popup-defaults.js / popup-defaults-sync.js', () => {
+    assert.equal(html.includes('popup-defaults.js'), false);
+    assert.equal(html.includes('popup-defaults-sync.js'), false);
   });
 });

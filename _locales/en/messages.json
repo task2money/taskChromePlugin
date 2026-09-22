@@ -18,7 +18,7 @@
     "message": "Alt+Shift+Z"
   },
   "altZHint": {
-    "message": "Alt+Z suggests for the whole page; Alt+Shift+Z picks a region first. When the float panel is closed, both use this default workspace and project."
+    "message": "Alt+Z suggests for the whole page; Alt+Shift+Z picks a region first. Pick workspace and project in the float panel; those last choices apply when the panel is closed."
   },
   "defaultWorkspace": {
     "message": "Default workspace"
