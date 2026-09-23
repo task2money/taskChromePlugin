@@ -37,6 +37,14 @@ if [ -n "$_bootstrap_staged" ]; then
     fi
 fi
 
+# 插件版本号门禁（OPT-20260923-009）：改运行时却不升 manifest.json 版本时阻断
+VERSION_GATE_LIB="$(pwd)/.githooks/lib/version_bump_gate.sh"
+if [ -f "$VERSION_GATE_LIB" ]; then
+    # shellcheck source=lib/version_bump_gate.sh
+    source "$VERSION_GATE_LIB"
+    version_bump_gate || exit 1
+fi
+
 echo "Running pre-commit Node tests in $(pwd)..."
 
 export PRE_COMMIT=1
