@@ -47,6 +47,7 @@ function loadMessageTables() {
     'lib/i18n.js',
     'lib/i18n-messages.js',
     'lib/i18n-ui-messages.js',
+    'lib/i18n-llm-route.js',
     'lib/i18n-locale-messages.js',
   ];
   for (const rel of rels) {
@@ -55,6 +56,7 @@ function loadMessageTables() {
   const i18n = require(path.join(ROOT, 'lib/i18n.js'));
   require(path.join(ROOT, 'lib/i18n-messages.js'));
   require(path.join(ROOT, 'lib/i18n-ui-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-llm-route.js'));
   require(path.join(ROOT, 'lib/i18n-locale-messages.js'));
   return i18n.getMessageTables();
 }

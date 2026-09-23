@@ -33,6 +33,36 @@ describe('PageAdvisorLlmConfig', () => {
     assert.equal(cfg.apiKey, 'sk-test');
     assert.ok(PageAdvisorLlmConfig.isDirectLlmReady(cfg));
   });
+
+  it('resolveRoute follows an explicit choice and otherwise the key', () => {
+    const ready = { apiKey: 'k', baseUrl: 'https://x', model: 'm' };
+    assert.equal(PageAdvisorLlmConfig.resolveRoute(ready), 'direct');
+    assert.equal(PageAdvisorLlmConfig.resolveRoute({}), 'saas');
+    assert.equal(PageAdvisorLlmConfig.resolveRoute({ ...ready, routeMode: 'saas' }), 'saas');
+    assert.equal(PageAdvisorLlmConfig.resolveRoute({ routeMode: 'direct' }), 'direct');
+  });
+
+  it('save and load round-trip routeMode', async () => {
+    const mem = {};
+    const store = {
+      get: async (keys) => {
+        const out = {};
+        for (const k of keys) out[k] = mem[k];
+        return out;
+      },
+      set: async (patch) => Object.assign(mem, patch),
+    };
+    await PageAdvisorLlmConfig.saveToStorage({
+      apiKey: 'sk',
+      baseUrl: 'https://llm.test',
+      model: 'm1',
+      routeMode: 'saas',
+    }, store);
+    const cfg = await PageAdvisorLlmConfig.loadFromStorage(store);
+    assert.equal(cfg.routeMode, 'saas');
+    assert.equal(PageAdvisorLlmConfig.resolveRoute(cfg), 'saas');
+    assert.equal(PageAdvisorLlmConfig.isDirectLlmReady(cfg), true);
+  });
 });
 
 describe('PageAdvisorLLM URL and JSON', () => {

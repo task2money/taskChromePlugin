@@ -12,6 +12,7 @@ importScripts(
   '../lib/i18n.js',
   '../lib/i18n-messages.js',
   '../lib/i18n-ui-messages.js',
+  '../lib/i18n-llm-route.js',
   '../lib/i18n-tx.js',
   '../lib/storage.js',
   '../lib/create-task-git-identity.js',

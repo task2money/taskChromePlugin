@@ -128,11 +128,13 @@ function loadMessageTables(withUi = true) {
   delete require.cache[require.resolve('../lib/i18n.js')];
   delete require.cache[require.resolve('../lib/i18n-messages.js')];
   delete require.cache[require.resolve('../lib/i18n-ui-messages.js')];
+  delete require.cache[require.resolve('../lib/i18n-llm-route.js')];
   delete require.cache[require.resolve('../lib/i18n-locale-messages.js')];
   const i18n = require('../lib/i18n.js');
   require('../lib/i18n-messages.js');
   if (withUi) {
     require('../lib/i18n-ui-messages.js');
+    require('../lib/i18n-llm-route.js');
     require('../lib/i18n-locale-messages.js');
   }
   return { i18n, tables: i18n.getMessageTables() };

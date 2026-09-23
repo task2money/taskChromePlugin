@@ -94,11 +94,13 @@ async function loadPageAdvisorDirectReady() {
       console.warn('[taskChromePlugin] load page-advisor LLM config:', e?.message || e);
     }
   }
-  const directReady = typeof PageAdvisorLlmConfig !== 'undefined'
-    && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
-    && typeof PageAdvisorLLM !== 'undefined'
-    && typeof PageAdvisorLLM.suggest === 'function';
-  return { llmCfg, directReady };
+  const hasCfg = typeof PageAdvisorLlmConfig !== 'undefined';
+  const route = (hasCfg && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
+    ? PageAdvisorLlmConfig.resolveRoute(llmCfg) : 'saas';
+  const keyReady = hasCfg && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
+    && typeof PageAdvisorLLM !== 'undefined' && typeof PageAdvisorLLM.suggest === 'function';
+  const directReady = route === 'direct' && keyReady;
+  return { llmCfg, route, directReady };
 }
 
 function resolvePageAdvisorLocale() {
@@ -158,8 +160,16 @@ async function runPageOptimizationSuggest(tabId) {
   const mapping = await Storage.getEndpointMapping();
   const cred = await Storage.getCredentials();
   const expired = cfg.token ? await Storage.isTokenExpired() : false;
-  const { llmCfg, directReady } = await loadPageAdvisorDirectReady();
+  const { llmCfg, directReady, route } = await loadPageAdvisorDirectReady();
   const sessionOk = !!(cfg.token && !expired);
+
+  if (route === 'direct' && !directReady) {
+    await notifyContentPageAdvisor(tabId, {
+      ok: false,
+      error: tx('paDirectNeedsConfig'),
+    });
+    return;
+  }
 
   if (!directReady && !sessionOk) {
     await notifyContentPageAdvisor(tabId, {

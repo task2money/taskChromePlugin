@@ -19,6 +19,7 @@ const I18N_SCRIPTS = [
   '../lib/i18n.js',
   '../lib/i18n-messages.js',
   '../lib/i18n-ui-messages.js',
+  '../lib/i18n-llm-route.js',
   '../lib/i18n-tx.js',
 ];
 
@@ -126,7 +127,7 @@ function loadSW(chrome) {
 const flush = () => new Promise((r) => setImmediate(r));
 
 describe('SW i18n 装载契约', () => {
-  it('importScripts 先加载四个 i18n 脚本，再加载业务脚本', () => {
+  it('importScripts 先加载五个 i18n 脚本，再加载业务脚本', () => {
     const { parseImportScriptsArgs } = require('./helpers/swBundle.js');
     const imports = parseImportScriptsArgs(swSource());
     assert.deepEqual(

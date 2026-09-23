@@ -64,11 +64,22 @@
         <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span> <kbd class="llm-shortcut" data-i18n="altZDefaults">Alt+Shift+Z</kbd></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">配置后 Alt+Shift+Z 由插件直连智能体，不必等待云端排队。密钥只保存在本机扩展存储，不会上传到 SaaS。未填写时仍走云端生成（平台不再扣次）。点击「设置」填写 API Key。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连使用本机 Key，不扣平台次数；调用平台后端时，成功出建议扣 1 次自动创新。密钥只保存在本机。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」填写 API Key。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。</p>
         </details>
         <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
       </div>
+      <fieldset class="form-row" id="popupLlmRouteField">
+        <legend data-i18n="paLlmRouteLegend">调用方式</legend>
+        <label class="llm-route-option">
+          <input type="radio" name="popupLlmRoute" id="popupLlmRouteDirect" value="direct">
+          <span data-i18n="paLlmRouteDirect">直连我的 Key（不扣平台次数）</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
+          <span data-i18n="paLlmRouteSaas">调用平台后端（成功扣 1 次）</span>
+        </label>
+      </fieldset>
       <div id="pageAdvisorLlmFields" style="display:none" hidden>
         <div class="form-row">
           <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
@@ -277,6 +288,7 @@
   <script src="../lib/i18n.js"></script>
   <script src="../lib/i18n-messages.js"></script>
   <script src="../lib/i18n-ui-messages.js"></script>
+  <script src="../lib/i18n-llm-route.js"></script>
   <script src="../lib/i18n-locale-messages.js"></script>
   <script src="../lib/i18n-tx.js"></script>
   <script src="../lib/locale-switcher-ui.js"></script>

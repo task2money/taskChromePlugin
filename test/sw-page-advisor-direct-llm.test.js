@@ -253,6 +253,54 @@ describe('sw-page-advisor direct LLM', () => {
     await sandbox.runPageOptimizationSuggest(1);
     assert.equal(body.locale, 'en');
   });
+
+  it('explicit saas route calls the platform even when a local key is ready', async () => {
+    const sandbox = loadSw();
+    let created = 0;
+    let suggested = 0;
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: { url: 'https://example.test/page', title: 'T', pageText: 'x', domOutline: [] },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: 'sk-local',
+      baseUrl: 'https://llm.test',
+      model: 'm1',
+      routeMode: 'saas',
+    });
+    sandbox.PageAdvisorLLM.suggest = async () => { suggested += 1; return []; };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => { created += 1; return { job_id: 'j-saas', status: 'queued' }; };
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({ status: 'succeeded', suggestions: [] });
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(suggested, 0);
+    assert.equal(created, 1);
+  });
+
+  it('explicit direct route without a key does not fall through to the platform', async () => {
+    const payloads = [];
+    let created = 0;
+    const sandbox = loadSw();
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'pageAdvisorResult') payloads.push(msg);
+      return { success: true, data: { url: 'https://example.test/page', title: 'T', pageText: 'x' } };
+    };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: '',
+      baseUrl: '',
+      model: '',
+      routeMode: 'direct',
+    });
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => { created += 1; return { job_id: 'no' }; };
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(created, 0);
+    const fail = payloads.find((p) => p.ok === false);
+    assert.match(String(fail?.error || ''), /直连|Direct/);
+  });
 });
 
 /**

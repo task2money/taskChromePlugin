@@ -16,6 +16,22 @@
     if (sec) sec.style.display = visible ? 'block' : 'none';
   }
 
+  let routeUiReady = false;
+
+  function selectedRouteMode() {
+    const el = document.querySelector('input[name="popupLlmRoute"]:checked');
+    return el && el.value === 'saas' ? 'saas' : 'direct';
+  }
+
+  function currentLlmPayload() {
+    return {
+      apiKey: $('#popupLlmApiKey')?.value || '',
+      baseUrl: $('#popupLlmBaseUrl')?.value || '',
+      model: $('#popupLlmModel')?.value || '',
+      routeMode: selectedRouteMode(),
+    };
+  }
+
   async function loadPageAdvisorLlmConfig() {
     const apiKeyEl = $('#popupLlmApiKey');
     const baseEl = $('#popupLlmBaseUrl');
@@ -30,10 +46,19 @@
       apiKeyEl.value = cfg.apiKey || '';
       baseEl.value = cfg.baseUrl || '';
       modelEl.value = cfg.model || '';
+      const route = (typeof PageAdvisorLlmConfig.resolveRoute === 'function')
+        ? PageAdvisorLlmConfig.resolveRoute(cfg)
+        : 'saas';
+      const direct = $('#popupLlmRouteDirect');
+      const saas = $('#popupLlmRouteSaas');
+      if (direct) direct.checked = route === 'direct';
+      if (saas) saas.checked = route === 'saas';
+      routeUiReady = true;
     } catch (_) { /* ignore */ }
   }
 
-  async function savePageAdvisorLlmConfig() {
+  async function savePageAdvisorLlmConfig(opts) {
+    const collapse = !opts || opts.collapse !== false;
     const status = $('#popupLlmStatus');
     const btn = $('#btnSaveLlmConfig');
     const ui = Ui();
@@ -48,11 +73,7 @@
     }
     let saved = false;
     try {
-      await PageAdvisorLlmConfig.saveToStorage({
-        apiKey: $('#popupLlmApiKey')?.value || '',
-        baseUrl: $('#popupLlmBaseUrl')?.value || '',
-        model: $('#popupLlmModel')?.value || '',
-      });
+      await PageAdvisorLlmConfig.saveToStorage(currentLlmPayload());
       if (status) status.textContent = tx('paLlmSaved');
       saved = true;
     } catch (e) {
@@ -63,7 +84,7 @@
         btn.removeAttribute('aria-busy');
       }
     }
-    if (ui) ui.collapseLlmSettingsAfterSave(saved, llmFields(), llmToggleBtn());
+    if (collapse && ui) ui.collapseLlmSettingsAfterSave(saved, llmFields(), llmToggleBtn());
   }
 
   function bindPageAdvisorLlmEvents() {
@@ -78,6 +99,14 @@
     const btn = $('#btnSaveLlmConfig');
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (btn) btn.addEventListener('click', () => { savePageAdvisorLlmConfig().catch(() => {}); });
+    const routeField = $('#popupLlmRouteField');
+    // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
+    if (routeField) {
+      routeField.addEventListener('change', () => {
+        if (!routeUiReady) return;
+        savePageAdvisorLlmConfig({ collapse: false }).catch(() => {});
+      });
+    }
   }
 
   window.PopupPageAdvisorLlm = {
