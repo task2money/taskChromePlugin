@@ -186,6 +186,7 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#popupSkillList .popup-skill-category-pick')).toHaveCount(5);
     await expect(page.locator('#popupSkillList .popup-skill-row:not(.popup-skill-row-none)')).toHaveCount(0);
     await page.locator('#popupSkillList [data-tendency="custom"]').click();
+    await expect(page.locator('#popupSkillList .popup-skill-category-source')).toHaveCount(0);
     const row = page.locator('#popupSkillList .popup-skill-row').filter({ hasText: 'e2e-skill' });
     await expect(row.locator('select.popup-skill-sync')).toHaveCount(1);
     await expect(row.locator('select.popup-skill-sync')).toHaveValue('local');

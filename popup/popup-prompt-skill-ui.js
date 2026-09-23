@@ -225,42 +225,6 @@
     parent.appendChild(row);
   }
 
-  /**
-   * 每个预设类别的来源单选（OPT-20260922-043）：系统默认 / 自行定制。
-   * 与 SaaS 工作空间提示词页同一语义——系统目录条只读，想改就得先 clone 成本机草稿。
-   */
-  function buildCategorySourceRow(tendency, store, handlers) {
-    const row = document.createElement('div');
-    row.className = 'popup-skill-category-source';
-    row.setAttribute('role', 'radiogroup');
-    row.setAttribute('aria-label', tx('paSkillCategorySourceAria'));
-    const current = categorySourceOf(store, tendency);
-    [['system', tx('paSkillCategorySystem')], ['custom', tx('paSkillCategoryCustom')]].forEach((pair) => {
-      const value = pair[0];
-      const id = `popupCategorySrc_${tendency}_${value}`;
-      const radio = document.createElement('input');
-      radio.type = 'radio';
-      radio.name = `popupCategorySrc_${tendency}`;
-      radio.id = id;
-      radio.value = value;
-      radio.checked = current === value;
-      radio.addEventListener('change', () => handlers.onCategorySource(tendency, value));
-      const label = document.createElement('label');
-      label.className = 'popup-skill-category-source-label';
-      label.htmlFor = id;
-      label.textContent = pair[1];
-      row.appendChild(radio);
-      row.appendChild(label);
-    });
-    return row;
-  }
-
-  /** 该类别当前来源（store.categoryChoices 缺省 system）。 */
-  function categorySourceOf(store, tendency) {
-    const choice = ((store && store.categoryChoices) || []).find((c) => c && c.tendency === tendency);
-    return choice && choice.source === 'custom' ? 'custom' : 'system';
-  }
-
   /** 已保存列表的浏览层：空 = 只显示类别；非空 = 只显示该类别的技能。 */
   let browseTendency = '';
   let lastRender = null;
@@ -290,7 +254,6 @@
       heading.className = 'popup-skill-group-title';
       heading.textContent = tendencyLabel(g.tendency);
       section.appendChild(heading);
-      section.appendChild(buildCategorySourceRow(g.tendency, store, handlers));
     }
     (g.skills || []).forEach((sk) => {
       appendSkillRow(section, sk, store, syncLocal, workspaceRows, handlers, ctx);
@@ -411,6 +374,7 @@
     fillTendencyDatalist,
     renderActiveSummary,
     renderSkillList,
+    currentBrowseTendency() { return browseTendency; },
     onSkillSettingsToggle,
     setEditorVisible,
     fillEditor,

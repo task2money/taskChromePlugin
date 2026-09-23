@@ -41,8 +41,8 @@ function makeEl(tag) {
 }
 
 function titleLine(row) { return row.children[0]; }
-/** 组内结构：[h4, 类别来源单选行, ...skill 行]（OPT-20260922-043）。 */
-function categorySourceRow(group) { return group.children[1]; }
+/** 组内结构：[h4, ...skill 行]。 */
+function skillRowInGroup(group) { return group.children[1]; }
 function actionsLine(row) { return row.children[1]; }
 function categoryBox(root) {
   return root.children.find((c) => String(c.className || '').includes('popup-skill-categories'));
@@ -113,7 +113,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     });
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
-    const skillRow = customGroup.children[2];
+    const skillRow = skillRowInGroup(customGroup);
     assert.match(skillRow.className, /popup-skill-row/);
     assert.doesNotMatch(skillRow.className, /popup-skill-row-none/);
     const title = titleLine(skillRow);
@@ -149,7 +149,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     }, { systemSkillIds: ['sys_default_auto_innovate'] });
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
-    const skillRow = customGroup.children[2];
+    const skillRow = skillRowInGroup(customGroup);
     const actions = actionsLine(skillRow);
     assert.equal(actions.children.length, 2, '仅同步下拉与编辑，无删除');
     assert.equal(actions.children[0].disabled, true);
@@ -166,7 +166,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     assert.equal(titleLine(root.children[0]).children[0].checked, false);
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
-    assert.equal(titleLine(customGroup.children[2]).children[0].checked, true);
+    assert.equal(titleLine(skillRowInGroup(customGroup)).children[0].checked, true);
   });
 
   it('标题文案用 <label for> 关联 radio，点标题即选中（WCAG 标签关联）', () => {
@@ -181,7 +181,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     assert.equal(noneTitle.children[1].htmlFor, noneTitle.children[0].id, 'label for 与 radio id 对齐');
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
-    const skillTitle = titleLine(customGroup.children[2]);
+    const skillTitle = titleLine(skillRowInGroup(customGroup));
     assert.equal(skillTitle.children[1].tagName, 'LABEL', 'Skill 行标题为 label');
     assert.equal(skillTitle.children[0].id, 'popupSkillRadio_s1');
     assert.equal(skillTitle.children[1].htmlFor, skillTitle.children[0].id);
@@ -210,7 +210,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     }, { baseUrl: 'https://aidevpush.com', lastWorkspaceId: 'ws-a' });
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
-    const title = titleLine(customGroup.children[2]);
+    const title = titleLine(skillRowInGroup(customGroup));
     const link = title.children[2];
     assert.equal(link.tagName, 'A');
     assert.equal(
@@ -223,7 +223,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
   });
 });
 
-describe('预设类别来源单选（OPT-20260922-043）', () => {
+describe('点进类别后直接列出技能', () => {
   let SkillUi;
 
   beforeEach(() => {
@@ -236,58 +236,24 @@ describe('预设类别来源单选（OPT-20260922-043）', () => {
     SkillUi = require('../popup/popup-prompt-skill-ui.js');
   });
 
-  function sourceRadios(group) {
-    return categorySourceRow(group).children.filter((el) => el.type === 'radio');
-  }
-
-  it('每个预设类别在点进之后才渲染系统/定制两个 radio，默认勾系统', () => {
-    const root = makeEl('div');
-    SkillUi.renderSkillList(root, { skills: [], activeSkillId: '' }, 'local', [], {
-      onActive() {}, onTarget() {}, onEdit() {}, onDelete() {},
-    });
-    const tendencies = categoryBox(root).children.map((b) => b.getAttribute('data-tendency'));
-    assert.deepEqual(tendencies, ['a11y', 'conversion', 'perf', 'seo', 'custom']);
-    assert.equal(root.children.some((c) => String(c.className || '').includes('popup-skill-category-source')), false);
-    for (const tendency of tendencies) {
-      openTendency(root, tendency);
-      const group = tendencyGroup(root);
-      const radios = sourceRadios(group);
-      assert.deepEqual(radios.map((r) => r.value), ['system', 'custom']);
-      assert.equal(radios[0].checked, true);
-      assert.equal(radios[1].checked, false);
-      assert.equal(categorySourceRow(group).getAttribute('role'), 'radiogroup');
-      assert.ok(radioId(radios[0]).endsWith('_system'));
-      root.children.find((c) => String(c.className || '').includes('popup-skill-back')).dispatch('click', {});
-    }
-  });
-
-  function radioId(radio) { return String(radio.id || ''); }
-
-  it('categoryChoices 为 custom 时勾选定制项', () => {
+  it('技能行紧跟标题，没有系统默认/自行定制单选', () => {
     const root = makeEl('div');
     SkillUi.renderSkillList(root, {
-      skills: [{ id: 'c1', title: '本机稿', tendency: 'seo', body: 'x' }],
+      skills: [
+        { id: 'sys', title: '系统默认·无障碍', tendency: 'a11y', body: 's', readonly: true },
+        { id: 'mine', title: '我的无障碍', tendency: 'a11y', body: 'm' },
+      ],
       activeSkillId: '',
-      categoryChoices: [{ tendency: 'seo', source: 'custom', customSkillId: 'c1' }],
+      categoryChoices: [{ tendency: 'a11y', source: 'custom', customSkillId: 'mine' }],
     }, 'local', [], { onActive() {}, onTarget() {}, onEdit() {}, onDelete() {} });
-    openTendency(root, 'seo');
-    const seo = tendencyGroup(root);
-    const radios = sourceRadios(seo);
-    assert.equal(radios.find((r) => r.value === 'custom').checked, true);
-    assert.equal(radios.find((r) => r.value === 'system').checked, false);
-  });
-
-  it('点定制派发 onCategorySource(类别, custom)', () => {
-    const root = makeEl('div');
-    const seen = [];
-    SkillUi.renderSkillList(root, { skills: [], activeSkillId: '' }, 'local', [], {
-      onActive() {}, onTarget() {}, onEdit() {}, onDelete() {},
-      onCategorySource: (tendency, source) => seen.push([tendency, source]),
-    });
     openTendency(root, 'a11y');
-    const a11y = tendencyGroup(root);
-    sourceRadios(a11y).find((r) => r.value === 'custom').dispatch('change');
-    assert.deepEqual(seen, [['a11y', 'custom']]);
+    const group = tendencyGroup(root);
+    assert.doesNotMatch(collectText(group), /自行定制/);
+    assert.equal(group.children.some((c) => String(c.className || '').includes('popup-skill-category-source')), false);
+    assert.match(skillRowInGroup(group).className, /popup-skill-row/);
+    assert.match(collectText(group), /系统默认·无障碍/);
+    assert.match(collectText(group), /我的无障碍/);
+    assert.equal(SkillUi.currentBrowseTendency(), 'a11y');
   });
 
   it('类别层不出现技能标题；点进类别后不再出现类别按钮；返回后技能消失', () => {

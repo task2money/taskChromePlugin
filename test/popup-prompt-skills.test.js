@@ -733,14 +733,10 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
   });
 });
 
-/**
- * OPT-20260922-043：Popup 类别切「自行定制」须 clone 系统目录稿为本机可编辑草稿，
- * 系统条目保持不变；PUT 上行 category_choices 且不得把只读目录 id 写进 skills。
- */
-describe('Popup 类别来源：系统默认 / 自行定制（OPT-20260922-043）', () => {
+describe('Popup 已保存 Skill：新建自定义技能', () => {
   let ctx;
 
-  it('点定制后生成本机草稿并同步 category_choices', async () => {
+  it('点进类别后点新建，类别预填为当前类，保存不改写系统条目', async () => {
     const puts = [];
     const api = {
       getPromptSkills: async () => ({
@@ -762,23 +758,27 @@ describe('Popup 类别来源：系统默认 / 自行定制（OPT-20260922-043）
     openCategory(ctx.byId.popupSkillList, 'a11y');
     const group = groupEls(ctx.byId.popupSkillList)
       .find((g) => g.getAttribute('data-tendency') === 'a11y');
-    const custom = group.children[1].children.find((el) => el.type === 'radio' && el.value === 'custom');
-    assert.ok(custom, '类别行须有「自行定制」radio');
-    custom.dispatch('change');
+    assert.equal(
+      (group.children || []).some((el) => String(el.className || '').includes('popup-skill-category-source')),
+      false,
+    );
+    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认·无障碍/));
+    ctx.byId.btnSkillNew.dispatch('click');
+    assert.equal(ctx.byId.popupSkillTendency.value, 'a11y');
+    ctx.byId.popupSkillTitle.value = '我的无障碍';
+    ctx.byId.popupSkillBody.value = '自定义正文';
+    ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
 
     const saved = ctx.lastSet();
-    const draft = saved.pageAdvisorPromptSkills.find((sk) => sk.tendency === 'a11y' && !sk.readonly);
-    assert.ok(draft, `须 clone 出可编辑草稿：${JSON.stringify(saved.pageAdvisorPromptSkills.map((sk) => sk.title))}`);
-    assert.notEqual(draft.id, 'sys_tendency_a11y', '不得改写系统条目');
-    const preset = ctx.sandbox.PageAdvisorPresetSkills.PRESET_CATEGORY_DEFAULTS.a11y;
-    assert.equal(draft.body, preset.body, '草稿正文来自该类别系统稿');
-    assert.match(draft.title, /无障碍/);
-
-    const choice = (saved.pageAdvisorCategoryChoices || []).find((c) => c.tendency === 'a11y');
-    assert.equal(choice && choice.source, 'custom', '类别来源须落盘，刷新后不丢');
-    assert.equal(choice.customSkillId, draft.id);
-
+    const overwritten = (saved.pageAdvisorPromptSkills || []).find(
+      (sk) => sk.id === 'sys_tendency_a11y' && sk.body === '自定义正文',
+    );
+    assert.equal(overwritten, undefined, '不得把自定义正文写进系统条目');
+    const draft = saved.pageAdvisorPromptSkills.find((sk) => sk.title === '我的无障碍');
+    assert.ok(draft);
+    assert.equal(draft.tendency, 'a11y');
+    assert.notEqual(draft.id, 'sys_tendency_a11y');
     const lastPut = puts.at(-1);
     assert.ok(lastPut, '须 PUT 到工作空间');
     assert.equal(
@@ -786,7 +786,5 @@ describe('Popup 类别来源：系统默认 / 自行定制（OPT-20260922-043）
       false,
       'PUT 不得包含只读目录 id',
     );
-    const putChoice = (lastPut.payload.category_choices || []).find((c) => c.tendency === 'a11y');
-    assert.equal(putChoice && putChoice.source, 'custom');
-});
+  });
 });

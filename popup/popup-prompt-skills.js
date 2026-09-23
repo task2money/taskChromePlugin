@@ -123,7 +123,13 @@
 
   function fillEditor(skill) {
     const SkillUi = globalThis.PopupPromptSkillUi;
-    if (SkillUi) SkillUi.fillEditor(skill, store, defaultSyncTarget(), workspaceRows, syncLocalValue());
+    if (!SkillUi) return;
+    let draft = skill;
+    if (!draft && typeof SkillUi.currentBrowseTendency === 'function') {
+      const tendency = SkillUi.currentBrowseTendency();
+      if (tendency) draft = { tendency };
+    }
+    SkillUi.fillEditor(draft, store, defaultSyncTarget(), workspaceRows, syncLocalValue());
   }
   function setEditorVisible(open) {
     const SkillUi = globalThis.PopupPromptSkillUi;
@@ -142,9 +148,6 @@
       },
       onEdit: fillEditor,
       onDelete: (sk) => { openDeleteConfirm(sk); },
-      onCategorySource: (tendency, source) => {
-        changeCategorySource(tendency, source).catch((e) => statusText(e?.message || tx('popupSaveFailed')));
-      },
       onMissingWorkspace: () => statusText(tx('paSkillNeedWorkspace')),
     }, { baseUrl: cachedBaseUrl, lastWorkspaceId: lastKnownWorkspaceId, systemSkillIds: systemCatalogIds });
   }
@@ -190,24 +193,6 @@
     store = PageAdvisorPromptSkills.setActive(store, id).store;
     await persist();
     renderList();
-  }
-
-  /**
-   * 预设类别的「系统默认 / 自行定制」（OPT-20260922-043）。
-   * 定制时由运行时把目录正文 clone 成本机新 id（系统只读条不改写），随即展开编辑区。
-   */
-  async function changeCategorySource(tendency, source) {
-    const rec = PageAdvisorPromptSkills.selectCategorySource(store, tendency, source);
-    if (!rec.store || rec.store === store) return;
-    store = rec.store;
-    const ok = await persist();
-    renderList();
-    if (rec.created && rec.customSkillId) {
-      fillEditor(store.skills.find((sk) => sk.id === rec.customSkillId) || null);
-      statusText(tx('paSkillCategoryCustomCreated'));
-      return;
-    }
-    if (ok) statusText(tx('paSkillSavedLocal'));
   }
 
   async function changeSkillTarget(skillId, syncTarget) {
