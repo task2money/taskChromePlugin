@@ -42,45 +42,23 @@ if [ -z "$REPO" ] || [[ "$REPO" != */* ]]; then
 fi
 
 ASSETS=("$ZIP")
-NOTES_EXTRA=""
+CRX_PRESENT=0
 if [ -f "$CRX" ]; then
   ASSETS+=("$CRX")
-  NOTES_EXTRA=$'\n| `'"task-chrome-plugin-v${VERSION}.crx"'` | Chrome 扩展安装包 |'
-else
-  NOTES_EXTRA=$'\n\n> 本版本未附带 `.crx`（缺少 ChromeExtPos 私钥时仅发布 zip）。'
+  CRX_PRESENT=1
 fi
 
-NOTES="$(cat <<EOF
-## 云端Coding: 自动创新助手 ${TAG}
-
-Chrome 扩展编译产物。
-
-### 本版要点
-
-- 自动运行门禁双读 \`allow_auto_run\` / \`default_auto_run\`（与项目页「已启用」对齐）
-- commit 后自动 pack + GitHub Release（ADR-0097 / 约束 68）
-
-### 安装方式
-
-**方式一（推荐，解压加载）**
-1. 下载 \`task-chrome-plugin-v${VERSION}.zip\` 并解压
-2. 打开 Chrome → \`chrome://extensions/\`
-3. 启用「开发者模式」
-4. 点击「加载已解压的扩展程序」，选择解压后的目录
-
-**方式二（CRX）**
-1. 下载 \`task-chrome-plugin-v${VERSION}.crx\`（若本版提供）
-2. 打开 \`chrome://extensions/\`，启用开发者模式后拖入安装
-
-### 资源
-
-| 文件 | 说明 |
-|------|------|
-| \`task-chrome-plugin-v${VERSION}.zip\` | 解压后可直接「加载已解压的扩展程序」 |${NOTES_EXTRA}
-EOF
-)"
-
+# 本版要点来自上一发布 tag 到当前提交的说明，避免每次 Release 重复同一段历史文案。
 TARGET="$(git rev-parse HEAD)"
+NOTES="$(node "$ROOT/scripts/release-highlights.js" render \
+  --tag "$TAG" \
+  --repo "$REPO" \
+  --crx "$CRX_PRESENT" \
+  --rev "$TARGET")"
+if [ -z "$NOTES" ]; then
+  echo "publish-github-release: ERROR empty release notes" >&2
+  exit 1
+fi
 
 if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   echo "publish-github-release: tag $TAG 已存在，上传/覆盖 assets..." >&2
