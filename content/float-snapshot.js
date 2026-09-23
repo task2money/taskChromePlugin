@@ -181,21 +181,52 @@ function buildWorkBranchName(presetType) {
   return '';
 }
 
-function showResult(msg, type, traceId) {
+function showResult(msg, type, traceId, parts) {
+  if (resultDiv._tcpClear) {
+    clearTimeout(resultDiv._tcpClear);
+    resultDiv._tcpClear = 0;
+  }
   // 失败文案带可见 traceId（约束 24）：仅 data-traceId 在纯文本复制时不可见。
-  resultDiv.textContent = type === 'error' && typeof formatErrorWithTraceId === 'function'
+  const text = type === 'error' && typeof formatErrorWithTraceId === 'function'
     ? formatErrorWithTraceId(msg, traceId)
     : msg;
+  const linkable = parts && parts.kind === 'link' && /^https?:\/\//i.test(String(parts.href || ''));
+  resultDiv.replaceChildren();
+  if (linkable) {
+    if (parts.before) resultDiv.appendChild(document.createTextNode(parts.before));
+    const anchor = document.createElement('a');
+    anchor.href = String(parts.href);
+    anchor.target = '_blank';
+    anchor.rel = 'noopener noreferrer';
+    anchor.textContent = String(parts.linkText || '');
+    resultDiv.appendChild(anchor);
+    if (parts.after) resultDiv.appendChild(document.createTextNode(parts.after));
+  } else {
+    resultDiv.textContent = text;
+  }
   resultDiv.className = `taskplugin-result taskplugin-show taskplugin-result-${type}`;
   if (type === 'error') {
     setDataTraceId(resultDiv, traceId);
   } else {
     setDataTraceId(resultDiv, '');
   }
-  setTimeout(() => {
+  if (linkable) return;
+  resultDiv._tcpClear = setTimeout(() => {
     resultDiv.className = 'taskplugin-result';
     resultDiv.removeAttribute('data-traceId');
+    resultDiv._tcpClear = 0;
   }, 6000);
+}
+
+function presentFloatCreateFailure(err, baseUrl) {
+  const raw = err && err.message ? err.message : '';
+  const failMsg = typeof tx === 'function' ? tx('floatCreateFailedDetail', { msg: raw }) : `❌ 创建失败: ${raw}`;
+  const shown = typeof formatErrorWithTraceId === 'function'
+    ? formatErrorWithTraceId(failMsg, err && err.traceId)
+    : failMsg;
+  const Stock = typeof CreateTaskHardwareStock !== 'undefined' ? CreateTaskHardwareStock : null;
+  const parts = Stock ? Stock.outOfStockLinkParts(shown, err, baseUrl) : null;
+  showResult(shown, 'error', err && err.traceId, parts);
 }
 
 function captureOpenSnapshot() {

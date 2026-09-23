@@ -114,6 +114,9 @@ describe('hardware stock gate', () => {
         assert.match(err.message, /ecs\.g6\.large/);
         assert.equal(err.traceId, undefined);
         assert.equal(err.code, 'HARDWARE_OUT_OF_STOCK');
+        assert.equal(err.projectId, 'p1');
+        assert.equal(err.companyId, 'ten-1');
+        assert.equal(err.projectName, 'Alpha');
         return true;
       },
     );
@@ -172,6 +175,69 @@ describe('hardware stock gate', () => {
   });
 });
 
+describe('out-of-stock project link', () => {
+  it('builds the project detail URL and links the project name', () => {
+    const href = Stock.buildProjectDetailHref('https://aidevpush.com', 'ten-1', 'p1');
+    assert.equal(href, 'https://aidevpush.com/tenant/ten-1/projects/p1/');
+    assert.equal(Stock.buildProjectDetailHref('javascript:alert(1)', 'ten-1', 'p1'), '');
+    assert.equal(Stock.buildProjectDetailHref('https://aidevpush.com', 'ten/1', 'p1'), '');
+    assert.equal(Stock.buildProjectDetailHref('https://aidevpush.com', 'ten-1', ''), '');
+
+    const message = Stock.outOfStockMessage({
+      projectName: 'Alpha',
+      instanceType: 'ecs.g6.large',
+      regionId: 'cn-qingdao',
+      zoneId: 'cn-qingdao-b',
+    });
+    const parts = Stock.outOfStockLinkParts(message, {
+      code: 'HARDWARE_OUT_OF_STOCK',
+      projectId: 'p1',
+      companyId: 'ten-1',
+      projectName: 'Alpha',
+    }, 'https://aidevpush.com');
+    assert.equal(parts.kind, 'link');
+    assert.equal(parts.linkText, '「Alpha」');
+    assert.equal(parts.href, href);
+    assert.match(parts.before, /项目$/);
+    assert.match(parts.after, /暂无库存/);
+    assert.equal(parts.href.startsWith('https://'), true);
+    const en = Stock.outOfStockLinkParts(
+      'Project "Alpha" run hardware ecs.g6.large is out of stock.',
+      {
+        code: 'HARDWARE_OUT_OF_STOCK',
+        projectId: 'p1',
+        companyId: 'ten-1',
+        projectName: 'Alpha',
+      },
+      'https://aidevpush.com/',
+    );
+    assert.equal(en.kind, 'link');
+    assert.equal(en.linkText, '"Alpha"');
+    assert.equal(en.href, href);
+  });
+
+  it('keeps plain text when the failure is not an out-of-stock project', () => {
+    const plain = Stock.outOfStockLinkParts('查询硬件库存失败', { code: 'OTHER' }, 'https://aidevpush.com');
+    assert.equal(plain.kind, 'text');
+    const fields = Stock.failureResponseFields(Object.assign(new Error('查询硬件库存失败'), {
+      traceId: 'trace-stock-1',
+    }));
+    assert.equal(fields.projectId, undefined);
+    assert.equal(fields.traceId, 'trace-stock-1');
+    const round = Stock.failureFromResponse({
+      error: '项目「Alpha」暂无库存',
+      code: 'HARDWARE_OUT_OF_STOCK',
+      projectId: 'p1',
+      companyId: 'ten-1',
+      projectName: 'Alpha',
+      traceId: 't-1',
+    });
+    assert.equal(round.code, 'HARDWARE_OUT_OF_STOCK');
+    assert.equal(round.projectId, 'p1');
+    assert.equal(round.traceId, 't-1');
+  });
+});
+
 describe('create-task call sites', () => {
   it('float, panel, and the service worker use the stock gate', () => {
     assert.match(read('content/float-form.js'), /CreateTaskHardwareStock\.payloadWithStock/);
@@ -180,6 +246,16 @@ describe('create-task call sites', () => {
     assert.match(read('panel/tabs/batch.js'), /projectsList/);
     assert.match(read('background/sw-messages-task.js'), /taskDataWithoutHardwareStock/);
     assert.match(read('background/sw-messages-task.js'), /tasksDataWithoutHardwareStock/);
+    assert.match(read('background/sw-messages-task.js'), /failureResponseFields/);
+    assert.match(read('content/float-form.js'), /failureFromResponse/);
+    assert.match(read('content/float-snapshot.js'), /outOfStockLinkParts/);
+    assert.match(read('content/float-snapshot.js'), /target = '_blank'/);
+    assert.match(read('panel/tabs/single-request.js'), /outOfStockLinkParts|createFailureView/);
+    assert.match(read('panel/tabs/batch.js'), /createFailureView/);
+    assert.match(read('panel/tabs/history.js'), /createFailureView/);
+    assert.match(read('panel/lib/panel-core.js'), /target = '_blank'/);
+    assert.match(read('docs/USER_GUIDE.md'), /新标签页/);
+    assert.match(read('lib/user-guide.js'), /新标签页/);
     const manifest = JSON.parse(read('manifest.json'));
     const scripts = manifest.content_scripts[0].js;
     const stockAt = scripts.indexOf('lib/create-task-hardware-stock.js');

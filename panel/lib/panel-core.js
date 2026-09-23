@@ -442,13 +442,14 @@ window.PanelApp = (function () {
    * parts 由 lib/panel-create-success.js buildCreateSuccessParts 产出；
    * 非 link 形态或 href 非 http(s) 时退回 showR 纯文本。
    */
-  api.showRLink = function (target, parts, traceId) {
+  api.showRLink = function (target, parts, traceId, type) {
     const el = api.$(`#${target}`);
     if (!el) return;
+    const kind = type === 'error' ? 'error' : 'success';
     const linkable = parts && parts.kind === 'link'
       && typeof parts.href === 'string' && /^https?:\/\//i.test(parts.href);
     if (!linkable) {
-      api.showR(target, 'success', parts && parts.kind === 'text' ? parts.text : '', traceId);
+      api.showR(target, kind, parts && parts.kind === 'text' ? parts.text : '', traceId);
       return;
     }
     el.textContent = '';
@@ -464,19 +465,25 @@ window.PanelApp = (function () {
       })(),
       String(parts.after || ''),
     );
-    api._scheduleResultClear(el, 'success', traceId);
+    api._scheduleResultClear(el, kind, traceId, kind === 'error');
   };
 
-  api._scheduleResultClear = function (el, type, traceId) {
+  api._scheduleResultClear = function (el, type, traceId, persist) {
+    if (el._tcpResultTimer) {
+      clearTimeout(el._tcpResultTimer);
+      el._tcpResultTimer = 0;
+    }
     el.className = `result ${type}`;
     if (type === 'error') {
       setDataTraceId(el, traceId);
     } else {
       setDataTraceId(el, '');
     }
-    setTimeout(() => {
+    if (persist) return;
+    el._tcpResultTimer = setTimeout(() => {
       el.className = 'result';
       el.removeAttribute('data-traceId');
+      el._tcpResultTimer = 0;
     }, 8000);
   };
 

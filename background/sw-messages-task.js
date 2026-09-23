@@ -31,7 +31,7 @@ async function handleMessageRest(message, sender) {
           error: e.message,
           taskData: message.taskData,
         });
-        return { success: false, error: e.message, traceId: e.traceId || '' };
+        return CreateTaskHardwareStock.failureResponseFields(e);
       }
 
     case 'createTasksBatch':
@@ -74,7 +74,7 @@ async function handleMessageRest(message, sender) {
           error: e.message,
           tasksData: tasksArr,
         });
-        return { success: false, error: e.message, traceId: e.traceId || '' };
+        return CreateTaskHardwareStock.failureResponseFields(e);
       }
 
     // ---- 捕获、存储、配置 ----

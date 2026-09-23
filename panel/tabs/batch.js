@@ -247,12 +247,7 @@
         endpointMapping: mapping.success ? mapping.data : undefined,
         tasksData: tasks,
       });
-      if (!b.success) {
-        const err = new Error(b.error);
-        const tid = extractTraceId(b);
-        if (tid) err.traceId = tid;
-        throw err;
-      }
+      if (!b.success) throw CreateTaskHardwareStock.failureFromResponse(b, P.t('commonCreateFailed'));
       const message = P.t('panelBatchCreateDone', { n: tasks.length });
       await P.sendMessage({ action: 'clearCapturedErrors' });
       await P.refreshCapturedCount();
@@ -262,7 +257,13 @@
         message,
       });
     } catch (e) {
-      P.showR('batchResult', 'error', P.t('panelCreateFailedWith', { msg: e.message }), e.traceId);
+      const view = CreateTaskHardwareStock.createFailureView(
+        e,
+        state.apiConfig.baseUrl,
+        (msg) => P.t('panelCreateFailedWith', { msg }),
+      );
+      if (view.parts.kind === 'link') P.showRLink('batchResult', view.parts, view.traceId, 'error');
+      else P.showR('batchResult', 'error', view.text, view.traceId);
     } finally { btn.disabled = false; btn.textContent = P.t('panelBatchCreate'); }
   };
 })();

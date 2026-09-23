@@ -467,10 +467,10 @@ submitBtn.addEventListener('click', async () => {
         showResult((typeof tx === 'function' ? tx('commonSessionExpiredRelogin') : '会话失效，请重新登录'), 'error');
         return;
       }
-      const err = new Error(resp?.error || (typeof tx === 'function' ? tx('commonCreateFailed') : '创建失败'));
-      const tid = extractTraceId(resp);
-      if (tid) err.traceId = tid;
-      throw err;
+      throw CreateTaskHardwareStock.failureFromResponse(
+        resp,
+        typeof tx === 'function' ? tx('commonCreateFailed') : '创建失败',
+      );
     }
 
     const toastView = FloatPanelAfterCreate.buildFloatCreateSuccessToastView({
@@ -491,8 +491,7 @@ submitBtn.addEventListener('click', async () => {
     }
     showPageToast(toastView.text, { parts: toastView.parts, durationMs: toastView.durationMs });
   } catch (e) {
-    const failMsg = typeof tx === 'function' ? tx('floatCreateFailedDetail', { msg: e.message }) : `❌ 创建失败: ${e.message}`;
-    showResult(failMsg, 'error', e.traceId);
+    presentFloatCreateFailure(e, apiCfg && apiCfg.baseUrl);
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = typeof tx === 'function' ? tx('floatCreateTask') : '✅ 创建任务';

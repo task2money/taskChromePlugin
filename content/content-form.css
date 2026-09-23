@@ -179,6 +179,15 @@
   color: #f38ba8 !important;
   border: 1px solid #f38ba8 !important;
 }
+.taskplugin-result {
+  white-space: pre-wrap !important;
+}
+.taskplugin-result a {
+  color: #89b4fa !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
 
 /* 创建成功后的页面 toast（面板外） */
 #taskplugin-page-toast {

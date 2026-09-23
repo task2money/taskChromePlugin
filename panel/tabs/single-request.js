@@ -308,12 +308,7 @@
         endpointMapping: mapping.success ? mapping.data : undefined,
         taskData,
       });
-      if (!r.success) {
-        const err = new Error(r.error);
-        const tid = extractTraceId(r);
-        if (tid) err.traceId = tid;
-        throw err;
-      }
+      if (!r.success) throw CreateTaskHardwareStock.failureFromResponse(r, P.t('commonCreateFailed'));
       const Success = PanelCreateSuccess;
       const taskId = Success.extractCreatedTaskId(r.data);
       const Href = globalThis.TaskDetailHref;
@@ -335,11 +330,20 @@
         parts: linkParts,
       });
     } catch (e) {
-      PanelCreateSuccess.runAfterFailure({
-        showError: (msg, traceId) => P.showR('singleResult', 'error', msg, traceId),
-        message: PanelCreateSuccess.formatCreateFailureMessage(e.message),
-        traceId: e.traceId,
-      });
+      const view = CreateTaskHardwareStock.createFailureView(
+        e,
+        state.apiConfig.baseUrl,
+        (msg) => PanelCreateSuccess.formatCreateFailureMessage(msg),
+      );
+      if (view.parts.kind === 'link') {
+        P.showRLink('singleResult', view.parts, view.traceId, 'error');
+      } else {
+        PanelCreateSuccess.runAfterFailure({
+          showError: (msg, traceId) => P.showR('singleResult', 'error', msg, traceId),
+          message: view.text,
+          traceId: view.traceId,
+        });
+      }
     } finally { btn.disabled = false; btn.textContent = P.t('panelCreateTask'); }
   };
 })();

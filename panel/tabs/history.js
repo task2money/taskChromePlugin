@@ -100,12 +100,7 @@
           endpointMapping: mapping.success ? mapping.data : undefined,
           tasksData: record.tasksData || record.taskData,
         });
-        if (!res.success) {
-          const err = new Error(res.error);
-          const tid = extractTraceId(res);
-          if (tid) err.traceId = tid;
-          throw err;
-        }
+        if (!res.success) throw CreateTaskHardwareStock.failureFromResponse(res, P.t('commonCreateFailed'));
         await Storage.updateTaskHistory(recordId, { status: 'success', response: res.data, retryCount: (record.retryCount || 0) + 1, error: null });
       } else {
         const res = await P.sendMessage({
@@ -113,19 +108,20 @@
           endpointMapping: mapping.success ? mapping.data : undefined,
           taskData: record.taskData,
         });
-        if (!res.success) {
-          const err = new Error(res.error);
-          const tid = extractTraceId(res);
-          if (tid) err.traceId = tid;
-          throw err;
-        }
+        if (!res.success) throw CreateTaskHardwareStock.failureFromResponse(res, P.t('commonCreateFailed'));
         await Storage.updateTaskHistory(recordId, { status: 'success', response: res.data, retryCount: (record.retryCount || 0) + 1, error: null });
       }
       P.showR('historyResult', 'success', P.t('panelRetrySuccess'));
       await P.refreshHistory();
     } catch (e) {
       await Storage.updateTaskHistory(recordId, { status: 'failed', error: e.message, retryCount: (record.retryCount || 0) + 1 });
-      P.showR('historyResult', 'error', P.t('panelRetryFailedWith', { msg: e.message }), e.traceId);
+      const view = CreateTaskHardwareStock.createFailureView(
+        e,
+        state.apiConfig.baseUrl,
+        (msg) => P.t('panelRetryFailedWith', { msg }),
+      );
+      if (view.parts.kind === 'link') P.showRLink('historyResult', view.parts, view.traceId, 'error');
+      else P.showR('historyResult', 'error', view.text, view.traceId);
       await P.refreshHistory();
     }
     if (btn) { btn.disabled = false; btn.textContent = P.t('panelRetry'); }
