@@ -63,7 +63,7 @@ const SKILL_IDS = [
   'pageAdvisorSkillFields',
   'popupSkillSyncTarget',
   'popupSkillActiveSummary',
-  // 未登录自动展开登录表单（OPT-20260922-040）：setLoginFormExpanded 读写这两个元素
+  // 未登录时登录表单保持收起：setLoginFormExpanded 读写这两个元素
   'loginSection',
   'btnToggleLogin',
 ];
@@ -434,15 +434,17 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(ctx.lastSet().pageAdvisorPromptSkills.some((sk) => sk.title === '仅本机'), true);
   });
 
-  it('未登录 bootPopup 后自动展开登录表单，登录按钮同屏可点（OPT-20260922-040）', async () => {
+  it('未登录 loadSkills 后登录表单保持收起，顶栏登录按钮仍在', async () => {
     ctx = bootPopup({ withAuth: true });
-    // 前置：popup-auth 的 showLoginUI() 无错误时会先把登录表单折叠
     ctx.byId.loginSection.style.display = 'none';
+    ctx.byId.btnToggleLogin.setAttribute('aria-expanded', 'false');
+    ctx.byId.btnToggleLogin.textContent = '登录';
     await ctx.api.loadSkills();
     await flushAll();
 
-    assert.equal(ctx.byId.loginSection.style.display, 'block', '未登录须展开 #loginSection');
-    assert.equal(ctx.byId.btnToggleLogin.getAttribute('aria-expanded'), 'true');
+    assert.equal(ctx.byId.loginSection.style.display, 'none', '未登录默认收起 #loginSection');
+    assert.equal(ctx.byId.btnToggleLogin.getAttribute('aria-expanded'), 'false');
+    assert.equal(ctx.byId.btnToggleLogin.textContent, '登录');
     assert.match(ctx.byId.popupSkillStatus.textContent, /本机|device|登录|Sign/i);
   });
 

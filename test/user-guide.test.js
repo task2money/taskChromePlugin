@@ -71,14 +71,18 @@ describe('UserGuide sections', () => {
     assert.match(md, /插件登录与网页登录是两套会话/);
   });
 
-  it('T6 登录说明提到顶部未登录旁点登录再展开', () => {
+  it('T6 登录说明写明打开弹窗时登录表单默认收起', () => {
     const login = UserGuide.SECTIONS.find((s) => s.id === 'login');
     assert.ok(login, 'missing login section');
     const blob = (login.steps || []).join('\n');
-    assert.match(blob, /未登录.*旁.*登录/);
+    assert.match(blob, /登录表单默认收起/);
+    assert.match(blob, /点「登录」才展开/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     const loginMd = md.split('## 页内浮窗')[0];
-    assert.match(loginMd, /未登录.*旁.*登录/);
+    assert.match(loginMd, /登录表单默认收起/);
+    assert.match(loginMd, /点「登录」才展开/);
+    const en = fs.readFileSync(path.join(__dirname, '../lib/user-guide-en-sections.js'), 'utf8');
+    assert.match(en, /stay collapsed/);
   });
 
   it('login 说明登录后拉取个人中心默认语言', () => {

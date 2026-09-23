@@ -126,6 +126,21 @@ test.describe('Popup 面板布局', () => {
     await expect(ver).toHaveText('v1.8.54');
   });
 
+  test('未登录时登录表单默认收起，点「登录」才展开', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    const toggle = page.locator('#btnToggleLogin');
+    await expect(toggle).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#popupSkillStatus')).toContainText('仅保存在本机');
+    await expect(page.locator('#loginSection')).toBeHidden();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(toggle).toHaveText('登录');
+    await toggle.click();
+    await expect(page.locator('#loginSection')).toBeVisible();
+    await expect(page.locator('#btnLogin')).toBeVisible();
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+  });
+
   test('未登录态可见「显示悬浮球」开关，且不在请求预览区内', async ({ page }) => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);

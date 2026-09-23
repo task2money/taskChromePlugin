@@ -88,19 +88,6 @@
     if (sec) sec.style.display = visible ? 'block' : 'none';
   }
 
-  /**
-   * 未登录时展开弹窗登录表单（OPT-20260922-040）。
-   * 登录按钮在顶栏、Skill 状态在折叠区底部，「skills stay on this device」文案容易被
-   * 误读成「网站已登录」，所以把「须在本弹窗登录」变成同屏可点动作。
-   * 折叠态由 popup-auth.js 的 `setLoginFormExpanded`（SSOT）持有，这里只调用，不重复实现。
-   */
-  function revealLoginFormForSignedOut() {
-    const loginSec = $('#loginSection');
-    if (!loginSec || loginSec.style.display === 'block') return;
-    // 非 Popup 上下文（无 popup-auth.js，如 DevTools 面板/单测）时无可展开的表单
-    if (typeof setLoginFormExpanded !== 'function') return;
-    setLoginFormExpanded(true);
-  }
   function statusText(msg) {
     const el = $('#popupSkillStatus');
     if (el) el.textContent = msg || '';
@@ -303,7 +290,6 @@
     }
     if (!pluginLoggedIn()) {
       statusText(tx('paSkillLocalOnlyUntilLogin'));
-      revealLoginFormForSignedOut();
     }
     renderList();
     setEditorVisible(false);
