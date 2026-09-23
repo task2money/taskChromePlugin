@@ -23,9 +23,25 @@ const { test, expect } = loadPlaywrightTest();
 const POPUP_HTML = path.join(__dirname, '..', 'popup', 'popup.html');
 const POPUP_URL = pathToFileURL(POPUP_HTML).href;
 
-/** 最小 stub：未登录态（getAuthStatus 无 token → showLoginUI → 快捷键区可见但折叠） */
-async function installChromeStub(page) {
-  await page.addInitScript(() => {
+/** 顶栏 Beta 下载链接夹具：tag 比 stub 的 1.8.54 新，asset 名与打包脚本一致。 */
+const LATEST_RELEASE_FIXTURE = {
+  tag_name: 'v1.8.93',
+  assets: [
+    {
+      name: 'task-chrome-plugin-v1.8.93.zip',
+      browser_download_url: 'https://github.com/task2money/taskChromePlugin/releases/download/v1.8.93/task-chrome-plugin-v1.8.93.zip',
+    },
+  ],
+};
+
+/**
+ * 最小 stub：未登录态（getAuthStatus 无 token → showLoginUI → 快捷键区可见但折叠）。
+ *
+ * options.installType 提供时补 chrome.management.getSelf（Beta 判定），
+ * options.release 提供时把 GitHub latest release 接口换成夹具，避免真网络。
+ */
+async function installChromeStub(page, options = {}) {
+  await page.addInitScript(({ installType, release }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const store = {
       baseUrl: 'https://aidevpush.com',
@@ -50,7 +66,7 @@ async function installChromeStub(page) {
         for (const k of list) delete store[k];
       },
     };
-    window.chrome = {
+    const chromeApi = {
       runtime: {
         getManifest: () => ({ version: '1.8.54' }),
         sendMessage: async (msg) => {
@@ -82,7 +98,20 @@ async function installChromeStub(page) {
       storage: { local: area, session: { async get() { return {}; }, async set() {} } },
       tabs: { async query() { return []; }, sendMessage: async () => {} },
     };
-  });
+    // 只有显式给 installType 时才挂 management：默认用例保持「非 Beta」不变。
+    if (installType) chromeApi.management = { getSelf: async () => ({ installType }) };
+    if (release) {
+      const realFetch = typeof window.fetch === 'function' ? window.fetch.bind(window) : null;
+      window.fetch = async (url, init) => {
+        if (String(url).includes('api.github.com/repos/task2money/taskChromePlugin/releases/latest')) {
+          return { ok: true, status: 200, json: async () => release };
+        }
+        if (realFetch) return realFetch(url, init);
+        throw new Error('e2e stub: no network');
+      };
+    }
+    window.chrome = chromeApi;
+  }, { installType: options.installType || '', release: options.release || null });
 }
 
 test.describe('Popup 面板布局', () => {
@@ -124,6 +153,35 @@ test.describe('Popup 面板布局', () => {
     const ver = page.locator('#popupVersion');
     await expect(ver).toBeVisible({ timeout: 10000 });
     await expect(ver).toHaveText('v1.8.54');
+  });
+
+  test('开发者模式顶栏标 Beta，并链到最新 Release 的 zip', async ({ page }) => {
+    await installChromeStub(page, { installType: 'development', release: LATEST_RELEASE_FIXTURE });
+    await page.goto(POPUP_URL);
+    const ver = page.locator('#popupVersion');
+    await expect(ver).toBeVisible({ timeout: 10000 });
+    await expect(ver).toHaveText('v1.8.54 Beta');
+
+    const link = page.locator('[data-plugin-version-update]');
+    await expect(link).toBeVisible({ timeout: 10000 });
+    await expect(link).toHaveAttribute('href', LATEST_RELEASE_FIXTURE.assets[0].browser_download_url);
+    await expect(link).toHaveAttribute('target', '_blank');
+    expect(await link.getAttribute('href')).toContain('/task2money/taskChromePlugin/releases/download/');
+    expect(await link.getAttribute('href')).toMatch(/\.zip$/);
+    // 下载链接排在版本号之后，顶栏里不会被别的元素挤掉。
+    const verBox = await ver.boundingBox();
+    const linkBox = await link.boundingBox();
+    expect(verBox && linkBox).toBeTruthy();
+    expect(linkBox.y).toBeLessThan(verBox.y + verBox.height);
+  });
+
+  test('普通安装不标 Beta，也不出现 Release 下载链接', async ({ page }) => {
+    await installChromeStub(page, { installType: 'normal', release: LATEST_RELEASE_FIXTURE });
+    await page.goto(POPUP_URL);
+    const ver = page.locator('#popupVersion');
+    await expect(ver).toBeVisible({ timeout: 10000 });
+    await expect(ver).toHaveText('v1.8.54');
+    await expect(page.locator('[data-plugin-version-update]')).toHaveCount(0);
   });
 
   test('未登录时登录表单默认收起，点「登录」才展开', async ({ page }) => {
