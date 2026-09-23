@@ -43,11 +43,11 @@
     const el = $('#popupVersion');
     const api = globalThis.PluginVersion;
     if (!api || typeof api.applyExtensionVersionToElement !== 'function') return;
-    api.applyExtensionVersionToElement(
-      el,
-      typeof chrome !== 'undefined' ? chrome : undefined,
-      tx,
-    );
+    const chromeApi = typeof chrome !== 'undefined' ? chrome : undefined;
+    api.applyExtensionVersionToElement(el, chromeApi, tx);
+    if (typeof api.refreshExtensionVersionPresentation === 'function') {
+      api.refreshExtensionVersionPresentation(el, chromeApi, tx).catch(() => {});
+    }
   }
 
   function hideLoadingUI() {

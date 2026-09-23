@@ -37,11 +37,12 @@ const Panel = (() => {
   function renderPanelVersion() {
     const api = globalThis.PluginVersion;
     if (!api || typeof api.applyExtensionVersionToElement !== 'function') return;
-    api.applyExtensionVersionToElement(
-      P.$('#panelVersion'),
-      typeof chrome !== 'undefined' ? chrome : undefined,
-      P.t,
-    );
+    const el = P.$('#panelVersion');
+    const chromeApi = typeof chrome !== 'undefined' ? chrome : undefined;
+    api.applyExtensionVersionToElement(el, chromeApi, P.t);
+    if (typeof api.refreshExtensionVersionPresentation === 'function') {
+      api.refreshExtensionVersionPresentation(el, chromeApi, P.t).catch(() => {});
+    }
   }
 
   // ---- Init ----
