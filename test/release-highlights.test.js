@@ -20,6 +20,7 @@ const {
   notesNeedRefresh,
   collectSubjects,
   resolveSha,
+  sameCommitRelease,
 } = require('../scripts/release-highlights.js');
 
 function git(dir, args) {
@@ -165,11 +166,117 @@ describe('collectSubjects', () => {
   });
 });
 
+describe('sameCommitRelease', () => {
+  let dir;
+  let base;
+
+  before(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-same-commit-'));
+    execFileSync('git', ['-C', dir, 'init', '-b', 'main'], { encoding: 'utf8' });
+    fs.writeFileSync(path.join(dir, 'a.txt'), '1\n');
+    git(dir, ['add', 'a.txt']);
+    git(dir, ['commit', '-m', 'feat: base']);
+    base = git(dir, ['rev-parse', 'HEAD']).trim();
+    git(dir, ['tag', 'v1.8.74', base]);
+  });
+
+  after(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('HEAD 与上一版 tag 指向同一提交时判定为同提交', () => {
+    const result = sameCommitRelease(
+      [{ tag: 'v1.8.74', sha: base }],
+      { cwd: dir, tag: 'v1.8.75', rev: base },
+    );
+    assert.equal(result.same, true);
+    assert.equal(result.prevTag, 'v1.8.74');
+  });
+
+  it('HEAD 有新提交时放行', () => {
+    fs.writeFileSync(path.join(dir, 'a.txt'), '2\n');
+    git(dir, ['add', 'a.txt']);
+    git(dir, ['commit', '-m', 'feat: 新提交']);
+    const head = git(dir, ['rev-parse', 'HEAD']).trim();
+    const result = sameCommitRelease(
+      [{ tag: 'v1.8.74', sha: base }],
+      { cwd: dir, tag: 'v1.8.75', rev: head },
+    );
+    assert.equal(result.same, false);
+    assert.equal(result.prevTag, 'v1.8.74');
+  });
+
+  it('没有更早版本时放行', () => {
+    const result = sameCommitRelease([], { cwd: dir, tag: 'v1.0.0', rev: base });
+    assert.deepEqual(result, { same: false, prevTag: '' });
+  });
+});
+
 describe('publish-github-release.sh', () => {
   it('发布说明改走 release-highlights.js，不再内嵌固定要点', () => {
     const sh = fs.readFileSync(path.join(ROOT, 'scripts/publish-github-release.sh'), 'utf8');
     assert.match(sh, /release-highlights\.js/);
     assert.doesNotMatch(sh, /自动运行门禁双读/);
     assert.doesNotMatch(sh, /commit 后自动 pack \+ GitHub Release/);
+  });
+
+  it('新建 Release 前调用 guard-same-commit 拦截空版本', () => {
+    const sh = fs.readFileSync(path.join(ROOT, 'scripts/publish-github-release.sh'), 'utf8');
+    assert.match(sh, /guard-same-commit/);
+    const guardAt = sh.indexOf('guard-same-commit');
+    const createAt = sh.indexOf('gh release create');
+    assert.ok(guardAt > 0 && createAt > 0 && guardAt < createAt, 'guard 必须在 gh release create 之前');
+  });
+
+  it('同提交时 guard 子命令退出码非 0，有新提交时退出码 0', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-guard-cli-'));
+    const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-guard-bin-'));
+    try {
+      execFileSync('git', ['-C', dir, 'init', '-b', 'main'], { encoding: 'utf8' });
+      fs.writeFileSync(path.join(dir, 'a.txt'), '1\n');
+      git(dir, ['add', 'a.txt']);
+      git(dir, ['commit', '-m', 'feat: base']);
+      const base = git(dir, ['rev-parse', 'HEAD']).trim();
+      git(dir, ['tag', 'v1.8.74', base]);
+      fs.writeFileSync(path.join(dir, 'a.txt'), '2\n');
+      git(dir, ['add', 'a.txt']);
+      git(dir, ['commit', '-m', 'feat: 新提交']);
+      const head = git(dir, ['rev-parse', 'HEAD']).trim();
+
+      // 用假 gh 提供上一发布列表（其 target_commitish 指向 base），避免依赖网络
+      const fakeGh = path.join(bin, 'gh');
+      fs.writeFileSync(
+        fakeGh,
+        `#!/bin/sh\nif [ "$1" = "api" ]; then\n`
+          + `  printf '%s' '[{"tag_name":"v1.8.74","target_commitish":"${base}","body":"","assets":[]}]'\n`
+          + '  exit 0\nfi\nexit 1\n',
+      );
+      fs.chmodSync(fakeGh, 0o755);
+
+      const env = { ...process.env, PATH: `${bin}${path.delimiter}${process.env.PATH}` };
+      const run = (rev) =>
+        execFileSync(
+          process.execPath,
+          [
+            path.join(ROOT, 'scripts/release-highlights.js'),
+            'guard-same-commit',
+            '--tag', 'v1.8.75',
+            '--repo', 'task2money/taskChromePlugin',
+            '--rev', rev,
+            '--cwd', dir,
+          ],
+          { env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
+        );
+
+      assert.throws(
+        () => run(base),
+        (err) => err.status !== 0 && /指向同一提交/.test(String(err.stderr)),
+        '同提交必须非 0 退出',
+      );
+      assert.doesNotThrow(() => run(head), '有新提交必须放行');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+      fs.rmSync(bin, { recursive: true, force: true });
+    }
   });
 });

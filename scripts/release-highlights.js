@@ -175,6 +175,26 @@ function resolveSha(cwd, tag, sha) {
   return '';
 }
 
+/**
+ * 当前提交是否与上一发布指向同一提交。
+ * 同提交再发版只会得到一个「没有新增说明」的空版本，Releases 列表里读者无法据此判断是否有新包。
+ * @param {Array<{tag: string, sha: string}>} releases
+ * @param {{ cwd: string, tag: string, rev?: string }} options
+ * @returns {{ same: boolean, prevTag: string }}
+ */
+function sameCommitRelease(releases, options) {
+  const prev = pickPreviousRelease(options.tag, releases);
+  if (!prev) return { same: false, prevTag: '' };
+  const prevSha = resolveSha(options.cwd, prev.tag, prev.sha);
+  const head = resolveSha(options.cwd, '', options.rev || 'HEAD');
+  if (!prevSha || !head) return { same: false, prevTag: prev.tag };
+  return { same: prevSha === head, prevTag: prev.tag };
+}
+
+function sameCommitAsPreviousRelease({ repo, tag, rev, cwd }) {
+  return sameCommitRelease(loadReleases(repo), { cwd, tag, rev });
+}
+
 function compareUrlFor(repo, prevTag, tag) {
   if (!repo || !prevTag || !tag) return '';
   return `https://github.com/${repo}/compare/${prevTag}...${tag}`;
@@ -293,6 +313,32 @@ function main(argv) {
     process.stdout.write(notes.endsWith('\n') ? notes : `${notes}\n`);
     return;
   }
+  if (cmd === 'guard-same-commit') {
+    if (!parseSemver(args.tag)) throw new Error(`invalid tag: ${args.tag}`);
+    assertRepo(args.repo);
+    let result;
+    try {
+      result = sameCommitAsPreviousRelease({
+        repo: args.repo,
+        tag: args.tag,
+        rev: args.rev || 'HEAD',
+        cwd,
+      });
+    } catch (err) {
+      // 查不到上一版（gh 不可用/网络失败）时不阻断发版：后续 gh release create 会自行报错
+      process.stderr.write(`release-highlights: WARN 同提交检查跳过：${err && err.message ? err.message : err}\n`);
+      return;
+    }
+    if (result.same) {
+      process.stderr.write(
+        `release-highlights: ERROR ${args.tag} 与上一发布 ${result.prevTag} 指向同一提交；`
+        + '先提交新变更并升 manifest.json 版本，再发布新的 Release\n',
+      );
+      process.exit(3);
+    }
+    process.stderr.write(`release-highlights: same-commit guard ok (prev=${result.prevTag || '(none)'})\n`);
+    return;
+  }
   if (cmd === 'backfill') {
     backfill({
       repo: args.repo,
@@ -322,4 +368,5 @@ module.exports = {
   notesNeedRefresh,
   collectSubjects,
   resolveSha,
+  sameCommitRelease,
 };

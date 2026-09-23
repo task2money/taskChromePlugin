@@ -66,6 +66,13 @@ if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   # 更新说明（幂等）
   gh release edit "$TAG" -R "$REPO" --notes "$NOTES" >/dev/null
 else
+  # 新建 Release 前拒绝「与上一版同一提交」的空版本：版本号没有对应新变更时，
+  # Releases 列表里读不出有没有新包（v1.8.75/v1.8.74 曾指向同一提交）。
+  node "$ROOT/scripts/release-highlights.js" guard-same-commit \
+    --tag "$TAG" \
+    --repo "$REPO" \
+    --rev "$TARGET" \
+    --cwd "$ROOT"
   echo "publish-github-release: creating $TAG on $REPO @ $TARGET ..." >&2
   gh release create "$TAG" "${ASSETS[@]}" \
     -R "$REPO" \
