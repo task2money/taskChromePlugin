@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.90",
+  "version": "1.8.91",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -58,6 +58,7 @@
         "lib/content-boot-gate.js",
         "lib/i18n.js",
         "lib/i18n-messages.js",
+        "lib/i18n-hardware-stock-messages.js",
         "lib/i18n-ui-messages.js",
         "lib/i18n-tx.js",
       "lib/locale-switcher-ui.js",
@@ -66,6 +67,7 @@
         "lib/create-task-git-identity.js",
         "lib/branch-datalist.js",
         "lib/create-task-payload.js",
+        "lib/create-task-hardware-stock.js",
         "lib/element-picker.js",
         "lib/plugin-brand.js",
         "lib/float-workspace-select.js",

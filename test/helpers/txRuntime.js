@@ -24,6 +24,7 @@ function installTxRuntime(locale = 'zh-CN') {
   require(path.join(ROOT, 'lib/i18n-ui-messages.js'));
   require(path.join(ROOT, 'lib/i18n-llm-route.js'));
   require(path.join(ROOT, 'lib/i18n-skill-browse-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-hardware-stock-messages.js'));
   const { tx } = require(path.join(ROOT, 'lib/i18n-tx.js'));
 
   i18n.setLocale(locale);

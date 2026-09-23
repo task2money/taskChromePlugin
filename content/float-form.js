@@ -452,7 +452,7 @@ submitBtn.addEventListener('click', async () => {
       return;
     }
 
-    const taskData = CreateTaskPayload.buildCreateTaskPayload(form);
+    const taskData = CreateTaskHardwareStock.payloadWithStock(form);
 
     const resp = await sendMessageWithTimeout({
       action: 'createTask',

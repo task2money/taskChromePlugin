@@ -5,7 +5,11 @@ async function handleMessageRest(message, sender) {
       try {
         await initApiFromMessage(message);
         const taskData = await enrichTaskDataWithOwner(message.taskData);
-        const data = await API.createTask(taskData);
+        const apiTask = await CreateTaskHardwareStock.taskDataWithoutHardwareStock(
+          taskData,
+          (method, path) => API.request(method, path),
+        );
+        const data = await API.createTask(apiTask);
         await Storage.addTaskHistory({
           type: 'single',
           title: taskData?.title || tx('taskUntitled'),
@@ -37,7 +41,11 @@ async function handleMessageRest(message, sender) {
         for (const task of message.tasksData || []) {
           tasksData.push(await enrichTaskDataWithOwner(task));
         }
-        const data = await API.createTasksBatch(tasksData);
+        const apiTasks = await CreateTaskHardwareStock.tasksDataWithoutHardwareStock(
+          tasksData,
+          (method, path) => API.request(method, path),
+        );
+        const data = await API.createTasksBatch(apiTasks);
         const tasksArr = Array.isArray(message.tasksData) ? message.tasksData : [];
         const hasErrors = data.errors && data.errors.length > 0;
         await Storage.addTaskHistory({

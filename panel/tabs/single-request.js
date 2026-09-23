@@ -302,7 +302,7 @@
     try {
       await Storage.saveLastProjectIds(checkedIds);
       const mapping = await P.sendMessage({ action: 'getEndpointMapping' });
-      const taskData = CreateTaskPayload.buildCreateTaskPayload(form);
+      const taskData = CreateTaskHardwareStock.payloadWithStock(form);
       const r = await P.sendMessage({
         action: 'createTask', baseUrl: state.apiConfig.baseUrl, token: state.apiConfig.token,
         endpointMapping: mapping.success ? mapping.data : undefined,

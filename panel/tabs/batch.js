@@ -220,11 +220,12 @@
         if (e.requestHeaders && Object.keys(e.requestHeaders).length) {
           desc += `\n\n**请求头**:\n\`\`\`\n${Object.entries(e.requestHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}\n\`\`\``;
         }
-        return CreateTaskPayload.buildCreateTaskPayload({
+        return CreateTaskHardwareStock.payloadWithStock({
           title: `[${e.method}] ${P.extractPath(e.url)} → ${statusLabel}`,
           description: desc,
           priority: e.canceled || e.statusCode === 0 ? 'medium' : (e.statusCode >= 500 ? 'high' : 'medium'),
           workspaceId: wsId,
+          projectsList: cached,
           projects,
           progress_column_id: progressColumnId,
           deliverable_obj_id: deliverableObjId,
