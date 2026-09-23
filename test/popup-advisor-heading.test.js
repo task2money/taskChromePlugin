@@ -14,8 +14,21 @@ function popupHtml() {
   return fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 }
 
+/**
+ * 取 popup 运行时实际生效的消息表：基础表之后，i18n-llm-route.js 与
+ * i18n-skill-browse-messages.js 按 popup.html 的脚本顺序覆盖同名键。
+ * 只读基础表会断言到运行时已被覆盖、不会展示的字面量。
+ */
 function i18nMessages() {
-  return require('../lib/i18n-messages.js');
+  const { I18N_SCRIPT_RELS } = require('./helpers/txRuntime.js');
+  const merged = { zh: {}, en: {} };
+  for (const rel of I18N_SCRIPT_RELS) {
+    const mod = require(path.join('..', rel));
+    if (!mod || !mod.zh || !mod.en) continue;
+    Object.assign(merged.zh, mod.zh);
+    Object.assign(merged.en, mod.en);
+  }
+  return merged;
 }
 
 function llmSection() {
