@@ -44,6 +44,24 @@ function groupEls(list) {
   return (list.children || []).filter((c, i) => i > 0 && String(c.className || '').includes('popup-skill-group'));
 }
 
+function categoryPicks(list) {
+  const box = (list.children || []).find((c) => String(c.className || '').includes('popup-skill-categories'));
+  if (!box) return [];
+  return (box.children || []).filter((c) => String(c.className || '').includes('popup-skill-category-pick'));
+}
+
+function openCategory(list, tendency) {
+  const btn = categoryPicks(list).find((b) => b.getAttribute('data-tendency') === tendency);
+  if (!btn) throw new Error(`category not shown: ${tendency}`);
+  btn.dispatch('click', { stopPropagation() {} });
+}
+
+function backToCategories(list) {
+  const btn = (list.children || []).find((c) => String(c.className || '').includes('popup-skill-back'));
+  if (!btn) throw new Error('back to categories missing');
+  btn.dispatch('click', { stopPropagation() {} });
+}
+
 module.exports = {
   skillRows,
   noneRow,
@@ -53,4 +71,7 @@ module.exports = {
   rowTitle,
   rowActions,
   groupEls,
+  categoryPicks,
+  openCategory,
+  backToCategories,
 };

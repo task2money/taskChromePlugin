@@ -49,6 +49,7 @@ function loadMessageTables() {
     'lib/i18n-ui-messages.js',
     'lib/i18n-llm-route.js',
     'lib/i18n-locale-messages.js',
+    'lib/i18n-skill-browse-messages.js',
   ];
   for (const rel of rels) {
     delete require.cache[require.resolve(path.join(ROOT, rel))];
@@ -58,6 +59,7 @@ function loadMessageTables() {
   require(path.join(ROOT, 'lib/i18n-ui-messages.js'));
   require(path.join(ROOT, 'lib/i18n-llm-route.js'));
   require(path.join(ROOT, 'lib/i18n-locale-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-skill-browse-messages.js'));
   return i18n.getMessageTables();
 }
 

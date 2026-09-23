@@ -17,6 +17,7 @@ const {
   skillRowByTitle,
   rowTitle,
   rowActions,
+  openCategory,
 } = require('./helpers/popupSkillListDom.js');
 
 const llmUiSrc = fs.readFileSync(path.join(ROOT, 'lib/popup-llm-settings-ui.js'), 'utf8');
@@ -252,6 +253,7 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.popupSkillSyncTarget.value = 'local';
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
+    openCategory(ctx.byId.popupSkillList, 'custom');
     const dest = rowActions(skillRowByTitle(ctx.byId.popupSkillList, /可改目标/)).children[0];
     assert.equal(dest.tagName, 'SELECT');
     dest.value = 'w2';
@@ -277,6 +279,7 @@ describe('Popup Skill 设置展开与按条同步目标', () => {
     ctx.byId.btnSkillSave.dispatch('click');
     await flushAll();
     assert.equal(ctx.byId.popupSkillEditor.style.display, 'none');
+    openCategory(ctx.byId.popupSkillList, 'custom');
     const row = skillRowByTitle(ctx.byId.popupSkillList, /待删/);
     const actions = rowActions(row);
     assert.equal(actions.children[1].textContent, '编辑');

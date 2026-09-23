@@ -68,6 +68,8 @@ test.describe('Popup 系统默认 Skill 目录', () => {
       expect(snap.summary).toMatch(/No skill applied|当前未应用 Skill/);
       expect(snap.status).toMatch(/Signed out: skills stay on this device|未登录：Skill 仅保存在本机/);
       expect(snap.listText).toMatch(/Do not apply a skill|不应用 Skill/);
+      expect(snap.listText).toMatch(/自定义|Custom|无障碍|Accessibility/);
+      expect(snap.listText).not.toMatch(/系统默认自动创新|系统默认·无障碍/);
       expect(snap.headerUser).not.toMatch(/e2e-user/);
     } finally {
       await context.close();
@@ -122,6 +124,9 @@ test.describe('Popup 系统默认 Skill 目录', () => {
         });
       });
       const popup = await openPopup(context, extId);
+      const settings = popup.locator('#btnToggleSkillSettings');
+      if (await settings.getAttribute('aria-expanded') !== 'true') await settings.click();
+      await popup.locator('#popupSkillList [data-tendency="custom"]').click({ timeout: 15000 });
       await popup.waitForFunction(
         (title) => (document.querySelector('#popupSkillList')?.innerText || '').includes(title),
         CATALOG_TITLE,

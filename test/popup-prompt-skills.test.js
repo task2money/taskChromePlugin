@@ -25,6 +25,9 @@ const {
   rowTitle,
   rowActions,
   groupEls,
+  categoryPicks,
+  openCategory,
+  backToCategories,
 } = require('./helpers/popupSkillListDom.js');
 
 const popupHtml = fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
@@ -205,8 +208,8 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
   it('保存后列表出现新 Skill 的 radio 并被选中，落盘写入 activeSkillId', async () => {
     ctx.api.loadSkills();
     await flushAll();
-    assert.equal(groupEls(ctx.byId.popupSkillList).length, 5);
-    assert.equal(skillRows(ctx.byId.popupSkillList).length, 5, '未登录预埋五条预设');
+    assert.equal(categoryPicks(ctx.byId.popupSkillList).length, 5);
+    assert.equal(skillRows(ctx.byId.popupSkillList).length, 0, '未选类别前不展示技能');
 
     ctx.byId.popupSkillTitle.value = '严谨排障';
     ctx.byId.popupSkillBody.value = '先复现再下结论';
@@ -214,6 +217,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     await flushAll();
 
     const list = ctx.byId.popupSkillList;
+    openCategory(list, 'custom');
     const custom = skillRowByTitle(list, /严谨排障/);
     const radio = rowRadio(custom);
     assert.equal(radio.type, 'radio');
@@ -238,6 +242,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     await flushAll();
 
     const list = ctx.byId.popupSkillList;
+    openCategory(list, 'custom');
     assert.equal(rowRadio(skillRowByTitle(list, /甲/)).checked, true, '初始 active 为甲');
     const second = rowRadio(skillRowByTitle(list, /乙/));
     second.checked = true;
@@ -272,6 +277,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     });
     ctx.api.loadSkills();
     await flushAll();
+    openCategory(ctx.byId.popupSkillList, 'custom');
     const del = rowActions(skillRowByTitle(ctx.byId.popupSkillList, /待删/)).children[2];
     del.dispatch('click', { stopPropagation() {} });
     await flushAll();
@@ -566,8 +572,12 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.equal(gets.length, 0);
     assert.equal(catalogs.length, 0);
     assert.match(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
-    assert.equal(groupEls(ctx.byId.popupSkillList).length, 5);
+    assert.equal(categoryPicks(ctx.byId.popupSkillList).length, 5);
+    assert.equal(skillRows(ctx.byId.popupSkillList).length, 0, '未选类别前不展示预埋技能');
+    openCategory(ctx.byId.popupSkillList, 'a11y');
     assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认·无障碍/));
+    backToCategories(ctx.byId.popupSkillList);
+    openCategory(ctx.byId.popupSkillList, 'custom');
     assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认自动创新/));
   });
 
@@ -595,8 +605,12 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     await flushAll();
     assert.equal(catalogs.length, 1);
     const list = ctx.byId.popupSkillList;
-    assert.equal(groupEls(list).length, 5);
+    assert.equal(categoryPicks(list).length, 5);
+    assert.equal(skillRows(list).length, 0);
+    openCategory(list, 'a11y');
     assert.ok(skillRowByTitle(list, /系统默认·无障碍/));
+    backToCategories(list);
+    openCategory(list, 'custom');
     const custom = skillRowByTitle(list, /系统默认自动创新/);
     assert.match(rowTitle(custom).textContent, /系统默认自动创新/);
     assert.equal(rowRadio(custom).checked, true);
@@ -745,6 +759,7 @@ describe('Popup 类别来源：系统默认 / 自行定制（OPT-20260922-043）
     await ctx.api.loadSkills();
     await flushAll();
 
+    openCategory(ctx.byId.popupSkillList, 'a11y');
     const group = groupEls(ctx.byId.popupSkillList)
       .find((g) => g.getAttribute('data-tendency') === 'a11y');
     const custom = group.children[1].children.find((el) => el.type === 'radio' && el.value === 'custom');

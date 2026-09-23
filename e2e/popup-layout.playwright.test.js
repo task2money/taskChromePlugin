@@ -166,6 +166,8 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#popupSkillEditor')).toBeHidden();
     await expect(page.locator('#btnSkillHistoryLoad')).toHaveCount(0);
     await expect(page.locator('#pageAdvisorSkillFields legend.popup-skill-saved-legend #btnSkillNew')).toBeVisible();
+    await expect(page.locator('#popupSkillList .popup-skill-category-pick')).toHaveCount(5);
+    await expect(page.locator('#popupSkillList .popup-skill-row:not(.popup-skill-row-none)')).toHaveCount(0);
     await expect(page.locator('label[for="popupSkillTendency"]')).toHaveText(/类别|Category/);
     await page.locator('#btnSkillNew').click();
     await expect(page.locator('#popupSkillEditor')).toBeVisible();
@@ -181,9 +183,12 @@ test.describe('Popup 面板布局', () => {
     await toggle.click();
     await expect(fields).toBeVisible();
     await expect(page.locator('#popupSkillEditor')).toBeHidden();
-    await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveCount(1);
-    await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('local');
-    const row = page.locator('#popupSkillList .popup-skill-row:not(.popup-skill-row-none)').first();
+    await expect(page.locator('#popupSkillList .popup-skill-category-pick')).toHaveCount(5);
+    await expect(page.locator('#popupSkillList .popup-skill-row:not(.popup-skill-row-none)')).toHaveCount(0);
+    await page.locator('#popupSkillList [data-tendency="custom"]').click();
+    const row = page.locator('#popupSkillList .popup-skill-row').filter({ hasText: 'e2e-skill' });
+    await expect(row.locator('select.popup-skill-sync')).toHaveCount(1);
+    await expect(row.locator('select.popup-skill-sync')).toHaveValue('local');
     await expect(row.locator('.popup-skill-row-title')).toBeVisible();
     await expect(row.locator('.popup-skill-row-actions')).toBeVisible();
     const titleBox = await row.locator('.popup-skill-row-title').boundingBox();
@@ -196,12 +201,12 @@ test.describe('Popup 面板布局', () => {
     await row.getByRole('button', { name: /删除|Delete/ }).click();
     await expect(page.locator('#popupSkillDeleteConfirm')).toBeVisible();
     await page.locator('#btnSkillDeleteCancel').click();
-    await expect(page.locator('#popupSkillList .popup-skill-row:not(.popup-skill-row-none)')).toHaveCount(1);
+    await expect(row).toHaveCount(1);
     await row.getByRole('button', { name: /编辑|Edit/ }).click();
     await expect(page.locator('#popupSkillEditor')).toBeVisible();
     await expect(page.locator('#popupSkillTitle')).toHaveValue('e2e-skill');
-    await page.locator('#popupSkillList select.popup-skill-sync').selectOption('ws-b');
-    await expect(page.locator('#popupSkillList select.popup-skill-sync')).toHaveValue('ws-b');
+    await row.locator('select.popup-skill-sync').selectOption('ws-b');
+    await expect(row.locator('select.popup-skill-sync')).toHaveValue('ws-b');
     await expect(row.locator('.popup-skill-saas-link')).toHaveAttribute(
       'href',
       'https://aidevpush.com/tenant/co1/settings/workspace/ws-b/prompt-skills/',

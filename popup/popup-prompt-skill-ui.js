@@ -261,34 +261,124 @@
     return choice && choice.source === 'custom' ? 'custom' : 'system';
   }
 
+  /** 已保存列表的浏览层：空 = 只显示类别；非空 = 只显示该类别的技能。 */
+  let browseTendency = '';
+  let lastRender = null;
+
+  function skillGroups(store) {
+    const Skills = typeof PageAdvisorPromptSkills !== 'undefined' ? PageAdvisorPromptSkills : null;
+    if (Skills && typeof Skills.groupSkillsByTendency === 'function') {
+      return Skills.groupSkillsByTendency(store.skills || [], { includeEmptyPresets: true });
+    }
+    return [{ tendency: '', skills: store.skills || [] }];
+  }
+
+  function rerenderSkillList() {
+    if (!lastRender) return;
+    const a = lastRender;
+    renderSkillList(a.root, a.store, a.syncLocal, a.workspaceRows, a.handlers, a.ctx);
+  }
+
+  function renderGroupSection(parent, g, store, syncLocal, workspaceRows, handlers, ctx) {
+    const section = document.createElement('div');
+    section.className = 'popup-skill-group';
+    if (g.tendency) {
+      section.setAttribute('data-tendency', g.tendency);
+      section.setAttribute('role', 'group');
+      section.setAttribute('aria-label', tendencyLabel(g.tendency));
+      const heading = document.createElement('h4');
+      heading.className = 'popup-skill-group-title';
+      heading.textContent = tendencyLabel(g.tendency);
+      section.appendChild(heading);
+      section.appendChild(buildCategorySourceRow(g.tendency, store, handlers));
+    }
+    (g.skills || []).forEach((sk) => {
+      appendSkillRow(section, sk, store, syncLocal, workspaceRows, handlers, ctx);
+    });
+    parent.appendChild(section);
+  }
+
+  function renderCategoryPicker(root, groups, store) {
+    const step = document.createElement('p');
+    step.className = 'hint popup-skill-step-label';
+    step.textContent = tx('paSkillPickCategory');
+    root.appendChild(step);
+    const box = document.createElement('div');
+    box.className = 'popup-skill-categories';
+    box.setAttribute('role', 'list');
+    groups.forEach((g) => {
+      if (!g.tendency) return;
+      const activeHere = (g.skills || []).some((sk) => sk && sk.id && sk.id === store.activeSkillId);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = activeHere
+        ? 'btn btn-sm btn-full btn-primary popup-skill-category-pick popup-skill-category-pick-active'
+        : 'btn btn-sm btn-full popup-skill-category-pick';
+      btn.setAttribute('data-tendency', g.tendency);
+      btn.textContent = activeHere
+        ? `${tendencyLabel(g.tendency)} (${tx('paSkillActive')})`
+        : tendencyLabel(g.tendency);
+      // Anti-Replay-OK: ui-only drill into one category, no HTTP.
+      btn.addEventListener('click', () => {
+        browseTendency = g.tendency;
+        rerenderSkillList();
+      });
+      box.appendChild(btn);
+    });
+    root.appendChild(box);
+  }
+
+  function renderBackToCategories(root) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm popup-skill-back';
+    btn.textContent = tx('paSkillBackToCategories');
+    // Anti-Replay-OK: ui-only return to the category list, no HTTP.
+    btn.addEventListener('click', () => {
+      browseTendency = '';
+      rerenderSkillList();
+    });
+    root.appendChild(btn);
+  }
+
   function renderSkillList(root, store, syncLocal, workspaceRows, handlers, ctx) {
     if (!root) return;
+    lastRender = { root, store, syncLocal, workspaceRows, handlers, ctx };
     root.replaceChildren();
+    const groups = skillGroups(store);
+    const focus = browseTendency;
+    const group = focus ? groups.find((g) => g.tendency === focus) : null;
     renderNoneRow(root, store, handlers);
-    const Skills = typeof PageAdvisorPromptSkills !== 'undefined' ? PageAdvisorPromptSkills : null;
-    const groups = Skills && typeof Skills.groupSkillsByTendency === 'function'
-      ? Skills.groupSkillsByTendency(store.skills || [], { includeEmptyPresets: true })
-      : [{ tendency: '', skills: store.skills || [] }];
-    groups.forEach((g) => {
-      const section = document.createElement('div');
-      section.className = 'popup-skill-group';
-      if (g.tendency) {
-        section.setAttribute('data-tendency', g.tendency);
-        section.setAttribute('role', 'group');
-        section.setAttribute('aria-label', tendencyLabel(g.tendency));
-        const heading = document.createElement('h4');
-        heading.className = 'popup-skill-group-title';
-        heading.textContent = tendencyLabel(g.tendency);
-        section.appendChild(heading);
+    if (!group) {
+      if (focus) browseTendency = '';
+      root.setAttribute('role', 'group');
+      const unnamed = groups.filter((g) => !g.tendency);
+      if (unnamed.length && groups.every((g) => !g.tendency)) {
+        unnamed.forEach((g) => {
+          renderGroupSection(root, g, store, syncLocal, workspaceRows, handlers, ctx);
+        });
+        return;
       }
-      if (g.tendency) {
-        section.appendChild(buildCategorySourceRow(g.tendency, store, handlers));
-      }
-      (g.skills || []).forEach((sk) => {
-        appendSkillRow(section, sk, store, syncLocal, workspaceRows, handlers, ctx);
-      });
-      root.appendChild(section);
-    });
+      renderCategoryPicker(root, groups, store);
+      return;
+    }
+    root.setAttribute('role', 'radiogroup');
+    renderBackToCategories(root);
+    renderGroupSection(root, group, store, syncLocal, workspaceRows, handlers, ctx);
+  }
+
+  /**
+   * 设置区从收起变为打开时回到类别列表，避免沿用上次钻进的技能层。
+   * @returns {boolean} 本次是否为打开
+   */
+  function onSkillSettingsToggle(ui, fields, toggle, renderList) {
+    const opening = !fields || fields.hidden || fields.style.display === 'none';
+    if (opening) browseTendency = '';
+    if (ui && typeof ui.toggleLlmSettingsExpanded === 'function') {
+      ui.toggleLlmSettingsExpanded(fields, toggle);
+    }
+    if (opening && typeof renderList === 'function') renderList();
+    return opening;
   }
 
   function setEditorVisible(open) {
@@ -321,6 +411,7 @@
     fillTendencyDatalist,
     renderActiveSummary,
     renderSkillList,
+    onSkillSettingsToggle,
     setEditorVisible,
     fillEditor,
   };

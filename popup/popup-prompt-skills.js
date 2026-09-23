@@ -449,7 +449,7 @@
     // Anti-Replay-OK: ui-only expand/collapse of skill management, no HTTP.
     if (toggle && ui) {
       toggle.addEventListener('click', () => {
-        ui.toggleLlmSettingsExpanded(skillFields(), toggle);
+        PopupPromptSkillUi.onSkillSettingsToggle(ui, skillFields(), toggle, renderList);
       });
     }
     const save = $('#btnSkillSave');
