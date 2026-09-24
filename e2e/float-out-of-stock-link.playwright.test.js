@@ -181,6 +181,29 @@ test.describe('浮窗 × 无库存项目链接', () => {
     expect(after.linkText).toBe('「Alpha」');
   });
 
+  test('点击提示 × 只消除无库存提示，面板仍可继续填写', async ({ page }) => {
+    await loadPluginIntoPage(page);
+    await renderOutOfStockFailure(page);
+    const dismissed = await page.evaluate(() => {
+      const div = document.getElementById('taskplugin-result');
+      const panel = document.getElementById('taskplugin-float-panel');
+      if (panel) panel.classList.add('taskplugin-open');
+      const btn = div.querySelector('button.taskplugin-result-dismiss');
+      if (!btn) return { ok: false };
+      btn.click();
+      return {
+        ok: true,
+        className: div.className,
+        childCount: div.childElementCount,
+        panelOpen: panel ? panel.classList.contains('taskplugin-open') : false,
+      };
+    });
+    expect(dismissed.ok).toBe(true);
+    expect(dismissed.className).toBe('taskplugin-result');
+    expect(dismissed.childCount).toBe(0);
+    expect(dismissed.panelOpen).toBe(true);
+  });
+
   test('非无库存失败仍显示纯文本并被定时器清除', async ({ page }) => {
     await loadPluginIntoPage(page);
     const plain = await page.evaluate(() => {

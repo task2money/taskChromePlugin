@@ -167,3 +167,115 @@ function bindPageAdvisorCardDrags(root) {
     attachPageAdvisorCardDrag(card);
   });
 }
+
+/**
+ * 把底栏夹在视口内（四边 8px）。供拖动与单测复用。
+ * @param {number} left
+ * @param {number} top
+ * @param {number} width
+ * @param {number} height
+ * @param {{width:number,height:number}} viewport
+ */
+function clampPageAdvisorToolbarBox(left, top, width, height, viewport) {
+  const margin = 8;
+  const box = viewport && typeof viewport === 'object' ? viewport : {};
+  const vw = Math.max(0, Number(box.width) || 0);
+  const vh = Math.max(0, Number(box.height) || 0);
+  const w = Math.max(1, Number(width) || 1);
+  const h = Math.max(1, Number(height) || 1);
+  const maxLeft = Math.max(margin, vw - w - margin);
+  const maxTop = Math.max(margin, vh - h - margin);
+  return {
+    left: Math.round(Math.max(margin, Math.min(Number(left) || 0, maxLeft))),
+    top: Math.round(Math.max(margin, Math.min(Number(top) || 0, maxTop))),
+  };
+}
+
+function applyPageAdvisorToolbarPosition(toolbar, left, top) {
+  if (!toolbar) return;
+  const pos = clampPageAdvisorToolbarBox(
+    left,
+    top,
+    toolbar.offsetWidth || 320,
+    toolbar.offsetHeight || 72,
+    { width: window.innerWidth, height: window.innerHeight },
+  );
+  toolbar.classList.add('taskplugin-page-advisor-toolbar-pinned');
+  toolbar.style.setProperty('left', `${pos.left}px`, 'important');
+  toolbar.style.setProperty('top', `${pos.top}px`, 'important');
+  toolbar.style.setProperty('right', 'auto', 'important');
+  toolbar.style.setProperty('bottom', 'auto', 'important');
+  toolbar.style.setProperty('transform', 'none', 'important');
+}
+
+function resetPageAdvisorToolbarPosition(toolbar) {
+  if (!toolbar) return;
+  toolbar.classList.remove('taskplugin-page-advisor-toolbar-pinned');
+  toolbar.style.removeProperty('left');
+  toolbar.style.removeProperty('top');
+  toolbar.style.removeProperty('right');
+  toolbar.style.removeProperty('bottom');
+  toolbar.style.removeProperty('transform');
+}
+
+function bindPageAdvisorToolbarDrag(toolbar) {
+  if (!toolbar || toolbar.getAttribute('data-drag-bound') === '1') return;
+  const handle = toolbar.querySelector('.taskplugin-page-advisor-toolbar-drag');
+  if (!handle) return;
+  toolbar.setAttribute('data-drag-bound', '1');
+  const threshold = (typeof DRAG_THRESHOLD === 'number') ? DRAG_THRESHOLD : 4;
+
+  handle.addEventListener('keydown', (ev) => {
+    const key = ev.key;
+    if (key !== 'ArrowUp' && key !== 'ArrowDown' && key !== 'ArrowLeft' && key !== 'ArrowRight') {
+      return;
+    }
+    ev.preventDefault();
+    ev.stopPropagation();
+    const step = PAGE_ADVISOR_KEYBOARD_NUDGE_PX;
+    let dx = 0;
+    let dy = 0;
+    if (key === 'ArrowUp') dy = -step;
+    else if (key === 'ArrowDown') dy = step;
+    else if (key === 'ArrowLeft') dx = -step;
+    else if (key === 'ArrowRight') dx = step;
+    const rect = toolbar.getBoundingClientRect();
+    applyPageAdvisorToolbarPosition(toolbar, rect.left + dx, rect.top + dy);
+  });
+
+  handle.addEventListener('dblclick', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    resetPageAdvisorToolbarPosition(toolbar);
+  });
+
+  handle.addEventListener('mousedown', (ev) => {
+    if (ev.button !== 0) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    detachPageAdvisorDragListeners();
+    const startX = ev.clientX;
+    const startY = ev.clientY;
+    const rect = toolbar.getBoundingClientRect();
+    const originLeft = rect.left;
+    const originTop = rect.top;
+    let moved = false;
+    const onMove = (e) => {
+      const dx = e.clientX - startX;
+      const dy = e.clientY - startY;
+      if (!moved) {
+        if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) return;
+        moved = true;
+        toolbar.classList.add('taskplugin-page-advisor-dragging');
+      }
+      applyPageAdvisorToolbarPosition(toolbar, originLeft + dx, originTop + dy);
+    };
+    const onUp = () => {
+      detachPageAdvisorDragListeners();
+      toolbar.classList.remove('taskplugin-page-advisor-dragging');
+    };
+    pageAdvisorDragActive = { card: toolbar, onMove, onUp };
+    document.addEventListener('mousemove', onMove, true);
+    document.addEventListener('mouseup', onUp, true);
+  });
+}

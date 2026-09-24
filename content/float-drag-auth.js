@@ -123,6 +123,7 @@ btn.addEventListener('click', async (e) => {
     openSnapshot = captureOpenSnapshot();
     syncFloatPanelFocusTrap();
   } else {
+    if (typeof clearFloatResult === 'function') clearFloatResult();
     syncFloatPanelFocusTrap();
   }
 });

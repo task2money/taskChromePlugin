@@ -301,4 +301,12 @@ describe('float-page-advisor dismiss wiring', () => {
       /taskplugin-page-advisor-dismiss[\s\S]*?addEventListener\("mousedown"[\s\S]*?stopPropagation/,
     );
   });
+
+  it('建议层挂上后绑定底栏拖动', () => {
+    const ui = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor.js'),
+      'utf8',
+    );
+    assert.match(ui, /bindPageAdvisorToolbarDrag\(document\.getElementById\("taskplugin-page-advisor-toolbar"\)\)/);
+  });
 });

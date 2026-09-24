@@ -320,6 +320,12 @@ describe('USER_GUIDE.md sync', () => {
     }
   });
 
+  it('documents toolbar drag and stock-notice dismiss', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
+    assert.match(src, /底栏顶部把手可拖动，双击回到底部居中/);
+    assert.match(src, /提示右侧 × 只关掉这条提示/);
+  });
+
   it('documents that 使用说明 is popup + DevTools only, not float panel', () => {
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /扩展弹窗/);

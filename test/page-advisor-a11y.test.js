@@ -76,6 +76,8 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     assert.match(src, /aria-describedby="taskplugin-page-advisor-hint"/);
     assert.match(src, /填入仅写入任务描述，不会自动创建任务/);
     assert.match(src, /taskplugin-page-advisor-safety-hint/);
+    assert.match(src, /taskplugin-page-advisor-toolbar-drag/);
+    assert.match(src, /paToolbarDragHandle/);
   });
 
   it("action buttons use explicit labels and titles", () => {

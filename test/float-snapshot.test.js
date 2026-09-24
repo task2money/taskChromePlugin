@@ -27,3 +27,15 @@ describe('float-snapshot 语法完整性（OPT-20260918-024 回归）', () => {
     assert.doesNotThrow(() => new vm.Script(src, { filename: 'content/float-snapshot.js' }));
   });
 });
+
+describe('float-snapshot 错误条可关闭', () => {
+  it('错误结果带 dismiss，clearFloatResult 清空节点', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'content', 'float-snapshot.js'),
+      'utf8',
+    );
+    assert.match(src, /function clearFloatResult\(/);
+    assert.match(src, /function appendFloatResultDismiss\(/);
+    assert.match(src, /taskplugin-result-dismiss/);
+  });
+});

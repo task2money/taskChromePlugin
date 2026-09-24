@@ -41,9 +41,7 @@ function hideFloatPanel() {
   if (typeof syncFloatPanelFocusTrap === 'function') syncFloatPanelFocusTrap();
   if (pickMode) setPickMode(false);
   if (adjustModal && !adjustModal.hidden) closeAdjustModal();
-  resultDiv.className = 'taskplugin-result';
-  resultDiv.textContent = '';
-  resultDiv.removeAttribute('data-traceId');
+  if (typeof clearFloatResult === 'function') clearFloatResult();
   if (btn && typeof btn.focus === 'function') btn.focus();
 }
 

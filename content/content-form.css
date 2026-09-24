@@ -148,6 +148,8 @@
   background: #89b4fa !important;
   color: #1e1e2e !important;
   border-color: #89b4fa !important;
+}
+#taskplugin-submit.taskplugin-btn-primary {
   width: 100% !important;
 }
 .taskplugin-btn-primary:hover {
@@ -167,7 +169,32 @@
   display: none !important;
 }
 .taskplugin-result.taskplugin-show {
-  display: block !important;
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+}
+.taskplugin-result-body {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+}
+.taskplugin-result-dismiss {
+  flex: 0 0 auto !important;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+}
+.taskplugin-result-dismiss:hover,
+.taskplugin-result-dismiss:focus-visible {
+  background: rgba(243, 139, 168, 0.2) !important;
 }
 .taskplugin-result-success {
   background: rgba(166, 227, 161, 0.15) !important;

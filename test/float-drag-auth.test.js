@@ -14,4 +14,12 @@ describe('float-drag-auth 不再隐式 resolveTaskOwner', () => {
     assert.doesNotMatch(src, /function resolveTaskOwner/);
     assert.doesNotMatch(src, /无法确定任务负责人/);
   });
+
+  it('悬浮球收起面板时清掉结果提示', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'content', 'float-drag-auth.js'),
+      'utf8',
+    );
+    assert.match(src, /clearFloatResult\(\)/);
+  });
 });

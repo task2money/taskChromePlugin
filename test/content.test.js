@@ -99,6 +99,10 @@ describe('content.js 浮窗面板顶部 × 仅关闭面板', () => {
     assert.match(contentCss, /#taskplugin-float-close\b/);
     assert.match(contentJs, /Anti-Replay-OK:\s*ui-only/);
   });
+
+  it('收起浮窗时清掉底部结果条', () => {
+    assert.match(contentJs, /function hideFloatPanel\(\)[\s\S]*clearFloatResult\(\)/);
+  });
 });
 
 describe('content.js 角标已登录与工作空间下拉不得分裂', () => {

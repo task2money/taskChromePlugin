@@ -181,6 +181,34 @@ function buildWorkBranchName(presetType) {
   return '';
 }
 
+function clearFloatResult() {
+  if (typeof resultDiv === 'undefined' || !resultDiv) return;
+  if (resultDiv._tcpClear) {
+    clearTimeout(resultDiv._tcpClear);
+    resultDiv._tcpClear = 0;
+  }
+  resultDiv.className = 'taskplugin-result';
+  resultDiv.replaceChildren();
+  resultDiv.removeAttribute('data-traceId');
+}
+
+function appendFloatResultDismiss(host) {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'taskplugin-result-dismiss';
+  const label = typeof tx === 'function' ? tx('floatDismissResult') : '关闭提示';
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
+  btn.textContent = '×';
+  btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    // Anti-Replay-OK: ui-only — 只关闭结果提示，不提交表单、不收起浮窗
+    clearFloatResult();
+  });
+  host.appendChild(btn);
+}
+
 function showResult(msg, type, traceId, parts) {
   if (resultDiv._tcpClear) {
     clearTimeout(resultDiv._tcpClear);
@@ -192,18 +220,22 @@ function showResult(msg, type, traceId, parts) {
     : msg;
   const linkable = parts && parts.kind === 'link' && /^https?:\/\//i.test(String(parts.href || ''));
   resultDiv.replaceChildren();
+  const body = document.createElement('div');
+  body.className = 'taskplugin-result-body';
   if (linkable) {
-    if (parts.before) resultDiv.appendChild(document.createTextNode(parts.before));
+    if (parts.before) body.appendChild(document.createTextNode(parts.before));
     const anchor = document.createElement('a');
     anchor.href = String(parts.href);
     anchor.target = '_blank';
     anchor.rel = 'noopener noreferrer';
     anchor.textContent = String(parts.linkText || '');
-    resultDiv.appendChild(anchor);
-    if (parts.after) resultDiv.appendChild(document.createTextNode(parts.after));
+    body.appendChild(anchor);
+    if (parts.after) body.appendChild(document.createTextNode(parts.after));
   } else {
-    resultDiv.textContent = text;
+    body.textContent = text;
   }
+  resultDiv.appendChild(body);
+  if (type === 'error') appendFloatResultDismiss(resultDiv);
   resultDiv.className = `taskplugin-result taskplugin-show taskplugin-result-${type}`;
   if (type === 'error') {
     setDataTraceId(resultDiv, traceId);
@@ -212,9 +244,7 @@ function showResult(msg, type, traceId, parts) {
   }
   if (linkable) return;
   resultDiv._tcpClear = setTimeout(() => {
-    resultDiv.className = 'taskplugin-result';
-    resultDiv.removeAttribute('data-traceId');
-    resultDiv._tcpClear = 0;
+    clearFloatResult();
   }, 6000);
 }
 

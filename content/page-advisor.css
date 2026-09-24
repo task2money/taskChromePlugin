@@ -123,6 +123,23 @@
   color: #a6adc8 !important;
   font-size: 12px !important;
 }
+.taskplugin-page-advisor-toolbar-drag {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  height: 18px !important;
+  margin: 0 0 6px !important;
+  cursor: grab !important;
+  user-select: none !important;
+  color: #6c7086 !important;
+  font-size: 11px !important;
+  letter-spacing: 2px !important;
+  border-radius: 6px !important;
+}
+.taskplugin-page-advisor-toolbar-drag:active,
+.taskplugin-page-advisor-toolbar.taskplugin-page-advisor-dragging .taskplugin-page-advisor-toolbar-drag {
+  cursor: grabbing !important;
+}
 .taskplugin-page-advisor-toolbar {
   position: fixed !important;
   left: 50% !important;
