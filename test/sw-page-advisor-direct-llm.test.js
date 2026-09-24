@@ -51,6 +51,7 @@ function loadSw(extra = {}) {
     'lib/page-advisor-fail-trace-id.js',
     'lib/page-advisor-llm-config.js',
     'lib/page-advisor-preset-skills.js',
+    'lib/page-advisor-prompt-skill-catalog.js',
     'lib/page-advisor-prompt-skills.js',
     'lib/page-advisor-locale-prompt.js',
     'lib/page-advisor-llm-client.js',
@@ -241,7 +242,9 @@ describe('sw-page-advisor direct LLM', () => {
       }
       return undefined;
     };
-    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: '', baseUrl: '', model: '' });
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: '', baseUrl: '', model: '', routeMode: 'saas',
+    });
     sandbox.PageAdvisorAPI.createSuggestJob = async (_t, b) => {
       body = b;
       return { job_id: 'j1', status: 'queued' };
@@ -370,7 +373,7 @@ describe('sw-page-advisor 直连补拉系统目录默认 Skill（OPT-20260922-03
     assert.equal(seenSkill.body, expected.body);
     assert.ok(saved, '须落盘供后续 Alt+Z 直接复用');
     assert.equal(saved.activeSkillId, expected.id);
-    assert.equal(saved.skills.length, 5, '预埋五类系统 Skill');
+    assert.equal(saved.skills.length, 1, '只预埋自动创新这一条');
   });
 
   it('本机已有 active：不重复拉目录', async () => {

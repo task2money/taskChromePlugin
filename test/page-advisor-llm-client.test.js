@@ -34,10 +34,10 @@ describe('PageAdvisorLlmConfig', () => {
     assert.ok(PageAdvisorLlmConfig.isDirectLlmReady(cfg));
   });
 
-  it('resolveRoute follows an explicit choice and otherwise the key', () => {
+  it('resolveRoute defaults to direct unless an explicit saas choice is saved', () => {
     const ready = { apiKey: 'k', baseUrl: 'https://x', model: 'm' };
     assert.equal(PageAdvisorLlmConfig.resolveRoute(ready), 'direct');
-    assert.equal(PageAdvisorLlmConfig.resolveRoute({}), 'saas');
+    assert.equal(PageAdvisorLlmConfig.resolveRoute({}), 'direct');
     assert.equal(PageAdvisorLlmConfig.resolveRoute({ ...ready, routeMode: 'saas' }), 'saas');
     assert.equal(PageAdvisorLlmConfig.resolveRoute({ routeMode: 'direct' }), 'direct');
   });

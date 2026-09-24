@@ -95,6 +95,19 @@ describe('Popup advisor heading', () => {
     const heading = section.slice(0, section.indexOf('<details'));
     assert.doesNotMatch(heading, /data-i18n="altZHint"/);
   });
+
+  it('调用方式默认直连并标注免费，平台后端标注消耗资源', () => {
+    const llm = llmSection();
+    assert.match(llm, /id="popupLlmRouteDirect"[^>]*\bchecked\b/);
+    assert.doesNotMatch(llm, /id="popupLlmRouteSaas"[^>]*\bchecked\b/);
+    const msg = i18nMessages();
+    assert.equal(msg.zh.paLlmRouteDirect, '直连我的 Key（免费）');
+    assert.equal(msg.zh.paLlmRouteSaas, '调用平台后端（消耗资源）');
+    assert.equal(msg.en.paLlmRouteDirect, 'Direct with my key (free)');
+    assert.equal(msg.en.paLlmRouteSaas, 'Platform backend (uses resources)');
+    assert.match(msg.zh.paSkillSectionHint, /预埋自动创新这一条技能/);
+    assert.match(msg.en.paSkillSectionHint, /Only the auto-innovate skill is preloaded/);
+  });
 });
 
 /**

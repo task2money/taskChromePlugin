@@ -48,7 +48,7 @@
       modelEl.value = cfg.model || '';
       const route = (typeof PageAdvisorLlmConfig.resolveRoute === 'function')
         ? PageAdvisorLlmConfig.resolveRoute(cfg)
-        : 'saas';
+        : 'direct';
       const direct = $('#popupLlmRouteDirect');
       const saas = $('#popupLlmRouteSaas');
       if (direct) direct.checked = route === 'direct';

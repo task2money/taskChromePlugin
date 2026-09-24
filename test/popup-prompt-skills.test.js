@@ -32,6 +32,7 @@ const {
 
 const popupHtml = fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 const skillsPresetSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-preset-skills.js'), 'utf8');
+const skillsCatalogSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skill-catalog.js'), 'utf8');
 const skillsRuntimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const popupSkillUiSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-ui.js'), 'utf8');
 const popupSkillSessionSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-session.js'), 'utf8');
@@ -156,6 +157,7 @@ function bootPopup({
   vm.createContext(sandbox);
   installTxInSandbox(sandbox);
   vm.runInContext(skillsPresetSrc, sandbox, { filename: 'lib/page-advisor-preset-skills.js' });
+  vm.runInContext(skillsCatalogSrc, sandbox, { filename: 'lib/page-advisor-prompt-skill-catalog.js' });
   vm.runInContext(skillsRuntimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(popupSkillUiSrc, sandbox, { filename: 'popup/popup-prompt-skill-ui.js' });
   vm.runInContext(popupSkillSessionSrc, sandbox, { filename: 'popup/popup-prompt-skill-session.js' });
@@ -230,7 +232,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     const written = ctx.lastSet();
     assert.equal(written.pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
     assert.equal(written.pageAdvisorPromptSkills.filter((s) => s.title === '严谨排障').length, 1);
-    assert.equal(written.pageAdvisorPromptSkills.length, 6);
+    assert.equal(written.pageAdvisorPromptSkills.length, 2);
   });
 
   it('切换 active radio 后 saveToStorage 写入新 pageAdvisorActiveSkillId', async () => {
@@ -294,7 +296,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     await flushAll();
     assert.equal(skillRowByTitle(ctx.byId.popupSkillList, /待删/), undefined);
     assert.equal(ctx.lastSet().pageAdvisorPromptSkills.some((s) => s.title === '待删'), false);
-    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 5);
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 1);
   });
 
   it('保存携带 GET 回传的 revision 作为 base_revision（CAS 接线）', async () => {
@@ -577,10 +579,11 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.equal(categoryPicks(ctx.byId.popupSkillList).length, 5);
     assert.equal(skillRows(ctx.byId.popupSkillList).length, 0, '未选类别前不展示预埋技能');
     openCategory(ctx.byId.popupSkillList, 'a11y');
-    assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认·无障碍/));
+    assert.equal(skillRows(ctx.byId.popupSkillList).length, 0, '无障碍类别不再预埋技能');
     backToCategories(ctx.byId.popupSkillList);
     openCategory(ctx.byId.popupSkillList, 'custom');
     assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认自动创新/));
+    assert.equal(rowRadio(skillRowByTitle(ctx.byId.popupSkillList, /系统默认自动创新/)).checked, true);
   });
 
   it('登录后拉取管理员新空间默认并选中', async () => {
@@ -610,7 +613,7 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.equal(categoryPicks(list).length, 5);
     assert.equal(skillRows(list).length, 0);
     openCategory(list, 'a11y');
-    assert.ok(skillRowByTitle(list, /系统默认·无障碍/));
+    assert.equal(skillRows(list).length, 0);
     backToCategories(list);
     openCategory(list, 'custom');
     const custom = skillRowByTitle(list, /系统默认自动创新/);
@@ -709,7 +712,7 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
       ctx.lastSet().pageAdvisorPromptSkills.find((s) => s.id === 'sys_default_auto_innovate').body,
       'new',
     );
-    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 5);
+    assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 1);
   });
 
   it('T6 未登录保存只落本机、不 PUT', async () => {

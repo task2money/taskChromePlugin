@@ -16,6 +16,7 @@ const ROOT = path.join(__dirname, '..');
 const { installTxInSandbox } = require('./helpers/txRuntime.js');
 
 const presetSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-preset-skills.js'), 'utf8');
+const catalogSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skill-catalog.js'), 'utf8');
 const runtimeSrc = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-prompt-skills.js'), 'utf8');
 const cloudSrc = fs.readFileSync(path.join(ROOT, 'popup/popup-prompt-skill-cloud.js'), 'utf8');
 
@@ -33,6 +34,7 @@ function boot({ api }) {
   vm.createContext(sandbox);
   installTxInSandbox(sandbox);
   vm.runInContext(presetSrc, sandbox, { filename: 'lib/page-advisor-preset-skills.js' });
+  vm.runInContext(catalogSrc, sandbox, { filename: 'lib/page-advisor-prompt-skill-catalog.js' });
   vm.runInContext(runtimeSrc, sandbox, { filename: 'lib/page-advisor-prompt-skills.js' });
   vm.runInContext(cloudSrc, sandbox, { filename: 'popup/popup-prompt-skill-cloud.js' });
   return sandbox;

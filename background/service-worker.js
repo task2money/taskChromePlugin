@@ -40,6 +40,7 @@ importScripts(
   '../lib/page-advisor-fail-trace-id.js',
   '../lib/page-advisor-llm-config.js',
   '../lib/page-advisor-preset-skills.js',
+  '../lib/page-advisor-prompt-skill-catalog.js',
   '../lib/page-advisor-prompt-skills.js',
   '../lib/page-advisor-locale-prompt.js',
   '../lib/page-advisor-llm-client.js',

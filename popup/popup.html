@@ -65,7 +65,7 @@
         <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span> <kbd class="llm-shortcut" data-i18n="altZDefaults">Alt+Shift+Z</kbd></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连使用本机 Key，不扣平台次数；调用平台后端时，成功出建议扣 1 次自动创新。密钥只保存在本机。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」填写 API Key。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 为免费；调用平台后端会消耗资源。未选择时默认直连。密钥只保存在本机。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」填写 API Key。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。</p>
         </details>
         <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
@@ -73,12 +73,12 @@
       <fieldset class="form-row" id="popupLlmRouteField">
         <legend data-i18n="paLlmRouteLegend">调用方式</legend>
         <label class="llm-route-option">
-          <input type="radio" name="popupLlmRoute" id="popupLlmRouteDirect" value="direct">
-          <span data-i18n="paLlmRouteDirect">直连我的 Key（不扣平台次数）</span>
+          <input type="radio" name="popupLlmRoute" id="popupLlmRouteDirect" value="direct" checked>
+          <span data-i18n="paLlmRouteDirect">直连我的 Key（免费）</span>
         </label>
         <label class="llm-route-option">
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
-          <span data-i18n="paLlmRouteSaas">调用平台后端（成功扣 1 次）</span>
+          <span data-i18n="paLlmRouteSaas">调用平台后端（消耗资源）</span>
         </label>
       </fieldset>
       <div id="pageAdvisorLlmFields" style="display:none" hidden>
@@ -104,7 +104,7 @@
         <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill（倾向）</span></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paSkillSectionHint">点「设置」管理 Skill。已保存的 Skill 先选择类别（无障碍/转化/性能/SEO/自定义），再直接选择该类别里的技能。想自定义时点「新建」。未登录也会预埋系统管理页平台目录那五条（只读，正文与目录页一致）。每条可只存本机，或同步到指定工作空间（该空间成员可见可改）。选中后仅在直连智能体时追加到系统提示（Alt+Z 整页与 Alt+Shift+Z 区域都走直连）；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paSkillSectionHint">点「设置」管理 Skill。已保存的 Skill 先选择类别（无障碍/转化/性能/SEO/自定义），再直接选择该类别里的技能。想自定义时点「新建」。未登录也会预埋自动创新这一条技能（只读，默认选中）。每条可只存本机，或同步到指定工作空间（该空间成员可见可改）。选中后仅在直连智能体时追加到系统提示（Alt+Z 整页与 Alt+Shift+Z 区域都走直连）；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
         </details>
         <button type="button" id="btnToggleSkillSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorSkillFields" aria-expanded="false" data-i18n-aria-label="paSkillSettingsAria" aria-label="打开提示词 Skill 管理">⚙️ <span data-i18n="paSkillSettings">设置</span></button>
       </div>
@@ -311,6 +311,7 @@
   <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-llm-settings-ui.js"></script>
   <script src="../lib/page-advisor-preset-skills.js"></script>
+  <script src="../lib/page-advisor-prompt-skill-catalog.js"></script>
   <script src="../lib/page-advisor-prompt-skills.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="popup-llm-config.js"></script>

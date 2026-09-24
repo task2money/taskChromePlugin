@@ -96,7 +96,7 @@ async function loadPageAdvisorDirectReady() {
   }
   const hasCfg = typeof PageAdvisorLlmConfig !== 'undefined';
   const route = (hasCfg && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
-    ? PageAdvisorLlmConfig.resolveRoute(llmCfg) : 'saas';
+    ? PageAdvisorLlmConfig.resolveRoute(llmCfg) : 'direct';
   const keyReady = hasCfg && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
     && typeof PageAdvisorLLM !== 'undefined' && typeof PageAdvisorLLM.suggest === 'function';
   const directReady = route === 'direct' && keyReady;
