@@ -57,6 +57,35 @@ describe('hardware stock query', () => {
     assert.match(pathName, /spot_strategy=NoSpot/);
     assert.match(pathName, /zone_id=cn-qingdao-b/);
     assert.match(pathName, /container_image_id=img-1/);
+    assert.match(pathName, /IoOptimized=optimized/);
+    assert.match(pathName, /SystemDiskCategory=cloud_essd/);
+    assert.match(pathName, /NetworkCategory=vpc/);
+  });
+
+  it('keeps the hardware panel disk and spot filters on the stock query', () => {
+    const template = {
+      ...project.server_run_template,
+      selected_instance: 'ecs.e-c1m4.xlarge',
+      filter_options: {
+        io_optimized: true,
+        system_disk_category: 'cloud_essd',
+        data_disk_category: '',
+        spot_strategy: 'SpotAsPriceGo',
+        network_category: 'vpc',
+      },
+    };
+    const target = Stock.stockQueryTargetFromTemplate(template, project);
+    const pathName = Stock.buildRunHardwareStockPath(
+      target,
+      'ten-1',
+      '',
+      Stock.stockBillingParams(template),
+    );
+    assert.match(pathName, /InstanceType=ecs\.e-c1m4\.xlarge/);
+    assert.match(pathName, /spot_strategy=SpotAsPriceGo/);
+    assert.match(pathName, /IoOptimized=optimized/);
+    assert.doesNotMatch(pathName, /DataDiskCategory=/);
+    assert.doesNotMatch(pathName, /spot_strategy=NoSpot/);
   });
 
   it('treats a listed instance type as in stock and a missing one as out of stock', () => {
