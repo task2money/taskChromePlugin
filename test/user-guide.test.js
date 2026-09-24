@@ -142,8 +142,8 @@ describe('UserGuide sections', () => {
     assert.match(blob, /API Key/);
     assert.match(blob, /点「设置」/);
     assert.match(blob, /免费/);
-    assert.match(blob, /消耗资源/);
-    assert.match(blob, /调用平台后端/);
+    assert.match(blob, /调用平台后端（须登录）/);
+    assert.doesNotMatch(blob, /消耗资源/);
     assert.match(blob, /提示词 Skill/);
     assert.match(blob, /未登录也可/);
     assert.match(blob, /未登录时 Skill 只存本机/);
@@ -153,8 +153,8 @@ describe('UserGuide sections', () => {
     assert.match(md, /自动创新智能体/);
     assert.match(md, /点 \*\*「设置」\*\*/);
     assert.match(md, /免费/);
-    assert.match(md, /消耗资源/);
-    assert.match(md, /调用平台后端/);
+    assert.match(md, /调用平台后端\*\*（须登录）/);
+    assert.doesNotMatch(md, /消耗资源/);
     assert.match(md, /未登录也可/);
     assert.match(md, /未登录时 Skill 只存本机/);
     assert.match(md, /预埋自动创新这一条技能/);
