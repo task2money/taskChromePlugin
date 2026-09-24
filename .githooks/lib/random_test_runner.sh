@@ -89,6 +89,90 @@ rt_repo_type() {
 }
 
 # ---------------------------------------------------------------------------
+# MySQL 测试跨进程互斥（OPT-20260823-020）
+# ---------------------------------------------------------------------------
+# 背景: crontab 夜间 sweep 与多个 /goal 会话的 pre-commit 会并发对同一
+#       docker-mysql 跑 go test，DDL/fsync 打满 CPU（LRN-20260823-001）。
+#       用共享 flock 串行化所有打 MySQL 的 Go 测试进程（CLI sweep / pre-commit /
+#       手动 /goal 共用同一把锁 logs/.mysql-gotest.lock）。
+# 行为: 获取锁成功 → 运行命令并保留退出码；等待超时仍未获取 → WARN + 跳过
+#       （返回 0，不阻断提交 / 不并行 CREATE TABLE）。
+# 开关: RT_MYSQL_TEST_LOCK=0 显式关闭；等待上限 RT_MYSQL_TEST_LOCK_TIMEOUT
+#       （默认 300s）；RT_MYSQL_TEST_LOCK_PATH 显式覆盖锁文件（自测用）。
+RT_MYSQL_TEST_LOCK="${RT_MYSQL_TEST_LOCK:-1}"
+RT_MYSQL_TEST_LOCK_TIMEOUT="${RT_MYSQL_TEST_LOCK_TIMEOUT:-300}"
+
+rt_mysql_test_lock_path() {
+    local p="${RT_MYSQL_TEST_LOCK_PATH:-}"
+    if [ -n "$p" ]; then echo "$p"; return 0; fi
+    local root
+    root="$(git rev-parse --show-superproject-working-tree 2>/dev/null || true)"
+    if [ -n "$root" ] && [ -d "$root/logs" ]; then
+        echo "$root/logs/.mysql-gotest.lock"; return 0
+    fi
+    local d
+    d="$(pwd)"
+    while [ "$d" != "/" ]; do
+        if [ -d "$d/logs" ] && { [ -d "$d/.git" ] || [ -f "$d/.git" ]; }; then
+            echo "$d/logs/.mysql-gotest.lock"; return 0
+        fi
+        d="$(dirname "$d")"
+    done
+    return 1
+}
+
+# OPT-20260918-003：记录获得锁前的等待秒数，避免夜检把「等锁」误标为「挂死」。
+# - stderr 行：RT_LOCK_WAIT_SEC=<n>（获得锁后或等锁失败时）
+# - 可选 RT_LOCK_WAIT_FILE：先写 start=<epoch>，成功后再写 sec=<n>（TimeoutExpired 时可估等待）
+rt_mysql_test_lock_write_start() {
+    local f="${RT_LOCK_WAIT_FILE:-}"
+    [ -n "$f" ] || return 0
+    printf 'start=%s\n' "$(date +%s)" > "$f" || true
+}
+
+rt_mysql_test_lock_write_sec() {
+    local sec="$1"
+    local f="${RT_LOCK_WAIT_FILE:-}"
+    echo "RT_LOCK_WAIT_SEC=${sec}" >&2
+    [ -n "$f" ] || return 0
+    {
+        printf 'start=%s\n' "${_RT_LOCK_WAIT_START:-$(date +%s)}"
+        printf 'sec=%s\n' "$sec"
+    } > "$f" || true
+}
+
+rt_mysql_test_lock_run() {
+    local cmd="$1"
+    if [ "${RT_MYSQL_TEST_LOCK:-1}" = "0" ]; then
+        eval "$cmd"; return $?
+    fi
+    local lock
+    lock="$(rt_mysql_test_lock_path 2>/dev/null || true)"
+    if [ -z "$lock" ] || ! command -v flock >/dev/null 2>&1; then
+        eval "$cmd"; return $?
+    fi
+    local ldir
+    ldir="$(dirname "$lock")"
+    if [ -n "$ldir" ]; then mkdir -p "$ldir" 2>/dev/null || true; fi
+    (
+        _RT_LOCK_WAIT_START="$(date +%s)"
+        export _RT_LOCK_WAIT_START
+        rt_mysql_test_lock_write_start
+        flock -w "$RT_MYSQL_TEST_LOCK_TIMEOUT" 9
+        if [ $? -ne 0 ]; then
+            local waited=$(( $(date +%s) - _RT_LOCK_WAIT_START ))
+            rt_mysql_test_lock_write_sec "$waited"
+            echo "WARN: MySQL test lock busy (${lock}) after ${RT_MYSQL_TEST_LOCK_TIMEOUT}s — skip go test to avoid DDL/fsync storm (OPT-20260823-020)" >&2
+            exit 0
+        fi
+        local waited=$(( $(date +%s) - _RT_LOCK_WAIT_START ))
+        rt_mysql_test_lock_write_sec "$waited"
+        eval "$cmd"
+    ) 9> "$lock"
+    return $?
+}
+
+# ---------------------------------------------------------------------------
 # Go 收集 / 运行
 # ---------------------------------------------------------------------------
 
@@ -140,9 +224,16 @@ rt_go_dir_has_tests() {
 rt_go_run_dir() {
     local dir="$1" output
     export KAFKA_SKIP_NETTEST=1
+    # 与各仓 .githooks/lib/random_test_runner.sh 对齐（OPT-20260919-002）：
+    # go test 默认注入的 10m 内部闹钟会早于外部预算触发 —— 夜检给
+    # taskCloudService 的预算已放宽到 900s（OPT-20260917-008），却仍以
+    # `panic: test timed out after 10m0s` 被杀，即「预算是够的、闹钟定早了」。
+    # 内部超时只需大于外部预算，真正的上限始终由外层 timeout 兜底；
+    # 可用 PRECOMMIT_GO_TIMEOUT 覆盖。
+    local go_timeout="${PRECOMMIT_GO_TIMEOUT:-45m}"
     if [ "$dir" = "." ]; then
-        echo "Running: go test -count=1 ."
-        output="$(go test -count=1 . 2>&1)" || {
+        echo "Running: go test -count=1 -timeout ${go_timeout} ."
+        output="$(rt_mysql_test_lock_run "go test -count=1 -timeout ${go_timeout} ." 2>&1)" || {
             if echo "$output" | grep -q 'matched no packages'; then
                 echo "Skipping ${dir}: no packages to test (build tags)"
                 return 0
@@ -151,12 +242,12 @@ rt_go_run_dir() {
             return 1
         }
     else
-        echo "Running: go test -count=1 ${dir}/..."
-        output="$(go test -count=1 "${dir}/..." 2>&1)" || {
+        echo "Running: go test -count=1 -timeout ${go_timeout} ${dir}/..."
+        output="$(rt_mysql_test_lock_run "go test -count=1 -timeout ${go_timeout} ${dir}/..." 2>&1)" || {
             if echo "$output" | grep -qE 'cannot find main module|does not contain main module'; then
                 # 多模块仓: 在目录内运行
                 echo "Multi-module repo — running inside ${dir}"
-                output="$( (cd "${dir#./}" && go test -count=1 ./...) 2>&1)" || {
+                output="$(rt_mysql_test_lock_run "(cd \"${dir#./}\" && go test -count=1 -timeout ${go_timeout} ./...)" 2>&1)" || {
                     if echo "$output" | grep -q 'matched no packages'; then
                         echo "Skipping ${dir}: no packages to test (build tags)"
                         return 0
@@ -338,6 +429,53 @@ rt_self_test() {
     d="$(rt_go_dir_for_file "src/foo_test.go")" || true
     [ "$d" = "./src" ] || { echo "  FAIL: dir_for_file src → $d"; fails=$((fails+1)); }
     d="$(rt_go_dir_for_file "README.md" 2>/dev/null)" && { echo "  FAIL: non-go file must fail"; fails=$((fails+1)); }
+
+    echo "== rt_mysql_test_lock_run (free lock → cmd runs) =="
+    local tmplock out2
+    tmplock="$(mktemp)"
+    out2="$(RT_MYSQL_TEST_LOCK_PATH="$tmplock" rt_mysql_test_lock_run "echo RUN_OK" 2>&1)"
+    echo "$out2" | grep -q "RUN_OK" || { echo "  FAIL: free lock did not run cmd: $out2"; fails=$((fails+1)); }
+    if RT_MYSQL_TEST_LOCK_PATH="$tmplock" rt_mysql_test_lock_run "return 7"; then
+        echo "  FAIL: expected non-zero exit from cmd"; fails=$((fails+1))
+    else
+        echo "  ok: non-zero exit propagates"
+    fi
+    rm -f "$tmplock"
+
+    echo "== rt_mysql_test_lock_run (lock held → skip, no parallel run) =="
+    tmplock="$(mktemp)"
+    local marker holder out3
+    marker="$(mktemp)"
+    (
+        flock 8
+        echo acquired > "$marker"
+        sleep 3
+    ) 8> "$tmplock" &
+    holder=$!
+    # 等待 holder 真正持锁，避免竞态误判
+    for _ in $(seq 1 50); do
+        [ -s "$marker" ] && break
+        sleep 0.1
+    done
+    out3="$(RT_MYSQL_TEST_LOCK_PATH="$tmplock" RT_MYSQL_TEST_LOCK_TIMEOUT=1 rt_mysql_test_lock_run "echo MUST_NOT_RUN" 2>&1)"
+    if echo "$out3" | grep -q "WARN: MySQL test lock busy"; then
+        echo "  ok: skipped on busy lock"
+    else
+        echo "  FAIL: expected skip-on-busy, got: $out3"; fails=$((fails+1))
+    fi
+    if echo "$out3" | grep -q "MUST_NOT_RUN"; then
+        echo "  FAIL: cmd ran while lock held"; fails=$((fails+1))
+    fi
+    wait "$holder"
+    rm -f "$tmplock" "$marker"
+
+    echo "== rt_mysql_test_lock_path =="
+    local lp
+    lp="$(RT_MYSQL_TEST_LOCK_PATH="" rt_mysql_test_lock_path 2>/dev/null || true)"
+    case "$lp" in
+        */logs/.mysql-gotest.lock) echo "  ok: lock path resolved: $lp" ;;
+        *) echo "  FAIL: lock path unexpected: '$lp'"; fails=$((fails+1)) ;;
+    esac
 
     if [ "$fails" -eq 0 ]; then echo "SELF-TEST PASS ✅ (rt ${RT_VERSION})"; else echo "SELF-TEST FAIL: $fails" >&2; return 1; fi
 }
