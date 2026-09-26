@@ -1,0 +1,148 @@
+/* === Popup 使用说明 / 快捷键 / a11y 样式 === */
+/* 自 popup.css 拆出以满足 500 行门禁（OPT-20260927-001）；由 popup/popup.html 在 popup.css 之后加载。 */
+
+/* === User Guide (UserGuide SSOT) === */
+.tcp-guide-host { font-size: 11px; color: #a6adc8; }
+.tcp-guide-root,
+.tcp-guide-section {
+  background: #181825; border: 1px solid #313244; border-radius: 6px;
+  margin-bottom: 6px; overflow: hidden;
+}
+.tcp-guide-root-summary,
+.tcp-guide-summary {
+  cursor: pointer; padding: 8px 10px; font-weight: 600; color: #89b4fa;
+  font-size: 11px; list-style: none;
+}
+.tcp-guide-root-summary::-webkit-details-marker,
+.tcp-guide-summary::-webkit-details-marker { display: none; }
+.tcp-guide-body { padding: 0 6px 6px; }
+.tcp-guide-steps {
+  margin: 0 0 0 16px; padding: 0 8px 8px 0;
+  font-size: 10px; line-height: 1.45; color: #cdd6f4;
+}
+.tcp-guide-steps li { margin-bottom: 3px; }
+
+/* === DevTools Guide === */
+.devtools-guide {
+  background: linear-gradient(135deg, #1e2030, #282840);
+  border: 1px solid #89b4fa; border-radius: 8px;
+  padding: 12px; text-align: center;
+}
+.guide-icon { font-size: 28px; margin-bottom: 6px; }
+.guide-text strong { font-size: 13px; color: #89b4fa; display: block; margin-bottom: 4px; }
+.guide-text p { font-size: 11px; color: #bac2de; margin: 0; line-height: 1.4; }
+.guide-steps {
+  margin-top: 10px; display: flex; flex-direction: column; gap: 4px;
+  text-align: left;
+}
+.guide-steps .step {
+  font-size: 10px; color: #a6adc8; line-height: 1.5;
+}
+.guide-steps .step kbd {
+  background: #45475a; color: #cdd6f4; padding: 1px 5px;
+  border-radius: 3px; font-family: 'SF Mono', monospace; font-size: 9px;
+}
+
+/* === Shortcuts Section === */
+.shortcuts-section h3 { margin-bottom: 6px; }
+/* 快捷键折叠标题：按钮右对齐，默认收起点击展开 */
+.shortcuts-title {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.shortcuts-list { display: flex; flex-direction: column; gap: 4px; }
+.shortcut-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 8px; background: #181825; border-radius: 5px;
+  border: 1px solid #313244;
+}
+.shortcut-item kbd {
+  display: inline-block; min-width: 90px; text-align: center;
+  background: #45475a; color: #cdd6f4; padding: 2px 6px;
+  border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.5px;
+  border-bottom: 2px solid #585b70; flex-shrink: 0;
+}
+.shortcut-desc {
+  font-size: 11px; color: #a6adc8; line-height: 1.3;
+}
+.shortcuts-hint {
+  margin-top: 8px; font-size: 10px; color: #6c7086;
+  line-height: 1.4; text-align: center;
+}
+.shortcuts-hint kbd {
+  background: #45475a; color: #cdd6f4; padding: 1px 5px;
+  border-radius: 3px; font-family: 'SF Mono', monospace; font-size: 9px;
+}
+/* 元素拾取快捷键选择 */
+.shortcut-choice {
+  margin-top: 8px; padding: 6px 8px;
+  background: #181825; border: 1px solid #313244; border-radius: 5px;
+}
+.shortcut-choice-title {
+  margin: 0 0 5px; font-size: 10px; color: #a6adc8;
+}
+.radio-label {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 0; font-size: 11px; color: #bac2de;
+  cursor: pointer;
+}
+.radio-label kbd {
+  display: inline-block; min-width: 90px; text-align: center;
+  background: #45475a; color: #cdd6f4; padding: 2px 6px;
+  border-radius: 4px; font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px; font-weight: 600; border-bottom: 2px solid #585b70;
+}
+.shortcut-choice-note {
+  margin: 5px 0 0; font-size: 9px; color: #6c7086; line-height: 1.4;
+}
+.shortcut-custom-row {
+  display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;
+}
+.shortcut-custom-row kbd {
+  font-size: 11px; padding: 3px 8px;
+}
+#pickShortcutCaptureHint {
+  color: #fab387;
+}
+#pickShortcutResult.ok { color: #a6e3a1; }
+#pickShortcutResult.err { color: #f38ba8; }
+
+/* 使用说明 a11y（popup 挂载 UserGuide） */
+#popup-user-guide .tcp-guide-root-summary,
+#popup-user-guide .tcp-guide-close {
+  display: inline-flex; align-items: center;
+  background: #313244; color: #cdd6f4;
+  border: 1px solid #45475a; border-radius: 6px;
+  padding: 6px 10px; font-size: 12px; cursor: pointer;
+}
+#popup-user-guide .tcp-guide-root-summary:focus,
+#popup-user-guide .tcp-guide-close:focus {
+  outline: 2px solid #89b4fa; outline-offset: 1px;
+}
+#popup-user-guide .tcp-guide-body[hidden] { display: none; }
+#popup-user-guide .tcp-guide-body {
+  margin-top: 8px; padding: 8px;
+  background: #181825; border: 1px solid #313244; border-radius: 8px;
+  max-height: 320px; overflow: auto;
+}
+#popup-user-guide .tcp-guide-heading { margin: 10px 0 4px; font-size: 12px; color: #cdd6f4; }
+#popup-user-guide .tcp-guide-steps { margin: 0 0 8px 1.1em; padding: 0; font-size: 11px; color: #a6adc8; }
+#popup-user-guide .tcp-guide-kbd {
+  display: inline-block; background: #45475a; color: #cdd6f4;
+  padding: 1px 5px; border-radius: 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px;
+  border-bottom: 2px solid #585b70;
+}
+#popup-user-guide .tcp-guide-shortcut-table {
+  width: 100%; border-collapse: collapse; font-size: 11px; color: #a6adc8; margin-bottom: 8px;
+}
+#popup-user-guide .tcp-guide-shortcut-table th,
+#popup-user-guide .tcp-guide-shortcut-table td {
+  border: 1px solid #313244; padding: 4px 6px; text-align: left; vertical-align: top;
+}
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+
+/* Dark popup: default browser link blue/purple is unreadable on #1e1e2e */

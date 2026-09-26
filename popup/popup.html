@@ -5,6 +5,7 @@
   <meta name="trae-service" content="taskChromePlugin" />
   <title data-i18n="extTitle">云端Coding: 自动创新助手</title>
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="popup-guide.css">
   <link rel="stylesheet" href="../lib/plugin-version.css">
 </head>
 <body>
@@ -28,7 +29,7 @@
           </select>
         </label>
         <span id="popupStatus" class="badge badge-disconnected" data-i18n="statusLoading">加载中...</span>
-        <button type="button" id="btnToggleLogin" class="btn btn-sm btn-primary" style="display:none" aria-controls="loginSection" aria-expanded="false" data-i18n="login">登录</button>
+        <button type="button" id="btnToggleLogin" class="btn btn-sm btn-primary heading-sm" style="display:none" aria-controls="loginSection" aria-expanded="false" data-i18n="login">登录</button>
       </div>
     </header>
 
@@ -68,9 +69,9 @@
           <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 为免费。未选择时默认直连。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」新增或修改一组。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。</p>
         </details>
-        <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
+        <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary heading-sm" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
         <!-- Anti-Replay-OK: external navigation -->
-        <a id="lnkIdleMarket" href="https://www.aidevpush.com/friend-links/#idle-market" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket" style="font-size:10px;white-space:nowrap;flex-shrink:0">闲置集市</a>
+        <a id="lnkIdleMarket" class="heading-sm" href="https://www.aidevpush.com/friend-links/#idle-market" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket">闲置集市</a>
       </div>
       <fieldset class="form-row" id="popupLlmRouteField">
         <legend data-i18n="paLlmRouteLegend">调用方式</legend>
@@ -119,7 +120,7 @@
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
           <p class="float-ball-hint" data-region-help="1" data-i18n="paSkillSectionHint">点「设置」管理 Skill。已保存的 Skill 先选择类别（无障碍/转化/性能/SEO/自定义），再直接选择该类别里的技能。想自定义时点「新建」。未登录也会预埋自动创新这一条技能（只读，默认选中）。每条可只存本机，或同步到指定工作空间（该空间成员可见可改）。选中后仅在直连智能体时追加到系统提示（Alt+Z 整页与 Alt+Shift+Z 区域都走直连）；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
         </details>
-        <button type="button" id="btnToggleSkillSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorSkillFields" aria-expanded="false" data-i18n-aria-label="paSkillSettingsAria" aria-label="打开提示词 Skill 管理">⚙️ <span data-i18n="paSkillSettings">设置</span></button>
+        <button type="button" id="btnToggleSkillSettings" class="btn btn-sm btn-primary heading-sm" aria-controls="pageAdvisorSkillFields" aria-expanded="false" data-i18n-aria-label="paSkillSettingsAria" aria-label="打开提示词 Skill 管理">⚙️ <span data-i18n="paSkillSettings">设置</span></button>
       </div>
       <p id="popupSkillActiveSummary" class="hint"></p>
       <div id="pageAdvisorSkillFields" style="display:none" hidden>
