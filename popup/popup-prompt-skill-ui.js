@@ -365,6 +365,25 @@
       if (el) el.disabled = Boolean(skill?.readonly) || ro;
     });
     setEditorVisible(true);
+    // OPT-20260926-010：Popup 失焦即卸载，把未保存的正文从本机草稿回填到编辑框。
+    restoreSkillDraft(skill?.id || '');
+  }
+
+  /** 草稿只回填它所属的编辑目标；读取失败保持表单原样。 */
+  async function restoreSkillDraft(skillId) {
+    const D = typeof PageAdvisorSkillDraft !== 'undefined' ? PageAdvisorSkillDraft : null;
+    if (!D || typeof D.loadDraftFromStorage !== 'function') return;
+    let draft = null;
+    try {
+      draft = await D.loadDraftFromStorage();
+    } catch (_) {
+      return;
+    }
+    if (!D.shouldRestoreDraft(draft, skillId)) return;
+    const q = (id) => document.querySelector(id);
+    if (q('#popupSkillTitle')) q('#popupSkillTitle').value = draft.title;
+    if (q('#popupSkillTendency')) q('#popupSkillTendency').value = draft.tendency;
+    if (q('#popupSkillBody')) q('#popupSkillBody').value = draft.body;
   }
 
   const PopupPromptSkillUi = {

@@ -108,6 +108,25 @@
     return s ? s.defaultSyncTarget(lastKnownWorkspaceId, syncLocalValue()) : (lastKnownWorkspaceId || syncLocalValue());
   }
 
+  // OPT-20260926-010：未保存的 Skill 正文落本机草稿（与 pageAdvisorLlmDraft 分开），
+  // 离开弹窗去复制内容后回来仍在；绝不能写进已保存/已同步的 Skill 记录。
+  function persistSkillDraft() {
+    const D = typeof PageAdvisorSkillDraft !== 'undefined' ? PageAdvisorSkillDraft : null;
+    if (!D || typeof D.saveDraftToStorage !== 'function') return Promise.resolve();
+    return D.saveDraftToStorage({
+      skillId: $('#popupSkillEditingId')?.value || '',
+      title: $('#popupSkillTitle')?.value || '',
+      tendency: $('#popupSkillTendency')?.value || '',
+      body: $('#popupSkillBody')?.value || '',
+    }).catch(() => {});
+  }
+
+  function clearSkillDraft() {
+    const D = typeof PageAdvisorSkillDraft !== 'undefined' ? PageAdvisorSkillDraft : null;
+    if (!D || typeof D.clearDraftFromStorage !== 'function') return Promise.resolve();
+    return D.clearDraftFromStorage().catch(() => {});
+  }
+
   function fillEditor(skill) {
     const SkillUi = globalThis.PopupPromptSkillUi;
     if (!SkillUi) return;
@@ -337,6 +356,8 @@
         const localOnly = shown.syncTarget === syncLocalValue();
         statusText(localOnly ? tx('paSkillSavedLocal') : tx('paSkillSaved'));
         setEditorVisible(false);
+        // 正文已落库，草稿使命结束；留着会让下次编辑回填过期正文
+        await clearSkillDraft();
       }
     } catch (e) {
       statusText(e?.message || tx('popupSaveFailed'));
@@ -425,6 +446,11 @@
     }
     const save = $('#btnSkillSave');
     if (save) save.addEventListener('click', () => { saveSkill().catch(() => {}); });
+    // 每次输入即落草稿，无需用户手动保存即可在重开弹窗后继续编辑
+    for (const sel of ['#popupSkillTitle', '#popupSkillTendency', '#popupSkillBody']) {
+      const el = $(sel);
+      if (el) el.addEventListener('input', () => { persistSkillDraft(); });
+    }
     const neu = $('#btnSkillNew');
     // Anti-Replay-OK: ui-only empty editor, no HTTP until save.
     if (neu) neu.addEventListener('click', () => fillEditor(null));
