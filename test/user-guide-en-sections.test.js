@@ -19,6 +19,7 @@ describe('user-guide-en-sections', () => {
     const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
     const blob = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
     assert.match(blob, /Only the auto-innovate skill is preloaded even while signed out/);
+    assert.match(blob, /Leaving the popup to copy the next field keeps unsaved text/);
     assert.match(blob, /Do not apply/);
   });
 

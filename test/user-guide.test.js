@@ -26,6 +26,8 @@ describe('UserGuide sections', () => {
     assert.ok(section, 'missing region section');
     const blob = (section.steps || []).join('\n');
     assert.match(blob, /单击|点击.*元素/);
+    const direct = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
+    assert.match((direct.steps || []).join('\n'), /离开弹窗去复制下一项/);
     assert.match(blob, /悬停|Alt\+X/);
     assert.doesNotMatch(blob, /拖拽画出矩形|拖拽框选/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');

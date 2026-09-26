@@ -105,6 +105,52 @@
     };
   }
 
+  function currentDraftPayload() {
+    return {
+      profileId: $('#popupLlmProfileSelect')?.value || '',
+      label: $('#popupLlmProfileName')?.value || '',
+      apiKey: $('#popupLlmApiKey')?.value || '',
+      baseUrl: $('#popupLlmBaseUrl')?.value || '',
+      model: $('#popupLlmModel')?.value || '',
+    };
+  }
+
+  function persistLlmDraft() {
+    if (typeof PageAdvisorLlmConfig === 'undefined' || typeof PageAdvisorLlmConfig.saveDraftToStorage !== 'function') {
+      return Promise.resolve();
+    }
+    return PageAdvisorLlmConfig.saveDraftToStorage(currentDraftPayload());
+  }
+
+  function clearLlmDraft() {
+    if (typeof PageAdvisorLlmConfig === 'undefined' || typeof PageAdvisorLlmConfig.clearDraftFromStorage !== 'function') {
+      return Promise.resolve();
+    }
+    return PageAdvisorLlmConfig.clearDraftFromStorage();
+  }
+
+  function overlayDraft(draft) {
+    const apiKeyEl = $('#popupLlmApiKey');
+    const baseEl = $('#popupLlmBaseUrl');
+    const modelEl = $('#popupLlmModel');
+    const nameEl = $('#popupLlmProfileName');
+    if (apiKeyEl) apiKeyEl.value = draft?.apiKey || '';
+    if (baseEl) baseEl.value = draft?.baseUrl || '';
+    if (modelEl) modelEl.value = draft?.model || '';
+    if (nameEl) nameEl.value = draft?.label || '';
+    const sel = $('#popupLlmProfileSelect');
+    if (!sel) return;
+    const wanted = draft?.profileId || '';
+    suppressProfileChange = true;
+    try {
+      sel.value = [...sel.options].some((opt) => opt.value === wanted) ? wanted : '';
+    } finally {
+      suppressProfileChange = false;
+    }
+    const del = $('#btnDeleteLlmProfile');
+    if (del) del.hidden = !sel.value;
+  }
+
   async function loadPageAdvisorLlmConfig() {
     const apiKeyEl = $('#popupLlmApiKey');
     const baseEl = $('#popupLlmBaseUrl');
@@ -112,12 +158,18 @@
     if (!apiKeyEl || !baseEl || !modelEl) return;
     setLlmSectionVisible(true);
     const ui = Ui();
-    if (ui) ui.setLlmSettingsExpanded(llmFields(), llmToggleBtn(), false);
-    if (typeof PageAdvisorLlmConfig === 'undefined') return;
+    if (typeof PageAdvisorLlmConfig === 'undefined') {
+      if (ui) ui.setLlmSettingsExpanded(llmFields(), llmToggleBtn(), false);
+      return;
+    }
     try {
       const cfg = await PageAdvisorLlmConfig.loadFromStorage();
       lastCfg = cfg;
+      const draft = await PageAdvisorLlmConfig.loadDraftFromStorage();
+      const restore = PageAdvisorLlmConfig.shouldRestoreDraft(draft, cfg);
       applyLoadedConfig(cfg);
+      if (restore) overlayDraft(draft);
+      if (ui) ui.setLlmSettingsExpanded(llmFields(), llmToggleBtn(), restore);
       routeUiReady = true;
     } catch (_) { /* ignore */ }
   }
@@ -144,6 +196,7 @@
     try {
       const next = await PageAdvisorLlmConfig.saveToStorage(currentLlmPayload(opts));
       lastCfg = next;
+      if (!(opts && opts.profileAction === 'route-only')) await clearLlmDraft();
       applyLoadedConfig(next);
       if (status) {
         status.textContent = opts && opts.profileAction === 'delete'
@@ -165,6 +218,7 @@
     const status = $('#popupLlmStatus');
     if (!sel) return;
     const id = sel.value;
+    await clearLlmDraft();
     if (!id) {
       applyLoadedConfig(lastCfg || {}, { draftNew: true });
       if (status) status.textContent = tx('paLlmProfileDraft');
@@ -215,6 +269,16 @@
     const sel = $('#popupLlmProfileSelect');
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (sel) sel.addEventListener('change', () => { onProfileChanged().catch(() => {}); });
+    for (const id of ['#popupLlmProfileName', '#popupLlmApiKey', '#popupLlmBaseUrl', '#popupLlmModel']) {
+      const el = $(id);
+      if (!el) continue;
+      // Anti-Replay-OK: ui-only local chrome.storage draft, no HTTP mutation.
+      el.addEventListener('input', () => { persistLlmDraft().catch(() => {}); });
+    }
+    window.addEventListener('pagehide', () => {
+      if (!routeUiReady) return;
+      persistLlmDraft().catch(() => {});
+    });
     const del = $('#btnDeleteLlmProfile');
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (del) {
