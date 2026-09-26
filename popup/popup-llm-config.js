@@ -2,6 +2,9 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const Ui = () => (typeof PopupLlmSettingsUi !== 'undefined' ? PopupLlmSettingsUi : null);
+  let routeUiReady = false;
+  let suppressProfileChange = false;
+  let lastCfg = null;
 
   function llmFields() {
     return $('#pageAdvisorLlmFields');
@@ -16,19 +19,89 @@
     if (sec) sec.style.display = visible ? 'block' : 'none';
   }
 
-  let routeUiReady = false;
-
   function selectedRouteMode() {
     const el = document.querySelector('input[name="popupLlmRoute"]:checked');
     return el && el.value === 'saas' ? 'saas' : 'direct';
   }
 
-  function currentLlmPayload() {
+  function syncProfileRow() {
+    const row = $('#popupLlmProfileRow');
+    if (!row) return;
+    const direct = selectedRouteMode() === 'direct';
+    row.hidden = !direct;
+    row.style.display = direct ? '' : 'none';
+  }
+
+  function profileErrorText(err) {
+    const code = err && err.code;
+    if (code === 'profile_limit') return tx('paLlmProfileLimit');
+    if (code === 'profile_incomplete') return tx('paLlmProfileNeedFields');
+    if (code === 'profile_not_found') return tx('paLlmProfileMissing');
+    return (err && err.message) || tx('popupSaveFailed');
+  }
+
+  function fillProfileSelect(profiles, activeId) {
+    const sel = $('#popupLlmProfileSelect');
+    if (!sel) return;
+    const unnamed = tx('paLlmProfileUnnamed');
+    const labelOf = (typeof PageAdvisorLlmConfig !== 'undefined' && PageAdvisorLlmConfig.profileOptionLabel)
+      ? (p) => PageAdvisorLlmConfig.profileOptionLabel(p, unnamed)
+      : (p) => p.label || p.model || unnamed;
+    suppressProfileChange = true;
+    try {
+      sel.replaceChildren();
+      for (const profile of profiles || []) {
+        const opt = document.createElement('option');
+        opt.value = profile.id;
+        opt.textContent = labelOf(profile);
+        sel.appendChild(opt);
+      }
+      const created = document.createElement('option');
+      created.value = '';
+      created.textContent = tx('paLlmProfileNew');
+      sel.appendChild(created);
+      const wanted = activeId || '';
+      sel.value = [...sel.options].some((opt) => opt.value === wanted) ? wanted : '';
+    } finally {
+      suppressProfileChange = false;
+    }
+  }
+
+  function applyLoadedConfig(cfg, opts) {
+    const draftNew = Boolean(opts && opts.draftNew);
+    const apiKeyEl = $('#popupLlmApiKey');
+    const baseEl = $('#popupLlmBaseUrl');
+    const modelEl = $('#popupLlmModel');
+    const nameEl = $('#popupLlmProfileName');
+    if (apiKeyEl) apiKeyEl.value = draftNew ? '' : (cfg?.apiKey || '');
+    if (baseEl) baseEl.value = draftNew ? '' : (cfg?.baseUrl || '');
+    if (modelEl) modelEl.value = draftNew ? '' : (cfg?.model || '');
+    if (nameEl) nameEl.value = draftNew ? '' : (cfg?.profileLabel || '');
+    const route = (typeof PageAdvisorLlmConfig !== 'undefined' && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
+      ? PageAdvisorLlmConfig.resolveRoute(cfg || {})
+      : 'direct';
+    const direct = $('#popupLlmRouteDirect');
+    const saas = $('#popupLlmRouteSaas');
+    if (direct) direct.checked = route === 'direct';
+    if (saas) saas.checked = route === 'saas';
+    fillProfileSelect(cfg?.profiles || [], draftNew ? '' : cfg?.activeProfileId);
+    const del = $('#btnDeleteLlmProfile');
+    if (del) del.hidden = draftNew || !cfg?.activeProfileId;
+    syncProfileRow();
+  }
+
+  function currentLlmPayload(opts) {
+    const selected = $('#popupLlmProfileSelect')?.value || '';
+    const action = (opts && opts.profileAction)
+      || (selected ? 'update' : 'create');
     return {
       apiKey: $('#popupLlmApiKey')?.value || '',
       baseUrl: $('#popupLlmBaseUrl')?.value || '',
       model: $('#popupLlmModel')?.value || '',
       routeMode: selectedRouteMode(),
+      profileLabel: $('#popupLlmProfileName')?.value || '',
+      profileId: (opts && opts.profileId) || selected,
+      profileAction: action,
     };
   }
 
@@ -43,18 +116,17 @@
     if (typeof PageAdvisorLlmConfig === 'undefined') return;
     try {
       const cfg = await PageAdvisorLlmConfig.loadFromStorage();
-      apiKeyEl.value = cfg.apiKey || '';
-      baseEl.value = cfg.baseUrl || '';
-      modelEl.value = cfg.model || '';
-      const route = (typeof PageAdvisorLlmConfig.resolveRoute === 'function')
-        ? PageAdvisorLlmConfig.resolveRoute(cfg)
-        : 'direct';
-      const direct = $('#popupLlmRouteDirect');
-      const saas = $('#popupLlmRouteSaas');
-      if (direct) direct.checked = route === 'direct';
-      if (saas) saas.checked = route === 'saas';
+      lastCfg = cfg;
+      applyLoadedConfig(cfg);
       routeUiReady = true;
     } catch (_) { /* ignore */ }
+  }
+
+  function setBusy(btn, busy) {
+    if (!btn) return;
+    btn.disabled = Boolean(busy);
+    if (busy) btn.setAttribute('aria-busy', 'true');
+    else btn.removeAttribute('aria-busy');
   }
 
   async function savePageAdvisorLlmConfig(opts) {
@@ -67,24 +139,56 @@
       if (ui) ui.collapseLlmSettingsAfterSave(false, llmFields(), llmToggleBtn());
       return;
     }
-    if (btn) {
-      btn.disabled = true;
-      btn.setAttribute('aria-busy', 'true');
-    }
+    setBusy(btn, true);
     let saved = false;
     try {
-      await PageAdvisorLlmConfig.saveToStorage(currentLlmPayload());
-      if (status) status.textContent = tx('paLlmSaved');
+      const next = await PageAdvisorLlmConfig.saveToStorage(currentLlmPayload(opts));
+      lastCfg = next;
+      applyLoadedConfig(next);
+      if (status) {
+        status.textContent = opts && opts.profileAction === 'delete'
+          ? tx('paLlmProfileDeleted')
+          : tx('paLlmSaved');
+      }
       saved = true;
     } catch (e) {
-      if (status) status.textContent = e?.message || tx('popupSaveFailed');
+      if (status) status.textContent = profileErrorText(e);
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.removeAttribute('aria-busy');
-      }
+      setBusy(btn, false);
     }
     if (collapse && ui) ui.collapseLlmSettingsAfterSave(saved, llmFields(), llmToggleBtn());
+  }
+
+  async function onProfileChanged() {
+    if (suppressProfileChange || !routeUiReady) return;
+    const sel = $('#popupLlmProfileSelect');
+    const status = $('#popupLlmStatus');
+    if (!sel) return;
+    const id = sel.value;
+    if (!id) {
+      applyLoadedConfig(lastCfg || {}, { draftNew: true });
+      if (status) status.textContent = tx('paLlmProfileDraft');
+      return;
+    }
+    if (typeof PageAdvisorLlmConfig === 'undefined' || typeof PageAdvisorLlmConfig.activateProfile !== 'function') {
+      return;
+    }
+    setBusy(sel, true);
+    try {
+      const next = await PageAdvisorLlmConfig.activateProfile(id);
+      lastCfg = next;
+      applyLoadedConfig(next);
+      const name = PageAdvisorLlmConfig.profileOptionLabel(
+        (next.profiles || []).find((p) => p.id === next.activeProfileId) || next,
+        tx('paLlmProfileUnnamed'),
+      );
+      if (status) status.textContent = tx('paLlmProfileSwitched', { name });
+    } catch (e) {
+      if (status) status.textContent = profileErrorText(e);
+      if (lastCfg) applyLoadedConfig(lastCfg);
+    } finally {
+      setBusy(sel, false);
+    }
   }
 
   function bindPageAdvisorLlmEvents() {
@@ -103,8 +207,22 @@
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (routeField) {
       routeField.addEventListener('change', () => {
+        syncProfileRow();
         if (!routeUiReady) return;
-        savePageAdvisorLlmConfig({ collapse: false }).catch(() => {});
+        savePageAdvisorLlmConfig({ collapse: false, profileAction: 'route-only' }).catch(() => {});
+      });
+    }
+    const sel = $('#popupLlmProfileSelect');
+    // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
+    if (sel) sel.addEventListener('change', () => { onProfileChanged().catch(() => {}); });
+    const del = $('#btnDeleteLlmProfile');
+    // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
+    if (del) {
+      del.addEventListener('click', () => {
+        const id = $('#popupLlmProfileSelect')?.value || '';
+        if (!id) return;
+        if (typeof window.confirm === 'function' && !window.confirm(tx('paLlmProfileDeleteConfirm'))) return;
+        savePageAdvisorLlmConfig({ collapse: false, profileAction: 'delete', profileId: id }).catch(() => {});
       });
     }
   }

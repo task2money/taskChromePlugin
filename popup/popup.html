@@ -65,7 +65,7 @@
         <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span> <kbd class="llm-shortcut" data-i18n="altZDefaults">Alt+Shift+Z</kbd></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 为免费。未选择时默认直连。密钥只保存在本机。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」填写 API Key。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 为免费。未选择时默认直连。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」新增或修改一组。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。</p>
         </details>
         <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
@@ -81,7 +81,15 @@
           <span data-i18n="paLlmRouteSaas">调用平台后端</span>
         </label>
       </fieldset>
+      <div class="form-row" id="popupLlmProfileRow">
+        <label for="popupLlmProfileSelect" data-i18n="paLlmProfileLabel">已保存的 Key</label>
+        <select id="popupLlmProfileSelect" class="form-select"></select>
+      </div>
       <div id="pageAdvisorLlmFields" style="display:none" hidden>
+        <div class="form-row">
+          <label for="popupLlmProfileName" data-i18n="paLlmProfileName">名称</label>
+          <input type="text" id="popupLlmProfileName" class="form-input" maxlength="48" data-i18n-placeholder="paLlmProfileNamePh" placeholder="例如 DeepSeek" autocomplete="off">
+        </div>
         <div class="form-row">
           <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
           <input type="url" id="popupLlmBaseUrl" class="form-input" data-i18n-placeholder="paLlmBaseUrlPh" placeholder="https://api.deepseek.com/v1" autocomplete="off">
@@ -94,7 +102,10 @@
           <label for="popupLlmApiKey" data-i18n="paLlmApiKey">API Key</label>
           <input type="password" id="popupLlmApiKey" class="form-input" data-i18n-placeholder="paLlmApiKeyPh" placeholder="sk-…" autocomplete="off">
         </div>
-        <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
+        <div class="btn-row">
+          <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
+          <button type="button" id="btnDeleteLlmProfile" class="btn btn-sm btn-danger" hidden>🗑 <span data-i18n="paLlmProfileDelete">删除这一组</span></button>
+        </div>
       </div>
       <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
     </section>
