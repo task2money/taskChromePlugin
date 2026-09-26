@@ -49,7 +49,7 @@ function ensurePageAdvisorLayer() {
   layer.innerHTML =
     A11y && A11y.buildLayerHtml
       ? A11y.buildLayerHtml(esc)
-      : `<div id="taskplugin-page-advisor-cards"></div><div id="taskplugin-page-advisor-toolbar" role="toolbar" aria-label="${esc((typeof tx === "function" ? tx("paToolbarLabel") : "优化建议操作栏"))}" aria-describedby="taskplugin-page-advisor-hint"><p class="taskplugin-page-advisor-toolbar-hint taskplugin-page-advisor-safety-hint" id="taskplugin-page-advisor-hint">${esc((typeof tx === "function" ? tx("paSafetyHint") : "填入仅写入任务描述，不会自动创建任务"))}</p></div>`;
+      : `<div id="taskplugin-page-advisor-cards" class="taskplugin-page-advisor-cards"></div><div id="taskplugin-page-advisor-toolbar" class="taskplugin-page-advisor-toolbar" role="toolbar" aria-label="${esc((typeof tx === "function" ? tx("paToolbarLabel") : "优化建议操作栏"))}" aria-describedby="taskplugin-page-advisor-hint"><div class="taskplugin-page-advisor-toolbar-drag" role="button" tabindex="0" aria-label="${esc((typeof tx === "function" ? tx("paToolbarDragHandle") : "拖动建议底栏，双击复位"))}" title="${esc((typeof tx === "function" ? tx("paToolbarDragTitle") : "拖动移动底栏；双击把手复位"))}"><span class="taskplugin-page-advisor-toolbar-drag-mark" aria-hidden="true">⋮⋮</span><span class="taskplugin-page-advisor-toolbar-title">${esc((typeof tx === "function" ? tx("paToolbarNightTitle") : "设置夜间任务调度，享用低价机器及智能体资源"))}</span></div><p class="taskplugin-page-advisor-toolbar-hint taskplugin-page-advisor-safety-hint" id="taskplugin-page-advisor-hint">${esc((typeof tx === "function" ? tx("paSafetyHint") : "填入仅写入任务描述，不会自动创建任务"))}</p></div>`;
   if (root) root.appendChild(layer);
   else document.body.appendChild(layer);
 

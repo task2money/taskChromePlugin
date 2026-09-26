@@ -86,6 +86,24 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     assert.ok(html.indexOf("设置夜间任务调度，享用低价机器及智能体资源") < hintAt);
   });
 
+  // OPT-20260926-011：无障碍脚本未加载时的降级 HTML 必须与正式结构一样有拖动条与夜间调度标题。
+  it("fallback layer HTML keeps the drag bar and overnight scheduling title", () => {
+    const ui = read("content/float-page-advisor.js");
+    const m = ui.match(/A11y && A11y\.buildLayerHtml[^:]*:\s*`([\s\S]*?)`;/);
+    assert.ok(m, "应能找到 float-page-advisor.js 的降级 HTML 分支");
+    const fallback = m[1];
+    assert.match(fallback, /taskplugin-page-advisor-toolbar-drag/);
+    assert.match(fallback, /taskplugin-page-advisor-toolbar-drag-mark/);
+    assert.match(fallback, /paToolbarDragHandle/);
+    assert.match(fallback, /设置夜间任务调度，享用低价机器及智能体资源/);
+    assert.match(fallback, /id="taskplugin-page-advisor-hint"/);
+    // 拖动条必须排在提示语之前（与正式结构同序）
+    assert.ok(
+      fallback.indexOf("taskplugin-page-advisor-toolbar-drag") <
+        fallback.indexOf('id="taskplugin-page-advisor-hint"'),
+    );
+  });
+
   it("action buttons use explicit labels and titles", () => {
     const src =
       read("content/float-page-advisor.js") + read("lib/page-advisor-a11y.js");
