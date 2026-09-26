@@ -88,4 +88,36 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     assert.match(src, /Anti-Replay-OK/);
     assert.match(src, /toggleLlmSettingsExpanded/);
   });
+
+  it('T6 设置按钮右侧是闲置集市外链', () => {
+    const html = popupHtml();
+    const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
+    const heading = llm.slice(0, llm.indexOf('id="pageAdvisorLlmFields"'));
+    const settingsAt = heading.indexOf('id="btnToggleLlmSettings"');
+    const linkAt = heading.indexOf('id="lnkIdleMarket"');
+    assert.ok(settingsAt >= 0 && linkAt > settingsAt, '闲置集市应在设置按钮之后');
+    assert.match(
+      heading,
+      /id="lnkIdleMarket"[^>]*href="https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market"/,
+    );
+    assert.match(heading, /id="lnkIdleMarket"[^>]*target="_blank"/);
+    assert.match(heading, /id="lnkIdleMarket"[^>]*rel="noopener noreferrer"/);
+    assert.match(heading, /data-i18n="paLlmIdleMarket"/);
+    assert.match(heading, />闲置集市<\/a>/);
+    assert.match(heading, /Anti-Replay-OK: external navigation/);
+    const skill = html.match(/id="pageAdvisorSkillSection"[\s\S]*?<\/section>/)[0];
+    assert.doesNotMatch(skill, /lnkIdleMarket/);
+    const { zh, en } = require('../lib/i18n-llm-route.js');
+    assert.equal(zh.paLlmIdleMarket, '闲置集市');
+    assert.equal(en.paLlmIdleMarket, 'Idle market');
+    const guide = fs.readFileSync(path.join(ROOT, 'docs/USER_GUIDE.md'), 'utf8');
+    const guideJs = fs.readFileSync(path.join(ROOT, 'lib/user-guide.js'), 'utf8');
+    const guideEn = fs.readFileSync(path.join(ROOT, 'lib/user-guide-en-sections.js'), 'utf8');
+    for (const blob of [guide, guideJs]) {
+      assert.match(blob, /闲置集市/);
+      assert.match(blob, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+    }
+    assert.match(guideEn, /Idle market/);
+    assert.match(guideEn, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+  });
 });
