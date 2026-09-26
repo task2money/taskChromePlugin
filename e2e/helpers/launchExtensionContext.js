@@ -13,6 +13,76 @@ const os = require('node:os');
 const path = require('node:path');
 
 /**
+ * Temp profiles this process created and still owes a cleanup for.
+ *
+ * Constraint 44: test temp resources must not outlive the run. Scoped to this
+ * process only — never sweep the shared `taskplugin-ext-e2e-*` prefix, since
+ * concurrent runners own sibling dirs.
+ */
+const ownedTempProfiles = new Set();
+let exitHookInstalled = false;
+
+function removeOwnedTempProfile(dir) {
+  if (!ownedTempProfiles.delete(dir)) return;
+  try {
+    fs.rmSync(dir, { recursive: true, force: true });
+  } catch (_) {
+    /* best effort: a locked profile must not fail the test run */
+  }
+}
+
+function installExitHook() {
+  if (exitHookInstalled) return;
+  exitHookInstalled = true;
+  process.on('exit', () => {
+    for (const dir of [...ownedTempProfiles]) removeOwnedTempProfile(dir);
+  });
+}
+
+/**
+ * Remove a helper-created profile once its context closes, with a process-exit
+ * sweep as backstop for crashed or never-closed runs.
+ *
+ * @param {import('@playwright/test').BrowserContext} context
+ * @param {string} userDataDir
+ */
+function attachTempProfileCleanup(context, userDataDir) {
+  ownedTempProfiles.add(userDataDir);
+  installExitHook();
+
+  let closed = false;
+  const cleanup = () => {
+    if (closed) return;
+    closed = true;
+    removeOwnedTempProfile(userDataDir);
+  };
+
+  let originalClose;
+  try {
+    originalClose = context.close;
+  } catch (_) {
+    originalClose = null;
+  }
+  if (typeof originalClose !== 'function') {
+    if (typeof context.once === 'function') context.once('close', cleanup);
+    return context;
+  }
+  try {
+    const bound = originalClose.bind(context);
+    context.close = async (...args) => {
+      try {
+        return await bound(...args);
+      } finally {
+        cleanup();
+      }
+    };
+  } catch (_) {
+    if (typeof context.once === 'function') context.once('close', cleanup);
+  }
+  return context;
+}
+
+/**
  * @returns {string|null} Absolute path to chrome binary, or null.
  */
 function resolveCachedChromiumExecutable() {
@@ -48,9 +118,14 @@ function resolveCachedChromiumExecutable() {
  * @returns {Promise<import('@playwright/test').BrowserContext>}
  */
 async function launchExtensionContext(chromium, extensionPath, opts = {}) {
+  const ownsUserDataDir = !opts.userDataDir;
   const userDataDir =
     opts.userDataDir ||
     fs.mkdtempSync(path.join(os.tmpdir(), 'taskplugin-ext-e2e-'));
+  if (ownsUserDataDir) {
+    ownedTempProfiles.add(userDataDir);
+    installExitHook();
+  }
   const headless = opts.headless === true;
   const args = [
     `--disable-extensions-except=${extensionPath}`,
@@ -65,16 +140,24 @@ async function launchExtensionContext(chromium, extensionPath, opts = {}) {
     timeout: opts.timeout || 60_000,
   };
   const exe = resolveCachedChromiumExecutable();
-  if (exe) {
-    return chromium.launchPersistentContext(userDataDir, {
-      ...base,
-      executablePath: exe,
-    });
+  let context;
+  try {
+    context = exe
+      ? await chromium.launchPersistentContext(userDataDir, {
+          ...base,
+          executablePath: exe,
+        })
+      : await chromium.launchPersistentContext(userDataDir, {
+          ...base,
+          channel: 'chromium',
+        });
+  } catch (err) {
+    // A launch that never produced a context would otherwise strand the profile.
+    if (ownsUserDataDir) removeOwnedTempProfile(userDataDir);
+    throw err;
   }
-  return chromium.launchPersistentContext(userDataDir, {
-    ...base,
-    channel: 'chromium',
-  });
+  if (ownsUserDataDir) attachTempProfileCleanup(context, userDataDir);
+  return context;
 }
 
 module.exports = {
