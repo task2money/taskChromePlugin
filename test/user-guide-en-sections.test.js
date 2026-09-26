@@ -27,7 +27,8 @@ describe('user-guide-en-sections', () => {
     const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
     const fill = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
     const create = (STEPS_EN['float-create'] || []).join('\n');
-    assert.match(fill, /drag the suggestion-bar handle/);
+    assert.match(fill, /suggestion-bar drag handle/);
+    assert.match(fill, /Schedule tasks overnight for lower-priced machines and agent resources/);
     assert.match(create, /× on that notice dismisses only the message/);
   });
 });

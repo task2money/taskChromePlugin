@@ -324,7 +324,8 @@ describe('USER_GUIDE.md sync', () => {
 
   it('documents toolbar drag and stock-notice dismiss', () => {
     const src = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
-    assert.match(src, /底栏顶部把手可拖动，双击回到底部居中/);
+    assert.match(src, /设置夜间任务调度，享用低价机器及智能体资源/);
+    assert.match(src, /把手可拖动，双击回到底部居中/);
     assert.match(src, /提示右侧 × 只关掉这条提示/);
   });
 

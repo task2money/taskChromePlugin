@@ -78,6 +78,12 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     assert.match(src, /taskplugin-page-advisor-safety-hint/);
     assert.match(src, /taskplugin-page-advisor-toolbar-drag/);
     assert.match(src, /paToolbarDragHandle/);
+    assert.match(src, /设置夜间任务调度，享用低价机器及智能体资源/);
+    const html = PageAdvisorA11y.buildLayerHtml((s) => s);
+    const dragAt = html.indexOf("taskplugin-page-advisor-toolbar-drag");
+    const hintAt = html.indexOf('id="taskplugin-page-advisor-hint"');
+    assert.ok(dragAt >= 0 && hintAt > dragAt);
+    assert.ok(html.indexOf("设置夜间任务调度，享用低价机器及智能体资源") < hintAt);
   });
 
   it("action buttons use explicit labels and titles", () => {

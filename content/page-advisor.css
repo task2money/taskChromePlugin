@@ -127,14 +127,28 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  height: 18px !important;
+  gap: 8px !important;
+  min-height: 22px !important;
   margin: 0 0 6px !important;
+  padding: 2px 4px !important;
   cursor: grab !important;
   user-select: none !important;
-  color: #6c7086 !important;
-  font-size: 11px !important;
-  letter-spacing: 2px !important;
+  color: #cdd6f4 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+  letter-spacing: normal !important;
+  text-align: center !important;
   border-radius: 6px !important;
+}
+.taskplugin-page-advisor-toolbar-drag-mark {
+  flex: 0 0 auto !important;
+  color: #6c7086 !important;
+  font-weight: 400 !important;
+  letter-spacing: 2px !important;
+}
+.taskplugin-page-advisor-toolbar-title {
+  flex: 1 1 auto !important;
 }
 .taskplugin-page-advisor-toolbar-drag:active,
 .taskplugin-page-advisor-toolbar.taskplugin-page-advisor-dragging .taskplugin-page-advisor-toolbar-drag {

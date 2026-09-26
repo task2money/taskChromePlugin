@@ -254,8 +254,8 @@ describe('refreshExtensionVersionPresentation', () => {
         return { ok: true, json: async () => releasePayload('1.8.92', ZIP_192) };
       },
     });
-    assert.equal(el.hidden, false);
-    assert.equal(el.textContent, 'v1.8.90 Beta');
+    assert.equal(el.hidden, true);
+    assert.equal(el.textContent, '');
     assert.equal(links.length, 1);
     assert.equal(links[0].href, ZIP_192);
     assert.equal(links[0].textContent, '有新版本 v1.8.92 可下载');
@@ -273,6 +273,8 @@ describe('refreshExtensionVersionPresentation', () => {
     });
     assert.equal(fetches, 1);
     assert.equal(links[0].href, ZIP_192);
+    assert.equal(el.hidden, true);
+    assert.equal(el.textContent, '');
   });
 
   it('非开发者模式不请求 GitHub，也不标 Beta', async () => {

@@ -159,20 +159,15 @@ test.describe('Popup 面板布局', () => {
     await installChromeStub(page, { installType: 'development', release: LATEST_RELEASE_FIXTURE });
     await page.goto(POPUP_URL);
     const ver = page.locator('#popupVersion');
-    await expect(ver).toBeVisible({ timeout: 10000 });
-    await expect(ver).toHaveText('v1.8.54 Beta');
+    await expect(ver).toBeHidden({ timeout: 10000 });
 
     const link = page.locator('[data-plugin-version-update]');
     await expect(link).toBeVisible({ timeout: 10000 });
+    await expect(link).toHaveText('有新版本 v1.8.93 可下载');
     await expect(link).toHaveAttribute('href', LATEST_RELEASE_FIXTURE.assets[0].browser_download_url);
     await expect(link).toHaveAttribute('target', '_blank');
     expect(await link.getAttribute('href')).toContain('/task2money/taskChromePlugin/releases/download/');
     expect(await link.getAttribute('href')).toMatch(/\.zip$/);
-    // 下载链接排在版本号之后，顶栏里不会被别的元素挤掉。
-    const verBox = await ver.boundingBox();
-    const linkBox = await link.boundingBox();
-    expect(verBox && linkBox).toBeTruthy();
-    expect(linkBox.y).toBeLessThan(verBox.y + verBox.height);
   });
 
   test('普通安装不标 Beta，也不出现 Release 下载链接', async ({ page }) => {
