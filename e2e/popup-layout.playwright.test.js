@@ -114,6 +114,14 @@ async function installChromeStub(page, options = {}) {
   }, { installType: options.installType || '', release: options.release || null });
 }
 
+/** 读取 stub 存储里当前生效的 API Key（只回值，不打印）。 */
+async function currentStoredApiKey(page) {
+  return page.evaluate(async () => {
+    const raw = await chrome.storage.local.get(['pageAdvisorLlmApiKey']);
+    return String(raw?.pageAdvisorLlmApiKey || '');
+  });
+}
+
 test.describe('Popup 面板布局', () => {
   test('面板宽度收窄至 300px 内（快捷键说明区不需要那么宽）', async ({ page }) => {
     await installChromeStub(page);
@@ -306,5 +314,55 @@ test.describe('Popup 面板布局', () => {
     await expect(hint).toBeHidden();
     await page.locator('#pageAdvisorLlmSection summary.region-help-mark').click();
     await expect(hint).toBeVisible();
+  });
+
+  test('多组直连 Key：下拉切回上一组会真的写入当前 Key', async ({ page }) => {
+    // OPT-20260926-009：纯函数只覆盖存储函数，测不到「选择下拉项」是否真的调用
+    // activateProfile —— 弹窗回归时可能只更新表单、不写当前组。
+    // 用合成 Key，避免断言失败信息带出真实密钥。
+    const keyA = 'e2e-key-a-1';
+    const keyB = 'e2e-key-b-2';
+
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+
+    const toggle = page.locator('#btnToggleLlmSettings');
+    const fields = page.locator('#pageAdvisorLlmFields');
+    const select = page.locator('#popupLlmProfileSelect');
+
+    /** 展开设置 → 新建一组（下拉选「新建」）→ 填写并保存，保存后自动收起。 */
+    const saveNewProfile = async (name, key) => {
+      await toggle.click();
+      await expect(fields).toBeVisible();
+      await select.selectOption('');
+      await page.locator('#popupLlmProfileName').fill(name);
+      await page.locator('#popupLlmBaseUrl').fill('https://api.deepseek.com/v1');
+      await page.locator('#popupLlmModel').fill('deepseek-chat');
+      await page.locator('#popupLlmApiKey').fill(key);
+      await page.locator('#btnSaveLlmConfig').click();
+      await expect(page.locator('#popupLlmStatus')).toContainText(/已保存|saved/i);
+      await expect(fields).toBeHidden();
+    };
+
+    await saveNewProfile('e2e-key-a', keyA);
+    await saveNewProfile('e2e-key-b', keyB);
+
+    // 后保存的一组成为当前组，镜像字段应指向它
+    expect(await currentStoredApiKey(page)).toBe(keyB);
+
+    // 按 label 取回第一组的 profileId（不依赖下拉项文案里的 Key 尾巴）
+    const idA = await page.evaluate(async () => {
+      const raw = await chrome.storage.local.get(['pageAdvisorLlmProfiles']);
+      const list = Array.isArray(raw?.pageAdvisorLlmProfiles) ? raw.pageAdvisorLlmProfiles : [];
+      return String(list.find((p) => p && p.label === 'e2e-key-a')?.id || '');
+    });
+    expect(idA).not.toBe('');
+
+    await toggle.click();
+    await expect(fields).toBeVisible();
+    await select.selectOption(idA);
+    await expect(page.locator('#popupLlmStatus')).toContainText(/已切换|switched/i);
+    expect(await currentStoredApiKey(page)).toBe(keyA);
   });
 });
