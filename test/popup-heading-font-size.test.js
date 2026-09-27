@@ -40,7 +40,7 @@ describe('Popup 标题行字号由 .heading-sm 单点提供', () => {
   });
 
   it('设置/登录/技能按钮与闲置集市链接都带 heading-sm', () => {
-    for (const id of ['btnToggleLogin', 'btnToggleLlmSettings', 'btnToggleSkillSettings', 'lnkIdleMarket']) {
+    for (const id of ['btnToggleLogin', 'btnToggleLlmSettings', 'btnToggleSkillSettings', 'lnkIdleMarket', 'lnkPromptMarket']) {
       assert.match(tagFor(id), /\bclass="[^"]*\bheading-sm\b/, `#${id} 缺少 heading-sm 类`);
     }
   });

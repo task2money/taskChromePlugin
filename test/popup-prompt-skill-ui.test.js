@@ -285,3 +285,56 @@ describe('点进类别后直接列出技能', () => {
     assert.doesNotMatch(collectText(root), /严谨排障/);
   });
 });
+
+/**
+ * OPT-20260927-012: 集市入口常驻「提示词 Skill」标题行。
+ * 这里只锁 showSignedOutPromptMarketLink 的契约：只改标题行链接的 href，
+ * 不重建节点、不写状态行（状态行只放保存/同步结果）。
+ */
+describe('PopupPromptSkillUi.showSignedOutPromptMarketLink', () => {
+  let SkillUi;
+  let market;
+  let status;
+
+  beforeEach(() => {
+    installTxRuntime();
+    delete require.cache[require.resolve('../lib/page-advisor-prompt-skills.js')];
+    require('../lib/page-advisor-prompt-skills.js');
+    market = makeEl('a');
+    market.id = 'lnkPromptMarket';
+    market.textContent = '提示词集市';
+    market.href = 'https://www.aidevpush.com/prompt-shares/';
+    market.target = '_blank';
+    market.rel = 'noopener noreferrer';
+    status = makeEl('p');
+    status.id = 'popupSkillStatus';
+    status.textContent = '已保存';
+    global.document = {
+      createElement: makeEl,
+      querySelector: (sel) => (sel === '#lnkPromptMarket' ? market : null),
+    };
+    delete require.cache[require.resolve('../popup/popup-prompt-skill-ui.js')];
+    SkillUi = require('../popup/popup-prompt-skill-ui.js');
+  });
+
+  it('只更新标题行链接的 href，不动文案/目标属性与状态行', () => {
+    SkillUi.showSignedOutPromptMarketLink('');
+
+    assert.equal(market.href, 'https://www.aidevpush.com/prompt-shares/');
+    assert.equal(market.textContent, '提示词集市', '文案来自静态标记，这里不得改写');
+    assert.equal(market.target, '_blank');
+    assert.equal(market.rel, 'noopener noreferrer');
+    assert.equal(market.children.length, 0, '不得再往链接里塞子节点');
+    assert.equal(status.textContent, '已保存', '状态行不得被集市入口覆盖');
+  });
+
+  it('baseUrl 指向自建站点时链接落到该站点', () => {
+    SkillUi.showSignedOutPromptMarketLink('https://saas.example/');
+    assert.equal(market.href, 'https://saas.example/prompt-shares/');
+  });
+
+  it('标题行没有该链接时安全返回，不抛异常', () => {
+    global.document.querySelector = () => null;
+    assert.doesNotThrow(() => SkillUi.showSignedOutPromptMarketLink('https://saas.example/'));
+  });
+});

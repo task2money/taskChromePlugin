@@ -372,23 +372,19 @@
     if (q('#popupSkillBody')) q('#popupSkillBody').value = draft.body;
   }
 
-  /** Anti-Replay-OK: real <a href> to the public prompt market; no write. */
+  /**
+   * Anti-Replay-OK: real <a href> to the public prompt market; no write.
+   *
+   * 链接常驻「提示词 Skill」标题行，这里只把它指到当前 baseUrl/locale 的地址。
+   * 状态行（#popupSkillStatus）只写保存/同步结果，保存一次不会再盖掉入口。
+   */
   function showSignedOutPromptMarketLink(baseUrl) {
-    const el = document.querySelector('#popupSkillStatus');
-    if (!el || typeof PageAdvisorPromptSkills === 'undefined') return;
+    const a = document.querySelector('#lnkPromptMarket');
+    if (!a || typeof PageAdvisorPromptSkills === 'undefined') return;
     const locale = (typeof AidevpushI18n !== 'undefined' && typeof AidevpushI18n.getLocale === 'function')
       ? AidevpushI18n.getLocale()
       : '';
-    const href = PageAdvisorPromptSkills.buildPromptSharesPageHref(baseUrl, locale);
-    if (typeof el.replaceChildren === 'function') el.replaceChildren();
-    else el.textContent = '';
-    const a = document.createElement('a');
-    a.id = 'lnkPromptMarket';
-    a.href = href;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    a.textContent = tx('paSkillPromptMarket');
-    el.appendChild(a);
+    a.href = PageAdvisorPromptSkills.buildPromptSharesPageHref(baseUrl, locale);
   }
 
   const PopupPromptSkillUi = {

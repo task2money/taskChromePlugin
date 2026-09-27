@@ -64,6 +64,8 @@ const SKILL_IDS = [
   'pageAdvisorSkillFields',
   'popupSkillSyncTarget',
   'popupSkillActiveSummary',
+  // 提示词集市入口常驻标题行（OPT-20260927-012）
+  'lnkPromptMarket',
   // 未登录时登录表单保持收起：setLoginFormExpanded 读写这两个元素
   'loginSection',
   'btnToggleLogin',
@@ -137,6 +139,9 @@ function bootPopup({
 } = {}) {
   const byId = Object.create(null);
   SKILL_IDS.forEach((id) => { byId[id] = makeEl(id.startsWith('btn') ? 'button' : 'div', id); });
+  // popup.html 的标题行链接带静态文案（data-i18n 覆盖），mock 同步这一初始态：
+  // 文案来自 markup，不再由 JS 写入状态行。
+  byId.lnkPromptMarket.textContent = '提示词集市';
   const storageSets = [];
   const storage = {
     get: async () => ({ pageAdvisorPromptSkills: skills, pageAdvisorActiveSkillId: activeSkillId }),
@@ -442,9 +447,14 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(ctx.byId.loginSection.style.display, 'none', '未登录默认收起 #loginSection');
     assert.equal(ctx.byId.btnToggleLogin.getAttribute('aria-expanded'), 'false');
     assert.equal(ctx.byId.btnToggleLogin.textContent, '登录');
-    const market = ctx.byId.popupSkillStatus.children.find((c) => c.id === 'lnkPromptMarket');
-    assert.equal(market && market.textContent, '提示词集市');
+    const market = ctx.byId.lnkPromptMarket;
+    assert.equal(market.textContent, '提示词集市');
     assert.equal(market.href, 'https://www.aidevpush.com/prompt-shares/');
+    assert.equal(
+      ctx.byId.popupSkillStatus.children.some((c) => c.id === 'lnkPromptMarket'),
+      false,
+      '入口在标题行，不再挤进状态行',
+    );
   });
 
   it('已登录时不误展开登录表单（OPT-20260922-040）', async () => {
@@ -572,12 +582,13 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     await flushAll();
     assert.equal(gets.length, 0);
     assert.equal(catalogs.length, 0);
-    const market = ctx.byId.popupSkillStatus.children.find((c) => c.id === 'lnkPromptMarket');
-    assert.ok(market, '未登录状态行应是提示词集市链接');
+    const market = ctx.byId.lnkPromptMarket;
+    assert.ok(market, '未登录时标题行应有提示词集市入口');
     assert.equal(market.textContent, '提示词集市');
     assert.equal(market.href, 'https://www.aidevpush.com/prompt-shares/');
-    assert.equal(market.target, '_blank');
-    assert.equal(market.rel, 'noopener noreferrer');
+    // target/rel 现在来自 popup.html 的静态标记，mock 元素不带这些属性，改回读 markup。
+    assert.match(popupHtml, /id="lnkPromptMarket"[^>]*target="_blank"/);
+    assert.match(popupHtml, /id="lnkPromptMarket"[^>]*rel="noopener noreferrer"/);
     assert.equal(categoryPicks(ctx.byId.popupSkillList).length, 5);
     assert.equal(skillRows(ctx.byId.popupSkillList).length, 0, '未选类别前不展示预埋技能');
     openCategory(ctx.byId.popupSkillList, 'a11y');
@@ -586,6 +597,28 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     openCategory(ctx.byId.popupSkillList, 'custom');
     assert.ok(skillRowByTitle(ctx.byId.popupSkillList, /系统默认自动创新/));
     assert.equal(rowRadio(skillRowByTitle(ctx.byId.popupSkillList, /系统默认自动创新/)).checked, true);
+  });
+
+  it('未登录保存 Skill 后提示词集市入口仍在且 href 不变（OPT-20260927-012）', async () => {
+    ctx = bootPopup({ loggedIn: false });
+    await ctx.api.loadSkills();
+    await flushAll();
+    const hrefBefore = ctx.byId.lnkPromptMarket.href;
+    assert.equal(hrefBefore, 'https://www.aidevpush.com/prompt-shares/');
+
+    ctx.byId.popupSkillTitle.value = '保存后仍在';
+    ctx.byId.popupSkillTendency.value = 'custom';
+    ctx.byId.popupSkillBody.value = '正文';
+    ctx.byId.btnSkillSave.dispatch('click');
+    await flushAll();
+
+    assert.equal(
+      ctx.lastSet().pageAdvisorPromptSkills.some((sk) => sk.title === '保存后仍在'), true,
+      '保存应落盘',
+    );
+    assert.equal(ctx.byId.lnkPromptMarket.href, hrefBefore, '保存不得改写入口 href');
+    assert.equal(ctx.byId.lnkPromptMarket.textContent, '提示词集市', '入口文案仍是静态文案');
+    assert.doesNotMatch(ctx.byId.popupSkillStatus.textContent, /提示词集市/, '状态行只写保存结果');
   });
 
   it('登录后拉取管理员新空间默认并选中', async () => {
