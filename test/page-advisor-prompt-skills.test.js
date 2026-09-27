@@ -289,6 +289,21 @@ describe('prompt skill per-item syncTarget', () => {
     );
   });
 
+  it('buildPromptSharesPageHref 指向公开提示词集市', () => {
+    assert.equal(
+      PageAdvisorPromptSkills.buildPromptSharesPageHref('https://aidevpush.com/api'),
+      'https://aidevpush.com/prompt-shares/',
+    );
+    assert.equal(
+      PageAdvisorPromptSkills.buildPromptSharesPageHref('https://saas.example', 'en'),
+      'https://saas.example/en/prompt-shares/',
+    );
+    assert.equal(
+      PageAdvisorPromptSkills.buildPromptSharesPageHref(''),
+      'https://www.aidevpush.com/prompt-shares/',
+    );
+  });
+
   it('buildPromptSkillsPageHref 对齐 SaaS 独立页路径', () => {
     assert.equal(
       PageAdvisorPromptSkills.buildPromptSkillsPageHref({

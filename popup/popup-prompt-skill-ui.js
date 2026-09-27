@@ -372,7 +372,27 @@
     if (q('#popupSkillBody')) q('#popupSkillBody').value = draft.body;
   }
 
+  /** Anti-Replay-OK: real <a href> to the public prompt market; no write. */
+  function showSignedOutPromptMarketLink(baseUrl) {
+    const el = document.querySelector('#popupSkillStatus');
+    if (!el || typeof PageAdvisorPromptSkills === 'undefined') return;
+    const locale = (typeof AidevpushI18n !== 'undefined' && typeof AidevpushI18n.getLocale === 'function')
+      ? AidevpushI18n.getLocale()
+      : '';
+    const href = PageAdvisorPromptSkills.buildPromptSharesPageHref(baseUrl, locale);
+    if (typeof el.replaceChildren === 'function') el.replaceChildren();
+    else el.textContent = '';
+    const a = document.createElement('a');
+    a.id = 'lnkPromptMarket';
+    a.href = href;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    a.textContent = tx('paSkillPromptMarket');
+    el.appendChild(a);
+  }
+
   const PopupPromptSkillUi = {
+    showSignedOutPromptMarketLink,
     escapeHtml,
     workspaceLabelOf,
     fillSyncTargetSelect,

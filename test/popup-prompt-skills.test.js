@@ -82,8 +82,14 @@ function makeEl(tag, id) {
     value: '',
     checked: false,
     disabled: false,
-    get textContent() { return text; },
-    set textContent(v) { text = String(v); },
+    get textContent() {
+      const childText = (this.children || []).map((c) => (c && c.textContent) || '').join('');
+      return childText || text;
+    },
+    set textContent(v) {
+      text = String(v ?? '');
+      this.children = [];
+    },
     appendChild(child) { this.children.push(child); return child; },
     replaceChildren(...nodes) { this.children = nodes; },
     addEventListener(type, fn) { (handlers[type] = handlers[type] || []).push(fn); },
@@ -436,7 +442,9 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(ctx.byId.loginSection.style.display, 'none', '未登录默认收起 #loginSection');
     assert.equal(ctx.byId.btnToggleLogin.getAttribute('aria-expanded'), 'false');
     assert.equal(ctx.byId.btnToggleLogin.textContent, '登录');
-    assert.match(ctx.byId.popupSkillStatus.textContent, /本机|device|登录|Sign/i);
+    const market = ctx.byId.popupSkillStatus.children.find((c) => c.id === 'lnkPromptMarket');
+    assert.equal(market && market.textContent, '提示词集市');
+    assert.equal(market.href, 'https://www.aidevpush.com/prompt-shares/');
   });
 
   it('已登录时不误展开登录表单（OPT-20260922-040）', async () => {
@@ -564,7 +572,12 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     await flushAll();
     assert.equal(gets.length, 0);
     assert.equal(catalogs.length, 0);
-    assert.match(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
+    const market = ctx.byId.popupSkillStatus.children.find((c) => c.id === 'lnkPromptMarket');
+    assert.ok(market, '未登录状态行应是提示词集市链接');
+    assert.equal(market.textContent, '提示词集市');
+    assert.equal(market.href, 'https://www.aidevpush.com/prompt-shares/');
+    assert.equal(market.target, '_blank');
+    assert.equal(market.rel, 'noopener noreferrer');
     assert.equal(categoryPicks(ctx.byId.popupSkillList).length, 5);
     assert.equal(skillRows(ctx.byId.popupSkillList).length, 0, '未选类别前不展示预埋技能');
     openCategory(ctx.byId.popupSkillList, 'a11y');
@@ -667,7 +680,7 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     await flushAll();
     assert.equal(catalogs.length, 1);
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
-    assert.doesNotMatch(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
+    assert.doesNotMatch(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out|提示词集市|Prompt market/);
   });
 
   it('本机已有目录 default 且 active 为空时不覆盖', async () => {

@@ -192,7 +192,11 @@ test.describe('Popup 面板布局', () => {
     await page.goto(POPUP_URL);
     const toggle = page.locator('#btnToggleLogin');
     await expect(toggle).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#popupSkillStatus')).toContainText('仅保存在本机');
+    const market = page.locator('#lnkPromptMarket');
+    await expect(market).toBeVisible({ timeout: 10000 });
+    await expect(market).toHaveText('提示词集市');
+    await expect(market).toHaveAttribute('href', 'https://aidevpush.com/prompt-shares/');
+    await expect(market).toHaveAttribute('target', '_blank');
     await expect(page.locator('#loginSection')).toBeHidden();
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
     await expect(toggle).toHaveText('登录');
@@ -271,8 +275,7 @@ test.describe('Popup 面板布局', () => {
     const titleBox = await row.locator('.popup-skill-row-title').boundingBox();
     const actionsBox = await row.locator('.popup-skill-row-actions').boundingBox();
     expect(titleBox && actionsBox && actionsBox.y).toBeGreaterThan(titleBox.y);
-    await expect(page.locator('#popupSkillRadio_none')).toBeVisible();
-    await expect(page.locator('#popupSkillRadio_none')).not.toBeChecked();
+    await expect(page.locator('#popupSkillRadio_none')).toHaveCount(0);
     await expect(row.getByRole('button', { name: /编辑|Edit/ })).toBeVisible();
     await expect(row.getByRole('button', { name: /删除|Delete/ })).toBeVisible();
     await row.getByRole('button', { name: /删除|Delete/ }).click();

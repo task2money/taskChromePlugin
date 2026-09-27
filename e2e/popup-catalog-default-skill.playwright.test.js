@@ -66,7 +66,7 @@ test.describe('Popup 系统默认 Skill 目录', () => {
       const snap = await skillSnapshot(popup);
       expect(snap.sectionDisplay, JSON.stringify(snap)).not.toBe('none');
       expect(snap.summary).toMatch(/No skill applied|当前未应用 Skill/);
-      expect(snap.status).toMatch(/Signed out: skills stay on this device|未登录：Skill 仅保存在本机/);
+      expect(snap.status).toMatch(/Prompt market|提示词集市/);
       expect(snap.listText).not.toMatch(/Do not apply a skill|不应用 Skill/);
       expect(snap.listText).toMatch(/自定义|Custom|无障碍|Accessibility/);
       expect(snap.listText).not.toMatch(/系统默认自动创新|系统默认·无障碍/);
@@ -137,7 +137,7 @@ test.describe('Popup 系统默认 Skill 目录', () => {
       expect(catalogHits[0].hasAuth).toBe(true);
       expect(snap.listText).toContain(CATALOG_TITLE);
       expect(snap.headerUser).toMatch(/e2e-user/);
-      expect(snap.status).not.toMatch(/Signed out: skills stay on this device|未登录：Skill 仅保存在本机/);
+      expect(snap.status).not.toMatch(/Prompt market|提示词集市/);
     } finally {
       await context.close();
     }

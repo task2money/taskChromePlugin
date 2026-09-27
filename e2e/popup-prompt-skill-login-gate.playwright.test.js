@@ -35,7 +35,7 @@ const T = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const TENANT_ID = 'tenant-e2e';
 const WORKSPACE_ID = 'ws-e2e';
-const SIGNED_OUT_STATUS_RE = /Signed out: skills stay on this device|未登录：Skill 仅保存在本机/;
+const SIGNED_OUT_STATUS_RE = /Prompt market|提示词集市/;
 
 async function waitSw(context) {
   let sw = null;

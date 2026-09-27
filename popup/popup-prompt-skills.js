@@ -307,9 +307,7 @@
       console.warn('[taskChromePlugin] system catalog:', e?.message || e);
       if (pluginLoggedIn()) statusText(e?.message || tx('paSkillCatalogNeedSession'));
     }
-    if (!pluginLoggedIn()) {
-      statusText(tx('paSkillLocalOnlyUntilLogin'));
-    }
+    if (!pluginLoggedIn()) PopupPromptSkillUi.showSignedOutPromptMarketLink(cachedBaseUrl);
     renderList();
     setEditorVisible(false);
   }
