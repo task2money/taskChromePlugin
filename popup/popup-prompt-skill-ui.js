@@ -157,19 +157,6 @@
     return radio;
   }
 
-  function renderNoneRow(root, store, handlers) {
-    const row = document.createElement('div');
-    row.className = 'popup-skill-row popup-skill-row-none';
-    const radio = makeActiveRadio(
-      'popupSkillRadio_none',
-      '',
-      !store.activeSkillId,
-      () => handlers.onActive(''),
-    );
-    appendTitleLine(row, radio, tx('paSkillClearActive'));
-    root.appendChild(row);
-  }
-
   function appendSkillRow(parent, sk, store, syncLocal, workspaceRows, handlers, ctx) {
     const row = document.createElement('div');
     row.className = 'popup-skill-row';
@@ -311,7 +298,6 @@
     const groups = skillGroups(store);
     const focus = browseTendency;
     const group = focus ? groups.find((g) => g.tendency === focus) : null;
-    renderNoneRow(root, store, handlers);
     if (!group) {
       if (focus) browseTendency = '';
       root.setAttribute('role', 'group');

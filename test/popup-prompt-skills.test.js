@@ -227,7 +227,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.match(rowTitle(custom).textContent, /严谨排障/);
     assert.equal(rowRadio(skillRowByTitle(list, /系统默认自动创新/)).checked, true, '预埋 custom 默认仍为 active');
     assert.equal(radio.checked, false);
-    assert.equal(rowRadio(noneRow(list)).checked, false);
+    assert.equal(noneRow(list), undefined);
 
     const written = ctx.lastSet();
     assert.equal(written.pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
@@ -254,22 +254,7 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, second.value);
     assert.equal(rowRadio(skillRowByTitle(ctx.byId.popupSkillList, /乙/)).checked, true, '重渲染后乙为 active');
     assert.equal(rowRadio(skillRowByTitle(ctx.byId.popupSkillList, /甲/)).checked, false);
-    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, false);
-  });
-
-  it('勾选「不应用」后落盘 activeSkillId 为空', async () => {
-    ctx = bootPopup({
-      skills: [ctx.skill('甲', 'a')],
-      activeSkillId: 'sk_甲',
-    });
-    ctx.api.loadSkills();
-    await flushAll();
-    const none = rowRadio(noneRow(ctx.byId.popupSkillList));
-    none.checked = true;
-    none.dispatch('change', { target: none });
-    await flushAll();
-    assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, '');
-    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
+    assert.equal(noneRow(ctx.byId.popupSkillList), undefined);
   });
 
   it('Delete 先弹出确认；取消不删；确认后才删除', async () => {
@@ -297,6 +282,10 @@ describe('Popup 提示词 Skill：列表渲染与保存门闩（OPT-20260922-002
     assert.equal(skillRowByTitle(ctx.byId.popupSkillList, /待删/), undefined);
     assert.equal(ctx.lastSet().pageAdvisorPromptSkills.some((s) => s.title === '待删'), false);
     assert.equal(ctx.lastSet().pageAdvisorPromptSkills.length, 1);
+    assert.equal(
+      ctx.lastSet().pageAdvisorActiveSkillId,
+      ctx.lastSet().pageAdvisorPromptSkills[0].id,
+    );
   });
 
   it('保存携带 GET 回传的 revision 作为 base_revision（CAS 接线）', async () => {
@@ -619,7 +608,7 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     const custom = skillRowByTitle(list, /系统默认自动创新/);
     assert.match(rowTitle(custom).textContent, /系统默认自动创新/);
     assert.equal(rowRadio(custom).checked, true);
-    assert.equal(rowRadio(noneRow(list)).checked, false);
+    assert.equal(noneRow(list), undefined);
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, 'sys_default_auto_innovate');
   });
 
@@ -681,7 +670,7 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     assert.doesNotMatch(ctx.byId.popupSkillStatus.textContent, /未登录|Signed out/);
   });
 
-  it('本机已有目录 default 且不应用时不覆盖', async () => {
+  it('本机已有目录 default 且 active 为空时不覆盖', async () => {
     ctx = bootPopup({
       skills: [{
         id: 'sys_default_auto_innovate',
@@ -706,7 +695,7 @@ describe('Popup 提示词 Skill：采纳服务端合并结果（OPT-20260922-005
     });
     ctx.api.loadSkills();
     await flushAll();
-    assert.equal(rowRadio(noneRow(ctx.byId.popupSkillList)).checked, true);
+    assert.equal(noneRow(ctx.byId.popupSkillList), undefined);
     assert.equal(ctx.lastSet().pageAdvisorActiveSkillId, '');
     assert.equal(
       ctx.lastSet().pageAdvisorPromptSkills.find((s) => s.id === 'sys_default_auto_innovate').body,

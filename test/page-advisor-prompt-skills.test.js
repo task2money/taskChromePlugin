@@ -53,11 +53,14 @@ describe('PageAdvisorPromptSkills', () => {
     );
   });
 
-  it('remove clears active when deleted', () => {
+  it('removeSkill moves active onto a remaining skill', () => {
     let st = PageAdvisorPromptSkills.emptyStore();
     st = PageAdvisorPromptSkills.upsertSkill(st, { id: 'a', title: 'A', body: '1' }).store;
+    st = PageAdvisorPromptSkills.upsertSkill(st, { id: 'b', title: 'B', body: '2' }).store;
     st = PageAdvisorPromptSkills.setActive(st, 'a').store;
     st = PageAdvisorPromptSkills.removeSkill(st, 'a').store;
+    assert.equal(st.activeSkillId, 'b');
+    st = PageAdvisorPromptSkills.removeSkill(st, 'b').store;
     assert.equal(st.activeSkillId, '');
     assert.equal(PageAdvisorPromptSkills.getActive(st), null);
   });

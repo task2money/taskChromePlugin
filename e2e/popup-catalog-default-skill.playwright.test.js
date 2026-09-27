@@ -67,7 +67,7 @@ test.describe('Popup 系统默认 Skill 目录', () => {
       expect(snap.sectionDisplay, JSON.stringify(snap)).not.toBe('none');
       expect(snap.summary).toMatch(/No skill applied|当前未应用 Skill/);
       expect(snap.status).toMatch(/Signed out: skills stay on this device|未登录：Skill 仅保存在本机/);
-      expect(snap.listText).toMatch(/Do not apply a skill|不应用 Skill/);
+      expect(snap.listText).not.toMatch(/Do not apply a skill|不应用 Skill/);
       expect(snap.listText).toMatch(/自定义|Custom|无障碍|Accessibility/);
       expect(snap.listText).not.toMatch(/系统默认自动创新|系统默认·无障碍/);
       expect(snap.headerUser).not.toMatch(/e2e-user/);

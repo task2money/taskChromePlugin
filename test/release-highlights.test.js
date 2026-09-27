@@ -23,6 +23,14 @@ const {
   sameCommitRelease,
 } = require('../scripts/release-highlights.js');
 
+function gitEnv() {
+  const env = { ...process.env };
+  for (const key of ['GIT_DIR', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY']) {
+    delete env[key];
+  }
+  return env;
+}
+
 function git(dir, args) {
   return execFileSync(
     'git',
@@ -33,7 +41,7 @@ function git(dir, args) {
       '-c', 'commit.gpgsign=false',
       ...args,
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: gitEnv() },
   );
 }
 
@@ -138,7 +146,7 @@ describe('collectSubjects', () => {
 
   before(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-hl-'));
-    execFileSync('git', ['-C', dir, 'init', '-b', 'main'], { encoding: 'utf8' });
+    git(dir, ['init', '-b', 'main']);
     fs.writeFileSync(path.join(dir, 'a.txt'), '1\n');
     git(dir, ['add', 'a.txt']);
     git(dir, ['commit', '-m', 'feat: base']);
@@ -172,7 +180,7 @@ describe('sameCommitRelease', () => {
 
   before(() => {
     dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-same-commit-'));
-    execFileSync('git', ['-C', dir, 'init', '-b', 'main'], { encoding: 'utf8' });
+    git(dir, ['init', '-b', 'main']);
     fs.writeFileSync(path.join(dir, 'a.txt'), '1\n');
     git(dir, ['add', 'a.txt']);
     git(dir, ['commit', '-m', 'feat: base']);
@@ -232,7 +240,7 @@ describe('publish-github-release.sh', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-guard-cli-'));
     const bin = fs.mkdtempSync(path.join(os.tmpdir(), 'rel-guard-bin-'));
     try {
-      execFileSync('git', ['-C', dir, 'init', '-b', 'main'], { encoding: 'utf8' });
+      git(dir, ['init', '-b', 'main']);
       fs.writeFileSync(path.join(dir, 'a.txt'), '1\n');
       git(dir, ['add', 'a.txt']);
       git(dir, ['commit', '-m', 'feat: base']);

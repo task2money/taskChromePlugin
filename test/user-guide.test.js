@@ -150,7 +150,7 @@ describe('UserGuide sections', () => {
     assert.match(blob, /未登录也可/);
     assert.match(blob, /未登录时 Skill 只存本机/);
     assert.match(blob, /预埋自动创新这一条技能/);
-    assert.match(blob, /不应用/);
+    assert.doesNotMatch(blob, /不应用/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /自动创新智能体/);
     assert.match(md, /点 \*\*「设置」\*\*/);

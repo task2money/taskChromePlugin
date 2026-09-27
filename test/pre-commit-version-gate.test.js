@@ -17,6 +17,14 @@ const { execFileSync } = require('node:child_process');
 const ROOT = path.resolve(__dirname, '..');
 const GATE = path.join(ROOT, '.githooks', 'lib', 'version_bump_gate.sh');
 
+function gitEnv() {
+  const env = { ...process.env };
+  for (const key of ['GIT_DIR', 'GIT_INDEX_FILE', 'GIT_PREFIX', 'GIT_WORK_TREE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY']) {
+    delete env[key];
+  }
+  return env;
+}
+
 function git(dir, args) {
   return execFileSync(
     'git',
@@ -27,7 +35,7 @@ function git(dir, args) {
       '-c', 'commit.gpgsign=false',
       ...args,
     ],
-    { encoding: 'utf8' },
+    { encoding: 'utf8', env: gitEnv() },
   );
 }
 
@@ -38,6 +46,7 @@ function runGate(dir) {
     execFileSync('bash', ['-c', script], {
       cwd: dir,
       encoding: 'utf8',
+      env: gitEnv(),
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     return { status: 0, stderr: '' };
@@ -48,7 +57,7 @@ function runGate(dir) {
 
 function makeRepo(version = '1.8.90') {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-version-gate-'));
-  execFileSync('git', ['-C', dir, 'init', '-b', 'main'], { encoding: 'utf8' });
+  git(dir, ['init', '-b', 'main']);
   fs.mkdirSync(path.join(dir, 'popup'), { recursive: true });
   fs.mkdirSync(path.join(dir, 'docs'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'manifest.json'), `{\n  "manifest_version": 3,\n  "version": "${version}"\n}\n`);

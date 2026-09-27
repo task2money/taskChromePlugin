@@ -2,22 +2,26 @@
 
 function skillRows(list) {
   const out = [];
-  (list.children || []).forEach((ch, i) => {
-    if (i === 0) return;
-    const cls = String(ch.className || '');
-    if (cls.includes('popup-skill-group')) {
-      (ch.children || []).forEach((gch) => {
-        if (String(gch.className || '').includes('popup-skill-row')) out.push(gch);
-      });
-    } else if (cls.includes('popup-skill-row')) {
-      out.push(ch);
+  function consider(node) {
+    const cls = String(node.className || '');
+    if (cls.includes('popup-skill-row') && !cls.includes('popup-skill-row-none')) {
+      out.push(node);
+      return;
     }
-  });
+    (node.children || []).forEach(consider);
+  }
+  (list.children || []).forEach(consider);
   return out;
 }
 
 function noneRow(list) {
-  return list.children[0];
+  const found = [];
+  function walk(node) {
+    if (String(node.className || '').includes('popup-skill-row-none')) found.push(node);
+    (node.children || []).forEach(walk);
+  }
+  walk(list);
+  return found[0];
 }
 
 function skillRow(list, index) {

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Saved skills 列表结构：不应用 Option 带 radio；标题独占一行；按钮在下一行。
+ * Saved skills 列表结构：没有「不应用」行；标题独占一行；按钮在下一行。
  */
 
 const { describe, it, beforeEach } = require('node:test');
@@ -73,30 +73,20 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     SkillUi = require('../popup/popup-prompt-skill-ui.js');
   });
 
-  it('无 Skill 时仍渲染「不应用」radio，默认勾选，并只列出五类、不列出技能', () => {
+  it('无 Skill 时只列出五类、不列出技能，也没有「不应用」', () => {
     const root = makeEl('div');
-    const calls = [];
     SkillUi.renderSkillList(root, { skills: [], activeSkillId: '' }, 'local', [], {
-      onActive: (id) => calls.push(id),
+      onActive() {},
     });
-    assert.equal(root.children.length, 3, '不应用 + 步骤说明 + 类别列表');
-    const none = root.children[0];
-    assert.match(none.className, /popup-skill-row-none/);
-    const radio = titleLine(none).children[0];
-    assert.equal(radio.type, 'radio');
-    assert.equal(radio.name, 'popupSkillActive');
-    assert.equal(radio.value, '');
-    assert.equal(radio.checked, true);
-    assert.match(titleLine(none).children[1].textContent, /不应用/);
-    assert.equal(none.children.length, 1, '不应用行没有操作按钮行');
-    radio.dispatch('change');
-    assert.deepEqual(calls, ['']);
+    assert.equal(root.children.length, 2, '步骤说明 + 类别列表');
+    assert.equal(root.children.some((c) => String(c.className || '').includes('popup-skill-row-none')), false);
+    assert.doesNotMatch(collectText(root), /不应用/);
     const picks = categoryBox(root).children;
     assert.equal(picks.length, 5);
     assert.equal(picks[0].getAttribute('data-tendency'), 'a11y');
     assert.match(picks[0].textContent, /无障碍|Accessibility/);
     assert.equal(root.children.some((c) => String(c.className || '').includes('popup-skill-group')), false);
-    assert.match(root.children[1].textContent, /先选择类别|Choose a category/);
+    assert.match(root.children[0].textContent, /先选择类别|Choose a category/);
   });
 
   it('Skill 行标题独占第一行，同步/编辑/删除在标题下一行', () => {
@@ -157,13 +147,13 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
     assert.equal(deleted.length, 0);
   });
 
-  it('已有 active Skill 时「不应用」radio 未勾选', () => {
+  it('已有 active Skill 时该类技能 radio 勾选，列表没有「不应用」', () => {
     const root = makeEl('div');
     SkillUi.renderSkillList(root, {
       skills: [{ id: 's1', title: 'A', tendency: 'custom', body: 'x' }],
       activeSkillId: 's1',
     }, 'local', [], { onActive() {}, onTarget() {}, onEdit() {}, onDelete() {} });
-    assert.equal(titleLine(root.children[0]).children[0].checked, false);
+    assert.doesNotMatch(collectText(root), /不应用/);
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
     assert.equal(titleLine(skillRowInGroup(customGroup)).children[0].checked, true);
@@ -175,10 +165,6 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
       skills: [{ id: 's1', title: '严谨', tendency: 'custom', body: 'x' }],
       activeSkillId: '',
     }, 'local', [], { onActive() {}, onTarget() {}, onEdit() {}, onDelete() {} });
-    const noneTitle = titleLine(root.children[0]);
-    assert.equal(noneTitle.children[1].tagName, 'LABEL', '不应用行标题为 label');
-    assert.equal(noneTitle.children[0].id, 'popupSkillRadio_none');
-    assert.equal(noneTitle.children[1].htmlFor, noneTitle.children[0].id, 'label for 与 radio id 对齐');
     openTendency(root, 'custom');
     const customGroup = tendencyGroup(root);
     const skillTitle = titleLine(skillRowInGroup(customGroup));
@@ -218,7 +204,7 @@ describe('PopupPromptSkillUi.renderSkillList 布局', () => {
       'https://aidevpush.com/tenant/co1/settings/workspace/ws-b/prompt-skills/',
     );
     assert.match(link.textContent, /管理|Manage/);
-    assert.equal(titleLine(root.children[0]).children.length, 2, '不应用行标题末尾无跳转');
+    assert.doesNotMatch(collectText(root), /不应用/);
     assert.equal(missing.length, 0);
   });
 });
