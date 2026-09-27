@@ -149,6 +149,7 @@ describe('UserGuide sections', () => {
     assert.match(blob, /提示词 Skill/);
     assert.match(blob, /未登录也可/);
     assert.match(blob, /未登录时 Skill 只存本机/);
+    assert.match(blob, /标题「提示词 Skill」旁是「提示词集市」链接/);
     assert.match(blob, /提示词集市/);
     assert.match(blob, /\/prompt-shares\//);
     assert.match(blob, /预埋自动创新这一条技能/);
@@ -161,6 +162,7 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(md, /消耗资源/);
     assert.match(md, /未登录也可/);
     assert.match(md, /未登录时 Skill 只存本机/);
+    assert.match(md, /标题 \*\*「提示词 Skill」\*\* 旁是 \*\*「提示词集市」\*\* 链接/);
     assert.match(md, /提示词集市/);
     assert.match(md, /\/prompt-shares\//);
     assert.match(md, /预埋自动创新这一条技能/);

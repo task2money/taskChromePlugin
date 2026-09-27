@@ -67,6 +67,19 @@ body {
 }
 #lnkIdleMarket { white-space: nowrap; flex-shrink: 0; }
 #lnkPromptMarket { white-space: nowrap; flex-shrink: 0; }
+/* 标题 h3 不再撑满，集市链接留在「提示词 Skill」文案旁；设置按钮靠行尾 */
+#pageAdvisorSkillSection .llm-section-heading h3 {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+#pageAdvisorSkillSection .llm-section-heading h3 #lnkPromptMarket {
+  color: #89b4fa;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+#pageAdvisorSkillSection #btnToggleSkillSettings { margin-left: auto; }
 .llm-section-heading { margin-bottom: 6px; }
 .llm-section-heading h3 { flex: 1 1 auto; min-width: 0; }
 .llm-shortcut {
