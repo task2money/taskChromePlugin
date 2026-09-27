@@ -188,9 +188,22 @@ describe('Prompt Skill 提示的快捷键主张（OPT-20260922-011）', () => {
 
   it('用户指南 Skill 步骤同时写明 Alt+Z 与 Alt+Shift+Z', () => {
     const src = fs.readFileSync(path.join(ROOT, 'lib/user-guide.js'), 'utf8');
-    const step = src.split('\n').find((line) => line.includes('提示词 Skill（倾向）'));
+    const step = src.split('\n').find((line) => line.includes('可在弹窗「提示词 Skill」'));
     assert.ok(step, '未找到用户指南 Prompt Skill 步骤');
     assert.match(step, /Alt\+Z/);
     assert.match(step, /Alt\+Shift\+Z/);
+    assert.doesNotMatch(step, /（倾向）/);
+  });
+});
+
+describe('Popup 提示词 Skill 标题不带「倾向」', () => {
+  it('中文标题为「提示词 Skill」，英文为 Prompt skills', () => {
+    const html = popupHtml();
+    const m = html.match(/data-i18n="paSkillSectionTitle"[^>]*>([^<]*)</);
+    assert.ok(m, 'popup.html 缺少 paSkillSectionTitle 兜底文案');
+    assert.equal(m[1], '提示词 Skill');
+    const messages = i18nMessages();
+    assert.equal(messages.zh.paSkillSectionTitle, '提示词 Skill');
+    assert.equal(messages.en.paSkillSectionTitle, 'Prompt skills');
   });
 });
