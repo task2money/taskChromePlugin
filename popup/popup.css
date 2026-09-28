@@ -207,6 +207,7 @@ body {
 
 /* === Button Row === */
 .btn-row { display: flex; gap: 6px; margin-top: 8px; }
+.llm-config-actions { flex-wrap: wrap; }
 
 /* === Small Button === */
 .btn-sm { padding: 4px 10px; font-size: 11px; }

@@ -5,6 +5,9 @@
   let routeUiReady = false;
   let suppressProfileChange = false;
   let lastCfg = null;
+  const llmProbeGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
+    ? ClickGuard.createClickGuard({ debounceMs: 400 })
+    : null;
 
   function llmFields() {
     return $('#pageAdvisorLlmFields');
@@ -212,6 +215,62 @@
     if (collapse && ui) ui.collapseLlmSettingsAfterSave(saved, llmFields(), llmToggleBtn());
   }
 
+  function probeLabel(btn) {
+    return btn ? btn.querySelector('[data-i18n="paLlmTest"]') : null;
+  }
+
+  function showProbeStatus(status, view) {
+    if (!status || typeof PageAdvisorLlmProbe === 'undefined') return;
+    const text = view.textKey === 'paLlmTestFail'
+      ? tx('paLlmTestFail', view.params || {})
+      : tx(view.textKey, view.params || undefined);
+    PageAdvisorLlmProbe.renderProbeStatus(status, {
+      failed: view.failed,
+      text,
+      traceId: view.traceId,
+    });
+  }
+
+  async function runLlmConnectivityProbe(ctx) {
+    const status = $('#popupLlmStatus');
+    const btn = $('#btnTestLlmConnectivity');
+    const label = probeLabel(btn);
+    const creds = {
+      apiKey: $('#popupLlmApiKey')?.value || '',
+      baseUrl: $('#popupLlmBaseUrl')?.value || '',
+      model: $('#popupLlmModel')?.value || '',
+    };
+    setBusy(btn, true);
+    if (label) label.textContent = tx('paLlmTesting');
+    try {
+      if (typeof PageAdvisorLlmProbe === 'undefined') {
+        if (status) status.textContent = tx('popupSaveFailed');
+        return;
+      }
+      const result = await PageAdvisorLlmProbe.probeLlmConnectivity(creds, {
+        idempotencyKey: ctx && ctx.idempotencyKey,
+      });
+      showProbeStatus(status, PageAdvisorLlmProbe.probeStatusView(null, result.model));
+    } catch (err) {
+      const view = (typeof PageAdvisorLlmProbe !== 'undefined' && PageAdvisorLlmProbe.probeStatusView)
+        ? PageAdvisorLlmProbe.probeStatusView(err, '')
+        : { failed: Boolean(err && err.traceId), textKey: 'paLlmTestFail', params: { detail: err && err.message }, traceId: (err && err.traceId) || '' };
+      showProbeStatus(status, view);
+    } finally {
+      setBusy(btn, false);
+      if (label) label.textContent = tx('paLlmTest');
+    }
+  }
+
+  function onTestLlmConnectivity() {
+    const run = (ctx) => runLlmConnectivityProbe(ctx);
+    if (llmProbeGuard) {
+      llmProbeGuard.run(run).catch(() => {});
+      return;
+    }
+    run(null).catch(() => {});
+  }
+
   async function onProfileChanged() {
     if (suppressProfileChange || !routeUiReady) return;
     const sel = $('#popupLlmProfileSelect');
@@ -257,6 +316,8 @@
     const btn = $('#btnSaveLlmConfig');
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (btn) btn.addEventListener('click', () => { savePageAdvisorLlmConfig().catch(() => {}); });
+    const testBtn = $('#btnTestLlmConnectivity');
+    if (testBtn) testBtn.addEventListener('click', () => { onTestLlmConnectivity(); });
     const routeField = $('#popupLlmRouteField');
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (routeField) {
