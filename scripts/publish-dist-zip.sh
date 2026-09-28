@@ -34,3 +34,5 @@ echo "publish-dist-zip: OK $ZIP version=$VERSION" >&2
 
 # GitHub Release（zip；有 crx 则一并上传）— OPT-20260920-032 漏发 release 的补全
 bash "$ROOT/scripts/publish-github-release.sh"
+# 第二同步源 Gitee Release（无 gitee remote 时脚本内跳过）
+bash "$ROOT/scripts/publish-gitee-release.sh"
