@@ -11,6 +11,7 @@ const ROOT = path.resolve(__dirname, '..');
 const {
   parseGiteeRemote,
   redact,
+  isAbsentRelease,
   syncRelease,
   localNotes,
 } = require('../scripts/gitee-release.js');
@@ -62,6 +63,7 @@ describe('syncRelease', () => {
     assert.deepEqual(calls, [
       'GET /repos/ljy-ruandao/task-chrome-plugin/releases/tags/v1.8.112',
       'POST /repos/ljy-ruandao/task-chrome-plugin/releases',
+      'GET /repos/ljy-ruandao/task-chrome-plugin/releases/9/attach_files',
       'POST /repos/ljy-ruandao/task-chrome-plugin/releases/9/attach_files',
     ]);
     await assert.rejects(
@@ -78,14 +80,41 @@ describe('syncRelease', () => {
     );
   });
 
-  it('已有同名附件时先删除再上传', async () => {
+  it('查询返回 200 且正文为 null 时仍创建 Release', async () => {
+    assert.equal(isAbsentRelease({ status: 200, body: null }), true);
     const calls = [];
     const request = async (req) => {
       calls.push(req.method);
-      if (req.method === 'GET') {
-        return { status: 200, body: { id: 4, attach_files: [{ id: 8, name: 'task-chrome-plugin-v1.8.112.zip' }] } };
+      if (req.method === 'GET') return { status: 200, body: null };
+      if (req.method === 'POST' && req.path.endsWith('/releases')) {
+        return { status: 201, body: { id: 9, attach_files: [] } };
       }
-      if (req.method === 'PATCH') return { status: 200, body: { id: 4, attach_files: [{ id: 8, name: 'task-chrome-plugin-v1.8.112.zip' }] } };
+      return { status: 201, body: { id: 9, attach_files: [{ id: 3, name: 'task-chrome-plugin-v1.8.112.zip' }] } };
+    };
+    const result = await syncRelease({
+      owner: 'ljy-ruandao',
+      repo: 'task-chrome-plugin',
+      tag: 'v1.8.112',
+      target: 'abc',
+      notes: 'notes',
+      files: [zip],
+      token,
+    }, request);
+    assert.equal(result.created, true);
+    assert.deepEqual(calls, ['GET', 'POST', 'GET', 'POST']);
+  });
+
+  it('已有同名附件时先删除再上传', async () => {
+    const calls = [];
+    const request = async (req) => {
+      calls.push(req.method + ' ' + req.path);
+      if (req.method === 'GET' && req.path.includes('/attach_files')) {
+        return { status: 200, body: [{ id: 8, name: 'task-chrome-plugin-v1.8.112.zip' }] };
+      }
+      if (req.method === 'GET') {
+        return { status: 200, body: { id: 4, assets: [{ name: 'task-chrome-plugin-v1.8.112.zip' }] } };
+      }
+      if (req.method === 'PATCH') return { status: 200, body: { id: 4 } };
       if (req.method === 'DELETE') return { status: 204, body: {} };
       return { status: 201, body: { id: 4, attach_files: [{ id: 11, name: 'task-chrome-plugin-v1.8.112.zip' }] } };
     };
@@ -99,7 +128,8 @@ describe('syncRelease', () => {
       token,
     }, request);
     assert.equal(result.created, false);
-    assert.deepEqual(calls, ['GET', 'PATCH', 'DELETE', 'POST']);
+    assert.ok(calls.some((line) => line.startsWith('DELETE ')));
+    assert.ok(calls.some((line) => line.includes('/attach_files') && line.startsWith('GET ')));
   });
 });
 

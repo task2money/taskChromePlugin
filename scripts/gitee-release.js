@@ -78,6 +78,15 @@ function assertOk(result, action, token) {
   throw new Error(`${action} failed: ${result.status} ${detail}`);
 }
 
+// Gitee 在 tag 还没有 Release 时返回 HTTP 200，正文为 JSON null，而不是 404。
+function isAbsentRelease(result) {
+  if (!result || result.status === 404) return true;
+  if (result.status < 200 || result.status >= 300) return false;
+  const body = result.body;
+  if (body == null) return true;
+  return typeof body === 'object' && !Array.isArray(body) && !body.id;
+}
+
 async function syncRelease(input, request) {
   const { owner, repo, tag, target, notes, files, token } = input;
   if (!token) {
@@ -88,7 +97,7 @@ async function syncRelease(input, request) {
   const base = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
   let current = await request({ method: 'GET', path: `${base}/releases/tags/${encodeURIComponent(tag)}`, token });
   let created = false;
-  if (current.status === 404) {
+  if (isAbsentRelease(current)) {
     current = await request({
       method: 'POST',
       path: `${base}/releases`,
@@ -118,6 +127,14 @@ async function syncRelease(input, request) {
 
   const releaseId = current.body.id;
   let attachments = attachmentList(current.body);
+  const listed = await request({
+    method: 'GET',
+    path: `${base}/releases/${releaseId}/attach_files`,
+    token,
+  });
+  if (listed.status >= 200 && listed.status < 300 && Array.isArray(listed.body)) {
+    attachments = attachmentList({ attach_files: listed.body });
+  }
   const uploaded = [];
   for (const file of files) {
     const name = path.basename(file.path);
@@ -254,6 +271,7 @@ module.exports = {
   redact,
   attachmentList,
   localNotes,
+  isAbsentRelease,
   syncRelease,
   publishFromCli,
 };
