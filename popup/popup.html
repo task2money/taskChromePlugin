@@ -67,7 +67,7 @@
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
           <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 为免费。未选择时默认直连。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。点击「设置」新增或修改一组。</p>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。工作空间与项目在页内浮窗选择；浮窗收起后沿用上次选择。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」下选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
         </details>
         <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary heading-sm" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
         <!-- Anti-Replay-OK: external navigation -->
@@ -83,6 +83,11 @@
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
           <span data-i18n="paLlmRouteSaas">调用平台后端</span>
         </label>
+        <div class="form-row" id="popupSaasWorkspaceRow" hidden style="display:none">
+          <label for="popupSaasWorkspace" data-i18n="paSaasWorkspaceLabel">工作空间</label>
+          <select id="popupSaasWorkspace" class="form-select" data-testid="popup-saas-workspace"></select>
+          <p id="popupSaasWorkspaceStatus" class="hint" aria-live="polite"></p>
+        </div>
       </fieldset>
       <div class="form-row" id="popupLlmProfileRow">
         <label for="popupLlmProfileSelect" data-i18n="paLlmProfileLabel">已保存的 Key</label>
@@ -325,6 +330,7 @@
   <script src="../lib/visibility-interval.js"></script>
   <script src="../lib/request-list-query.js"></script>
   <script src="../lib/workspace-list.js"></script>
+  <script src="../lib/popup-saas-workspace.js"></script>
   <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-llm-settings-ui.js"></script>
   <script src="../lib/page-advisor-preset-skills.js"></script>
@@ -337,6 +343,7 @@
   <script src="popup-prompt-skill-session.js"></script>
   <script src="popup-prompt-skill-cloud.js"></script>
   <script src="popup-prompt-skills.js"></script>
+  <script src="popup-saas-workspace.js"></script>
   <script src="popup-auth.js"></script>
   <script src="popup-auth-badge.js"></script>
   <script src="popup-shortcut.js"></script>

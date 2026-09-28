@@ -256,6 +256,9 @@
     if (window.PopupPageAdvisorSkills?.loadSkills) {
       window.PopupPageAdvisorSkills.loadSkills();
     }
+    if (window.PopupSaasWorkspace?.setLoggedIn) {
+      window.PopupSaasWorkspace.setLoggedIn(false);
+    }
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -305,6 +308,9 @@
       btn.textContent = tx('popupReloginBtn');
       btn.disabled = false;
     }
+    if (window.PopupSaasWorkspace?.setLoggedIn) {
+      window.PopupSaasWorkspace.setLoggedIn(false);
+    }
   }
 
   function showLoggedInUI(username) {
@@ -328,6 +334,9 @@
     }
     if (window.PopupPageAdvisorSkills?.setSkillSectionVisible) {
       window.PopupPageAdvisorSkills.setSkillSectionVisible(true);
+    }
+    if (window.PopupSaasWorkspace?.setLoggedIn) {
+      window.PopupSaasWorkspace.setLoggedIn(true);
     }
     setPopupGuideVisible(true);
     mountPopupUserGuide();

@@ -41,14 +41,14 @@ const LATEST_RELEASE_FIXTURE = {
  * options.release 提供时把 GitHub latest release 接口换成夹具，避免真网络。
  */
 async function installChromeStub(page, options = {}) {
-  await page.addInitScript(({ installType, release }) => {
+  await page.addInitScript(({ installType, release, token, username }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const store = {
       baseUrl: 'https://aidevpush.com',
-      token: '',
+      token: token || '',
       tokenExpiresAt: 0,
       tokenIssuedAt: 0,
-      username: '',
+      username: username || '',
       userId: '',
       memberId: '',
       'aidevpush.locale': 'zh-CN',
@@ -111,7 +111,12 @@ async function installChromeStub(page, options = {}) {
       };
     }
     window.chrome = chromeApi;
-  }, { installType: options.installType || '', release: options.release || null });
+  }, {
+    installType: options.installType || '',
+    release: options.release || null,
+    token: options.token || '',
+    username: options.username || '',
+  });
 }
 
 /** 读取 stub 存储里当前生效的 API Key（只回值，不打印）。 */
@@ -221,6 +226,7 @@ test.describe('Popup 面板布局', () => {
     await page.goto(POPUP_URL);
     await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#pageAdvisorDefaultsSection')).toHaveCount(0);
+    await expect(page.locator('#popupSaasWorkspaceRow')).toBeHidden();
     await expect(page.locator('#pageAdvisorLlmSection kbd.llm-shortcut')).toHaveText('Alt+Shift+Z');
     const toggle = page.locator('#btnToggleLlmSettings');
     const fields = page.locator('#pageAdvisorLlmFields');
@@ -231,6 +237,24 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#popupLlmApiKey')).toBeVisible();
     await toggle.click();
     await expect(fields).toBeHidden();
+  });
+
+  test('登录后「调用平台后端」下出现工作空间下拉', async ({ page }) => {
+    await installChromeStub(page, { token: 'at_e2e_workspace', username: 'ada' });
+    await page.goto(POPUP_URL);
+    const row = page.locator('#popupSaasWorkspaceRow');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await expect(row).toContainText('工作空间');
+    const select = page.locator('#popupSaasWorkspace');
+    await expect(select.locator('option')).toHaveCount(3, { timeout: 10000 });
+    await expect(select).toContainText('空间A');
+    await expect(select).toContainText('空间B');
+    await select.selectOption('ws-a');
+    const saved = await page.evaluate(async () => {
+      const raw = await chrome.storage.local.get(['lastWorkspaceId']);
+      return raw.lastWorkspaceId;
+    });
+    expect(saved).toBe('ws-a');
   });
 
   test('提示词 Skill 设置按钮展开管理区，再点收起', async ({ page }) => {
