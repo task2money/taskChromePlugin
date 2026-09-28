@@ -4,11 +4,22 @@
   const row = () => document.querySelector('#popupSaasWorkspaceRow');
   const selectEl = () => document.querySelector('#popupSaasWorkspace');
   const statusEl = () => document.querySelector('#popupSaasWorkspaceStatus');
+  const retryEl = () => document.querySelector('#popupSaasWorkspaceRetry');
   let suppress = false;
   let loadGen = 0;
+  /** 重试的同步点击锁：置位发生在任何 await 之前，同一 tick 连点只发一次 getWorkspaces。 */
+  let retrying = false;
+
+  function setRetryVisible(visible) {
+    const btn = retryEl();
+    if (!btn) return;
+    btn.hidden = !visible;
+    btn.disabled = false;
+  }
 
   function clearStatus() {
     const st = statusEl();
+    setRetryVisible(false);
     if (!st) return;
     st.textContent = '';
     if (typeof setDataTraceId === 'function') setDataTraceId(st, '');
@@ -22,9 +33,26 @@
       ? tx('commonLoadFailed', { msg: detail })
       : detail;
     if (typeof setDataTraceId === 'function') setDataTraceId(st, err);
+    // 网络抖动时不必关掉再打开弹窗：状态行旁给出就地重试（OPT-20260928-004）
+    setRetryVisible(true);
     console.warn('[taskChromePlugin] popup saas workspace load failed', {
       traceId: err?.traceId || '',
     });
+  }
+
+  function retry() {
+    if (retrying) return;
+    retrying = true;
+    const btn = retryEl();
+    if (btn) btn.disabled = true;
+    Promise.resolve()
+      .then(() => loadMenu())
+      .catch((e) => showError(e))
+      .then(() => {
+        retrying = false;
+        const b = retryEl();
+        if (b) b.disabled = false;
+      });
   }
 
   function persist(id) {
@@ -130,6 +158,11 @@
   }
 
   function bind() {
+    const retryBtn = retryEl();
+    if (retryBtn && retryBtn.dataset.saasWorkspaceRetryBound !== '1') {
+      retryBtn.dataset.saasWorkspaceRetryBound = '1';
+      retryBtn.addEventListener('click', retry);
+    }
     const sel = selectEl();
     if (!sel || sel.dataset.saasWorkspaceBound === '1') return;
     sel.dataset.saasWorkspaceBound = '1';

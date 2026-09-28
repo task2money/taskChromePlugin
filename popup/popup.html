@@ -87,6 +87,8 @@
           <label for="popupSaasWorkspace" data-i18n="paSaasWorkspaceLabel">工作空间</label>
           <select id="popupSaasWorkspace" class="form-select" data-testid="popup-saas-workspace"></select>
           <p id="popupSaasWorkspaceStatus" class="hint" aria-live="polite"></p>
+          <!-- 加载失败时才出现；点它就地重拉，不必关掉再打开弹窗（OPT-20260928-004） -->
+          <button type="button" id="popupSaasWorkspaceRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-saas-workspace-retry">重试</button>
         </div>
       </fieldset>
       <div class="form-row" id="popupLlmProfileRow">
