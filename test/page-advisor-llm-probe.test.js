@@ -116,6 +116,91 @@ describe('LLM connectivity probe', () => {
     );
   });
 
+  // OPT-20260929-006: 新模型只认 max_completion_tokens，400 参数不兼容不等于连不上。
+  it('Probe-T7 400 提示 max_tokens 时换 max_completion_tokens 重试一次并成功', async () => {
+    const bodies = [];
+    const keys = [];
+    const result = await Probe.probeLlmConnectivity(
+      { apiKey: 'sk-test', baseUrl: 'https://llm.test/v1', model: 'gpt-5' },
+      {
+        traceId: 'trace-retry',
+        idempotencyKey: 'ik-retry',
+        fetchImpl: async (url, opts) => {
+          bodies.push(JSON.parse(opts.body));
+          keys.push(opts.headers['Idempotency-Key']);
+          if (bodies.length === 1) {
+            return {
+              ok: false,
+              status: 400,
+              headers: { get: () => '' },
+              text: async () => '{"error":{"message":"Unsupported parameter: \'max_tokens\' is not supported with this model. Use \'max_completion_tokens\' instead."}}',
+            };
+          }
+          return {
+            ok: true,
+            status: 200,
+            headers: { get: () => '' },
+            text: async () => '{"choices":[{"message":{"content":"ok"}}]}',
+          };
+        },
+      },
+    );
+    assert.equal(result.ok, true);
+    assert.equal(bodies.length, 2);
+    assert.equal(bodies[0].max_tokens, 1);
+    assert.equal(bodies[0].max_completion_tokens, undefined);
+    assert.equal(bodies[1].max_tokens, undefined);
+    assert.equal(bodies[1].max_completion_tokens, 1);
+    assert.deepEqual(keys, ['ik-retry', 'ik-retry']);
+  });
+
+  it('Probe-T8 重试后仍因 max_tokens 被拒时不再发第三次请求', async () => {
+    const bodies = [];
+    await assert.rejects(
+      () => Probe.probeLlmConnectivity(
+        { apiKey: 'sk-test', baseUrl: 'https://llm.test/v1', model: 'gpt-5' },
+        {
+          traceId: 'trace-retry2',
+          fetchImpl: async (url, opts) => {
+            bodies.push(JSON.parse(opts.body));
+            return {
+              ok: false,
+              status: 400,
+              headers: { get: () => '' },
+              text: async () => '{"error":{"message":"max_tokens is not supported"}}',
+            };
+          },
+        },
+      ),
+      (err) => err && err.code === 'http' && err.status === 400 && err.traceId === 'trace-retry2',
+    );
+    assert.equal(bodies.length, 2);
+    assert.equal(bodies[1].max_completion_tokens, 1);
+  });
+
+  it('Probe-T9 400 与 max_tokens 无关时不重试，保持单次请求', async () => {
+    const bodies = [];
+    await assert.rejects(
+      () => Probe.probeLlmConnectivity(
+        { apiKey: 'sk-test', baseUrl: 'https://llm.test/v1', model: 'm' },
+        {
+          fetchImpl: async (url, opts) => {
+            bodies.push(JSON.parse(opts.body));
+            return {
+              ok: false,
+              status: 400,
+              headers: { get: () => '' },
+              text: async () => '{"error":{"message":"model does not exist"}}',
+            };
+          },
+        },
+      ),
+      (err) => err && err.code === 'http' && err.status === 400,
+    );
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].max_tokens, 1);
+  });
+
   it('Probe-T5 网络失败沿用本端 X-Trace-Id', async () => {
     await assert.rejects(
       () => Probe.probeLlmConnectivity(
