@@ -108,6 +108,7 @@ PACK_PATHS=(
   lib
   panel
   popup
+  sidepanel
 )
 
 for p in "${PACK_PATHS[@]}"; do
@@ -132,6 +133,14 @@ for p in "${PACK_PATHS[@]}"; do
   cp -R "$ROOT/$p" "$SRC/"
 done
 find "$SRC" -name '.DS_Store' -delete
+
+# side_panel.default_path 必须在包内，否则加载已解压扩展时报
+# Side panel file path must exist.
+SIDE_PATH="$(node -p "const m=require('$ROOT/manifest.json'); (m.side_panel&&m.side_panel.default_path)||''")"
+if [[ -n "$SIDE_PATH" && ! -f "$SRC/$SIDE_PATH" ]]; then
+  echo "错误: 打包目录缺少 side_panel 页面: $SIDE_PATH（Chrome 会报 Side panel file path must exist）" >&2
+  exit 1
+fi
 
 if [[ "$NEED_CRX" -eq 1 ]]; then
   echo "Chrome: $CHROME"
