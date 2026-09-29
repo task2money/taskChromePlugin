@@ -178,3 +178,18 @@ describe('content 脚本行数门禁与注入顺序', () => {
     }
   });
 });
+
+// OPT-20260929-015：建议层挂在 document.body 上，不在 float-root 内；
+// scoped applyDom 必须同时覆盖它，否则语言切换后底栏仍是旧语言。
+describe('content locale applyDom 覆盖建议层', () => {
+  it('applyDom 同时作用于 float-root 与 page-advisor 层', () => {
+    const content = fs.readFileSync(
+      path.join(__dirname, '../content/content.js'),
+      'utf8',
+    );
+    const m = content.match(/applyDom:\s*\(\)\s*=>\s*\{([\s\S]*?)\n  \}/);
+    assert.ok(m, '应能找到 content.js 的 scoped applyDom');
+    assert.match(m[1], /taskplugin-float-root/);
+    assert.match(m[1], /taskplugin-page-advisor-layer/);
+  });
+});

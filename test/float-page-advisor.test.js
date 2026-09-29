@@ -310,3 +310,20 @@ describe('float-page-advisor dismiss wiring', () => {
     assert.match(ui, /bindPageAdvisorToolbarDrag\(document\.getElementById\("taskplugin-page-advisor-toolbar"\)\)/);
   });
 });
+
+// OPT-20260929-015：底栏文案原先生成时用 tx() 写死，切语言不重绘；补 data-i18n 钩子。
+describe('float-page-advisor locale repaint hooks', () => {
+  const ui = fs.readFileSync(
+    path.join(__dirname, '../content/float-page-advisor.js'),
+    'utf8',
+  );
+
+  it('降级 HTML 给底栏标题与拖动说明挂 data-i18n', () => {
+    const m = ui.match(/A11y && A11y\.buildLayerHtml[^:]*:\s*`([\s\S]*?)`;/);
+    assert.ok(m, '应能找到 float-page-advisor.js 的降级 HTML 分支');
+    assert.match(m[1], /data-i18n="paToolbarNightTitle"/);
+    assert.match(m[1], /data-i18n-aria-label="paToolbarDragHandle"/);
+    assert.match(m[1], /data-i18n-title="paToolbarDragTitle"/);
+    assert.match(m[1], /data-i18n-aria-label="paToolbarLabel"/);
+  });
+});

@@ -43,8 +43,13 @@ function bindFloatLocaleSwitcher() {
     setLocale: (loc) => i18n.setLocale(loc),
     normalize: (raw) => i18n.normalize(raw),
     applyDom: () => {
+      if (typeof i18n.applyDom !== 'function') return;
       const host = document.getElementById('taskplugin-float-root');
-      if (host && typeof i18n.applyDom === 'function') i18n.applyDom(host);
+      if (host) i18n.applyDom(host);
+      // OPT-20260929-015: 建议底栏挂在 document.body 上，不在 float-root 内；
+      // 底栏标题/拖动说明/填入按钮只带 data-i18n 才会随语言下拉重绘。
+      const advisorLayer = document.getElementById('taskplugin-page-advisor-layer');
+      if (advisorLayer) i18n.applyDom(advisorLayer);
     },
   };
   // Anti-Replay-OK: locale switch; syncPreferredLocale 为既有 best-effort PATCH（ADR-0089）

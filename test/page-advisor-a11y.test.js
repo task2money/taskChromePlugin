@@ -122,6 +122,50 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
   });
 });
 
+// OPT-20260929-015：底栏标题/拖动说明/填入按钮原先只在生成时用 tx() 写死一次，
+// 切到 English 后仍是中文。改为挂 data-i18n*，由 applyDom 在语言切换时重绘。
+describe("page-advisor layer follows locale switches", () => {
+  it("toolbar title, drag handle and fill buttons carry data-i18n keys", () => {
+    const html = PageAdvisorA11y.buildLayerHtml((s) => s);
+    assert.match(html, /data-i18n="paToolbarNightTitle"/);
+    assert.match(html, /data-i18n-aria-label="paToolbarDragHandle"/);
+    assert.match(html, /data-i18n-title="paToolbarDragTitle"/);
+    assert.match(html, /data-i18n-aria-label="paToolbarLabel"/);
+    assert.match(html, /data-i18n="paFillOne"/);
+    assert.match(html, /data-i18n="paFillAll"/);
+    assert.match(html, /data-i18n-title="paFillAllTitle"/);
+  });
+
+  it("fallback layer HTML carries the same repaint hooks", () => {
+    const ui = read("content/float-page-advisor.js");
+    const m = ui.match(/A11y && A11y\.buildLayerHtml[^:]*:\s*`([\s\S]*?)`;/);
+    assert.ok(m, "应能找到 float-page-advisor.js 的降级 HTML 分支");
+    assert.match(m[1], /data-i18n="paToolbarNightTitle"/);
+    assert.match(m[1], /data-i18n-aria-label="paToolbarDragHandle"/);
+  });
+
+  it("locale switch repaints the advisor layer outside float-root", () => {
+    const content = read("content/content.js");
+    const scoped = content.match(/applyDom:\s*\(\)\s*=>\s*\{([\s\S]*?)\n  \}/);
+    assert.ok(scoped, "应能找到 content.js 的 scoped applyDom");
+    assert.match(scoped[1], /taskplugin-page-advisor-layer/);
+  });
+
+  it("switching to en yields English toolbar title", () => {
+    const i18n = require("../lib/i18n.js");
+    const ui = require("../lib/i18n-ui-messages.js");
+    i18n.registerMessages({ "zh-CN": ui.zh, en: ui.en });
+    i18n.setLocale("zh-CN");
+    assert.equal(i18n.t("paToolbarNightTitle"), "设置夜间任务调度，享用低价机器及智能体资源");
+    i18n.setLocale("en");
+    assert.equal(
+      i18n.t("paToolbarNightTitle"),
+      "Schedule tasks overnight for lower-priced machines and agent resources",
+    );
+    assert.equal(i18n.t("paFillAll"), "Copy and fill all");
+  });
+});
+
 describe("project radiogroup a11y", () => {
   it("float markup exposes radiogroup with 项目（单选） label", () => {
     const markup = read("lib/float-panel-markup.js");
