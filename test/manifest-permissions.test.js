@@ -19,6 +19,7 @@ const REQUIRED_PERMISSIONS = [
   'webRequest',
   'tabs',
   'webNavigation',
+  'sidePanel',
 ];
 
 const FORBIDDEN_PERMISSIONS = [

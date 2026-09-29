@@ -398,19 +398,20 @@ async function confirmAdjustModal() {
     };
     const block = ElementPicker.formatElementAdjustmentBlock(payload);
 
-    // 将调整内容复制到剪贴板
     let copied = false;
     try {
       await navigator.clipboard.writeText(block);
       copied = true;
-      console.log('[taskChromePlugin] element adjustment copied to clipboard');
     } catch (clipErr) {
       console.warn('[taskChromePlugin] clipboard copy failed:', clipErr.message || clipErr);
     }
 
-    descInput.value = ElementPicker.appendElementAdjustmentToDescription(descInput.value, payload);
-    syncDescResetButton();
-    console.log('[taskChromePlugin] element adjustment appended to float description');
+    const currentDesc = typeof readCreateDescription === 'function'
+      ? await readCreateDescription()
+      : (descInput ? descInput.value : '');
+    const nextDesc = ElementPicker.appendElementAdjustmentToDescription(currentDesc, payload);
+    if (typeof writeCreateDescription === 'function') await writeCreateDescription(nextDesc);
+    else if (descInput) descInput.value = nextDesc;
     closeAdjustModal();
     const clipSuffix = copied ? (typeof tx === 'function' ? tx('floatPickCopiedSuffix') : '，并已复制到剪贴板') : '';
     showResult((typeof tx === 'function' ? tx('floatPickAdjustAdded', { suffix: clipSuffix }) : `已将元素调整期望加入任务描述${clipSuffix}`), 'success');

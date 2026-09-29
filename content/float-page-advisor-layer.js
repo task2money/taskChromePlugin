@@ -163,7 +163,9 @@ function openFloatPanelForAdvisor() {
     panel.classList.add("taskplugin-open");
     btn.classList.add("taskplugin-active");
     btn.textContent = "×";
+    return;
   }
+  if (!panel && typeof openSidePanelFromPage === "function") openSidePanelFromPage("create");
 }
 
 function showPageAdvisorLayer() {

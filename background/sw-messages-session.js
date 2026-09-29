@@ -386,6 +386,12 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    case 'openSidePanel':
+    case 'getCreateDescription':
+    case 'setCreateDescription':
+    case 'relayPageToast':
+      return handleSidePanelMessage(message, sender);
+
     default:
       return handleMessageRest(message, sender);
   }

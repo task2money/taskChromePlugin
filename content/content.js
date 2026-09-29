@@ -35,18 +35,29 @@ function bindFloatLocaleSwitcher() {
 
 function hideFloatPanel() {
   isOpen = false;
-  panel.classList.remove('taskplugin-open');
-  btn.classList.remove('taskplugin-active');
-  btn.textContent = '+';
+  if (panel) panel.classList.remove('taskplugin-open');
+  if (btn) {
+    btn.classList.remove('taskplugin-active');
+    btn.textContent = '+';
+    if (typeof btn.focus === 'function') btn.focus();
+  }
   if (typeof syncFloatPanelFocusTrap === 'function') syncFloatPanelFocusTrap();
   if (pickMode) setPickMode(false);
   if (adjustModal && !adjustModal.hidden) closeAdjustModal();
   if (typeof clearFloatResult === 'function') clearFloatResult();
-  if (btn && typeof btn.focus === 'function') btn.focus();
+  if (document.documentElement.getAttribute('data-taskplugin-host') === 'sidepanel') {
+    window.close();
+  }
 }
 
 function showPageToast(msg, opts) {
   const options = opts && typeof opts === 'object' ? opts : {};
+  if (!options._fromRelay && document.documentElement.getAttribute('data-taskplugin-host') === 'sidepanel') {
+    const relay = Object.assign({}, options);
+    delete relay._fromRelay;
+    chrome.runtime.sendMessage({ action: 'relayPageToast', text: String(msg || ''), opts: relay }).catch(() => {});
+    return;
+  }
   let toast = document.getElementById('taskplugin-page-toast');
   if (!toast) {
     toast = document.createElement('div');
@@ -277,6 +288,12 @@ document.head.appendChild(style);
 }
 
 if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message || message.action !== 'relayPageToast') return;
+  if (document.documentElement.getAttribute('data-taskplugin-host') === 'sidepanel') return;
+  const opts = Object.assign({}, message.opts || {}, { _fromRelay: true });
+  showPageToast(message.text, opts);
+});
 // ---- Init ----
 (async function init() {
   try {
@@ -311,7 +328,7 @@ if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
     const urlEl = document.getElementById('taskplugin-page-url');
     if (urlEl) urlEl.textContent = `📍 ${window.location.href}`;
 
-    await refreshAuthAndWorkspaces();
+    if (wsSelect) await refreshAuthAndWorkspaces();
 
     if (typeof requestSitePendingRefresh === 'function') {
       requestSitePendingRefresh();

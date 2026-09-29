@@ -46,6 +46,7 @@ function setupDescReset() {
 
 // ---- Drag Logic ----
 function setupDrag() {
+  if (!btn) return;
   btn.addEventListener('mousedown', onDragStart);
   btn.addEventListener('dragstart', (e) => e.preventDefault());
 }
@@ -103,7 +104,7 @@ function onDragEnd() {
   }
 }
 
-btn.addEventListener('click', async (e) => {
+if (btn) btn.addEventListener('click', async (e) => {
   if (hasMoved) {
     hasMoved = false;
     return;
@@ -111,6 +112,10 @@ btn.addEventListener('click', async (e) => {
   // 选元素模式下，点击悬浮球 = 取消选择
   if (pickMode) {
     setPickMode(false);
+    return;
+  }
+  if (!panel) {
+    await openSidePanelFromPage('create');
     return;
   }
   isOpen = !isOpen;
@@ -217,6 +222,7 @@ async function fetchAuthStatusFromBackground() {
 }
 
 function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalidated = false } = {}) {
+  if (!badge) return;
   if (invalidated) {
     badge.textContent = typeof tx === 'function' ? tx('floatBadgeRefreshPage') : '请刷新页面';
     badge.className = 'taskplugin-badge taskplugin-badge-err';
@@ -257,6 +263,7 @@ function workspaceSelectNeedsLoad() {
 }
 
 function applyWorkspaceSelectFromAuth({ loggedIn, mode, invalidated = false }) {
+  if (!wsSelect) return;
   const selectNeeds = workspaceSelectNeedsLoad();
   if (typeof FloatWorkspaceSelect === 'undefined') {
     console.warn('[taskChromePlugin] FloatWorkspaceSelect 未加载');
@@ -427,7 +434,8 @@ function bindStorageListeners() {
     if (!chrome.storage?.onChanged) return;
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
-      if (changes.floatBallEnabled !== undefined) {
+      if (changes.floatBallEnabled !== undefined
+          && document.documentElement.getAttribute('data-taskplugin-host') !== 'sidepanel') {
         const enabled = changes.floatBallEnabled.newValue !== false;
         root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
         if (!enabled) hideFloatPanel();

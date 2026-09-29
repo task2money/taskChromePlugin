@@ -1,0 +1,61 @@
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #1e1e2e;
+}
+.sp-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.sp-tabs {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+}
+.sp-tab {
+  flex: 1;
+  min-height: 44px;
+  border: 0;
+  background: transparent;
+  color: #cdd6f4;
+  font-size: 14px;
+  cursor: pointer;
+}
+.sp-tab[aria-selected="true"] {
+  background: #1e1e2e;
+  color: #f9e2af;
+  box-shadow: inset 0 -2px 0 #f9e2af;
+}
+.sp-pane {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.sp-pane[hidden] {
+  display: none !important;
+}
+#sp-settings-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #1e1e2e;
+}
+/* 创建表单占满当前页签，不再用页内固定浮层尺寸 */
+html[data-taskplugin-host="sidepanel"] #taskplugin-float-root {
+  position: static !important;
+  width: 100% !important;
+  height: 100% !important;
+}
+html[data-taskplugin-host="sidepanel"] #taskplugin-float-panel {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  max-height: none !important;
+  height: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}

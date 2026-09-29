@@ -210,6 +210,10 @@ function appendFloatResultDismiss(host) {
 }
 
 function showResult(msg, type, traceId, parts) {
+  if (!resultDiv) {
+    if (typeof showPageToast === 'function') showPageToast(msg);
+    return;
+  }
   if (resultDiv._tcpClear) {
     clearTimeout(resultDiv._tcpClear);
     resultDiv._tcpClear = 0;

@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-taskplugin-host="sidepanel">
+<head>
+  <meta charset="utf-8">
+  <meta name="trae-service" content="taskChromePlugin" />
+  <title>云端Coding: 自动创新助手</title>
+  <link rel="stylesheet" href="../content/content.css">
+  <link rel="stylesheet" href="../content/content-form.css">
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <div class="sp-shell">
+    <div class="sp-tabs" role="tablist" aria-label="侧边栏">
+      <!-- Anti-Replay-OK: ui-only — 只切换已挂载的页签，不发写请求 -->
+      <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="true" aria-controls="sp-pane-create">创建任务</button>
+      <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="false" aria-controls="sp-pane-settings">设置</button>
+    </div>
+    <div id="sp-pane-create" class="sp-pane" role="tabpanel"></div>
+    <div id="sp-pane-settings" class="sp-pane" role="tabpanel" hidden>
+      <iframe id="sp-settings-frame" title="设置" src="../popup/popup.html"></iframe>
+    </div>
+  </div>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.115",
+  "version": "1.8.116",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -31,7 +31,8 @@
     "storage",
     "webRequest",
     "tabs",
-    "webNavigation"
+    "webNavigation",
+    "sidePanel"
   ],
   "host_permissions": [
     "<all_urls>"
@@ -40,13 +41,15 @@
     "service_worker": "background/service-worker.js"
   },
   "action": {
-    "default_popup": "popup/popup.html",
     "default_title": "云端Coding: 自动创新助手",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
       "128": "icons/icon128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
   },
   "devtools_page": "devtools/devtools.html",
   "content_scripts": [
@@ -76,6 +79,7 @@
         "lib/float-members-ui.js",
         "lib/project-auto-run-label.js",
         "lib/workspace-auto-schedule.js",
+        "lib/side-panel-bridge.js",
         "lib/float-panel-markup.js",
         "lib/task-detail-href.js",
         "lib/float-panel-after-create.js",

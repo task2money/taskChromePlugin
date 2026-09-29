@@ -2,6 +2,7 @@
  * 浮窗工作空间 / 项目 / 创建元数据表单。
  */
 async function loadWorkspaces() {
+  if (!wsSelect) return;
   if (!isLoggedIn) {
     wsSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('floatPleaseLoginFirst') : '-- 请先登录 --'}</option>`;
     return;
@@ -26,7 +27,6 @@ async function loadWorkspaces() {
       wsSelect.innerHTML += `<option value="${esc(id)}">${esc(labels[i])}</option>`;
     }
     await applyAidevMetaAfterWorkspacesLoaded();
-    // 无 aidev 自动选中时，恢复弹窗/上次保存的默认工作空间
     if (typeof Storage !== 'undefined' && Storage.getLastWorkspace
         && typeof FloatLastSelection !== 'undefined') {
       try {
@@ -258,8 +258,7 @@ function getSelectedAssigneeIds() {
   return Array.from(assigneesDiv.querySelectorAll('.taskplugin-assignee:checked')).map((cb) => cb.value);
 }
 
-// ---- 事件 ----
-wsSelect.addEventListener('change', async () => {
+if (wsSelect) wsSelect.addEventListener('change', async () => {
   const wsId = wsSelect.value;
   if (!wsId) {
     projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('floatPickWsFirst') : '请先选择工作空间'}</span>`;
@@ -384,8 +383,7 @@ async function loadWorkspaceCreateMeta(wsId) {
   }
 }
 
-// 提交
-submitBtn.addEventListener('click', async () => {
+if (submitBtn) submitBtn.addEventListener('click', async () => {
   if (!isLoggedIn) {
     showResult(typeof tx === 'function' ? tx('commonPleaseLoginExt') : '请先在扩展弹窗中登录', 'error');
     return;

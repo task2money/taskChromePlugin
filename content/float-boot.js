@@ -12,13 +12,18 @@ var __taskpluginOnAuthRoute = (typeof IsAuthRoutePath !== 'undefined'
 
 // ---- 创建 DOM ----
 var root = document.getElementById('taskplugin-float-root');
+var __taskpluginSideHost = document.documentElement.getAttribute('data-taskplugin-host') === 'sidepanel';
 if (!root) {
   root = document.createElement('div');
   root.id = 'taskplugin-float-root';
+  var __taskpluginMarkupMode = __taskpluginSideHost ? 'form' : 'page';
   root.innerHTML = (typeof FloatPanelMarkup !== 'undefined' && FloatPanelMarkup.html)
-    ? FloatPanelMarkup.html()
+    ? FloatPanelMarkup.html(__taskpluginMarkupMode)
     : '';
-  document.body.appendChild(root);
+  var __taskpluginMount = __taskpluginSideHost
+    ? (document.getElementById('sp-pane-create') || document.body)
+    : document.body;
+  __taskpluginMount.appendChild(root);
   if (globalThis.AidevpushI18n && typeof globalThis.AidevpushI18n.applyDom === 'function') {
     globalThis.AidevpushI18n.applyDom(root);
   }
@@ -90,6 +95,10 @@ var adjustError = document.getElementById('taskplugin-adjust-error');
 var adjustShot = document.getElementById('taskplugin-adjust-shot');
 
 var isOpen = false;
+if (__taskpluginSideHost && panel) {
+  panel.classList.add('taskplugin-open');
+  isOpen = true;
+}
 /** 本次打开浮窗（鉴权/aidev 完成后）的表单快照；创建成功后还原 */
 var openSnapshot = null;
 var isLoggedIn = false;
@@ -174,7 +183,63 @@ async function saveFloatBallConfigToStorage(enabled) {
   }
 }
 
+function sidePanelOpenHintText() {
+  var locale = '';
+  try {
+    if (globalThis.AidevpushI18n && typeof globalThis.AidevpushI18n.getLocale === 'function') {
+      locale = globalThis.AidevpushI18n.getLocale();
+    }
+  } catch (_) { /* ignore */ }
+  if (globalThis.SidePanelBridge && typeof globalThis.SidePanelBridge.sidePanelOpenHint === 'function') {
+    return globalThis.SidePanelBridge.sidePanelOpenHint(locale);
+  }
+  return locale === 'en' ? 'Click the extension icon to open the side panel' : 'sidePanelOpenHint';
+}
+
+function openSidePanelFromPage(which) {
+  return sendMessageWithTimeout({ action: 'openSidePanel', which: which || 'create' }, 4000).then((res) => {
+    if (res && res.success === false && typeof showPageToast === 'function') {
+      showPageToast(sidePanelOpenHintText());
+    }
+    return res;
+  }).catch(() => {
+    if (typeof showPageToast === 'function') showPageToast(sidePanelOpenHintText());
+  });
+}
+
+async function readCreateDescription() {
+  if (typeof descInput !== 'undefined' && descInput) return descInput.value;
+  try {
+    const res = await sendMessageWithTimeout({ action: 'getCreateDescription' }, 4000);
+    return (res && res.description) || '';
+  } catch (_) {
+    return '';
+  }
+}
+
+async function writeCreateDescription(next) {
+  const onForm = typeof descInput !== 'undefined' && descInput;
+  if (onForm) {
+    descInput.value = next;
+    if (typeof syncDescResetButton === 'function') syncDescResetButton();
+  }
+  try {
+    const res = await sendMessageWithTimeout({
+      action: 'setCreateDescription',
+      description: next,
+      open: !onForm,
+      tabId: globalThis.__taskpluginSidePanelTabId,
+    }, 4000);
+    if (!onForm && res && res.success === false && typeof showPageToast === 'function') {
+      showPageToast(sidePanelOpenHintText());
+    }
+  } catch (_) {
+    if (!onForm && typeof showPageToast === 'function') showPageToast(sidePanelOpenHintText());
+  }
+}
+
 async function restoreFloatBallPosition() {
+  if (!btn) return;
   try {
     const r = await sendMessageWithTimeout({ action: 'getFloatBallPosition' }, 5000);
     if (r && r.success && r.data && r.data.x != null && r.data.y != null) {

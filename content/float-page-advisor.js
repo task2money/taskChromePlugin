@@ -429,7 +429,7 @@ async function confirmPageAdvisorFill(opts = {}) {
   const oneBtn = document.getElementById("taskplugin-page-advisor-fill-one");
   const activeBtn = mode === "one" ? oneBtn : allBtn;
 
-  const runFill = () => {
+  const runFill = async () => {
     let selectedIds = collectSelectedSuggestionIds();
     if (!selectedIds.length) {
       setPageAdvisorError((typeof tx === "function" ? tx("paPickOne") : "请至少勾选一条建议"));
@@ -444,16 +444,17 @@ async function confirmPageAdvisorFill(opts = {}) {
       setPageAdvisorError((typeof tx === "function" ? tx("paFillModuleMissing") : "PageAdvisorFill 未加载"));
       return { filled: false };
     }
+    const current = typeof readCreateDescription === "function"
+      ? await readCreateDescription()
+      : (descInput ? descInput.value : "");
     const next = Fill.appendSuggestionsToDescription(
-      descInput ? descInput.value : "",
+      current,
       pageAdvisorState.suggestions,
       selectedIds,
       pageAdvisorState.pageUrl,
     );
-    if (descInput) {
-      descInput.value = next;
-      if (typeof syncDescResetButton === "function") syncDescResetButton();
-    }
+    if (typeof writeCreateDescription === "function") await writeCreateDescription(next);
+    else if (descInput) descInput.value = next;
     openFloatPanelForAdvisor();
 
     const session = getPageAdvisorPreviewSession();
@@ -491,7 +492,7 @@ async function confirmPageAdvisorFill(opts = {}) {
   if (pageAdvisorBusy) return;
   pageAdvisorBusy = true;
   try {
-    runFill();
+    await runFill();
   } finally {
     pageAdvisorBusy = false;
     syncPageAdvisorFillButtons();
