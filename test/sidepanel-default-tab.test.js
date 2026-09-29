@@ -17,7 +17,7 @@ describe('side panel default tab', () => {
     assert.match(html, /id="sp-tab-settings"[^>]*aria-selected="true"/);
     assert.match(html, /id="sp-pane-create"[^>]*hidden/);
     assert.match(html, /side-panel-bridge\.js/);
-    assert.match(js, /resolveSidePanelOnShow/);
+    assert.match(js, /getSidePanelOpenIntent/);
     assert.match(js, /sidePanel\.onOpened/);
   });
 

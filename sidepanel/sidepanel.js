@@ -84,14 +84,13 @@
   });
 
   async function applyVisibleTab() {
-    const stored = await chrome.storage.session.get(['sidePanelTab', 'sidePanelOpenSource']);
-    const which = (globalThis.SidePanelBridge && SidePanelBridge.resolveSidePanelOnShow)
-      ? SidePanelBridge.resolveSidePanelOnShow(
-        stored && stored.sidePanelOpenSource,
-        stored && stored.sidePanelTab,
-        Date.now(),
-      )
-      : 'settings';
+    let which = 'settings';
+    try {
+      const intent = await chrome.runtime.sendMessage({ action: 'getSidePanelOpenIntent' });
+      if (intent && (intent.which === 'create' || intent.which === 'settings')) which = intent.which;
+    } catch (_) {
+      which = 'settings';
+    }
     showTab(which);
     if (which === 'settings') {
       await chrome.storage.session.set({ sidePanelTab: 'settings' });

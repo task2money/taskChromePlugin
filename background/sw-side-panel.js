@@ -1,22 +1,43 @@
 /**
- * 浏览器侧边栏：工具栏打开「设置」，页面消息打开「创建任务」，按标签页保存任务描述。
+ * 浏览器侧边栏：工具栏打开「设置」，悬浮球等页面消息打开「创建任务」。
+ * sidePanel.open 必须在用户点击的同步栈里调用，不能先 await。
  */
-async function openSidePanelOnTab(tabId, which) {
+var pendingSidePanelMessage = null;
+
+function beginSidePanelOpenFromGesture(tabId, which) {
   const tab = SidePanelBridge.normalizeSidePanelTab(which);
+  pendingSidePanelMessage = { kind: 'message', which: tab, at: Date.now() };
+  if (!tabId || typeof chrome === 'undefined' || !chrome.sidePanel || typeof chrome.sidePanel.open !== 'function') {
+    return Promise.resolve({ ok: false, error: 'no tab', hint: true });
+  }
+  return chrome.sidePanel.open({ tabId }).then(
+    () => ({ ok: true, which: tab }),
+    (e) => ({ ok: false, error: e && e.message ? e.message : String(e), hint: true }),
+  );
+}
+
+async function finishSidePanelOpenFromGesture(tabId, which, openedPromise) {
+  const tab = SidePanelBridge.normalizeSidePanelTab(which);
+  const at = pendingSidePanelMessage && pendingSidePanelMessage.at
+    ? pendingSidePanelMessage.at
+    : Date.now();
   await chrome.storage.session.set({
     sidePanelTab: tab,
-    sidePanelOpenSource: { kind: 'message', at: Date.now() },
+    sidePanelOpenSource: { kind: 'message', which: tab, at },
   });
-  if (!tabId) return { success: false, error: 'no tab', hint: true };
-  try {
-    await chrome.sidePanel.open({ tabId });
-  } catch (e) {
-    return { success: false, error: e && e.message ? e.message : String(e), hint: true };
-  }
+  const opened = await openedPromise;
   try {
     chrome.runtime.sendMessage({ action: 'sidePanelShow', which: tab, tabId });
   } catch (_) { /* 面板尚未监听 */ }
+  if (!opened || opened.ok === false) {
+    return { success: false, error: (opened && opened.error) || 'no tab', hint: true };
+  }
   return { success: true, which: tab };
+}
+
+async function openSidePanelOnTab(tabId, which) {
+  const opened = beginSidePanelOpenFromGesture(tabId, which);
+  return finishSidePanelOpenFromGesture(tabId, which, opened);
 }
 
 async function readCreateDescBag() {
@@ -27,6 +48,10 @@ async function readCreateDescBag() {
 }
 
 async function handleSidePanelMessage(message, sender) {
+  if (message.action === 'getSidePanelOpenIntent') {
+    const stored = await chrome.storage.session.get(['sidePanelTab', 'sidePanelOpenSource']);
+    return { success: true, which: sidePanelIntentWhich(stored, Date.now()) };
+  }
   if (message.action === 'openSidePanel') {
     const tabId = sender.tab && sender.tab.id;
     return openSidePanelOnTab(tabId, message.which);
@@ -80,19 +105,25 @@ async function applyIconOpenTab() {
   let which = 'settings';
   try {
     const stored = await chrome.storage.session.get(['sidePanelTab', 'sidePanelOpenSource']);
-    which = SidePanelBridge.resolveSidePanelOnShow(
-      stored && stored.sidePanelOpenSource,
-      stored && stored.sidePanelTab,
-      Date.now(),
-    );
+    which = sidePanelIntentWhich(stored, Date.now());
   } catch (_) {
     which = 'settings';
   }
-  if (which !== 'settings') return;
-  await chrome.storage.session.set({ sidePanelTab: 'settings' });
+  if (which === 'settings') {
+    await chrome.storage.session.set({ sidePanelTab: 'settings' });
+  }
   try {
-    chrome.runtime.sendMessage({ action: 'sidePanelShow', which: 'settings' });
+    chrome.runtime.sendMessage({ action: 'sidePanelShow', which });
   } catch (_) { /* 面板尚未监听 */ }
+}
+
+function sidePanelIntentWhich(stored, now) {
+  return SidePanelBridge.resolveSidePanelIntent(
+    pendingSidePanelMessage,
+    stored && stored.sidePanelOpenSource,
+    stored && stored.sidePanelTab,
+    now,
+  );
 }
 
 function installToolbarSidePanelToggle() {

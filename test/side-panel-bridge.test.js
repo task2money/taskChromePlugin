@@ -38,10 +38,16 @@ describe('side panel tab', () => {
 
   it('图标打开固定设置；填入或悬浮球消息在 2 秒内保留创建页', () => {
     const now = 10000;
-    const fresh = { kind: 'message', at: now - 100 };
+    const fresh = { kind: 'message', at: now - 100, which: 'create' };
     assert.equal(bridge.resolveSidePanelOnShow(null, 'create', now), 'settings');
     assert.equal(bridge.resolveSidePanelOnShow(fresh, 'create', now), 'create');
     assert.equal(bridge.resolveSidePanelOnShow({ kind: 'message', at: now - 2000 }, 'create', now), 'settings');
+    assert.equal(bridge.resolveSidePanelIntent(fresh, null, 'settings', now), 'create');
+    assert.equal(bridge.resolveSidePanelIntent(null, null, 'create', now), 'settings');
+    assert.equal(
+      bridge.resolveSidePanelIntent({ kind: 'message', which: 'create', at: now - 2000 }, null, 'settings', now),
+      'settings',
+    );
   });
 });
 

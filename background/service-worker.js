@@ -84,6 +84,19 @@ const MAX_DEVTOOLS_REQUESTS = 500;
 // ---- 消息处理 ----
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  // sidePanel.open 必须留在点击消息的同步栈里。先等 i18n 会丢掉用户手势，悬浮球打不开侧边栏。
+  if (message && message.action === 'openSidePanel') {
+    const tabId = sender.tab && sender.tab.id;
+    const opened = beginSidePanelOpenFromGesture(tabId, message.which);
+    whenI18nReady()
+      .then(() => finishSidePanelOpenFromGesture(tabId, message.which, opened))
+      .then(sendResponse)
+      .catch((err) => {
+        console.error('[taskChromePlugin] openSidePanel 异常:', err);
+        sendResponse({ success: false, error: err?.message || tx('swInternalError'), hint: true });
+      });
+    return true;
+  }
   whenI18nReady()
     .then(() => handleMessage(message, sender))
     .then(sendResponse)

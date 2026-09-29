@@ -18,15 +18,31 @@ describe('sw-side-panel toolbar toggle', () => {
 
   it('页面消息打开记下 sidePanelOpenSource，避免图标逻辑覆盖页签', () => {
     assert.match(src, /sidePanelOpenSource:\s*\{\s*kind:\s*'message'/);
-    assert.match(src, /resolveSidePanelOnShow/);
+    assert.match(src, /resolveSidePanelIntent/);
+  });
+
+  it('悬浮球打开先调用 sidePanel.open，再写 storage', () => {
+    const begin = src.slice(
+      src.indexOf('function beginSidePanelOpenFromGesture'),
+      src.indexOf('async function finishSidePanelOpenFromGesture'),
+    );
+    const finish = src.slice(
+      src.indexOf('async function finishSidePanelOpenFromGesture'),
+      src.indexOf('async function openSidePanelOnTab'),
+    );
+    assert.match(begin, /chrome\.sidePanel\.open\(\{\s*tabId\s*\}\)/);
+    assert.doesNotMatch(begin, /await /);
+    assert.match(finish, /chrome\.storage\.session\.set/);
+    const openAt = begin.indexOf('chrome.sidePanel.open');
+    assert.ok(openAt > begin.indexOf('pendingSidePanelMessage'));
   });
 
   it('图标打开在判定页签前不删掉页面消息来源', () => {
     const fn = src.slice(
       src.indexOf('async function applyIconOpenTab'),
-      src.indexOf('function installToolbarSidePanelToggle'),
+      src.indexOf('function sidePanelIntentWhich'),
     );
-    assert.match(fn, /resolveSidePanelOnShow/);
+    assert.match(fn, /sidePanelIntentWhich/);
     assert.doesNotMatch(fn, /remove\('sidePanelOpenSource'\)/);
   });
 });
