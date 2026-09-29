@@ -414,12 +414,12 @@ function syncPageAdvisorFillButtons() {
   if (allBtn) {
     allBtn.disabled = disabled;
     allBtn.setAttribute("aria-busy", "false");
-    allBtn.textContent = A11y ? A11y.fillAllLabel : (typeof tx === "function" ? tx("paFillAll") : "全部填入任务描述");
+    allBtn.textContent = A11y ? A11y.fillAllLabel : (typeof tx === "function" ? tx("paFillAll") : "拷贝并全部填入");
   }
   if (oneBtn) {
     oneBtn.disabled = disabled;
     oneBtn.setAttribute("aria-busy", "false");
-    oneBtn.textContent = A11y ? A11y.fillOneLabel : (typeof tx === "function" ? tx("paFillOne") : "逐条填入任务描述");
+    oneBtn.textContent = A11y ? A11y.fillOneLabel : (typeof tx === "function" ? tx("paFillOne") : "拷贝并逐条填入");
   }
 }
 
@@ -444,6 +444,10 @@ async function confirmPageAdvisorFill(opts = {}) {
       setPageAdvisorError((typeof tx === "function" ? tx("paFillModuleMissing") : "PageAdvisorFill 未加载"));
       return { filled: false };
     }
+    const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
+    const block = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
+    const clip = navigator.clipboard && navigator.clipboard.writeText;
+    const copied = await Fill.copySuggestionsBlock(block, clip ? (t) => clip.call(navigator.clipboard, t) : null);
     const current = typeof readCreateDescription === "function"
       ? await readCreateDescription()
       : (descInput ? descInput.value : "");
@@ -461,15 +465,11 @@ async function confirmPageAdvisorFill(opts = {}) {
     if (mode === "all") {
       session?.undoAll();
       closePageAdvisorModal();
-      if (typeof showResult === "function") {
-        showResult((typeof tx === "function" ? tx("paFillAllSuccess") : "已将优化建议填入任务描述（未自动创建任务）"), "success");
-      }
     } else {
-      const id = selectedIds[0];
-      dismissPageAdvisorSuggestion(id);
-      if (typeof showResult === "function") {
-        showResult((typeof tx === "function" ? tx("paFillOneSuccess") : "已填入一条建议（未自动创建任务）"), "success");
-      }
+      dismissPageAdvisorSuggestion(selectedIds[0]);
+    }
+    if (typeof showResult === "function") {
+      showResult(Fill.fillSuccessText(mode, copied, typeof tx === "function" ? tx : null), "success");
     }
     return { filled: true, createTaskCalled: false };
   };

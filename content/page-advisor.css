@@ -196,6 +196,45 @@
   gap: 8px !important;
   justify-content: flex-end !important;
 }
+.taskplugin-page-advisor-fill-pair {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 2px !important;
+}
+.taskplugin-page-advisor-bang {
+  position: relative !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  cursor: help !important;
+  color: #f9e2af !important;
+  font-weight: 700 !important;
+}
+.taskplugin-page-advisor-bang-tip {
+  display: none !important;
+  position: absolute !important;
+  bottom: calc(100% + 6px) !important;
+  right: 0 !important;
+  width: 240px !important;
+  padding: 8px 10px !important;
+  background: #1e1e2e !important;
+  color: #cdd6f4 !important;
+  border: 1px solid rgba(249, 226, 175, 0.45) !important;
+  border-radius: 8px !important;
+  font-size: 12px !important;
+  font-weight: 400 !important;
+  line-height: 1.4 !important;
+  white-space: normal !important;
+  text-align: left !important;
+  z-index: 3 !important;
+}
+.taskplugin-page-advisor-bang:hover .taskplugin-page-advisor-bang-tip,
+.taskplugin-page-advisor-bang:focus .taskplugin-page-advisor-bang-tip,
+.taskplugin-page-advisor-bang:focus-visible .taskplugin-page-advisor-bang-tip {
+  display: block !important;
+}
 .taskplugin-page-advisor-item {
   display: flex !important;
   gap: 10px !important;

@@ -23,10 +23,13 @@ describe("PageAdvisorA11y.copy", () => {
     );
     assert.equal(PageAdvisorA11y.cancelLabel, "关闭预览并撤销改动");
     assert.match(PageAdvisorA11y.cancelTitle, /还原本次预览已应用的所有改动/);
-    assert.equal(PageAdvisorA11y.fillOneLabel, "逐条填入任务描述");
-    assert.match(PageAdvisorA11y.fillOneTitle, /任务描述输入框/);
-    assert.equal(PageAdvisorA11y.fillAllLabel, "全部填入任务描述");
+    assert.equal(PageAdvisorA11y.fillOneLabel, "拷贝并逐条填入");
+    assert.match(PageAdvisorA11y.fillOneTitle, /剪切板/);
+    assert.equal(PageAdvisorA11y.fillAllLabel, "拷贝并全部填入");
     assert.match(PageAdvisorA11y.fillAllTitle, /追加/);
+    assert.doesNotMatch(PageAdvisorA11y.fillOneHelp, /不会自动创建任务/);
+    assert.doesNotMatch(PageAdvisorA11y.fillAllHelp, /不会自动创建任务/);
+    assert.match(PageAdvisorA11y.fillOneHelp, /剪切板/);
     assert.doesNotMatch(PageAdvisorA11y.fillAllTitle, /覆盖/);
     assert.equal(PageAdvisorA11y.heading, "工作面板优化建议");
     assert.match(PageAdvisorA11y.documentTitle, /工作面板 · 优化建议/);
@@ -101,10 +104,11 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     const src =
       read("content/float-page-advisor.js") + read("lib/page-advisor-a11y.js");
     assert.match(src, /关闭预览并撤销改动/);
-    assert.match(src, /逐条填入任务描述/);
-    assert.match(src, /全部填入任务描述/);
+    assert.match(src, /拷贝并逐条填入/);
+    assert.match(src, /拷贝并全部填入/);
+    assert.match(src, /taskplugin-page-advisor-bang/);
     assert.match(src, /还原本次预览已应用的所有改动/);
-    assert.match(src, /需手动提交/);
+    assert.match(src, /剪切板/);
     assert.match(src, /追加写入任务描述/);
   });
 

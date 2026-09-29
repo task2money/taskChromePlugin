@@ -43,6 +43,7 @@ importScripts(
   '../lib/page-advisor-prompt-skill-catalog.js',
   '../lib/page-advisor-prompt-skills.js',
   '../lib/page-advisor-locale-prompt.js',
+  '../lib/page-advisor-anchor.js',
   '../lib/page-advisor-llm-client.js',
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-site-pending.js',

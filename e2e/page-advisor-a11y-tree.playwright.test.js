@@ -49,6 +49,8 @@ const LIB_FILES = [
   'lib/hot-path-guards.js',
   'lib/visibility-interval.js',
   'lib/auth-refresh-debounce.js',
+  'lib/page-advisor-anchor.js',
+  'lib/page-context-elements.js',
   'lib/page-context.js',
   'lib/page-advisor-region.js',
   'lib/page-advisor-a11y.js',
@@ -222,14 +224,14 @@ test.describe('Alt+Z 页面优化建议 a11y 播报', () => {
     const toolbar = page.getByRole('toolbar', { name: '优化建议操作栏' });
     await expect(toolbar).toHaveCount(1);
 
-    const fillOne = toolbar.getByRole('button', { name: '逐条填入任务描述' });
+    const fillOne = toolbar.getByRole('button', { name: '拷贝并逐条填入' });
     await expect(fillOne).toHaveCount(1);
     await expect(fillOne).toHaveAttribute(
       'title',
       '逐条把建议文案写入任务描述输入框，需手动提交',
     );
 
-    const fillAll = toolbar.getByRole('button', { name: '全部填入任务描述' });
+    const fillAll = toolbar.getByRole('button', { name: '拷贝并全部填入' });
     await expect(fillAll).toHaveCount(1);
     await expect(fillAll).toHaveAttribute(
       'title',

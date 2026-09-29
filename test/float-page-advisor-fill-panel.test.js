@@ -116,7 +116,7 @@ describe('quick-create float opens only after fill into description', () => {
     assert.match(layer, /function openFloatPanelForAdvisor/);
   });
 
-  it('vm: suggestions keep panel closed; fill-all opens it', () => {
+  it('vm: suggestions keep panel closed; fill-all opens it', async () => {
     const panel = {
       classList: {
         _open: false,
@@ -169,7 +169,20 @@ describe('quick-create float opens only after fill into description', () => {
         undoOne() {},
         applySuggestion() {},
       },
+      navigator: { clipboard: null },
       PageAdvisorFill: {
+        orderSelectedSuggestions(_suggestions, ids) {
+          return ids.map((id) => ({ id }));
+        },
+        formatSuggestionsBlock() {
+          return '## 页面优化建议（Alt+Z）';
+        },
+        copySuggestionsBlock() {
+          return Promise.resolve(false);
+        },
+        fillSuccessText() {
+          return '已填入';
+        },
         appendSuggestionsToDescription(cur, _suggestions, ids) {
           return `${cur}\n${ids.join(',')}`;
         },
@@ -256,7 +269,7 @@ describe('quick-create float opens only after fill into description', () => {
       pageUrl: 'https://example.test/',
       jobId: 'j1',
     };
-    sandbox.confirmPageAdvisorFill({ mode: 'all' });
+    await sandbox.confirmPageAdvisorFill({ mode: 'all' });
     assert.equal(sandbox.getIsOpen(), true);
     assert.equal(sandbox.getPanelOpen(), true);
     assert.match(descInput.value, /s1/);

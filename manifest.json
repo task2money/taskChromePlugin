@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.118",
+  "version": "1.8.119",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -87,6 +87,8 @@
         "lib/hot-path-guards.js",
         "lib/visibility-interval.js",
         "lib/auth-refresh-debounce.js",
+        "lib/page-advisor-anchor.js",
+        "lib/page-context-elements.js",
         "lib/page-context.js",
         "lib/page-advisor-region.js",
         "lib/page-advisor-a11y.js",

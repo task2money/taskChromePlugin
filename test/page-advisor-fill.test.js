@@ -52,6 +52,58 @@ describe('page-advisor-fill', () => {
     );
   });
 
+  it('includes frozen anchors and a same-target note', () => {
+    const block = formatSuggestionsBlock([
+      {
+        id: 's1',
+        title: '对比度',
+        detail: '提高按钮对比度',
+        target_nid: 'n1',
+        anchor_text: '提交',
+        tag: 'button',
+        dom_id: 'submit',
+        testid: 'submit-btn',
+        landmark: 'main > h1「标题」',
+        css_path: 'main > button:nth-child(1)',
+        ancestor_nids: ['n0'],
+      },
+      {
+        id: 's2',
+        title: '文案',
+        detail: '改按钮文字',
+        target_nid: 'n1',
+        anchor_text: '提交',
+        tag: 'button',
+        dom_id: 'submit',
+      },
+    ], 'https://ex.com');
+    assert.match(block, /不要执行一条后重新抓页面/);
+    assert.match(block, /锚点: button 「提交」 id=submit data-testid=submit-btn 位于 main > h1「标题」/);
+    assert.match(block, /路径\(辅助，相对采集时页面\): main > button:nth-child\(1\)/);
+    assert.match(block, /同目标: 与「文案」/);
+    assert.match(block, /同目标: 与「对比度」/);
+  });
+
+  it('copies the formatted block and still reports failure without throwing', async () => {
+    const { copySuggestionsBlock, fillSuccessText } = require('../lib/page-advisor-fill.js');
+    const block = formatSuggestionsBlock(
+      orderSelectedSuggestions(SUGGESTIONS, ['s1']),
+      'https://ex.com',
+    );
+    let written = '';
+    const ok = await copySuggestionsBlock(block, async (text) => {
+      written = text;
+    });
+    assert.equal(ok, true);
+    assert.equal(written, block);
+    assert.match(fillSuccessText('one', true, null), /并已复制到剪贴板/);
+    const failed = await copySuggestionsBlock(block, async () => {
+      throw new Error('denied');
+    });
+    assert.equal(failed, false);
+    assert.doesNotMatch(fillSuccessText('one', false, null), /剪贴板/);
+  });
+
   it('fill helpers never reference createTask', () => {
     const src = fs.readFileSync(
       path.join(__dirname, '../lib/page-advisor-fill.js'),

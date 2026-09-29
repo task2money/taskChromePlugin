@@ -43,6 +43,8 @@ const LIB_FILES = [
   'lib/hot-path-guards.js',
   'lib/visibility-interval.js',
   'lib/auth-refresh-debounce.js',
+  'lib/page-advisor-anchor.js',
+  'lib/page-context-elements.js',
   'lib/page-context.js',
   'lib/page-advisor-region.js',
   'lib/page-advisor-a11y.js',
