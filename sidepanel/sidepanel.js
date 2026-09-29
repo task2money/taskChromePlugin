@@ -77,20 +77,41 @@
     if (message.action !== 'createDescriptionUpdated') return;
     const current = globalThis.__taskpluginSidePanelTabId;
     if (current && String(message.tabId) !== String(current)) return;
+    const description = String(message.description || '');
     const desc = document.getElementById('taskplugin-desc');
-    if (desc && desc.value !== message.description) desc.value = String(message.description || '');
-    showTab('create');
+    if (desc && desc.value !== description) desc.value = description;
+    if (description.trim()) showTab('create');
   });
+
+  async function applyVisibleTab() {
+    const stored = await chrome.storage.session.get(['sidePanelTab', 'sidePanelOpenSource']);
+    const which = (globalThis.SidePanelBridge && SidePanelBridge.resolveSidePanelOnShow)
+      ? SidePanelBridge.resolveSidePanelOnShow(
+        stored && stored.sidePanelOpenSource,
+        stored && stored.sidePanelTab,
+        Date.now(),
+      )
+      : 'settings';
+    showTab(which);
+    if (which === 'settings') {
+      await chrome.storage.session.set({ sidePanelTab: 'settings' });
+    }
+  }
 
   chrome.tabs.onActivated.addListener((info) => {
     globalThis.__taskpluginSidePanelTabId = info.tabId;
     applyStoredDescription(info.tabId).catch(() => {});
   });
 
+  if (chrome.sidePanel && chrome.sidePanel.onOpened && chrome.sidePanel.onOpened.addListener) {
+    chrome.sidePanel.onOpened.addListener(() => {
+      applyVisibleTab().catch(() => {});
+    });
+  }
+
   (async function boot() {
     try {
-      const stored = await chrome.storage.session.get('sidePanelTab');
-      showTab(stored && stored.sidePanelTab);
+      await applyVisibleTab();
       await rememberTab();
       await loadFormScripts();
       const desc = document.getElementById('taskplugin-desc');

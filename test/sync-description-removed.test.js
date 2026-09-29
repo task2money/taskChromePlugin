@@ -53,6 +53,7 @@ describe('跨页面任务描述同步已下线', () => {
     const { swFilesForLineLimit } = require('./helpers/swBundle.js');
     const files = [
       'content/float-boot.js',
+      'content/float-pick-highlight.js',
       'content/float-pick.js',
       'content/float-drag-auth.js',
       'content/float-aidev.js',

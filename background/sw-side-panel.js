@@ -77,15 +77,18 @@ async function handleSidePanelMessage(message, sender) {
 }
 
 async function applyIconOpenTab() {
-  let source = null;
+  let which = 'settings';
   try {
-    const stored = await chrome.storage.session.get('sidePanelOpenSource');
-    source = stored && stored.sidePanelOpenSource;
-    await chrome.storage.session.remove('sidePanelOpenSource');
+    const stored = await chrome.storage.session.get(['sidePanelTab', 'sidePanelOpenSource']);
+    which = SidePanelBridge.resolveSidePanelOnShow(
+      stored && stored.sidePanelOpenSource,
+      stored && stored.sidePanelTab,
+      Date.now(),
+    );
   } catch (_) {
-    source = null;
+    which = 'settings';
   }
-  if (!SidePanelBridge.iconOpenShouldSelectSettings(source, Date.now())) return;
+  if (which !== 'settings') return;
   await chrome.storage.session.set({ sidePanelTab: 'settings' });
   try {
     chrome.runtime.sendMessage({ action: 'sidePanelShow', which: 'settings' });

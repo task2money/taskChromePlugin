@@ -35,6 +35,14 @@ describe('side panel tab', () => {
     assert.equal(bridge.iconOpenShouldSelectSettings({ kind: 'message', at: now - 100 }, now), false);
     assert.equal(bridge.iconOpenShouldSelectSettings({ kind: 'message', at: now - 2000 }, now), true);
   });
+
+  it('图标打开固定设置；填入或悬浮球消息在 2 秒内保留创建页', () => {
+    const now = 10000;
+    const fresh = { kind: 'message', at: now - 100 };
+    assert.equal(bridge.resolveSidePanelOnShow(null, 'create', now), 'settings');
+    assert.equal(bridge.resolveSidePanelOnShow(fresh, 'create', now), 'create');
+    assert.equal(bridge.resolveSidePanelOnShow({ kind: 'message', at: now - 2000 }, 'create', now), 'settings');
+  });
 });
 
 describe('side panel manifest', () => {

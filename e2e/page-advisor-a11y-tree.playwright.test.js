@@ -63,6 +63,7 @@ const LIB_FILES = [
   'lib/is-auth-route.js',
   'lib/dialog-focus-trap.js',
   'content/float-boot.js',
+  'content/float-pick-highlight.js',
   'content/float-pick.js',
   'content/float-drag-auth.js',
   'content/float-aidev.js',

@@ -18,6 +18,15 @@ describe('sw-side-panel toolbar toggle', () => {
 
   it('页面消息打开记下 sidePanelOpenSource，避免图标逻辑覆盖页签', () => {
     assert.match(src, /sidePanelOpenSource:\s*\{\s*kind:\s*'message'/);
-    assert.match(src, /iconOpenShouldSelectSettings/);
+    assert.match(src, /resolveSidePanelOnShow/);
+  });
+
+  it('图标打开在判定页签前不删掉页面消息来源', () => {
+    const fn = src.slice(
+      src.indexOf('async function applyIconOpenTab'),
+      src.indexOf('function installToolbarSidePanelToggle'),
+    );
+    assert.match(fn, /resolveSidePanelOnShow/);
+    assert.doesNotMatch(fn, /remove\('sidePanelOpenSource'\)/);
   });
 });

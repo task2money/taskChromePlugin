@@ -44,6 +44,7 @@ const LIB_FILES = [
   'lib/task-detail-href.js',
   'lib/create-task-hardware-stock.js',
   'content/float-boot.js',
+  'content/float-pick-highlight.js',
   'content/float-pick.js',
   'content/float-drag-auth.js',
   'content/float-form.js',

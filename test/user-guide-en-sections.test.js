@@ -13,6 +13,8 @@ const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'user-guide-en-sec
 describe('user-guide-en-sections', () => {
   it('工具栏图标展开或收起侧边栏', () => {
     assert.match(src, /open or close that side panel/);
+    assert.match(src, /Filling the task description switches to Create task/);
+    assert.match(src, /highlight box/);
   });
 
   it('直连 Key 标明不上传且存在本机 LocalStorage', () => {

@@ -44,6 +44,7 @@ const LIB_FILES = [
   'lib/aidev-meta.js',
   'lib/is-auth-route.js',
   'content/float-boot.js',
+  'content/float-pick-highlight.js',
   'content/float-pick.js',
   'content/float-drag-auth.js',
   'content/float-form.js',

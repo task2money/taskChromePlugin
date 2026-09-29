@@ -1,53 +1,4 @@
-/** 浮窗指针选择、高亮、调整期望弹窗（Shadow DOM / iframe / 可选截图）。 */
-
-function isPluginDom(node) {
-  if (!node || node.nodeType !== 1) return true;
-  if (node === root || root.contains(node)) return true;
-  if (typeof node.closest === 'function' && node.closest('#taskplugin-float-root')) return true;
-  return false;
-}
-
-function ensureHighlightStyle(doc) {
-  if (!doc || doc.getElementById('taskplugin-el-hl-style')) return;
-  const s = doc.createElement('style');
-  s.id = 'taskplugin-el-hl-style';
-  s.textContent = 'html.taskplugin-picking .taskplugin-el-highlight{outline:2px solid #89b4fa!important;outline-offset:2px!important;box-shadow:0 0 0 4px rgba(137,180,250,.35)!important;}';
-  (doc.head || doc.documentElement).appendChild(s);
-}
-
-function clearHighlight() {
-  for (const el of highlightedEls) {
-    try {
-      el.classList.remove('taskplugin-el-highlight');
-    } catch (_) { /* detached */ }
-  }
-  highlightedEls = [];
-  highlightDoc = null;
-}
-
-function applyHighlightMany(els, doc) {
-  const list = (Array.isArray(els) ? els : [els]).filter((el) => el && el.nodeType === 1);
-  if (list.length === 0) {
-    clearHighlight();
-    return;
-  }
-  const same =
-    list.length === highlightedEls.length
-    && list.every((el, i) => el === highlightedEls[i]);
-  if (same) return;
-  clearHighlight();
-  const owner = doc || list[0].ownerDocument || document;
-  ensureHighlightStyle(owner);
-  highlightDoc = owner;
-  for (const el of list) {
-    el.classList.add('taskplugin-el-highlight');
-    highlightedEls.push(el);
-  }
-}
-
-function applyHighlight(el, doc) {
-  applyHighlightMany(el ? [el] : [], doc);
-}
+/** 浮窗指针选择、调整期望弹窗（Shadow DOM / iframe / 可选截图）。高亮框在 float-pick-highlight.js。 */
 
 function clearPickSelection() {
   pickSelection = [];
@@ -125,6 +76,13 @@ function resolvePickTarget(e) {
   };
 }
 
+/** 页面模式没有 #taskplugin-float-panel；选元素时不能假定面板存在。 */
+function releasePageFloatPanel() {
+  if (typeof panel !== 'undefined' && panel) panel.classList.remove('taskplugin-open');
+  if (typeof btn !== 'undefined' && btn) btn.classList.remove('taskplugin-active');
+  if (typeof isOpen !== 'undefined') isOpen = false;
+}
+
 function setPickMode(on, source) {
   if (on && typeof isPageAdvisorRegionMode === 'function' && isPageAdvisorRegionMode()
     && typeof stopPageAdvisorRegionSelect === 'function') {
@@ -139,20 +97,22 @@ function setPickMode(on, source) {
   if (!pickMode) {
     clearHighlight();
     clearPickSelection();
-    btn.textContent = '+';
+    if (btn) {
+      btn.textContent = '+';
+      btn.classList.remove('taskplugin-picking-fab');
+    }
     renderShortcutHints();
-    btn.classList.remove('taskplugin-picking-fab');
     detachPickPointerListeners();
     chrome.runtime.sendMessage({ action: 'cancelElementPickBroadcast' }).catch(() => {});
   } else {
     clearPickSelection();
-    panel.classList.remove('taskplugin-open');
-    btn.classList.remove('taskplugin-active');
-    isOpen = false;
-    btn.textContent = '✕';
-    renderShortcutHints();
-    btn.classList.add('taskplugin-picking-fab');
+    releasePageFloatPanel();
     attachPickPointerListeners();
+    if (btn) {
+      btn.textContent = '✕';
+      btn.classList.add('taskplugin-picking-fab');
+    }
+    renderShortcutHints();
     chrome.runtime.sendMessage({
       action: 'broadcastStartElementPick',
       source: pickSource,
@@ -297,7 +257,7 @@ function openAdjustModal(snapshot) {
   adjustInput.value = ElementPicker.DEFAULT_ADJUST_PROMPT;
   if (adjustShot) adjustShot.checked = false;
   adjustModal.hidden = false;
-  if (!isOpen) {
+  if (!isOpen && panel && btn) {
     isOpen = true;
     panel.classList.add('taskplugin-open');
     btn.classList.add('taskplugin-active');
