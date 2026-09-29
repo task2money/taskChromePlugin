@@ -76,9 +76,94 @@ describe('side panel manifest', () => {
     assert.match(html, /popup\.html\?host=sidepanel/);
     assert.match(settingsCss, /width:\s*100%/);
     assert.match(settingsCss, /background:\s*#fff/);
-    assert.match(settingsCss, /html\[data-taskplugin-host="sidepanel"\] \.shortcut-item[\s\S]*?background:\s*#fff/);
-    assert.match(settingsCss, /html\[data-taskplugin-host="sidepanel"\] \.tcp-guide-root[\s\S]*?background:\s*#fff/);
-    assert.match(settingsCss, /html\[data-taskplugin-host="sidepanel"\] \.popup-project-list[\s\S]*?background:\s*#fff/);
+  });
+});
+
+// OPT-20260929-014：侧边栏设置页此前按类名逐条把深色块改成白底，
+// popup.css / popup-guide.css 新增的深色块会漏网。
+// 现在由一层 `body *:not(:where(控件))` 兜底，测试负责盯住两件事：
+// 控件色确实被排除、以及白底元素不会被留下浅色前景（白底白字）。
+const DARK_SURFACE_TOKENS = ['#1e1e2e', '#181825', '#11111b', '#252536', '#313244', '#45475a'];
+const LIGHT_TEXT_TOKENS = ['#cdd6f4', '#e0e0e0', '#bac2de', '#a6adc8'];
+const CONTROL_SELECTORS = [
+  '.btn-primary', '.btn-danger', '.btn-link',
+  '.badge-connected', '.badge-disconnected', '.badge-warning',
+  '.req-method', '.req-status', '.result', '.toggle-slider', 'kbd', '.tcp-guide-kbd',
+];
+
+function cssRules(css) {
+  const rules = [];
+  for (const match of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = match[1].replace(/\/\*[\s\S]*?\*\//g, '').trim();
+    if (!selector || selector.startsWith('@')) continue;
+    rules.push({ selector, decls: match[2] });
+  }
+  return rules;
+}
+
+function classTokens(selector) {
+  return [...selector.matchAll(/\.([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+}
+
+describe('side panel light surface layer', () => {
+  const popupDir = path.join(__dirname, '..', 'popup');
+  const settingsCss = fs.readFileSync(path.join(popupDir, 'popup-sidepanel.css'), 'utf8');
+  const popupCss = fs.readFileSync(path.join(popupDir, 'popup.css'), 'utf8');
+  const guideCss = fs.readFileSync(path.join(popupDir, 'popup-guide.css'), 'utf8');
+
+  it('用一层 body *:not(:where(控件)) 铺白底', () => {
+    const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)[\s\S]*?\{([\s\S]*?)\}/.exec(settingsCss);
+    assert.ok(blanket, '设置页应有 body *:not(:where(...)) 通配覆盖');
+    const exclusions = blanket[1].split(',').map((item) => item.trim()).filter(Boolean);
+    assert.match(blanket[2], /background:\s*#fff/);
+    assert.ok(exclusions.includes('kbd'), 'kbd 芯片保留深色主题配色');
+    assert.ok(exclusions.includes('.btn-primary'), '主按钮保留强调色');
+    assert.ok(exclusions.includes('.badge-connected') && exclusions.includes('.req-method'));
+  });
+
+  it('深色底选择器要么是控件色，要么被覆盖并且有深色前景', () => {
+    const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)/.exec(settingsCss);
+    const exclusions = blanket[1].split(',').map((item) => item.trim()).filter(Boolean);
+
+    const darkTextClasses = new Set();
+    let darkTextSelectors = '';
+    for (const rule of cssRules(settingsCss)) {
+      if (!/color:\s*#1e1e2e/.test(rule.decls)) continue;
+      darkTextSelectors += ` ${rule.selector} `;
+      for (const cls of classTokens(rule.selector)) darkTextClasses.add(cls);
+    }
+
+    const seen = [];
+    for (const rule of cssRules(`${popupCss}\n${guideCss}`)) {
+      const dark = DARK_SURFACE_TOKENS.some((token) => rule.decls.includes(token))
+        || /linear-gradient\(/.test(rule.decls);
+      if (!dark) continue;
+      for (const part of rule.selector.split(',').map((item) => item.trim()).filter(Boolean)) {
+        seen.push(part);
+        const control = CONTROL_SELECTORS.find((token) => part.includes(token));
+        if (control) {
+          assert.ok(
+            exclusions.some((item) => part.includes(item)),
+            `控件色 ${part} 应出现在侧边栏排除表`,
+          );
+          continue;
+        }
+        for (const item of exclusions) {
+          assert.ok(
+            !part.includes(item),
+            `表面元素 ${part} 不该被排除（${item}），否则深色块会漏进设置页`,
+          );
+        }
+        if (LIGHT_TEXT_TOKENS.some((token) => rule.decls.includes(token))) {
+          const classes = classTokens(part);
+          const covered = classes.length
+            ? classes.some((cls) => darkTextClasses.has(cls))
+            : darkTextSelectors.includes(part);
+          assert.ok(covered, `白底元素 ${part} 需要深色前景规则，否则白底白字`);
+        }
+      }
+    }
+    assert.ok(seen.includes('.section') && seen.includes('.popup-req-detail'), '样例选择器应被扫到');
   });
 });
 

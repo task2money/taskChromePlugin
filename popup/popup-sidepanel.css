@@ -22,6 +22,7 @@ html[data-taskplugin-host="sidepanel"] .popup-header h1,
 html[data-taskplugin-host="sidepanel"] .section h3,
 html[data-taskplugin-host="sidepanel"] .form-row label,
 html[data-taskplugin-host="sidepanel"] .float-ball-label,
+html[data-taskplugin-host="sidepanel"] .llm-shortcut,
 html[data-taskplugin-host="sidepanel"] legend,
 html[data-taskplugin-host="sidepanel"] .llm-route-option,
 html[data-taskplugin-host="sidepanel"] .status-row .value,
@@ -36,30 +37,53 @@ html[data-taskplugin-host="sidepanel"] .form-textarea {
   color: #1e1e2e;
   border-color: #d0d0d8;
 }
-html[data-taskplugin-host="sidepanel"] .llm-shortcut,
-html[data-taskplugin-host="sidepanel"] .shortcut-item,
-html[data-taskplugin-host="sidepanel"] .shortcut-choice,
-html[data-taskplugin-host="sidepanel"] .tcp-guide-root,
-html[data-taskplugin-host="sidepanel"] .tcp-guide-section,
-html[data-taskplugin-host="sidepanel"] .devtools-guide,
-html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-body,
-html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-root-summary,
-html[data-taskplugin-host="sidepanel"] .popup-project-list,
-html[data-taskplugin-host="sidepanel"] .popup-req-detail,
-html[data-taskplugin-host="sidepanel"] .popup-skill-delete-dialog,
-html[data-taskplugin-host="sidepanel"] .body-pre,
-html[data-taskplugin-host="sidepanel"] .hint code,
-html[data-taskplugin-host="sidepanel"] .btn:not(.btn-primary):not(.btn-danger):not(.btn-link) {
+/* OPT-20260929-014：一层覆盖。除下方控件外的元素一律铺白底，
+   popup.css / popup-guide.css 新增的深色块不必再逐条补白底例外。
+   排除的控件色（主/危险/链接按钮、徽章、请求方法、状态色块、结果横幅、开关滑块、
+   kbd 芯片）在深色主题里前景与背景成对定义，抹掉底色会变成白底白字。
+   用 :where() 包排除项，避免 :not() 链把特异度拉高到状态色盖不住。 */
+html[data-taskplugin-host="sidepanel"] body *:not(:where(
+  .btn-primary,
+  .btn-danger,
+  .btn-link,
+  .badge-connected,
+  .badge-disconnected,
+  .badge-warning,
+  .req-method,
+  .req-status,
+  .result,
+  .toggle-slider,
+  kbd,
+  .tcp-guide-kbd
+)) {
   background: #fff;
-  color: #1e1e2e;
   border-color: #e5e7eb;
 }
+
+/* 深色主题里靠描边出效果的控件（转圈动画）不铺白底，边界色要还原成强调色。 */
+html[data-taskplugin-host="sidepanel"] .spinner {
+  border-color: #e5e7eb;
+  border-top-color: #89b4fa;
+}
+
+/* 被抹成白底的交互态：深色主题的 hover 底色要换成浅灰，否则悬停没有反馈。 */
+html[data-taskplugin-host="sidepanel"] .btn:hover,
+html[data-taskplugin-host="sidepanel"] .popup-req-item:hover,
+html[data-taskplugin-host="sidepanel"] .popup-req-item.selected {
+  background: #f3f4f6;
+  color: #1e1e2e;
+}
+/* 上面被铺白的元素若在深色主题里自带浅色前景，这里统一改深色，
+   否则白底白字。新加浅色前景的深色块时同步补进这份清单。 */
 html[data-taskplugin-host="sidepanel"] .shortcut-desc,
 html[data-taskplugin-host="sidepanel"] .shortcut-choice-title,
 html[data-taskplugin-host="sidepanel"] .shortcut-choice-note,
 html[data-taskplugin-host="sidepanel"] .tcp-guide-host,
 html[data-taskplugin-host="sidepanel"] .tcp-guide-steps,
 html[data-taskplugin-host="sidepanel"] .tcp-guide-heading,
+html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-shortcut-table,
+html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-close,
+html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-root-summary,
 html[data-taskplugin-host="sidepanel"] .guide-text p,
 html[data-taskplugin-host="sidepanel"] .guide-text strong,
 html[data-taskplugin-host="sidepanel"] .guide-steps .step,
@@ -67,6 +91,13 @@ html[data-taskplugin-host="sidepanel"] .popup-project-list label,
 html[data-taskplugin-host="sidepanel"] .checkbox-group label,
 html[data-taskplugin-host="sidepanel"] .req-url,
 html[data-taskplugin-host="sidepanel"] .hdr-pair,
-html[data-taskplugin-host="sidepanel"] .radio-label {
+html[data-taskplugin-host="sidepanel"] .hdr-pair strong,
+html[data-taskplugin-host="sidepanel"] .radio-label,
+html[data-taskplugin-host="sidepanel"] .header-user,
+html[data-taskplugin-host="sidepanel"] .popup-version,
+html[data-taskplugin-host="sidepanel"] .plugin-locale-select,
+html[data-taskplugin-host="sidepanel"] .popup-skill-delete-dialog,
+html[data-taskplugin-host="sidepanel"] .body-pre,
+html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
   color: #1e1e2e;
 }
