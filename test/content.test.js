@@ -145,6 +145,7 @@ describe('content 脚本行数门禁与注入顺序', () => {
       'content/float-pick-highlight.js',
       'content/float-pick.js',
       'content/float-drag-auth.js',
+      'content/float-login-badge.js',
       'content/float-aidev.js',
       'content/float-form.js',
       'content/float-snapshot.js',

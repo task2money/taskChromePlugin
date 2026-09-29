@@ -31,4 +31,15 @@ describe('float-drag-auth 不再隐式 resolveTaskOwner', () => {
     );
     assert.match(src, /clearFloatResult\(\)/);
   });
+
+  it('未登录角标可点击，已登录不可点击', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'content', 'float-drag-auth.js'),
+      'utf8',
+    );
+    const unsigned = src.slice(src.indexOf('if (!loggedIn)'), src.indexOf('if (expiryHint'));
+    assert.match(unsigned, /setLoginBadgeClickable\(true\)/);
+    assert.match(unsigned, /去登录/);
+    assert.match(src, /setLoginBadgeClickable\(false\)/);
+  });
 });

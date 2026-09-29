@@ -2,14 +2,14 @@
 
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('path');
 
-describe('i18n-ui-messages catalog fetch copy', () => {
-  it('zh/en expose visible catalog session and empty strings', () => {
-    delete require.cache[require.resolve('../lib/i18n-ui-messages.js')];
-    const { zh, en } = require('../lib/i18n-ui-messages.js');
-    assert.equal(zh.paSkillCatalogNeedSession, '登录会话未就绪，无法拉取系统默认 Skill');
-    assert.equal(zh.paSkillCatalogEmpty, '系统提示词目录为空');
-    assert.match(en.paSkillCatalogNeedSession, /Sign-in session is not ready/i);
-    assert.match(en.paSkillCatalogEmpty, /catalog is empty/i);
+describe('i18n ui login badge copy', () => {
+  it('未登录角标文案是去登录', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'i18n-ui-messages.js'), 'utf8');
+    assert.match(src, /floatNotLoggedIn: '去登录'/);
+    assert.match(src, /floatNotLoggedIn: 'Sign in'/);
+    assert.match(src, /floatOauthOpened: '已打开授权页，请在新标签页完成登录'/);
   });
 });

@@ -221,22 +221,29 @@ async function fetchAuthStatusFromBackground() {
   return r.data;
 }
 
+function setLoginBadgeClickable(clickable) {
+  if (!badge || badge.tagName !== 'BUTTON') return;
+  badge.disabled = !clickable;
+}
+
 function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalidated = false } = {}) {
   if (!badge) return;
   if (invalidated) {
     badge.textContent = typeof tx === 'function' ? tx('floatBadgeRefreshPage') : '请刷新页面';
     badge.className = 'taskplugin-badge taskplugin-badge-err';
     badge.title = typeof tx === 'function' ? tx('floatBadgeReloadTitle') : '扩展已重载，请刷新本页后重试';
+    setLoginBadgeClickable(false);
     return;
   }
   if (!loggedIn) {
     badge.textContent = expired
       ? (typeof tx === 'function' ? tx('floatBadgeExpired') : '会话过期')
-      : (typeof tx === 'function' ? tx('floatNotLoggedIn') : '未登录');
+      : (typeof tx === 'function' ? tx('floatNotLoggedIn') : '去登录');
     badge.className = 'taskplugin-badge taskplugin-badge-err';
     badge.title = expired
-      ? (typeof tx === 'function' ? tx('floatBadgeReloginTitle') : '请在扩展弹窗中重新登录')
-      : (typeof tx === 'function' ? tx('floatBadgeNotLoggedInTitle') : '请先在扩展弹窗中登录');
+      ? (typeof tx === 'function' ? tx('floatBadgeReloginTitle') : '点击开始 OAuth 登录')
+      : (typeof tx === 'function' ? tx('floatBadgeNotLoggedInTitle') : '点击开始 OAuth 登录');
+    setLoginBadgeClickable(true);
     return;
   }
   if (expiryHint?.text) {
@@ -245,11 +252,13 @@ function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalid
       ? 'taskplugin-badge taskplugin-badge-warn taskplugin-badge-critical'
       : 'taskplugin-badge taskplugin-badge-warn';
     badge.title = typeof tx === 'function' ? tx('floatBadgeExpiringTitle') : '登录会话即将过期，请尽快在扩展弹窗中重新登录';
+    setLoginBadgeClickable(false);
     return;
   }
   badge.textContent = typeof tx === 'function' ? tx('floatBadgeLoggedIn') : '已登录';
   badge.className = 'taskplugin-badge taskplugin-badge-ok';
   badge.title = '';
+  setLoginBadgeClickable(false);
 }
 
 function workspaceSelectNeedsLoad() {

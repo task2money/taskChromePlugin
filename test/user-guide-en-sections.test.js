@@ -17,6 +17,11 @@ describe('user-guide-en-sections', () => {
     assert.match(src, /highlight box/);
   });
 
+  it('未登录时标题旁 Sign in 点击后走 OAuth', () => {
+    assert.match(src, /shows Sign in beside the title/);
+    assert.match(src, /same OAuth sign-in as the popup/);
+  });
+
   it('直连 Key 标明不上传，换浏览器需要重新设置', () => {
     assert.match(src, /not uploaded; set it again after switching browsers/);
     assert.doesNotMatch(src, /stored in this browser LocalStorage/);

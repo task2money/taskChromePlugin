@@ -337,6 +337,14 @@ describe('USER_GUIDE.md sync', () => {
     assert.match(src, /提示右侧 × 只关掉这条提示/);
   });
 
+  it('login 说明去登录点击后发起 OAuth', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(src, /去登录/);
+    assert.match(src, /OAuth 登录/);
+    assert.match(md, /去登录/);
+  });
+
   it('documents that 使用说明 is popup + DevTools only, not float panel', () => {
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /扩展弹窗/);
