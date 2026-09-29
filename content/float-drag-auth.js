@@ -2,6 +2,9 @@
  * 浮窗拖拽、鉴权刷新、storage 监听。
  */
 function setupElementPicker() {
+  // 侧边栏不注入 float-pick.js。直接引用 onShortcutKeyDown 会抛 ReferenceError，
+  // init 中断后登录态监听不会挂上，登录成功仍停在「去登录」。
+  if (typeof onShortcutKeyDown !== 'function') return;
   document.addEventListener('keydown', onShortcutKeyDown, true);
   adjustCancel?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -224,10 +227,18 @@ async function fetchAuthStatusFromBackground() {
 function setLoginBadgeClickable(clickable) {
   if (!badge || badge.tagName !== 'BUTTON') return;
   badge.disabled = !clickable;
+  if (clickable) badge.hidden = false;
+}
+
+function hideLoginBadge() {
+  if (!badge) return;
+  badge.hidden = true;
+  if (badge.tagName === 'BUTTON') badge.disabled = true;
 }
 
 function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalidated = false } = {}) {
   if (!badge) return;
+  badge.hidden = false;
   if (invalidated) {
     badge.textContent = typeof tx === 'function' ? tx('floatBadgeRefreshPage') : '请刷新页面';
     badge.className = 'taskplugin-badge taskplugin-badge-err';
@@ -251,14 +262,12 @@ function applyLoginBadge(loggedIn, { expired = false, expiryHint = null, invalid
     badge.className = expiryHint.level === 'critical'
       ? 'taskplugin-badge taskplugin-badge-warn taskplugin-badge-critical'
       : 'taskplugin-badge taskplugin-badge-warn';
+    badge.hidden = false;
     badge.title = typeof tx === 'function' ? tx('floatBadgeExpiringTitle') : '登录会话即将过期，请尽快在扩展弹窗中重新登录';
     setLoginBadgeClickable(false);
     return;
   }
-  badge.textContent = typeof tx === 'function' ? tx('floatBadgeLoggedIn') : '已登录';
-  badge.className = 'taskplugin-badge taskplugin-badge-ok';
-  badge.title = '';
-  setLoginBadgeClickable(false);
+  hideLoginBadge();
 }
 
 function workspaceSelectNeedsLoad() {

@@ -20,6 +20,7 @@ describe('user-guide-en-sections', () => {
   it('未登录时标题旁 Sign in 点击后走 OAuth', () => {
     assert.match(src, /shows Sign in beside the title/);
     assert.match(src, /same OAuth sign-in as the popup/);
+    assert.match(src, /After sign-in the button hides and the workspace list loads/);
   });
 
   it('直连 Key 标明不上传，换浏览器需要重新设置', () => {

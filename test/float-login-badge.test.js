@@ -26,8 +26,8 @@ describe('快速创建任务旁去登录', () => {
     const unsigned = auth.slice(auth.indexOf('if (!loggedIn)'), auth.indexOf('if (expiryHint'));
     assert.match(unsigned, /setLoginBadgeClickable\(true\)/);
     assert.match(unsigned, /floatNotLoggedIn/);
-    const signed = auth.slice(auth.indexOf("tx('floatBadgeLoggedIn')"));
-    assert.match(signed, /setLoginBadgeClickable\(false\)/);
+    const signed = auth.slice(auth.indexOf('if (expiryHint'));
+    assert.match(signed, /hideLoginBadge\(\)/);
   });
 
   it('点击经同步门闩发起与弹窗相同的 oauthStart', () => {

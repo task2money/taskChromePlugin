@@ -341,8 +341,8 @@ describe('USER_GUIDE.md sync', () => {
     const src = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(src, /去登录/);
-    assert.match(src, /OAuth 登录/);
-    assert.match(md, /去登录/);
+    assert.match(src, /登录成功后该按钮隐藏，并加载工作空间列表/);
+    assert.match(md, /登录成功后该按钮隐藏，并加载工作空间列表/);
   });
 
   it('documents that 使用说明 is popup + DevTools only, not float panel', () => {

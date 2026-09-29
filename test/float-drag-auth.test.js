@@ -40,6 +40,16 @@ describe('float-drag-auth 不再隐式 resolveTaskOwner', () => {
     const unsigned = src.slice(src.indexOf('if (!loggedIn)'), src.indexOf('if (expiryHint'));
     assert.match(unsigned, /setLoginBadgeClickable\(true\)/);
     assert.match(unsigned, /去登录/);
-    assert.match(src, /setLoginBadgeClickable\(false\)/);
+    const signed = src.slice(src.indexOf('if (expiryHint'));
+    assert.match(signed, /hideLoginBadge\(\)/);
+  });
+
+  it('侧边栏没有元素选择脚本时，setupElementPicker 不抛错', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'content', 'float-drag-auth.js'),
+      'utf8',
+    );
+    const setup = src.slice(src.indexOf('function setupElementPicker'), src.indexOf('function syncDescResetButton'));
+    assert.match(setup, /typeof onShortcutKeyDown !== 'function'\) return/);
   });
 });

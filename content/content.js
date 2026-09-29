@@ -302,9 +302,9 @@ chrome.runtime.onMessage.addListener((message) => {
     setupDrag();
     bindFloatPanelCloseButton();
     bindFloatLocaleSwitcher();
+    bindStorageListeners();
     setupElementPicker();
     setupDescReset();
-    bindStorageListeners();
 
     // 1. 同步初始化 datalist（不依赖网络/存储）
     seedBranchDatalists();
@@ -326,7 +326,13 @@ chrome.runtime.onMessage.addListener((message) => {
     await restoreFloatBallPosition();
 
     const urlEl = document.getElementById('taskplugin-page-url');
-    if (urlEl) urlEl.textContent = `📍 ${window.location.href}`;
+    if (urlEl) {
+      if (document.documentElement.getAttribute('data-taskplugin-host') === 'sidepanel') {
+        urlEl.hidden = true;
+      } else {
+        urlEl.textContent = `📍 ${window.location.href}`;
+      }
+    }
 
     if (wsSelect) await refreshAuthAndWorkspaces();
 

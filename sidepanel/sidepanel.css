@@ -71,11 +71,13 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-panel-header,
 html[data-taskplugin-host="sidepanel"] .taskplugin-panel-header h3,
 html[data-taskplugin-host="sidepanel"] .taskplugin-form-group label,
 html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-label,
-html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-title,
-html[data-taskplugin-host="sidepanel"] .taskplugin-captured-url {
+html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-title {
   background: #fff !important;
   color: #1e1e2e !important;
   border-color: #e5e7eb !important;
+}
+html[data-taskplugin-host="sidepanel"] #taskplugin-page-url {
+  display: none !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-input,
 html[data-taskplugin-host="sidepanel"] .taskplugin-select,

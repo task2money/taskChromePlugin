@@ -137,6 +137,22 @@ describe('float-form loadWorkspaces 失败须带 data-traceId', () => {
   });
 });
 
+describe('侧边栏创建页不显示空白页面地址条', () => {
+  it('侧边栏不把扩展地址写进页面地址条，并藏起该区域', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'content', 'content.js'), 'utf8');
+    const css = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'), 'utf8');
+    const init = src.slice(src.indexOf('async function init'), src.indexOf('refreshAuthAndWorkspaces'));
+    assert.match(init, /data-taskplugin-host'\) === 'sidepanel'/);
+    assert.match(init, /urlEl\.hidden = true/);
+    assert.match(init, /bindStorageListeners\(\);\s*setupElementPicker\(\)/);
+    const urlRule = css.slice(css.indexOf('#taskplugin-page-url'), css.indexOf('#taskplugin-page-url') + 80);
+    assert.match(urlRule, /display: none !important/);
+    const headerRule = css.slice(css.indexOf('.taskplugin-panel-header,'), css.indexOf('#taskplugin-page-url'));
+    assert.match(headerRule, /color: #1e1e2e/);
+    assert.doesNotMatch(headerRule, /display:\s*none/);
+  });
+});
+
 describe('content 脚本行数门禁与注入顺序', () => {
   it('顶层 content/*.js 均 ≤500 行，且 content.js 最后注入', () => {
     const js = contentScriptJsFromManifest();
