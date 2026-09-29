@@ -96,14 +96,14 @@ describe('Popup advisor heading', () => {
     assert.doesNotMatch(heading, /data-i18n="altZHint"/);
   });
 
-  it('调用方式默认直连，并说明 Key 只存在本机 LocalStorage', () => {
+  it('调用方式默认直连，并说明不上传、换浏览器需要重新设置', () => {
     const llm = llmSection();
     assert.match(llm, /id="popupLlmRouteDirect"[^>]*\bchecked\b/);
     assert.doesNotMatch(llm, /id="popupLlmRouteSaas"[^>]*\bchecked\b/);
     const msg = i18nMessages();
-    assert.equal(msg.zh.paLlmRouteDirect, '直连我的 Key（不上传，存在本机 LocalStorage，换浏览器需要重新设置）');
+    assert.equal(msg.zh.paLlmRouteDirect, '直连我的 Key（不上传，换浏览器需要重新设置）');
     assert.equal(msg.zh.paLlmRouteSaas, '调用平台后端');
-    assert.equal(msg.en.paLlmRouteDirect, 'Direct with my key (not uploaded; stored in this browser LocalStorage; set it again after switching browsers)');
+    assert.equal(msg.en.paLlmRouteDirect, 'Direct with my key (not uploaded; set it again after switching browsers)');
     assert.equal(msg.en.paLlmRouteSaas, 'Platform backend');
     assert.doesNotMatch(msg.zh.paLlmSectionHint, /消耗资源/);
     assert.doesNotMatch(msg.en.paLlmSectionHint, /uses resources/);
