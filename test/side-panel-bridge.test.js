@@ -70,6 +70,9 @@ describe('side panel manifest', () => {
     assert.match(html, /popup\.html\?host=sidepanel/);
     assert.match(settingsCss, /width:\s*100%/);
     assert.match(settingsCss, /background:\s*#fff/);
+    assert.match(settingsCss, /html\[data-taskplugin-host="sidepanel"\] \.shortcut-item[\s\S]*?background:\s*#fff/);
+    assert.match(settingsCss, /html\[data-taskplugin-host="sidepanel"\] \.tcp-guide-root[\s\S]*?background:\s*#fff/);
+    assert.match(settingsCss, /html\[data-taskplugin-host="sidepanel"\] \.popup-project-list[\s\S]*?background:\s*#fff/);
   });
 });
 
