@@ -16,19 +16,50 @@ function bindFloatPanelCloseButton() {
  * 浮窗顶栏语言选择器（OPT-20260922-037）：复用 lib/locale-switcher-ui.js，
  * 与 Popup / DevTools Panel 同一取词与同步入口（aidevpush.locale）。
  */
+function rerenderFloatProjectsForLocale() {
+  if (!projectsDiv || typeof ProjectAutoRunLabel === 'undefined') return;
+  if (typeof ProjectAutoRunLabel.renderProjectRadioHtml !== 'function') return;
+  if (!Array.isArray(projectsData) || !projectsData.length) return;
+  const selected = new Set(typeof selectedFloatProjectIds === 'function' ? selectedFloatProjectIds() : []);
+  let html = '';
+  for (const p of projectsData) {
+    html += ProjectAutoRunLabel.renderProjectRadioHtml(p, { name: 'taskplugin-project', esc });
+  }
+  projectsDiv.innerHTML = html;
+  if (!selected.size) return;
+  projectsDiv.querySelectorAll('input.project-radio').forEach((el) => {
+    el.checked = selected.has(el.value);
+  });
+}
+
 function bindFloatLocaleSwitcher() {
   const select = document.getElementById('taskplugin-float-locale');
   if (!select) return;
   if (typeof PluginLocaleSwitcher === 'undefined' || !PluginLocaleSwitcher.bind) return;
   const i18n = globalThis.AidevpushI18n;
   if (!i18n) return;
+  const scoped = {
+    getLocale: () => i18n.getLocale(),
+    setLocale: (loc) => i18n.setLocale(loc),
+    normalize: (raw) => i18n.normalize(raw),
+    applyDom: () => {
+      const host = document.getElementById('taskplugin-float-root');
+      if (host && typeof i18n.applyDom === 'function') i18n.applyDom(host);
+    },
+  };
   // Anti-Replay-OK: locale switch; syncPreferredLocale 为既有 best-effort PATCH（ADR-0089）
   PluginLocaleSwitcher.bind({
     select,
-    i18n,
+    i18n: scoped,
     sendMessage: (msg) => chrome.runtime.sendMessage(msg),
     onApplied: () => {
       if (typeof renderShortcutHints === 'function') renderShortcutHints();
+      rerenderFloatProjectsForLocale();
+      if (typeof syncFloatAutoRun === 'function') syncFloatAutoRun();
+      if (typeof refreshFloatRepoBases === 'function') refreshFloatRepoBases();
+      if (typeof checkLoginStatus === 'function') {
+        checkLoginStatus({ mode: 'badgeOnly' }).catch(() => {});
+      }
     },
   });
 }

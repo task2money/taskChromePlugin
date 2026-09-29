@@ -48,6 +48,14 @@ if (__taskpluginOnAuthRoute && root) {
       await globalThis.AidevpushI18n.hydrateFromStorage();
     }
   } catch (_) { /* ignore */ }
+  try {
+    if (root && globalThis.AidevpushI18n && typeof globalThis.AidevpushI18n.applyDom === 'function') {
+      globalThis.AidevpushI18n.applyDom(root);
+    }
+    if (typeof PluginLocaleSwitcher !== 'undefined' && typeof PluginLocaleSwitcher.syncSelect === 'function') {
+      PluginLocaleSwitcher.syncSelect();
+    }
+  } catch (_) { /* ignore */ }
 })();
 
 // 使用说明仅挂扩展弹窗 / DevTools，浮窗不再渲染（与 Popup 重复）。

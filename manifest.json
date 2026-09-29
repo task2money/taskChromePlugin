@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.126",
+  "version": "1.8.127",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -63,6 +63,7 @@
         "lib/i18n-messages.js",
         "lib/i18n-hardware-stock-messages.js",
         "lib/i18n-ui-messages.js",
+        "lib/i18n-locale-messages.js",
         "lib/i18n-tx.js",
         "lib/locale-switcher-ui.js",
         "lib/storage.js",

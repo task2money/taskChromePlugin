@@ -83,6 +83,13 @@ describe('isUnauthedWorkspacePlaceholder', () => {
     assert.equal(isUnauthedWorkspacePlaceholder('(无工作空间)'), false);
     assert.equal(isUnauthedWorkspacePlaceholder('加载中...'), false);
     assert.equal(isUnauthedWorkspacePlaceholder('Acme / 主空间'), false);
+    assert.equal(isUnauthedWorkspacePlaceholder('-- Sign in first --'), true);
+    assert.equal(isUnauthedWorkspacePlaceholder('Session expired'), true);
+    assert.equal(isUnauthedWorkspacePlaceholder('-- Select workspace --'), false);
+    assert.equal(
+      isUnauthedWorkspacePlaceholder('Acme', { getAttribute: (name) => (name === 'data-i18n' ? 'floatPleaseLoginFirst' : '') }),
+      true,
+    );
   });
 });
 
