@@ -43,11 +43,20 @@ function patchPageAdvisorModalCloseForSitePending() {
 }
 
 function syncSitePendingToolbar() {
-  const hint = document.getElementById("taskplugin-page-advisor-hint");
+  const toolbar = document.getElementById("taskplugin-page-advisor-toolbar");
+  let hint = document.getElementById("taskplugin-page-advisor-hint");
   const fillAll = document.getElementById("taskplugin-page-advisor-fill-all");
   const fillOne = document.getElementById("taskplugin-page-advisor-fill-one");
   const cancel = document.getElementById("taskplugin-page-advisor-cancel");
   if (pageAdvisorSitePendingMode) {
+    if (toolbar && !hint) {
+      hint = document.createElement("p");
+      hint.id = "taskplugin-page-advisor-hint";
+      hint.className = "taskplugin-page-advisor-toolbar-hint taskplugin-page-advisor-safety-hint";
+      const actions = toolbar.querySelector(".taskplugin-page-advisor-toolbar-actions");
+      if (actions) toolbar.insertBefore(hint, actions);
+      else toolbar.appendChild(hint);
+    }
     if (hint) {
       hint.textContent = (typeof tx === "function" ? tx("paSitePendingHint") : "确认后将启动挂起任务；拒绝将关闭本条建议");
     }
@@ -57,8 +66,10 @@ function syncSitePendingToolbar() {
       cancel.textContent = (typeof tx === "function" ? tx("paSitePendingLater") : "稍后再说");
       cancel.title = (typeof tx === "function" ? tx("paSitePendingLaterTitle") : "隐藏待确认面板，稍后可刷新页面再次查看");
     }
-  } else if (typeof PageAdvisorA11y !== "undefined") {
-    if (hint) hint.textContent = PageAdvisorA11y.safetyHint;
+  } else {
+    if (hint) hint.remove();
+  }
+  if (!pageAdvisorSitePendingMode && typeof PageAdvisorA11y !== "undefined") {
     if (fillAll) fillAll.hidden = false;
     if (fillOne) fillOne.hidden = false;
     if (cancel) {

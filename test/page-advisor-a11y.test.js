@@ -65,7 +65,7 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     );
   });
 
-  it("toolbar has accessible name and describedby safety hint", () => {
+  it("toolbar does not show the fill-does-not-create sentence", () => {
     const ui = read("content/float-page-advisor.js");
     const a11y = read("lib/page-advisor-a11y.js");
     const src = ui + a11y;
@@ -73,17 +73,14 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
       src,
       /aria-label="\$\{e\(PAGE_ADVISOR_A11Y\.toolbarLabel\)\}"|paToolbarLabel|aria-label="优化建议操作栏"/,
     );
-    assert.match(src, /aria-describedby="taskplugin-page-advisor-hint"/);
-    assert.match(src, /填入仅写入任务描述，不会自动创建任务/);
-    assert.match(src, /taskplugin-page-advisor-safety-hint/);
     assert.match(src, /taskplugin-page-advisor-toolbar-drag/);
     assert.match(src, /paToolbarDragHandle/);
     assert.match(src, /设置夜间任务调度，享用低价机器及智能体资源/);
     const html = PageAdvisorA11y.buildLayerHtml((s) => s);
-    const dragAt = html.indexOf("taskplugin-page-advisor-toolbar-drag");
-    const hintAt = html.indexOf('id="taskplugin-page-advisor-hint"');
-    assert.ok(dragAt >= 0 && hintAt > dragAt);
-    assert.ok(html.indexOf("设置夜间任务调度，享用低价机器及智能体资源") < hintAt);
+    assert.doesNotMatch(html, /填入仅写入任务描述，不会自动创建任务/);
+    assert.doesNotMatch(html, /id="taskplugin-page-advisor-hint"/);
+    assert.ok(html.indexOf("taskplugin-page-advisor-toolbar-drag") >= 0);
+    assert.ok(html.indexOf("设置夜间任务调度，享用低价机器及智能体资源") >= 0);
   });
 
   // OPT-20260926-011：无障碍脚本未加载时的降级 HTML 必须与正式结构一样有拖动条与夜间调度标题。
@@ -96,12 +93,8 @@ describe("page-advisor UI a11y wiring (source contracts)", () => {
     assert.match(fallback, /taskplugin-page-advisor-toolbar-drag-mark/);
     assert.match(fallback, /paToolbarDragHandle/);
     assert.match(fallback, /设置夜间任务调度，享用低价机器及智能体资源/);
-    assert.match(fallback, /id="taskplugin-page-advisor-hint"/);
-    // 拖动条必须排在提示语之前（与正式结构同序）
-    assert.ok(
-      fallback.indexOf("taskplugin-page-advisor-toolbar-drag") <
-        fallback.indexOf('id="taskplugin-page-advisor-hint"'),
-    );
+    assert.doesNotMatch(fallback, /填入仅写入任务描述，不会自动创建任务/);
+    assert.doesNotMatch(fallback, /id="taskplugin-page-advisor-hint"/);
   });
 
   it("action buttons use explicit labels and titles", () => {
