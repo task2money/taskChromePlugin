@@ -20,9 +20,20 @@ describe('side panel tab', () => {
   });
 
   it('打不开侧边栏时的提示按语言区分', () => {
-    assert.match(bridge.sidePanelOpenHint('zh-CN'), /侧边栏/);
-    assert.match(bridge.sidePanelOpenHint('en'), /side panel/);
+    assert.match(bridge.sidePanelOpenHint('zh-CN'), /展开或收起侧边栏/);
+    assert.match(bridge.sidePanelOpenHint('en'), /open or close the side panel/);
     assert.doesNotMatch(bridge.sidePanelOpenHint('en'), /侧边栏/);
+  });
+
+  it('工具栏图标交给浏览器展开或收起侧边栏', () => {
+    assert.deepEqual(bridge.toolbarActionPanelBehavior(), { openPanelOnActionClick: true });
+  });
+
+  it('图标打开切到设置，页面消息刚打开时不覆盖页签', () => {
+    const now = 10000;
+    assert.equal(bridge.iconOpenShouldSelectSettings(null, now), true);
+    assert.equal(bridge.iconOpenShouldSelectSettings({ kind: 'message', at: now - 100 }, now), false);
+    assert.equal(bridge.iconOpenShouldSelectSettings({ kind: 'message', at: now - 2000 }, now), true);
   });
 });
 
@@ -33,6 +44,24 @@ describe('side panel manifest', () => {
     assert.equal(manifest.action.default_popup, undefined);
     assert.ok(manifest.permissions.includes('sidePanel'));
     assert.equal(manifest.side_panel.default_path, 'sidepanel/sidepanel.html');
+  });
+
+  it('工具栏点击用 setPanelBehavior 切换，不再用 onClicked 只打开', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'background', 'sw-side-panel.js'), 'utf8');
+    assert.match(src, /setPanelBehavior\(SidePanelBridge\.toolbarActionPanelBehavior\(\)\)/);
+    assert.doesNotMatch(src, /action\.onClicked/);
+  });
+
+  it('创建任务与设置页签背景为白色，设置 iframe 铺满宽度', () => {
+    const css = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'), 'utf8');
+    const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
+    const settingsCss = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup-sidepanel.css'), 'utf8');
+    assert.match(css, /\.sp-tab[\s\S]*background:\s*#fff/);
+    assert.match(css, /\.sp-pane[\s\S]*background:\s*#fff/);
+    assert.match(css, /#taskplugin-float-panel[\s\S]*background:\s*#fff/);
+    assert.match(html, /popup\.html\?host=sidepanel/);
+    assert.match(settingsCss, /width:\s*100%/);
+    assert.match(settingsCss, /background:\s*#fff/);
   });
 });
 

@@ -25,6 +25,15 @@ describe('i18n-llm-route 中英对照', () => {
     assert.deepEqual(missingInZh, [], `zh 缺少这些键: ${missingInZh.join(', ')}`);
   });
 
+  it('直连 Key 标明不上传且只存在本机 LocalStorage', () => {
+    assert.match(zh.paLlmRouteDirect, /不上传，存在本机 LocalStorage，换浏览器需要重新设置/);
+    assert.match(en.paLlmRouteDirect, /LocalStorage/);
+    assert.doesNotMatch(zh.paLlmRouteDirect, /免费/);
+    assert.doesNotMatch(en.paLlmRouteDirect, /\(free\)/);
+    assert.match(zh.paLlmSectionHint, /LocalStorage/);
+    assert.match(en.paLlmSectionHint, /LocalStorage/);
+  });
+
   it('工作空间下拉重试文案中英齐备（OPT-20260928-004）', () => {
     assert.equal(zh.paSaasWorkspaceRetry, '重试');
     assert.equal(en.paSaasWorkspaceRetry, 'Retry');

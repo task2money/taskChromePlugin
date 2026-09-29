@@ -1,0 +1,41 @@
+/* 设置页嵌在侧边栏 iframe 时铺满宽度，背景为白。独立打开 popup.html 不带 host 参数，保持 300px。 */
+html[data-taskplugin-host="sidepanel"] body {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  background: #fff;
+  color: #1e1e2e;
+}
+html[data-taskplugin-host="sidepanel"] .popup-container {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+html[data-taskplugin-host="sidepanel"] .section {
+  background: #fff;
+  color: #1e1e2e;
+  border: 1px solid #e5e7eb;
+}
+html[data-taskplugin-host="sidepanel"] .popup-header h1,
+html[data-taskplugin-host="sidepanel"] .section h3,
+html[data-taskplugin-host="sidepanel"] .form-row label,
+html[data-taskplugin-host="sidepanel"] .float-ball-label,
+html[data-taskplugin-host="sidepanel"] legend,
+html[data-taskplugin-host="sidepanel"] .llm-route-option,
+html[data-taskplugin-host="sidepanel"] .status-row .value,
+html[data-taskplugin-host="sidepanel"] .hint {
+  color: #1e1e2e;
+}
+html[data-taskplugin-host="sidepanel"] .form-input,
+html[data-taskplugin-host="sidepanel"] .form-select,
+html[data-taskplugin-host="sidepanel"] .form-textarea {
+  width: 100%;
+  background: #fff;
+  color: #1e1e2e;
+  border-color: #d0d0d8;
+}
+html[data-taskplugin-host="sidepanel"] .llm-shortcut {
+  color: #1e1e2e;
+  background: #f4f4f8;
+  border-color: #d0d0d8;
+}

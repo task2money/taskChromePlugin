@@ -143,7 +143,7 @@ describe('UserGuide sections', () => {
     const blob = (section.steps || []).join('\n');
     assert.match(blob, /API Key/);
     assert.match(blob, /点「设置」/);
-    assert.match(blob, /免费/);
+    assert.match(blob, /不上传，存在本机 LocalStorage，换浏览器需要重新设置/);
     assert.match(blob, /调用平台后端（须登录）/);
     assert.match(blob, /工作空间下拉，未登录不显示/);
     assert.doesNotMatch(blob, /消耗资源/);
@@ -158,7 +158,7 @@ describe('UserGuide sections', () => {
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /自动创新智能体/);
     assert.match(md, /点 \*\*「设置」\*\*/);
-    assert.match(md, /免费/);
+    assert.match(md, /不上传，存在本机 LocalStorage，换浏览器需要重新设置/);
     assert.match(md, /调用平台后端\*\*（须登录）/);
     assert.match(md, /工作空间\*\* 下拉，未登录不显示/);
     assert.doesNotMatch(md, /消耗资源/);

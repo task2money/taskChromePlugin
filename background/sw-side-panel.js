@@ -3,7 +3,10 @@
  */
 async function openSidePanelOnTab(tabId, which) {
   const tab = SidePanelBridge.normalizeSidePanelTab(which);
-  await chrome.storage.session.set({ sidePanelTab: tab });
+  await chrome.storage.session.set({
+    sidePanelTab: tab,
+    sidePanelOpenSource: { kind: 'message', at: Date.now() },
+  });
   if (!tabId) return { success: false, error: 'no tab', hint: true };
   try {
     await chrome.sidePanel.open({ tabId });
@@ -73,13 +76,43 @@ async function handleSidePanelMessage(message, sender) {
   return { success: false, error: 'unknown side panel action' };
 }
 
-if (typeof chrome !== 'undefined' && chrome.action && chrome.action.onClicked) {
-  chrome.action.onClicked.addListener((tab) => {
-    const ready = typeof whenI18nReady === 'function' ? whenI18nReady() : Promise.resolve();
-    ready
-      .then(() => openSidePanelOnTab(tab && tab.id, 'settings'))
-      .catch((e) => {
-        console.warn('[taskChromePlugin] 打开侧边栏设置失败:', e && e.message ? e.message : e);
-      });
-  });
+async function applyIconOpenTab() {
+  let source = null;
+  try {
+    const stored = await chrome.storage.session.get('sidePanelOpenSource');
+    source = stored && stored.sidePanelOpenSource;
+    await chrome.storage.session.remove('sidePanelOpenSource');
+  } catch (_) {
+    source = null;
+  }
+  if (!SidePanelBridge.iconOpenShouldSelectSettings(source, Date.now())) return;
+  await chrome.storage.session.set({ sidePanelTab: 'settings' });
+  try {
+    chrome.runtime.sendMessage({ action: 'sidePanelShow', which: 'settings' });
+  } catch (_) { /* 面板尚未监听 */ }
 }
+
+function installToolbarSidePanelToggle() {
+  if (typeof chrome === 'undefined' || !chrome.sidePanel) return;
+  if (typeof chrome.sidePanel.setPanelBehavior === 'function') {
+    chrome.sidePanel
+      .setPanelBehavior(SidePanelBridge.toolbarActionPanelBehavior())
+      .catch((e) => {
+        console.warn('[taskChromePlugin] 工具栏图标切换侧边栏失败:', e && e.message ? e.message : e);
+      });
+  }
+  if (chrome.sidePanel.onOpened && typeof chrome.sidePanel.onOpened.addListener === 'function') {
+    chrome.sidePanel.onOpened.addListener(() => {
+      applyIconOpenTab().catch((e) => {
+        console.warn('[taskChromePlugin] 图标打开侧边栏切到设置失败:', e && e.message ? e.message : e);
+      });
+    });
+  }
+  if (chrome.sidePanel.onClosed && typeof chrome.sidePanel.onClosed.addListener === 'function') {
+    chrome.sidePanel.onClosed.addListener(() => {
+      chrome.storage.session.remove('sidePanelOpenSource').catch(() => {});
+    });
+  }
+}
+
+installToolbarSidePanelToggle();

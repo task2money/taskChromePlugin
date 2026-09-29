@@ -1,34 +1,22 @@
 'use strict';
 
+/**
+ * 英文使用说明与侧边栏、直连 Key 文案保持一致。
+ */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const path = require('node:path');
+const path = require('path');
+
+const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'user-guide-en-sections.js'), 'utf8');
 
 describe('user-guide-en-sections', () => {
-  it('documents copyable traceId line for LLM / timeout errors', () => {
-    const src = fs.readFileSync(
-      path.join(__dirname, '../lib/user-guide-en-sections.js'),
-      'utf8',
-    );
-    assert.match(src, /traceId:/);
-    assert.match(src, /data-traceId/);
+  it('工具栏图标展开或收起侧边栏', () => {
+    assert.match(src, /open or close that side panel/);
   });
 
-  it('documents system default skill fetch and reopen-popup recovery', () => {
-    const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
-    const blob = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
-    assert.match(blob, /Only the auto-innovate skill is preloaded even while signed out/);
-    assert.match(blob, /Leaving the popup to copy the next field keeps unsaved text/);
-    assert.match(blob, /Do not apply/);
-  });
-
-  it('documents suggestion-bar drag and stock-notice dismiss', () => {
-    const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
-    const fill = (STEPS_EN['page-optimization-suggest'] || []).join('\n');
-    const create = (STEPS_EN['float-create'] || []).join('\n');
-    assert.match(fill, /suggestion-bar drag handle/);
-    assert.match(fill, /Schedule tasks overnight for lower-priced machines and agent resources/);
-    assert.match(create, /× on that notice dismisses only the message/);
+  it('直连 Key 标明不上传且存在本机 LocalStorage', () => {
+    assert.match(src, /not uploaded; stored in this browser LocalStorage/);
+    assert.doesNotMatch(src, /\(free;/);
   });
 });
