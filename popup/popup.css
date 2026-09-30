@@ -166,6 +166,37 @@ body {
 }
 .form-input:focus { outline: none; border-color: #89b4fa; }
 
+/* 调用方式：去掉浏览器 fieldset 线框。图例当普通标签，长文案仍上下排列。 */
+#popupLlmRouteField {
+  border: 0;
+  padding: 0;
+  margin: 0 0 8px;
+  min-inline-size: 0;
+}
+#popupLlmRouteField > legend {
+  display: block;
+  float: none;
+  width: auto;
+  padding: 0;
+  margin-bottom: 3px;
+  font-size: 10px;
+  color: #a6adc8;
+}
+#popupLlmRouteField .llm-route-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin-bottom: 4px;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #cdd6f4;
+  cursor: pointer;
+}
+#popupLlmRouteField .llm-route-option input {
+  margin-top: 3px;
+  flex-shrink: 0;
+}
+
 /* === Buttons === */
 .btn {
   padding: 7px 12px; border: 1px solid #45475a; border-radius: 5px;

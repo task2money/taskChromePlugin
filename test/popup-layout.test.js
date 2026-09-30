@@ -115,6 +115,21 @@ describe('Popup 面板布局', () => {
     assert.match(popupCss, /width:\s*300px/, 'popup.css body 宽度应收窄为 300px');
   });
 
+  it('调用方式去掉 fieldset 线框，长文案仍上下排列', () => {
+    const sideCss = read('popup/popup-sidepanel.css');
+    assert.match(popupCss, /#popupLlmRouteField\s*\{[^}]*border:\s*0/);
+    assert.match(popupCss, /#popupLlmRouteField\s*\{[^}]*min-inline-size:\s*0/);
+    assert.match(popupCss, /#popupLlmRouteField \.llm-route-option\s*\{[^}]*display:\s*flex/);
+    const llm = popupHtml.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
+    assert.match(llm, /<fieldset[^>]*id="popupLlmRouteField"/);
+    assert.match(llm, /直连我的 Key（不上传，换浏览器需要重新设置）/);
+    assert.match(llm, /调用平台后端/);
+    assert.match(
+      sideCss,
+      /html\[data-taskplugin-host="sidepanel"\] #popupLlmRouteField \.llm-route-option/,
+    );
+  });
+
   it('快捷键说明默认收起：#shortcutsBody 初始 display:none，内容保留', () => {
     assert.ok(popupHtml.includes('id="btnToggleShortcuts"'), '缺少「展开/收起」按钮');
     const m = popupHtml.match(/<div id="shortcutsBody"[^>]*>/);
