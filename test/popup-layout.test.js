@@ -130,6 +130,15 @@ describe('Popup 面板布局', () => {
     );
   });
 
+  it('已保存的 Skill 去掉 fieldset 线框，图例仍保留新建按钮', () => {
+    assert.match(popupCss, /#popupSkillSavedField\s*\{[^}]*border:\s*0/);
+    assert.match(popupCss, /#popupSkillSavedField\s*\{[^}]*min-inline-size:\s*0/);
+    const skill = popupHtml.match(/id="pageAdvisorSkillSection"[\s\S]*?<\/section>/)[0];
+    assert.match(skill, /<fieldset[^>]*id="popupSkillSavedField"/);
+    assert.match(skill, /id="btnSkillNew"/);
+    assert.match(skill, /popup-skill-saved-legend/);
+  });
+
   it('快捷键说明默认收起：#shortcutsBody 初始 display:none，内容保留', () => {
     assert.ok(popupHtml.includes('id="btnToggleShortcuts"'), '缺少「展开/收起」按钮');
     const m = popupHtml.match(/<div id="shortcutsBody"[^>]*>/);

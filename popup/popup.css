@@ -306,6 +306,13 @@ body {
 .popup-project-list .hint.err { color: #f38ba8; }
 #popupDefaultsStatus { margin-top: 6px; min-height: 14px; }
 
+/* 已保存的 Skill：与调用方式同一套，去掉浏览器 fieldset 线框。图例里的「新建」仍靠右。 */
+#popupSkillSavedField {
+  border: 0;
+  padding: 0;
+  margin: 0 0 8px;
+  min-inline-size: 0;
+}
 .popup-skill-saved-legend {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; width: 100%; padding: 0; float: none;
