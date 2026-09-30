@@ -82,6 +82,11 @@ function makeVersionHost() {
           setAttribute(k, v) {
             if (k === 'aria-label') this.ariaLabel = v;
           },
+          listeners: {},
+          addEventListener(type, fn) {
+            this.listeners[type] = this.listeners[type] || [];
+            this.listeners[type].push(fn);
+          },
           remove() {
             const i = links.indexOf(this);
             if (i >= 0) links.splice(i, 1);
@@ -442,6 +447,36 @@ describe('bindExtensionVersionDoubleClick', () => {
     await first;
     await second;
     assert.equal(fetches, 1);
+    assert.equal(links.length, 1);
+  });
+
+  it('下载链接上双击只再检测，不打开新标签', async () => {
+    const { el, links } = makeVersionHost();
+    let fetches = 0;
+    const opened = [];
+    const chromeApi = {
+      runtime: { getManifest: () => ({ version: '1.8.90' }) },
+      management: { getSelf: async () => ({ installType: 'development' }) },
+      tabs: { create(info) { opened.push(info.url); } },
+    };
+    await refreshExtensionVersionPresentation(el, chromeApi, versionT, {
+      now: () => 9_000,
+      fetchImpl: async () => {
+        fetches += 1;
+        return { ok: true, json: async () => releasePayload('1.8.92', ZIP_192) };
+      },
+    });
+    assert.equal(links.length, 1);
+    const link = links[0];
+    const click = { detail: 1, prevented: false, preventDefault() { this.prevented = true; } };
+    link.listeners.click[0](click);
+    const dbl = { detail: 2, prevented: false, preventDefault() { this.prevented = true; }, stopPropagation() {} };
+    const again = link.listeners.dblclick[0](dbl);
+    assert.equal(click.prevented, true);
+    assert.equal(dbl.prevented, true);
+    await again;
+    assert.equal(fetches, 2);
+    assert.equal(opened.length, 0);
     assert.equal(links.length, 1);
   });
 });
