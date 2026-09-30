@@ -103,3 +103,10 @@ html[data-taskplugin-host="sidepanel"] .body-pre,
 html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
   color: #1e1e2e;
 }
+/* 浅色侧栏：设置按钮透明底上改回深字，避免沿用弹窗浅字。 */
+html[data-taskplugin-host="sidepanel"] #pageAdvisorLlmSection #btnToggleLlmSettings,
+html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings {
+  background: transparent;
+  border-color: transparent;
+  color: #1e1e2e;
+}

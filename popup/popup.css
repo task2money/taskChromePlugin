@@ -89,8 +89,8 @@ body {
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 600;
-  color: #cdd6f4;
-  background: #313244;
+  color: #1e1e2e;
+  background: #fff;
   border: 1px solid #45475a;
   border-radius: 4px;
   vertical-align: middle;
@@ -247,6 +247,18 @@ body {
 /* 标题行小字号 SSOT：设置/登录/技能按钮与「闲置集市」链接共用同一个类，改一处即同步。
    须排在 .btn / .btn-sm 之后，才能以同类名覆盖其字号（OPT-20260927-001）。 */
 .heading-sm { font-size: 10px; }
+/* 标题行「设置」只留文字，不铺按钮底色。深色弹窗用浅字，侧栏浅底由 popup-sidepanel.css 改回深字。 */
+#pageAdvisorLlmSection #btnToggleLlmSettings,
+#pageAdvisorSkillSection #btnToggleSkillSettings {
+  background: transparent;
+  border-color: transparent;
+  color: #cdd6f4;
+}
+#pageAdvisorLlmSection #btnToggleLlmSettings:hover,
+#pageAdvisorSkillSection #btnToggleSkillSettings:hover {
+  background: transparent;
+  color: #fff;
+}
 
 /* === Toggle Row === */
 .toggle-row { display: flex; gap: 6px; }

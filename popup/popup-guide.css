@@ -111,9 +111,17 @@
 #popup-user-guide .tcp-guide-root-summary,
 #popup-user-guide .tcp-guide-close {
   display: inline-flex; align-items: center;
-  background: #313244; color: #cdd6f4;
   border: 1px solid #45475a; border-radius: 6px;
   padding: 6px 10px; font-size: 12px; cursor: pointer;
+}
+#popup-user-guide .tcp-guide-root-summary {
+  background: #00bcd4;
+  color: #1e1e2e;
+  border-color: #00bcd4;
+}
+#popup-user-guide .tcp-guide-close {
+  background: #313244;
+  color: #cdd6f4;
 }
 #popup-user-guide .tcp-guide-root-summary:focus,
 #popup-user-guide .tcp-guide-close:focus {
