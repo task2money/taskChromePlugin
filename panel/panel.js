@@ -43,6 +43,10 @@ const Panel = (() => {
     if (typeof api.refreshExtensionVersionPresentation === 'function') {
       api.refreshExtensionVersionPresentation(el, chromeApi, P.t).catch(() => {});
     }
+    // Anti-Replay-OK: read-only GitHub GET; in-flight latch is inside bindExtensionVersionDoubleClick
+    if (typeof api.bindExtensionVersionDoubleClick === 'function') {
+      api.bindExtensionVersionDoubleClick(el, chromeApi, P.t);
+    }
   }
 
   // ---- Init ----

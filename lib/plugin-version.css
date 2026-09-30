@@ -1,3 +1,9 @@
+.popup-version,
+.panel-version {
+  cursor: pointer;
+  user-select: none;
+}
+
 .plugin-version-update {
   font-size: 11px;
   margin-left: 6px;

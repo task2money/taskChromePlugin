@@ -21,6 +21,7 @@ const {
   parseGithubLatestRelease,
   decideBetaReleaseNotice,
   refreshExtensionVersionPresentation,
+  bindExtensionVersionDoubleClick,
   LATEST_RELEASE_URL,
 } = require('../lib/plugin-version.js');
 
@@ -34,6 +35,10 @@ function versionT(key, params) {
     popupVersionBetaAria: '插件版本 {version}，开发者模式 Beta',
     popupVersionUpdate: '有新版本 v{latest} 可下载',
     popupVersionUpdateAria: '下载插件新版本 v{latest}',
+    popupVersionChecking: '正在检测版本…',
+    popupVersionUpToDate: '已是最新',
+    popupVersionCheckFailed: '版本检测失败',
+    popupVersionCheckHint: '双击检测新版本',
   };
   const raw = table[key] || key;
   return String(raw).replace(/\{(\w+)\}/g, (_, k) => (params && params[k] != null ? String(params[k]) : `{${k}}`));
@@ -60,8 +65,10 @@ function makeVersionHost() {
   const el = {
     hidden: false,
     textContent: '',
+    attrs: {},
     parentElement: parent,
-    setAttribute() {},
+    setAttribute(k, v) { this.attrs[k] = v; },
+    removeAttribute(k) { delete this.attrs[k]; },
     ownerDocument: {
       createElement() {
         return {
@@ -175,10 +182,20 @@ describe('Popup 源码契约', () => {
     assert.match(popupJs, /refreshExtensionVersionPresentation/);
     const panelJs = fs.readFileSync(path.join(ROOT, 'panel', 'panel.js'), 'utf8');
     assert.match(panelJs, /refreshExtensionVersionPresentation/);
+    assert.match(popupJs, /bindExtensionVersionDoubleClick/);
+    assert.match(panelJs, /bindExtensionVersionDoubleClick/);
     const messages = fs.readFileSync(path.join(ROOT, 'lib', 'i18n-version-messages.js'), 'utf8');
     assert.match(messages, /popupVersionBetaLabel:\s*'v\{version\} Beta'/);
     assert.match(messages, /popupVersionUpdate:\s*'有新版本 v\{latest\} 可下载'/);
     assert.match(messages, /popupVersionUpdate:\s*'Newer version v\{latest\} is available to download'/);
+    assert.match(messages, /popupVersionChecking:\s*'正在检测版本…'/);
+    assert.match(messages, /popupVersionChecking:\s*'Checking for updates…'/);
+    assert.match(messages, /popupVersionUpToDate:\s*'已是最新'/);
+    assert.match(messages, /popupVersionUpToDate:\s*'Up to date'/);
+    assert.match(messages, /popupVersionCheckFailed:\s*'版本检测失败'/);
+    assert.match(messages, /popupVersionCheckFailed:\s*'Update check failed'/);
+    assert.match(messages, /popupVersionCheckHint:\s*'双击检测新版本'/);
+    assert.match(messages, /popupVersionCheckHint:\s*'Double-click to check for updates'/);
   });
 });
 
@@ -310,5 +327,121 @@ describe('refreshExtensionVersionPresentation', () => {
     });
     assert.equal(beta.el.textContent, 'v1.8.90 Beta');
     assert.equal(beta.links.length, 0);
+  });
+
+  it('force 绕过缓存重新请求，商店安装也会对照 Release', async () => {
+    const { el, links } = makeVersionHost();
+    let fetches = 0;
+    const storage = memStorage();
+    const chromeApi = {
+      runtime: { getManifest: () => ({ version: '1.8.90' }) },
+      management: { getSelf: async () => ({ installType: 'normal' }) },
+    };
+    const deps = {
+      storage,
+      now: () => 1_000,
+      fetchImpl: async () => {
+        fetches += 1;
+        return { ok: true, json: async () => releasePayload('1.8.92', ZIP_192) };
+      },
+    };
+    await refreshExtensionVersionPresentation(el, chromeApi, versionT, deps);
+    assert.equal(fetches, 0);
+
+    let checkingText = '';
+    deps.now = () => 2_000;
+    deps.fetchImpl = async () => {
+      fetches += 1;
+      checkingText = el.textContent;
+      return { ok: true, json: async () => releasePayload('1.8.92', ZIP_192) };
+    };
+    const again = await refreshExtensionVersionPresentation(el, chromeApi, versionT, {
+      ...deps,
+      force: true,
+    });
+    assert.equal(fetches, 1);
+    assert.equal(checkingText, '正在检测版本…');
+    assert.equal(el.hidden, true);
+    assert.equal(links.length, 1);
+    assert.equal(links[0].href, ZIP_192);
+    assert.equal(again.update, true);
+    assert.equal(el.attrs && el.attrs['aria-busy'], undefined);
+  });
+
+  it('force 且已是最新或请求失败时在版本号后标出结果', async () => {
+    const current = makeVersionHost();
+    await refreshExtensionVersionPresentation(current.el, {
+      runtime: { getManifest: () => ({ version: '1.8.92' }) },
+      management: { getSelf: async () => ({ installType: 'development' }) },
+    }, versionT, {
+      now: () => 3_000,
+      force: true,
+      fetchImpl: async () => ({ ok: true, json: async () => releasePayload('1.8.92', ZIP_192) }),
+    });
+    assert.equal(current.links.length, 0);
+    assert.equal(current.el.hidden, false);
+    assert.equal(current.el.textContent, 'v1.8.92 Beta · 已是最新');
+
+    const failed = makeVersionHost();
+    const storage = memStorage({
+      'aidevpush.betaReleaseCheck': {
+        checkedAt: 1,
+        ok: true,
+        release: { version: '1.9.0', downloadUrl: ZIP_192 },
+      },
+    });
+    await refreshExtensionVersionPresentation(failed.el, {
+      runtime: { getManifest: () => ({ version: '1.8.90' }) },
+      management: { getSelf: async () => ({ installType: 'development' }) },
+    }, versionT, {
+      storage,
+      now: () => 4_000,
+      force: true,
+      fetchImpl: async () => { throw new Error('offline'); },
+    });
+    assert.equal(failed.links.length, 0);
+    assert.equal(failed.el.textContent, 'v1.8.90 Beta · 版本检测失败');
+  });
+});
+
+describe('bindExtensionVersionDoubleClick', () => {
+  it('只有双击才检测；检测未完成时再次双击不重复请求', async () => {
+    let fetches = 0;
+    let releaseGate;
+    const gate = new Promise((resolve) => { releaseGate = resolve; });
+    const listeners = {};
+    const { el, links } = makeVersionHost();
+    el.addEventListener = (type, fn) => {
+      listeners[type] = listeners[type] || [];
+      listeners[type].push(fn);
+    };
+    el.setAttribute = (k, v) => {
+      el.attrs = el.attrs || {};
+      el.attrs[k] = v;
+    };
+    el.removeAttribute = (k) => {
+      if (el.attrs) delete el.attrs[k];
+    };
+    const chromeApi = {
+      runtime: { getManifest: () => ({ version: '1.8.90' }) },
+      management: { getSelf: async () => ({ installType: 'development' }) },
+    };
+    bindExtensionVersionDoubleClick(el, chromeApi, versionT, {
+      now: () => 8_000,
+      fetchImpl: async () => {
+        fetches += 1;
+        await gate;
+        return { ok: true, json: async () => releasePayload('1.8.92', ZIP_192) };
+      },
+    });
+    assert.equal(listeners.click, undefined);
+    assert.equal(el.attrs.title, '双击检测新版本');
+    const first = listeners.dblclick[0]({ preventDefault() {} });
+    const second = listeners.dblclick[0]({ preventDefault() {} });
+    releaseGate();
+    await first;
+    await second;
+    assert.equal(fetches, 1);
+    assert.equal(links.length, 1);
   });
 });
