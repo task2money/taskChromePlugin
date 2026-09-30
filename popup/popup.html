@@ -85,6 +85,12 @@
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
           <span data-i18n="paLlmRouteSaas">调用平台后端</span>
         </label>
+        <label class="llm-route-option" id="popupLlmRouteBuiltinWrap" hidden>
+          <input type="radio" name="popupLlmRoute" id="popupLlmRouteBuiltin" value="builtin">
+          <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型（留在本机，不必填写 API Key）</span>
+        </label>
+        <p id="popupBuiltinStatus" hidden></p>
+        <button type="button" id="btnDownloadBuiltinModel" data-i18n="paBuiltinDownload" hidden>下载模型</button>
         <div class="form-row" id="popupSaasWorkspaceRow" hidden style="display:none">
           <label for="popupSaasWorkspace" data-i18n="paSaasWorkspaceLabel">工作空间</label>
           <select id="popupSaasWorkspace" class="form-select" data-testid="popup-saas-workspace"></select>
@@ -336,6 +342,8 @@
   <script src="../lib/request-list-query.js"></script>
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/popup-saas-workspace.js"></script>
+  <script src="../lib/page-advisor-locale-prompt.js"></script>
+  <script src="../lib/page-advisor-builtin-prompt.js"></script>
   <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-llm-settings-ui.js"></script>
   <script src="../lib/page-advisor-preset-skills.js"></script>

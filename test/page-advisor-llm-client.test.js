@@ -40,6 +40,7 @@ describe('PageAdvisorLlmConfig', () => {
     assert.equal(PageAdvisorLlmConfig.resolveRoute({}), 'direct');
     assert.equal(PageAdvisorLlmConfig.resolveRoute({ ...ready, routeMode: 'saas' }), 'saas');
     assert.equal(PageAdvisorLlmConfig.resolveRoute({ routeMode: 'direct' }), 'direct');
+    assert.equal(PageAdvisorLlmConfig.resolveRoute({ routeMode: 'builtin' }), 'builtin');
   });
 
   it('save and load round-trip routeMode', async () => {

@@ -113,14 +113,6 @@ function resolvePageAdvisorLocale() {
   return 'zh-CN';
 }
 
-/**
- * 直连 LLM 用的 active Skill（OPT-20260922-031）。
- * 用户登录后直接按 Alt+Z、从未打开过 Popup 时，本机 storage 还没有系统目录默认，
- * 直连只能用硬编码 SYSTEM_PROMPT，与管理员设置的默认不一致。
- * 这里在「已登录 + 本机无 active」时补拉一次系统目录（失败回退打包快照）并落盘；
- * 未登录不发请求，与 Popup loadSkills 的登录门闩一致。
- * @param {boolean} sessionOk 调用方判定的登录态（cfg.token 存在且未过期）
- */
 async function loadDirectLlmSkill(sessionOk) {
   if (typeof PageAdvisorPromptSkills === 'undefined'
     || typeof PageAdvisorPromptSkills.loadFromStorage !== 'function') {
@@ -163,6 +155,17 @@ async function runPageOptimizationSuggest(tabId) {
   const { llmCfg, directReady, route } = await loadPageAdvisorDirectReady();
   const sessionOk = !!(cfg.token && !expired);
 
+  if (route === 'builtin' && globalThis.LanguageModel && PageAdvisorBuiltinPrompt?.runAltZ) {
+    await PageAdvisorBuiltinPrompt.runAltZ(tabId, {
+      languageModel: globalThis.LanguageModel,
+      askContext: askContentPageAdvisorContext,
+      notify: notifyContentPageAdvisor,
+      loadSkill: () => loadDirectLlmSkill(sessionOk),
+      locale: resolvePageAdvisorLocale(),
+      tx,
+    });
+    return;
+  }
   if (route === 'direct' && !directReady) {
     await notifyContentPageAdvisor(tabId, {
       ok: false,
