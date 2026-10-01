@@ -52,6 +52,7 @@ function loadMessageTables() {
     'lib/i18n-skill-browse-messages.js',
     'lib/i18n-hardware-stock-messages.js',
     'lib/i18n-version-messages.js',
+    'lib/i18n-toolbar-pin.js',
   ];
   for (const rel of rels) {
     delete require.cache[require.resolve(path.join(ROOT, rel))];
@@ -64,6 +65,7 @@ function loadMessageTables() {
   require(path.join(ROOT, 'lib/i18n-skill-browse-messages.js'));
   require(path.join(ROOT, 'lib/i18n-hardware-stock-messages.js'));
   require(path.join(ROOT, 'lib/i18n-version-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-toolbar-pin.js'));
   return i18n.getMessageTables();
 }
 

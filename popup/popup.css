@@ -117,6 +117,7 @@ body {
 .float-ball-row {
   display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
 }
+#toolbarPinRow { margin-top: 8px; }
 .float-ball-label { font-size: 12px; color: #cdd6f4; }
 .float-ball-hint {
   margin-top: 6px; font-size: 10px; color: #6c7086; line-height: 1.4;

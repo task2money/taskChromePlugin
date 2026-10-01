@@ -131,6 +131,7 @@ function loadMessageTables(withUi = true) {
   delete require.cache[require.resolve('../lib/i18n-llm-route.js')];
   delete require.cache[require.resolve('../lib/i18n-locale-messages.js')];
   delete require.cache[require.resolve('../lib/i18n-skill-browse-messages.js')];
+  delete require.cache[require.resolve('../lib/i18n-toolbar-pin.js')];
   const i18n = require('../lib/i18n.js');
   require('../lib/i18n-messages.js');
   if (withUi) {
@@ -138,6 +139,7 @@ function loadMessageTables(withUi = true) {
     require('../lib/i18n-llm-route.js');
     require('../lib/i18n-locale-messages.js');
     require('../lib/i18n-skill-browse-messages.js');
+    require('../lib/i18n-toolbar-pin.js');
   }
   return { i18n, tables: i18n.getMessageTables() };
 }

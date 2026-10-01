@@ -116,6 +116,7 @@
         sendMessage: (msg) => sendMessageWithTimeout(msg, 3000),
         onApplied: () => {
           if (typeof mountPopupUserGuide === 'function') mountPopupUserGuide();
+          if (globalThis.PopupToolbarPin) globalThis.PopupToolbarPin.refresh();
         },
       });
     }
