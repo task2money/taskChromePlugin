@@ -3,6 +3,23 @@ async function handleMessage(message, sender) {
     case 'ping':
       return { pong: true };
 
+    case 'getToolbarPin': {
+      let settings = null;
+      try {
+        if (chrome.action && chrome.action.getUserSettings) {
+          settings = await chrome.action.getUserSettings();
+        }
+      } catch (e) {
+        console.info('[taskChromePlugin] toolbar pin read failed', {
+          message: e && e.message ? e.message : String(e),
+        });
+      }
+      const view = globalThis.ToolbarPin
+        ? globalThis.ToolbarPin.toolbarPinView(settings)
+        : { known: false, pinned: false, writable: false };
+      return { success: true, data: view };
+    }
+
     case 'resetBadge':
       tab5xxCounts.set(activeTabId, 0);
       updateBadgeForActiveTab();

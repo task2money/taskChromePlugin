@@ -158,6 +158,7 @@ describe('content 脚本行数门禁与注入顺序', () => {
     const js = contentScriptJsFromManifest();
     assert.deepEqual(js, [
       'content/float-boot.js',
+      'content/float-toolbar-pin-hint.js',
       'content/float-pick-highlight.js',
       'content/float-pick.js',
       'content/float-drag-auth.js',

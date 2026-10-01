@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.137",
+  "version": "1.8.138",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -81,6 +81,8 @@
         "lib/project-auto-run-label.js",
         "lib/workspace-auto-schedule.js",
         "lib/side-panel-bridge.js",
+        "lib/i18n-toolbar-pin.js",
+        "lib/toolbar-pin-hint.js",
         "lib/float-panel-markup.js",
         "lib/task-detail-href.js",
         "lib/float-panel-after-create.js",
@@ -103,6 +105,7 @@
         "lib/is-auth-route.js",
         "lib/dialog-focus-trap.js",
         "content/float-boot.js",
+        "content/float-toolbar-pin-hint.js",
         "content/float-pick-highlight.js",
         "content/float-pick.js",
         "content/float-drag-auth.js",

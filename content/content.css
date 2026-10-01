@@ -210,6 +210,34 @@ button#taskplugin-login-badge:disabled {
   flex: 1 !important;
 }
 
+.taskplugin-toolbar-pin-hint {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 8px 14px !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+  color: #1e1e2e !important;
+  background: #f9e2af !important;
+}
+.taskplugin-toolbar-pin-hint[hidden] {
+  display: none !important;
+}
+.taskplugin-toolbar-pin-hint p {
+  margin: 0 !important;
+  flex: 1 !important;
+}
+.taskplugin-toolbar-pin-hint button {
+  flex: none !important;
+  min-height: 32px !important;
+  padding: 4px 8px !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  background: #1e1e2e !important;
+  color: #f9e2af !important;
+  cursor: pointer !important;
+}
 .taskplugin-aidev-status {
   margin: 0 0 8px !important;
   padding: 6px 8px !important;

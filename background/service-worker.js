@@ -51,6 +51,7 @@ importScripts(
   './sw-capture.js',
   './sw-auth.js',
   '../lib/side-panel-bridge.js',
+  '../lib/toolbar-pin.js',
   './sw-side-panel.js',
   './sw-messages-session.js',
   './sw-messages-task.js',
