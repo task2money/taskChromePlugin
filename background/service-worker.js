@@ -50,6 +50,7 @@ importScripts(
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-site-pending.js',
   '../lib/plugin-version.js',
+  '../lib/open-chrome-url.js',
   '../lib/plugin-version-download.js',
   './sw-capture.js',
   './sw-auth.js',

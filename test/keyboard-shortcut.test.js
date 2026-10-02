@@ -133,8 +133,18 @@ describe('键盘快捷键三层链路', () => {
   it('popup 提供 chrome://extensions/shortcuts 排查入口', () => {
     assert.ok(popupHtml.includes('taskplugin-shortcut-settings'), 'popup.html 缺少排查链接');
     assert.ok(popupHtml.includes('chrome://extensions/shortcuts'));
-    assert.ok(popupJs.includes("'chrome://extensions/shortcuts'"), 'popup.js 缺少跳转处理');
-    assert.match(popupJs, /chrome\.tabs\.create\(\{\s*url: 'chrome:\/\/extensions\/shortcuts'\s*\}\)/);
+    assert.ok(
+      popupHtml.includes('src="../lib/open-chrome-url.js"'),
+      'popup.html 须加载 open-chrome-url.js',
+    );
+    assert.ok(
+      popupJs.includes('OpenChromeUrl') && popupJs.includes('openChromeUrl'),
+      'popup.js 须经 OpenChromeUrl.openChromeUrl 打开快捷键页',
+    );
+    assert.match(
+      popupJs,
+      /EXTENSIONS_SHORTCUTS|chrome:\/\/extensions\/shortcuts/,
+    );
   });
 
   it('popup 提供快捷键自定义 UI（按键捕获 + 恢复默认）并经 SW 改绑', () => {

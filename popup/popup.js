@@ -328,10 +328,17 @@
 var Popup = { init };
 
 document.addEventListener('DOMContentLoaded', () => {
-  // 快捷键排查入口：chrome:// 页面无法直接 <a href>，需经 tabs.create 打开
+  // 快捷键排查入口：chrome:// 页无法裸 <a href>，经 OpenChromeUrl → tabs.create
   document.getElementById('taskplugin-shortcut-settings')?.addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(() => {});
+    const Open = globalThis.OpenChromeUrl;
+    const url = (Open && Open.EXTENSIONS_SHORTCUTS) || 'chrome://extensions/shortcuts';
+    const open = Open && typeof Open.openChromeUrl === 'function'
+      ? Open.openChromeUrl(url)
+      : (chrome.tabs && chrome.tabs.create
+        ? chrome.tabs.create({ url })
+        : Promise.reject(new Error('tabs.create unavailable')));
+    Promise.resolve(open).catch(() => {});
   });
 
   Popup.init().catch((e) => {

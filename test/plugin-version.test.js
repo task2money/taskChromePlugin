@@ -8,6 +8,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const ROOT = path.resolve(__dirname, '..');
 const { readPopupBundle } = require('./helpers/popupBundle.js');
@@ -23,9 +24,19 @@ const {
   refreshExtensionVersionPresentation,
   bindExtensionVersionDoubleClick,
   downloadBetaUpdateAndOpenExtensions,
+  openExtensionsManagementPage,
   EXTENSIONS_PAGE_URL,
   LATEST_RELEASE_URL,
 } = require('../lib/plugin-version.js');
+
+function ensureOpenChromeUrl() {
+  if (!globalThis.OpenChromeUrl) {
+    vm.runInThisContext(
+      fs.readFileSync(path.join(ROOT, 'lib', 'open-chrome-url.js'), 'utf8'),
+    );
+  }
+  return globalThis.OpenChromeUrl;
+}
 
 const ZIP_192 = 'https://github.com/task2money/taskChromePlugin/releases/download/v1.8.92/task-chrome-plugin-v1.8.92.zip';
 
@@ -208,10 +219,13 @@ describe('Popup 源码契约', () => {
   it('SW 加载 plugin-version 并处理 downloadBetaUpdate', () => {
     const sw = fs.readFileSync(path.join(ROOT, 'background', 'service-worker.js'), 'utf8');
     assert.match(sw, /['"]\.\.\/lib\/plugin-version\.js['"]/);
+    assert.match(sw, /['"]\.\.\/lib\/open-chrome-url\.js['"]/);
     assert.match(sw, /['"]\.\.\/lib\/plugin-version-download\.js['"]/);
     const verAt = sw.indexOf('../lib/plugin-version.js');
+    const openAt = sw.indexOf('../lib/open-chrome-url.js');
     const dlAt = sw.indexOf('../lib/plugin-version-download.js');
-    assert.ok(verAt > -1 && dlAt > verAt, 'download script must load after plugin-version');
+    assert.ok(verAt > -1 && openAt > verAt, 'open-chrome-url must load after plugin-version');
+    assert.ok(openAt > -1 && dlAt > openAt, 'download script must load after open-chrome-url');
     const session = fs.readFileSync(path.join(ROOT, 'background', 'sw-messages-session.js'), 'utf8');
     assert.match(session, /case 'downloadBetaUpdate'/);
     assert.match(session, /downloadBetaUpdateAndOpenExtensions/);
@@ -220,8 +234,10 @@ describe('Popup 源码契约', () => {
     for (const name of ['popup', 'panel']) {
       const html = fs.readFileSync(path.join(ROOT, name, `${name}.html`), 'utf8');
       const pv = html.indexOf('src="../lib/plugin-version.js"');
+      const open = html.indexOf('src="../lib/open-chrome-url.js"');
       const d = html.indexOf('src="../lib/plugin-version-download.js"');
-      assert.ok(pv > -1 && d > pv, `${name}.html must load download after plugin-version`);
+      assert.ok(pv > -1 && open > pv, `${name}.html must load open-chrome-url after plugin-version`);
+      assert.ok(open > -1 && d > open, `${name}.html must load download after open-chrome-url`);
     }
   });
 });
@@ -541,7 +557,36 @@ describe('downloadBetaUpdateAndOpenExtensions', () => {
     throw new Error(label || 'waitFor timeout');
   }
 
+  it('openExtensionsManagementPage 经 OpenChromeUrl.openChromeUrl 打开扩展页', async () => {
+    ensureOpenChromeUrl();
+    const openCalls = [];
+    const opened = [];
+    const orig = globalThis.OpenChromeUrl.openChromeUrl;
+    globalThis.OpenChromeUrl.openChromeUrl = function (url, tabsApi) {
+      openCalls.push({ url, tabsApi });
+      return orig.call(this, url, tabsApi);
+    };
+    try {
+      const chromeApi = {
+        tabs: {
+          create(info) {
+            opened.push(info.url);
+            return Promise.resolve({});
+          },
+        },
+      };
+      await openExtensionsManagementPage(chromeApi);
+      assert.equal(openCalls.length, 1);
+      assert.equal(openCalls[0].url, 'chrome://extensions/');
+      assert.equal(openCalls[0].tabsApi, chromeApi.tabs);
+      assert.deepEqual(opened, [EXTENSIONS_PAGE_URL]);
+    } finally {
+      globalThis.OpenChromeUrl.openChromeUrl = orig;
+    }
+  });
+
   it('下载完成后才打开 chrome://extensions/', async () => {
+    ensureOpenChromeUrl();
     assert.equal(EXTENSIONS_PAGE_URL, 'chrome://extensions/');
     const listeners = [];
     const opened = [];
