@@ -155,13 +155,27 @@
     if (tab) tab.hidden = !languageModelSupported();
   }
 
+  function onOpenInternals(e) {
+    if (e) e.preventDefault();
+    const Open = globalThis.OpenChromeUrl;
+    const url = (Open && Open.ON_DEVICE_INTERNALS) || 'chrome://on-device-internals';
+    const open = Open && Open.openChromeUrl
+      ? Open.openChromeUrl(url)
+      : (chrome.tabs && chrome.tabs.create
+        ? chrome.tabs.create({ url })
+        : Promise.reject(new Error('tabs.create unavailable')));
+    open.catch(() => {});
+  }
+
   function bind() {
     const refresh = $('#spBuiltinRefresh');
     const download = $('#spBuiltinDownload');
     const cancel = $('#spBuiltinCancel');
+    const internals = $('#spBuiltinInternalsLink');
     if (refresh) refresh.addEventListener('click', onRefresh);
     if (download) download.addEventListener('click', onDownload);
     if (cancel) cancel.addEventListener('click', onCancel);
+    if (internals) internals.addEventListener('click', onOpenInternals);
     if (chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'session') return;

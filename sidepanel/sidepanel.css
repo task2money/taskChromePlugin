@@ -40,6 +40,14 @@ html, body {
 .sp-pane[hidden] {
   display: none !important;
 }
+#spBuiltinInternalsLink {
+  color: #2563eb;
+  text-decoration: underline;
+  word-break: break-all;
+}
+#spBuiltinInternalsLink:hover {
+  color: #1d4ed8;
+}
 #sp-settings-frame {
   display: block;
   width: 100%;
