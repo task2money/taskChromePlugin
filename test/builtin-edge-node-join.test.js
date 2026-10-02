@@ -1,6 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { saveBuiltinEdgeNodeJoin, loadBuiltinEdgeNodeJoin } from '../lib/builtin-edge-node-join.js'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+const { saveBuiltinEdgeNodeJoin, loadBuiltinEdgeNodeJoin } = require('../lib/builtin-edge-node-join.js')
 
 function memStorage() {
   const data = {}
@@ -14,7 +17,6 @@ function memStorage() {
       Object.assign(data, obj)
       cb()
     },
-    _data: data,
   }
 }
 

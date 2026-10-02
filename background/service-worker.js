@@ -52,6 +52,8 @@ importScripts(
   '../lib/plugin-version.js',
   '../lib/open-chrome-url.js',
   '../lib/plugin-version-download.js',
+  '../lib/builtin-edge-node-join.js',
+  '../lib/builtin-edge-tunnel.js',
   './sw-capture.js',
   './sw-auth.js',
   '../lib/side-panel-bridge.js',
@@ -62,6 +64,7 @@ importScripts(
   './sw-pick.js',
   './sw-page-advisor.js',
   './sw-page-advisor-pending.js',
+  './sw-builtin-edge-tunnel.js',
 );
 
 

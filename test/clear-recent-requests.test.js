@@ -51,6 +51,11 @@ function makeChromeMock() {
       },
       onChanged: { addListener: () => {} },
     },
+    alarms: {
+      create: async () => {},
+      clear: async () => true,
+      onAlarm: { addListener: () => {} },
+    },
     __messageHandlers: messageHandlers,
   };
 }
@@ -90,12 +95,36 @@ async function loadSW() {
 
 function sendMessage(chrome, msg) {
   return new Promise((resolve, reject) => {
-    const handler = chrome.__messageHandlers[0];
-    if (!handler) {
+    const handlers = chrome.__messageHandlers || [];
+    if (!handlers.length) {
       reject(new Error('no runtime.onMessage handler'));
       return;
     }
-    handler(msg, {}, (resp) => resolve(resp));
+    let settled = false;
+    const done = (resp) => {
+      if (settled) return;
+      settled = true;
+      resolve(resp);
+    };
+    // Chrome invokes every listener; prefer the one that calls sendResponse.
+    for (const handler of handlers) {
+      try {
+        const ret = handler(msg, {}, done);
+        if (ret === true) {
+          // async response path — wait for done()
+          setTimeout(() => {
+            if (!settled) reject(new Error('sendResponse timed out'));
+          }, 2000);
+          return;
+        }
+      } catch (e) {
+        reject(e);
+        return;
+      }
+    }
+    if (!settled) {
+      reject(new Error('no handler responded'));
+    }
   });
 }
 

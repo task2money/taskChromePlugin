@@ -1,10 +1,12 @@
 'use strict';
 
 /**
- * Manifest permissions 允许列表回归（权限瘦身 2026-09-16）。
+ * Manifest permissions 允许列表回归（权限瘦身 2026-09-16；ADR-0130 恢复 alarms）。
  *
- * 禁止回潮：cookies / activeTab / alarms（定时过期扫已删，仅用时校验）。
+ * 禁止回潮：cookies / activeTab / debugger / scripting / history。
+ * alarms：仅用于本机模型出售出站隧道保活（ADR-0130），不得另作滥用。
  * 设计：docs/superpowers/specs/2026-09-16-task-chrome-plugin-manifest-permission-cleanup-design.md
+ *      docs/adr/0130-builtin-edge-project-outbound-tunnel.md
  */
 
 const fs = require('node:fs');
@@ -16,6 +18,7 @@ const MANIFEST_PATH = path.join(__dirname, '..', 'manifest.json');
 
 const REQUIRED_PERMISSIONS = [
   'storage',
+  'alarms',
   'webRequest',
   'tabs',
   'webNavigation',
@@ -27,7 +30,6 @@ const REQUIRED_PERMISSIONS = [
 const FORBIDDEN_PERMISSIONS = [
   'cookies',
   'activeTab',
-  'alarms',
   'debugger',
   'scripting',
   'history',

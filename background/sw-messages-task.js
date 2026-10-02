@@ -421,7 +421,15 @@ async function handleMessageRest(message, sender) {
         return { success: true, body };
       }
 
+    case 'startBuiltinEdgeTunnel': {
+      if (typeof startBuiltinEdgeTunnelFromMessage !== 'function') {
+        return { success: false, error: 'builtin edge tunnel not loaded' };
+      }
+      return startBuiltinEdgeTunnelFromMessage(message);
+    }
+
     default:
       return { error: `Unknown action: ${message.action}` };
   }
 }
+

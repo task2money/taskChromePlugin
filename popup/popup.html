@@ -71,6 +71,29 @@
       </div>
     </section>
 
+    <!-- 本机模型出售：向出售项目注册本机并出站保活（ADR-0130） -->
+    <section id="builtinEdgeSellSection" class="section" data-testid="builtin-edge-sell-plugin">
+      <div class="advisor-defaults-heading">
+        <h3>📡 <span data-i18n="builtinEdgeSellTitle">本机模型出售</span></h3>
+        <details class="region-help">
+          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="builtinEdgeSellHint">先在账号中心「本机模型出售」创建出售项目，把项目 ID 填到这里完成注册。插件会主动连接平台保活（无需公网 IP），平台才能把请求转到本机内置模型。</p>
+        </details>
+      </div>
+      <label class="form-row">
+        <span data-i18n="builtinEdgeProjectIdLabel">出售项目 ID</span>
+        <input type="text" id="builtinEdgeProjectId" class="form-input" data-testid="builtin-edge-project-id" autocomplete="off" />
+      </label>
+      <label class="form-row">
+        <span data-i18n="builtinEdgeDeviceLabel">设备备注（可选）</span>
+        <input type="text" id="builtinEdgeDeviceLabel" class="form-input" data-testid="builtin-edge-device-label" autocomplete="off" />
+      </label>
+      <div class="btn-row">
+        <button type="button" id="btnBuiltinEdgeRegister" class="btn btn-primary" data-testid="builtin-edge-register" data-i18n="builtinEdgeRegister">注册本机到项目</button>
+      </div>
+      <p id="builtinEdgeSellStatus" class="hint" aria-live="polite" data-testid="builtin-edge-sell-status"></p>
+    </section>
+
     <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
     <section id="pageAdvisorLlmSection" class="section" style="display:none">
       <div class="advisor-defaults-heading llm-section-heading">
@@ -379,6 +402,9 @@
   <script src="../lib/page-advisor-skill-draft.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="../lib/click-guard.js"></script>
+  <script src="../lib/builtin-edge-node-join.js"></script>
+  <script src="../lib/builtin-edge-tunnel.js"></script>
+  <script src="popup-builtin-edge-sell.js"></script>
   <script src="../lib/page-advisor-llm-probe.js"></script>
   <script src="popup-llm-config.js"></script>
   <script src="popup-prompt-skill-ui.js"></script>

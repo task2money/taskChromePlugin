@@ -124,6 +124,11 @@ describe('SW 登录与快捷键不扇出其它 tab', () => {
         },
         onChanged: { addListener: () => {} },
       },
+      alarms: {
+        create: async () => {},
+        clear: async () => true,
+        onAlarm: { addListener: () => {} },
+      },
       __sent: sent,
       __messageHandlers: messageHandlers,
     };
@@ -173,10 +178,15 @@ describe('SW 登录与快捷键不扇出其它 tab', () => {
 
   function invoke(chrome, message, sender) {
     const calls = { count: 0, resp: null };
-    chrome.__messageHandlers[0](message, sender || {}, (resp) => {
+    const handlers = chrome.__messageHandlers || [];
+    const done = (resp) => {
       calls.count++;
       calls.resp = resp;
-    });
+    };
+    for (const handler of handlers) {
+      const ret = handler(message, sender || {}, done);
+      if (ret === true || calls.count > 0) break;
+    }
     return calls;
   }
 
