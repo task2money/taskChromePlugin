@@ -145,7 +145,8 @@ describe('UserGuide sections', () => {
     assert.match(blob, /点「设置」/);
     assert.match(blob, /不上传，换浏览器需要重新设置/);
     assert.match(blob, /调用平台后端（须登录）/);
-    assert.match(blob, /工作空间下拉，未登录不显示/);
+    assert.match(blob, /仅在选择「调用平台后端」时显示工作空间下拉/);
+    assert.match(blob, /请先登录.*占位/);
     assert.doesNotMatch(blob, /消耗资源/);
     assert.match(blob, /提示词 Skill/);
     assert.match(blob, /未登录也可/);
@@ -160,7 +161,8 @@ describe('UserGuide sections', () => {
     assert.match(md, /点 \*\*「设置」\*\*/);
     assert.match(md, /不上传，换浏览器需要重新设置/);
     assert.match(md, /调用平台后端\*\*（须登录）/);
-    assert.match(md, /工作空间\*\* 下拉，未登录不显示/);
+    assert.match(md, /仅在选择 \*\*「调用平台后端」\*\* 时显示 \*\*工作空间\*\* 下拉/);
+    assert.match(md, /请先登录.*占位/);
     assert.doesNotMatch(md, /消耗资源/);
     assert.match(md, /未登录也可/);
     assert.match(md, /未登录时 Skill 只存本机/);

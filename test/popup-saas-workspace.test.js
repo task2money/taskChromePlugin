@@ -1,8 +1,7 @@
 'use strict';
 
 /**
- * 登录后，「调用平台后端」下方出现工作空间下拉；未登录不显示。
- * 选中值写入 lastWorkspaceId，供 Alt+Z / Alt+Shift+Z 走平台后端。
+ * 仅选择「调用平台后端」时显示工作空间行；未登录显示「请先登录」占位；direct/builtin 隐藏。
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -11,6 +10,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const {
+  saasWorkspaceUiMode,
   saasWorkspaceVisible,
   buildSaasWorkspaceMenu,
   applySaasWorkspaceRow,
@@ -44,7 +44,7 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.doesNotMatch(llm, /id="popupDefaultWorkspace"/);
   });
 
-  it('popup.html 加载菜单纯函数与弹窗控制器，登录态切换调用 setLoggedIn', () => {
+  it('popup.html 加载菜单纯函数与弹窗控制器；登录态与路由切换均接线', () => {
     const html = popupHtml();
     const libAt = html.indexOf('../lib/popup-saas-workspace.js');
     const uiAt = html.indexOf('popup-saas-workspace.js');
@@ -57,18 +57,31 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.match(loginFn, /PopupSaasWorkspace\.setLoggedIn\(false\)/);
     assert.match(loggedFn, /PopupSaasWorkspace\.setLoggedIn\(true\)/);
     assert.match(expiredFn, /PopupSaasWorkspace\.setLoggedIn\(false\)/);
+    const llmCfg = fs.readFileSync(path.join(ROOT, 'popup/popup-llm-config.js'), 'utf8');
+    assert.match(llmCfg, /syncSaasWorkspaceRow/);
+    assert.match(llmCfg, /PopupSaasWorkspace\.syncRoute/);
   });
 
-  it('未登录隐藏，登录后显示', () => {
-    assert.equal(saasWorkspaceVisible(false), false);
-    assert.equal(saasWorkspaceVisible(true), true);
+  it('uiMode：仅 saas 显示；未登录为 login_required；已登录为 menu', () => {
+    assert.equal(saasWorkspaceUiMode(false, 'direct'), 'hidden');
+    assert.equal(saasWorkspaceUiMode(true, 'direct'), 'hidden');
+    assert.equal(saasWorkspaceUiMode(false, 'builtin'), 'hidden');
+    assert.equal(saasWorkspaceUiMode(true, 'builtin'), 'hidden');
+    assert.equal(saasWorkspaceUiMode(false, 'saas'), 'login_required');
+    assert.equal(saasWorkspaceUiMode(true, 'saas'), 'menu');
+    assert.equal(saasWorkspaceVisible(false, 'saas'), true);
+    assert.equal(saasWorkspaceVisible(true, 'direct'), false);
+    assert.equal(saasWorkspaceVisible(true, 'saas'), true);
+
     const row = { hidden: false, style: { display: '' } };
-    applySaasWorkspaceRow(row, false);
+    applySaasWorkspaceRow(row, 'hidden');
     assert.equal(row.hidden, true);
     assert.equal(row.style.display, 'none');
-    applySaasWorkspaceRow(row, true);
+    applySaasWorkspaceRow(row, 'login_required');
     assert.equal(row.hidden, false);
     assert.equal(row.style.display, '');
+    applySaasWorkspaceRow(row, 'menu');
+    assert.equal(row.hidden, false);
   });
 
   it('恢复上次工作空间；仅一个空间时自动选中并要求落盘', () => {
@@ -98,7 +111,7 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.equal(already.persist, false);
   });
 
-  it('文案：工作空间，且 altZHint 指向调用平台后端下的选择', () => {
+  it('文案：工作空间 + 请先登录占位；altZHint 指向调用平台后端', () => {
     const { I18N_SCRIPT_RELS } = require('./helpers/txRuntime.js');
     const merged = { zh: {}, en: {} };
     for (const rel of I18N_SCRIPT_RELS) {
@@ -109,6 +122,8 @@ describe('Popup 平台后端工作空间下拉', () => {
     }
     assert.equal(merged.zh.paSaasWorkspaceLabel, '工作空间');
     assert.equal(merged.en.paSaasWorkspaceLabel, 'Workspace');
+    assert.equal(merged.zh.paSaasWorkspaceNeedLogin, '-- 请先登录 --');
+    assert.equal(merged.en.paSaasWorkspaceNeedLogin, '-- Sign in first --');
     assert.match(merged.zh.altZHint, /调用平台后端/);
     assert.match(merged.en.altZHint, /Platform backend/);
     assert.doesNotMatch(merged.zh.altZHint, /此处的默认工作空间/);

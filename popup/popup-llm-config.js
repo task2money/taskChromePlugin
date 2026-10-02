@@ -53,6 +53,12 @@
     row.style.display = direct ? '' : 'none';
   }
 
+  function syncSaasWorkspaceRow() {
+    if (typeof PopupSaasWorkspace !== 'undefined' && typeof PopupSaasWorkspace.syncRoute === 'function') {
+      PopupSaasWorkspace.syncRoute(selectedRouteMode());
+    }
+  }
+
   function profileErrorText(err) {
     const code = err && err.code;
     if (code === 'profile_limit') return tx('paLlmProfileLimit');
@@ -111,6 +117,7 @@
     const del = $('#btnDeleteLlmProfile');
     if (del) del.hidden = draftNew || !cfg?.activeProfileId;
     syncProfileRow();
+    syncSaasWorkspaceRow();
     refreshBuiltinRoute().catch(() => {});
   }
 
@@ -347,6 +354,7 @@
     if (routeField) {
       routeField.addEventListener('change', () => {
         syncProfileRow();
+        syncSaasWorkspaceRow();
         refreshBuiltinRoute().catch(() => {});
         if (!routeUiReady) return;
         savePageAdvisorLlmConfig({ collapse: false, profileAction: 'route-only' }).catch(() => {});

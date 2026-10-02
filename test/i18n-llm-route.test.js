@@ -43,6 +43,8 @@ describe('i18n-llm-route 中英对照', () => {
     assert.equal(en.paSaasWorkspaceRetry, 'Retry');
     assert.equal(zh.paSaasWorkspaceLabel, '工作空间');
     assert.equal(en.paSaasWorkspaceLabel, 'Workspace');
+    assert.equal(zh.paSaasWorkspaceNeedLogin, '-- 请先登录 --');
+    assert.equal(en.paSaasWorkspaceNeedLogin, '-- Sign in first --');
   });
 
   it('弹窗重试按钮真的取这条文案，且默认隐藏', () => {

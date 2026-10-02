@@ -1,20 +1,28 @@
 'use strict';
 
+/**
+ * popup-llm-config：调用方式切换须同步 saas 工作空间行显隐。
+ */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-describe('popup LLM draft restore', () => {
-  it('writes the draft on each input and restores it expanded', () => {
-    const src = fs.readFileSync(path.join(__dirname, '../popup/popup-llm-config.js'), 'utf8');
-    assert.match(src, /saveDraftToStorage/);
-    assert.match(src, /loadDraftFromStorage/);
-    assert.match(src, /shouldRestoreDraft/);
-    assert.match(src, /clearDraftFromStorage/);
-    assert.match(src, /addEventListener\('input'/);
-    assert.match(src, /pagehide/);
-    assert.match(src, /if \(!routeUiReady\) return/);
-    assert.match(src, /setLlmSettingsExpanded\([\s\S]*restore/);
+const ROOT = path.join(__dirname, '..');
+
+describe('popup-llm-config saas workspace sync', () => {
+  it('定义 syncSaasWorkspaceRow 并在加载配置与路由 change 时调用', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'popup/popup-llm-config.js'), 'utf8');
+    assert.match(src, /function syncSaasWorkspaceRow\s*\(/);
+    assert.match(src, /PopupSaasWorkspace\.syncRoute/);
+    const applyAt = src.indexOf('function applyLoadedConfig');
+    const bindAt = src.indexOf('function bindPageAdvisorLlmEvents');
+    assert.ok(applyAt >= 0 && bindAt > applyAt);
+    const applyBody = src.slice(applyAt, bindAt);
+    assert.match(applyBody, /syncSaasWorkspaceRow\s*\(/);
+    const changeAt = src.indexOf("routeField.addEventListener('change'");
+    assert.ok(changeAt > bindAt);
+    const changeBody = src.slice(changeAt, changeAt + 350);
+    assert.match(changeBody, /syncSaasWorkspaceRow\s*\(/);
   });
 });

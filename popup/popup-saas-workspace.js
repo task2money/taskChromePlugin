@@ -1,4 +1,4 @@
-/** Popup：登录后在「调用平台后端」下选择 Alt+Z 默认工作空间。 */
+/** Popup：仅在「调用平台后端」下显示工作空间；未登录为「请先登录」占位。 */
 (function () {
   const Lib = () => (typeof PopupSaasWorkspaceMenu !== 'undefined' ? PopupSaasWorkspaceMenu : null);
   const row = () => document.querySelector('#popupSaasWorkspaceRow');
@@ -9,6 +9,8 @@
   let loadGen = 0;
   /** 重试的同步点击锁：置位发生在任何 await 之前，同一 tick 连点只发一次 getWorkspaces。 */
   let retrying = false;
+  let loggedIn = false;
+  let routeMode = 'direct';
 
   function setRetryVisible(visible) {
     const btn = retryEl();
@@ -33,7 +35,6 @@
       ? tx('commonLoadFailed', { msg: detail })
       : detail;
     if (typeof setDataTraceId === 'function') setDataTraceId(st, err);
-    // 网络抖动时不必关掉再打开弹窗：状态行旁给出就地重试（OPT-20260928-004）
     setRetryVisible(true);
     console.warn('[taskChromePlugin] popup saas workspace load failed', {
       traceId: err?.traceId || '',
@@ -62,11 +63,52 @@
     });
   }
 
+  function resolveMode() {
+    const lib = Lib();
+    if (lib) return lib.saasWorkspaceUiMode(loggedIn, routeMode);
+    if (routeMode !== 'saas') return 'hidden';
+    return loggedIn ? 'menu' : 'login_required';
+  }
+
+  function applyRowVisibility(mode) {
+    const lib = Lib();
+    const target = row();
+    if (lib) {
+      lib.applySaasWorkspaceRow(target, mode);
+      return;
+    }
+    if (!target) return;
+    const visible = mode !== 'hidden';
+    target.hidden = !visible;
+    if (target.style) target.style.display = visible ? '' : 'none';
+  }
+
+  function renderLoginPlaceholder() {
+    const sel = selectEl();
+    if (!sel) return;
+    suppress = true;
+    try {
+      sel.replaceChildren();
+      const empty = document.createElement('option');
+      empty.value = '';
+      empty.textContent = (typeof tx === 'function')
+        ? tx('paSaasWorkspaceNeedLogin')
+        : '-- 请先登录 --';
+      sel.appendChild(empty);
+      sel.value = '';
+      sel.disabled = true;
+    } finally {
+      suppress = false;
+    }
+    setRetryVisible(false);
+  }
+
   function render(menu) {
     const sel = selectEl();
     if (!sel || !menu) return;
     suppress = true;
     try {
+      sel.disabled = false;
       sel.replaceChildren();
       if (!menu.options.length) {
         const empty = document.createElement('option');
@@ -105,6 +147,7 @@
     const sel = selectEl();
     if (sel) {
       suppress = true;
+      sel.disabled = false;
       sel.replaceChildren();
       const loading = document.createElement('option');
       loading.value = '';
@@ -146,15 +189,32 @@
       : { options: [], selectedId: '', persist: false });
   }
 
-  function setLoggedIn(loggedIn) {
-    const lib = Lib();
-    if (lib) lib.applySaasWorkspaceRow(row(), loggedIn);
-    if (!loggedIn) {
+  function refreshUi() {
+    const mode = resolveMode();
+    applyRowVisibility(mode);
+    if (mode === 'hidden') {
       loadGen += 1;
       clearStatus();
       return;
     }
+    if (mode === 'login_required') {
+      loadGen += 1;
+      clearStatus();
+      renderLoginPlaceholder();
+      return;
+    }
     loadMenu().catch((e) => showError(e));
+  }
+
+  function setLoggedIn(next) {
+    loggedIn = Boolean(next);
+    refreshUi();
+  }
+
+  function syncRoute(nextRoute) {
+    const value = String(nextRoute || '');
+    routeMode = (value === 'saas' || value === 'builtin') ? value : 'direct';
+    refreshUi();
   }
 
   function bind() {
@@ -175,7 +235,7 @@
     });
   }
 
-  window.PopupSaasWorkspace = { setLoggedIn, loadMenu };
+  window.PopupSaasWorkspace = { setLoggedIn, syncRoute, loadMenu };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bind);
