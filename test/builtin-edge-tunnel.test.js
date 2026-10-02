@@ -64,3 +64,37 @@ test('runBuiltinEdgeKeepaliveRound heartbeats and polls tunnel', async () => {
   assert.deepEqual(tunnel.map((t) => t.action), ['register', 'poll'])
   assert.equal(result.polled.id, 'j1')
 })
+
+test('executeBuiltinEdgeTunnelJob runs LanguageModel via builtin prompt adapter', async () => {
+  const { executeBuiltinEdgeTunnelJob } = require('../lib/builtin-edge-tunnel.js')
+  const calls = []
+  const fakeLm = { tag: 'lm' }
+  const out = await executeBuiltinEdgeTunnelJob(
+    { id: 'j1', payload: { prompt: 'hello edge' } },
+    {
+      languageModel: fakeLm,
+      locale: 'en',
+      builtinPrompt: {
+        async run(lm, locale, text) {
+          calls.push({ lm, locale, text })
+          return { availability: 'available', result: 'world' }
+        },
+      },
+    },
+  )
+  assert.equal(out.ok, true)
+  assert.equal(out.result.content, 'world')
+  assert.equal(calls[0].text, 'hello edge')
+  assert.equal(calls[0].locale, 'en')
+  assert.equal(calls[0].lm, fakeLm)
+})
+
+test('executeBuiltinEdgeTunnelJob reports unavailable without LanguageModel', async () => {
+  const { executeBuiltinEdgeTunnelJob } = require('../lib/builtin-edge-tunnel.js')
+  const out = await executeBuiltinEdgeTunnelJob(
+    { payload: { prompt: 'x' } },
+    { languageModel: null, builtinPrompt: { async run() { return {} } } },
+  )
+  assert.equal(out.ok, false)
+  assert.equal(out.error, 'language_model_unavailable')
+})

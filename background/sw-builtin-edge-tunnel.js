@@ -79,12 +79,23 @@
         tunnelFetch,
       });
       if (round?.polled?.id) {
-        // v1: ack empty result; LanguageModel execute is OPT follow-up
+        let locale = 'zh-CN';
+        try {
+          if (typeof AidevpushI18n !== 'undefined' && AidevpushI18n.getLocale) {
+            locale = AidevpushI18n.getLocale() || locale;
+          }
+        } catch (_) { /* ignore */ }
+        const inference = await Tunnel.executeBuiltinEdgeTunnelJob(round.polled, {
+          languageModel: globalThis.LanguageModel,
+          builtinPrompt: typeof PageAdvisorBuiltinPrompt !== 'undefined' ? PageAdvisorBuiltinPrompt : null,
+          locale,
+        });
         await tunnelFetch('result', {
           job_id: round.polled.id,
           node_id: active.nodeId,
-          ok: false,
-          error: 'inference_not_wired',
+          ok: !!inference?.ok,
+          result: inference?.result || null,
+          error: inference?.error || '',
         });
       }
     } catch (e) {
