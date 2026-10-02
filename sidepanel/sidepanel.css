@@ -94,3 +94,21 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-textarea {
   color: #1e1e2e !important;
   border-color: #d0d0d8 !important;
 }
+/* 深色浮窗基线字色落在白底侧栏会对比度不足（重置约 1.3:1） */
+html[data-taskplugin-host="sidepanel"] .taskplugin-checkbox-list label {
+  color: #1e1e2e !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset {
+  color: #1e1e2e !important;
+  background: #f1f2f6 !important;
+  border-color: #d0d0d8 !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:hover:not(:disabled) {
+  background: #e5e7eb !important;
+  border-color: #4b5563 !important;
+  color: #1e1e2e !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:disabled {
+  opacity: 0.55 !important;
+  color: #4b5563 !important;
+}

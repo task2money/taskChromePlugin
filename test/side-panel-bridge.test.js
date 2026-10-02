@@ -184,6 +184,47 @@ describe('float markup host split', () => {
     assert.match(html, /id="taskplugin-float-panel"/);
     assert.match(html, /id="taskplugin-desc"/);
     assert.match(html, /id="taskplugin-submit"/);
+    assert.match(html, /id="taskplugin-desc-reset"/);
+    assert.match(html, /taskplugin-btn-reset/);
     assert.doesNotMatch(html, /id="taskplugin-float-btn"/);
+  });
+});
+
+describe('sidepanel create-form contrast overrides', () => {
+  const sidepanelCss = fs.readFileSync(
+    path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'),
+    'utf8',
+  );
+  const host = 'html\\[data-taskplugin-host="sidepanel"\\]';
+
+  function declsFor(selectorFrag) {
+    const re = new RegExp(`${host}\\s+${selectorFrag}\\s*\\{([^}]+)\\}`, 'm');
+    const m = re.exec(sidepanelCss);
+    assert.ok(m, `missing rule for ${selectorFrag}`);
+    return m[1];
+  }
+
+  it('重置按钮在浅色宿主用深色字 + 浅底', () => {
+    const decls = declsFor('\\.taskplugin-btn-reset');
+    assert.match(decls, /color:\s*#1e1e2e\s*!important/);
+    assert.match(decls, /background:\s*#f1f2f6\s*!important/);
+    assert.match(decls, /border-color:\s*#d0d0d8\s*!important/);
+  });
+
+  it('重置按钮 hover 保持深色字（不回退粉红浅字）', () => {
+    const decls = declsFor('\\.taskplugin-btn-reset:hover:not\\(:disabled\\)');
+    assert.match(decls, /color:\s*#1e1e2e\s*!important/);
+    assert.doesNotMatch(decls, /#f38ba8/);
+  });
+
+  it('重置按钮 disabled 仍用可读灰字', () => {
+    const decls = declsFor('\\.taskplugin-btn-reset:disabled');
+    assert.match(decls, /color:\s*#4b5563\s*!important/);
+    assert.match(decls, /opacity:\s*0\.55\s*!important/);
+  });
+
+  it('项目单选列表 label 覆盖深色浮窗浅字', () => {
+    const decls = declsFor('\\.taskplugin-checkbox-list\\s+label');
+    assert.match(decls, /color:\s*#1e1e2e\s*!important/);
   });
 });
