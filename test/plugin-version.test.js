@@ -22,6 +22,8 @@ const {
   decideBetaReleaseNotice,
   refreshExtensionVersionPresentation,
   bindExtensionVersionDoubleClick,
+  downloadBetaUpdateAndOpenExtensions,
+  EXTENSIONS_PAGE_URL,
   LATEST_RELEASE_URL,
 } = require('../lib/plugin-version.js');
 
@@ -201,6 +203,26 @@ describe('Popup 源码契约', () => {
     assert.match(messages, /popupVersionCheckFailed:\s*'Update check failed'/);
     assert.match(messages, /popupVersionCheckHint:\s*'双击检测新版本'/);
     assert.match(messages, /popupVersionCheckHint:\s*'Double-click to check for updates'/);
+  });
+
+  it('SW 加载 plugin-version 并处理 downloadBetaUpdate', () => {
+    const sw = fs.readFileSync(path.join(ROOT, 'background', 'service-worker.js'), 'utf8');
+    assert.match(sw, /['"]\.\.\/lib\/plugin-version\.js['"]/);
+    assert.match(sw, /['"]\.\.\/lib\/plugin-version-download\.js['"]/);
+    const verAt = sw.indexOf('../lib/plugin-version.js');
+    const dlAt = sw.indexOf('../lib/plugin-version-download.js');
+    assert.ok(verAt > -1 && dlAt > verAt, 'download script must load after plugin-version');
+    const session = fs.readFileSync(path.join(ROOT, 'background', 'sw-messages-session.js'), 'utf8');
+    assert.match(session, /case 'downloadBetaUpdate'/);
+    assert.match(session, /downloadBetaUpdateAndOpenExtensions/);
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+    assert.ok(manifest.permissions.includes('downloads'));
+    for (const name of ['popup', 'panel']) {
+      const html = fs.readFileSync(path.join(ROOT, name, `${name}.html`), 'utf8');
+      const pv = html.indexOf('src="../lib/plugin-version.js"');
+      const d = html.indexOf('src="../lib/plugin-version-download.js"');
+      assert.ok(pv > -1 && d > pv, `${name}.html must load download after plugin-version`);
+    }
   });
 });
 
@@ -454,8 +476,12 @@ describe('bindExtensionVersionDoubleClick', () => {
     const { el, links } = makeVersionHost();
     let fetches = 0;
     const opened = [];
+    const messages = [];
     const chromeApi = {
-      runtime: { getManifest: () => ({ version: '1.8.90' }) },
+      runtime: {
+        getManifest: () => ({ version: '1.8.90' }),
+        sendMessage(msg) { messages.push(msg); },
+      },
       management: { getSelf: async () => ({ installType: 'development' }) },
       tabs: { create(info) { opened.push(info.url); } },
     };
@@ -477,6 +503,106 @@ describe('bindExtensionVersionDoubleClick', () => {
     await again;
     assert.equal(fetches, 2);
     assert.equal(opened.length, 0);
+    assert.equal(messages.length, 0);
     assert.equal(links.length, 1);
+  });
+
+  it('单击新版本链接经 runtime 请求下载，不直接开 zip 标签', async () => {
+    const { el, links } = makeVersionHost();
+    const messages = [];
+    const opened = [];
+    const chromeApi = {
+      runtime: {
+        getManifest: () => ({ version: '1.8.90' }),
+        sendMessage(msg) { messages.push(msg); },
+      },
+      management: { getSelf: async () => ({ installType: 'development' }) },
+      tabs: { create(info) { opened.push(info.url); } },
+    };
+    await refreshExtensionVersionPresentation(el, chromeApi, versionT, {
+      now: () => 10_000,
+      fetchImpl: async () => ({ ok: true, json: async () => releasePayload('1.8.92', ZIP_192) }),
+    });
+    const link = links[0];
+    link.listeners.click[0]({ detail: 1, preventDefault() {} });
+    await new Promise((r) => setTimeout(r, 350));
+    assert.deepEqual(messages, [{ action: 'downloadBetaUpdate', url: ZIP_192 }]);
+    assert.equal(opened.length, 0);
+  });
+});
+
+describe('downloadBetaUpdateAndOpenExtensions', () => {
+  async function waitFor(predicate, label) {
+    const deadline = Date.now() + 1000;
+    while (Date.now() < deadline) {
+      if (predicate()) return;
+      await new Promise((r) => setTimeout(r, 5));
+    }
+    throw new Error(label || 'waitFor timeout');
+  }
+
+  it('下载完成后才打开 chrome://extensions/', async () => {
+    assert.equal(EXTENSIONS_PAGE_URL, 'chrome://extensions/');
+    const listeners = [];
+    const opened = [];
+    const downloads = [];
+    const chromeApi = {
+      downloads: {
+        download(opts) {
+          downloads.push(opts);
+          return Promise.resolve(77);
+        },
+        onChanged: {
+          addListener(fn) { listeners.push(fn); },
+          removeListener(fn) {
+            const i = listeners.indexOf(fn);
+            if (i >= 0) listeners.splice(i, 1);
+          },
+        },
+      },
+      tabs: {
+        create(info) { opened.push(info.url); return Promise.resolve({}); },
+      },
+    };
+    const pending = downloadBetaUpdateAndOpenExtensions(chromeApi, ZIP_192);
+    await waitFor(() => listeners.length === 1, 'download listener');
+    assert.equal(downloads.length, 1);
+    assert.equal(downloads[0].url, ZIP_192);
+    assert.equal(downloads[0].filename, 'task-chrome-plugin-v1.8.92.zip');
+    assert.equal(opened.length, 0);
+    listeners[0]({ id: 77, state: { current: 'complete' } });
+    const result = await pending;
+    assert.equal(result, true);
+    assert.deepEqual(opened, [EXTENSIONS_PAGE_URL]);
+    assert.equal(listeners.length, 0);
+  });
+
+  it('下载中断时不打开扩展页；非法 URL 直接拒绝', async () => {
+    const opened = [];
+    const listeners = [];
+    const chromeApi = {
+      downloads: {
+        download() { return Promise.resolve(9); },
+        onChanged: {
+          addListener(fn) { listeners.push(fn); },
+          removeListener(fn) {
+            const i = listeners.indexOf(fn);
+            if (i >= 0) listeners.splice(i, 1);
+          },
+        },
+      },
+      tabs: { create(info) { opened.push(info.url); } },
+    };
+    const pending = downloadBetaUpdateAndOpenExtensions(chromeApi, ZIP_192);
+    await waitFor(() => listeners.length === 1, 'download listener');
+    listeners[0]({ id: 9, state: { current: 'interrupted' } });
+    await assert.rejects(pending, /interrupted|download/i);
+    assert.equal(opened.length, 0);
+
+    assert.equal(
+      await downloadBetaUpdateAndOpenExtensions(chromeApi, 'https://evil.example/x.zip'),
+      false,
+    );
+    assert.equal(opened.length, 0);
   });
 });

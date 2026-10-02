@@ -409,6 +409,23 @@ async function handleMessage(message, sender) {
     case 'relayPageToast':
       return handleSidePanelMessage(message, sender);
 
+    case 'downloadBetaUpdate': {
+      const url = message && message.url;
+      if (typeof PluginVersion === 'undefined'
+        || typeof PluginVersion.downloadBetaUpdateAndOpenExtensions !== 'function') {
+        return { success: false, error: 'plugin version download unavailable' };
+      }
+      try {
+        const ok = await PluginVersion.downloadBetaUpdateAndOpenExtensions(chrome, url);
+        return { success: !!ok };
+      } catch (e) {
+        return {
+          success: false,
+          error: e && e.message ? String(e.message) : 'beta download failed',
+        };
+      }
+    }
+
     default:
       return handleMessageRest(message, sender);
   }

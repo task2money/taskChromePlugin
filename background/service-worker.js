@@ -49,6 +49,8 @@ importScripts(
   '../lib/page-advisor-builtin-prompt.js',
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-site-pending.js',
+  '../lib/plugin-version.js',
+  '../lib/plugin-version-download.js',
   './sw-capture.js',
   './sw-auth.js',
   '../lib/side-panel-bridge.js',

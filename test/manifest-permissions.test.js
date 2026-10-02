@@ -20,6 +20,8 @@ const REQUIRED_PERMISSIONS = [
   'tabs',
   'webNavigation',
   'sidePanel',
+  // Beta 新版本 zip 下载完成后打开 chrome://extensions/ 依赖 downloads.onChanged
+  'downloads',
 ];
 
 const FORBIDDEN_PERMISSIONS = [
@@ -29,7 +31,6 @@ const FORBIDDEN_PERMISSIONS = [
   'debugger',
   'scripting',
   'history',
-  'downloads',
 ];
 
 describe('manifest.json permissions allowlist', () => {
