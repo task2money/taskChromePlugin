@@ -14,13 +14,49 @@
       <!-- Anti-Replay-OK: ui-only — 只切换已挂载的页签，不发写请求 -->
       <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="false" aria-controls="sp-pane-create">创建任务</button>
       <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="true" aria-controls="sp-pane-settings">设置</button>
+      <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" hidden data-i18n="paBuiltinTab">内置模型</button>
     </div>
     <div id="sp-pane-create" class="sp-pane" role="tabpanel" hidden></div>
     <div id="sp-pane-settings" class="sp-pane" role="tabpanel">
       <iframe id="sp-settings-frame" title="设置" src="../popup/popup.html?host=sidepanel"></iframe>
     </div>
+    <div id="sp-pane-builtin" class="sp-pane" role="tabpanel" hidden>
+      <section class="section builtin-full-panel" id="spBuiltinPanel">
+        <h3 data-i18n="paBuiltinTab">内置模型</h3>
+        <p id="spBuiltinStatus" class="hint" aria-live="polite"></p>
+        <div class="btn-row">
+          <!-- Anti-Replay-OK: ui-only LanguageModel probe -->
+          <button type="button" id="spBuiltinRefresh" class="btn btn-sm" data-i18n="paBuiltinRefresh">刷新状态</button>
+          <button type="button" id="spBuiltinDownload" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
+          <button type="button" id="spBuiltinCancel" class="btn btn-sm" data-i18n="paBuiltinCancelDownload" hidden>取消下载</button>
+        </div>
+        <div class="form-row">
+          <label data-i18n="paBuiltinParamsLabel">采样参数</label>
+          <p id="spBuiltinParams" class="hint">—</p>
+        </div>
+        <div class="form-row">
+          <label data-i18n="paBuiltinQuotaLabel">上下文配额</label>
+          <p id="spBuiltinQuota" class="hint">—</p>
+        </div>
+        <div class="form-row">
+          <label data-i18n="paBuiltinLastRunLabel">最近一次本机运行</label>
+          <p id="spBuiltinLastRun" class="hint">—</p>
+        </div>
+        <p id="spBuiltinInternalsHint" class="hint" data-i18n="paBuiltinOnDeviceInternals">高级排障请在地址栏打开 chrome://on-device-internals（扩展无法直接打开该页）。</p>
+      </section>
+    </div>
   </div>
+  <script src="../lib/i18n.js"></script>
+  <script src="../lib/i18n-messages.js"></script>
+  <script src="../lib/i18n-ui-messages.js"></script>
+  <script src="../lib/i18n-llm-route.js"></script>
+  <script src="../lib/i18n-tx.js"></script>
+  <script src="../lib/hot-path-guards.js"></script>
+  <script src="../lib/page-advisor-locale-prompt.js"></script>
+  <script src="../lib/page-advisor-builtin-runtime.js"></script>
+  <script src="../lib/page-advisor-builtin-prompt.js"></script>
   <script src="../lib/side-panel-bridge.js"></script>
+  <script src="builtin-model-panel.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

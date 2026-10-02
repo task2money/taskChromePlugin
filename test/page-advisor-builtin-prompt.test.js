@@ -185,6 +185,29 @@ test('downloadable 的 Alt+Z 不 create；设置允许时才 create', async () =
   assert.deepEqual(progress, [25]);
 });
 
+test('cancelDownload 会 abort 进行中的下载', async () => {
+  let aborted = false;
+  const downloadModel = {
+    async availability() { return 'downloadable'; },
+    async create(opts) {
+      return new Promise((resolve, reject) => {
+        const signal = opts && opts.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        }
+      });
+    },
+  };
+  const pending = builtin.startDownload(downloadModel, 'zh-CN', {});
+  await new Promise((r) => setTimeout(r, 10));
+  assert.equal(builtin.cancelDownload(), true);
+  await assert.rejects(() => pending);
+  assert.equal(aborted, true);
+});
+
 test('内置失败通知不含页面原文', async () => {
   const secret = '页面机密原文-不应出现';
   const notes = [];

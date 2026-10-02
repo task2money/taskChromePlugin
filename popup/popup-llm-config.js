@@ -8,9 +8,6 @@
   const llmProbeGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
-  const builtinDownloadGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
-    ? ClickGuard.createClickGuard({ debounceMs: 400 })
-    : null;
 
   function llmFields() {
     return $('#pageAdvisorLlmFields');
@@ -41,64 +38,11 @@
     return 'zh-CN';
   }
 
-  async function refreshBuiltinRoute() {
-    const wrap = $('#popupLlmRouteBuiltinWrap');
-    const status = $('#popupBuiltinStatus');
-    const download = $('#btnDownloadBuiltinModel');
-    const lm = globalThis.LanguageModel;
-    const supported = !!(lm && typeof lm.availability === 'function'
-      && typeof PageAdvisorBuiltinPrompt !== 'undefined');
-    if (wrap) wrap.hidden = !supported;
-    if (!supported || selectedRouteMode() !== 'builtin') {
-      if (status) status.hidden = true;
-      if (download) download.hidden = true;
-      return;
+  function refreshBuiltinRoute() {
+    if (typeof PopupBuiltinMgmt !== 'undefined' && PopupBuiltinMgmt.refreshBuiltinRoute) {
+      return PopupBuiltinMgmt.refreshBuiltinRoute(selectedRouteMode);
     }
-    let availability = 'unavailable';
-    try {
-      availability = await PageAdvisorBuiltinPrompt.probe(lm, popupLocale());
-    } catch (_) {
-      availability = 'unavailable';
-    }
-    if (status) {
-      status.hidden = false;
-      if (availability === 'available') status.textContent = tx('paBuiltinReady');
-      else if (availability === 'downloadable') status.textContent = tx('paBuiltinNeedsDownload');
-      else if (availability === 'downloading') status.textContent = tx('paBuiltinDownloading', { pct: '…' });
-      else status.textContent = tx('paBuiltinUnavailable');
-    }
-    if (download) download.hidden = availability !== 'downloadable' && availability !== 'downloading';
-  }
-
-  async function onDownloadBuiltinModel() {
-    const run = async () => {
-      const btn = $('#btnDownloadBuiltinModel');
-      const status = $('#popupBuiltinStatus');
-      setBusy(btn, true);
-      try {
-        await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, popupLocale(), {
-          onProgress(pct) {
-            if (status) {
-              status.hidden = false;
-              status.textContent = tx('paBuiltinDownloading', { pct });
-            }
-          },
-        });
-        await refreshBuiltinRoute();
-      } catch (_) {
-        if (status) {
-          status.hidden = false;
-          status.textContent = tx('paBuiltinFailed');
-        }
-      } finally {
-        setBusy(btn, false);
-      }
-    };
-    if (builtinDownloadGuard) {
-      builtinDownloadGuard.run(run).catch(() => {});
-      return;
-    }
-    run().catch(() => {});
+    return Promise.resolve();
   }
 
   function syncProfileRow() {
@@ -395,8 +339,9 @@
     if (btn) btn.addEventListener('click', () => { savePageAdvisorLlmConfig().catch(() => {}); });
     const testBtn = $('#btnTestLlmConnectivity');
     if (testBtn) testBtn.addEventListener('click', () => { onTestLlmConnectivity(); });
-    const downloadBtn = $('#btnDownloadBuiltinModel');
-    if (downloadBtn) downloadBtn.addEventListener('click', () => { onDownloadBuiltinModel(); });
+    if (typeof PopupBuiltinMgmt !== 'undefined' && PopupBuiltinMgmt.bindBuiltinMgmt) {
+      PopupBuiltinMgmt.bindBuiltinMgmt(selectedRouteMode);
+    }
     const routeField = $('#popupLlmRouteField');
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     if (routeField) {

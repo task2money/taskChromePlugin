@@ -11,6 +11,7 @@ describe('side panel tab', () => {
   it('未知值落到创建任务页签', () => {
     assert.equal(bridge.normalizeSidePanelTab('settings'), 'settings');
     assert.equal(bridge.normalizeSidePanelTab('create'), 'create');
+    assert.equal(bridge.normalizeSidePanelTab('builtin'), 'builtin');
     assert.equal(bridge.normalizeSidePanelTab(''), 'create');
     assert.equal(bridge.normalizeSidePanelTab(undefined), 'create');
   });

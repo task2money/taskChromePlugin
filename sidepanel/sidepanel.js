@@ -1,5 +1,5 @@
 /**
- * 侧边栏壳：两个页签只隐藏、不卸载。创建表单脚本在本页加载；设置复用 popup。
+ * 侧边栏壳：页签只隐藏、不卸载。创建表单脚本在本页加载；设置复用 popup；内置模型为完整管理面板。
  */
 (function initSidePanelShell() {
   'use strict';
@@ -13,17 +13,35 @@
     'content/float-page-advisor-site-pending.js': true,
   };
 
+  function normalizeTab(which) {
+    if (typeof SidePanelBridge !== 'undefined' && SidePanelBridge.normalizeSidePanelTab) {
+      return SidePanelBridge.normalizeSidePanelTab(which);
+    }
+    if (which === 'settings') return 'settings';
+    if (which === 'builtin') return 'builtin';
+    return 'create';
+  }
+
   function showTab(which) {
-    const tab = which === 'settings' ? 'settings' : 'create';
+    const tab = normalizeTab(which);
     const createPane = document.getElementById('sp-pane-create');
     const settingsPane = document.getElementById('sp-pane-settings');
+    const builtinPane = document.getElementById('sp-pane-builtin');
     const createBtn = document.getElementById('sp-tab-create');
     const settingsBtn = document.getElementById('sp-tab-settings');
+    const builtinBtn = document.getElementById('sp-tab-builtin');
     const showCreate = tab === 'create';
+    const showSettings = tab === 'settings';
+    const showBuiltin = tab === 'builtin';
     createPane.hidden = !showCreate;
-    settingsPane.hidden = showCreate;
+    settingsPane.hidden = !showSettings;
+    if (builtinPane) builtinPane.hidden = !showBuiltin;
     createBtn.setAttribute('aria-selected', showCreate ? 'true' : 'false');
-    settingsBtn.setAttribute('aria-selected', showCreate ? 'false' : 'true');
+    settingsBtn.setAttribute('aria-selected', showSettings ? 'true' : 'false');
+    if (builtinBtn) builtinBtn.setAttribute('aria-selected', showBuiltin ? 'true' : 'false');
+    if (showBuiltin && globalThis.SidepanelBuiltinPanel && SidepanelBuiltinPanel.probeDetails) {
+      SidepanelBuiltinPanel.probeDetails().catch(() => {});
+    }
   }
 
   async function activeTabId() {
@@ -67,6 +85,16 @@
 
   document.getElementById('sp-tab-create').addEventListener('click', () => showTab('create'));
   document.getElementById('sp-tab-settings').addEventListener('click', () => showTab('settings'));
+  const builtinTabBtn = document.getElementById('sp-tab-builtin');
+  if (builtinTabBtn) {
+    builtinTabBtn.addEventListener('click', () => showTab('builtin'));
+  }
+
+  window.addEventListener('message', (event) => {
+    const message = event && event.data;
+    if (!message || message.action !== 'sidePanelShow') return;
+    showTab(message.which);
+  });
 
   chrome.runtime.onMessage.addListener((message) => {
     if (!message) return;
@@ -87,13 +115,15 @@
     let which = 'settings';
     try {
       const intent = await chrome.runtime.sendMessage({ action: 'getSidePanelOpenIntent' });
-      if (intent && (intent.which === 'create' || intent.which === 'settings')) which = intent.which;
+      if (intent && (intent.which === 'create' || intent.which === 'settings' || intent.which === 'builtin')) {
+        which = intent.which;
+      }
     } catch (_) {
       which = 'settings';
     }
     showTab(which);
-    if (which === 'settings') {
-      await chrome.storage.session.set({ sidePanelTab: 'settings' });
+    if (which === 'settings' || which === 'builtin') {
+      await chrome.storage.session.set({ sidePanelTab: which });
     }
   }
 
@@ -110,6 +140,9 @@
 
   (async function boot() {
     try {
+      if (globalThis.SidepanelBuiltinPanel && SidepanelBuiltinPanel.updateTabVisibility) {
+        SidepanelBuiltinPanel.updateTabVisibility();
+      }
       await applyVisibleTab();
       await rememberTab();
       await loadFormScripts();

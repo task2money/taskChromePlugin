@@ -98,8 +98,18 @@
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteBuiltin" value="builtin">
           <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型（留在本机，不必填写 API Key）</span>
         </label>
-        <p id="popupBuiltinStatus" hidden></p>
-        <button type="button" id="btnDownloadBuiltinModel" data-i18n="paBuiltinDownload" hidden>下载模型</button>
+        <p id="popupBuiltinStatus" hidden aria-live="polite"></p>
+        <div id="popupBuiltinBasicMgmt" class="builtin-basic-mgmt" hidden>
+          <div class="btn-row builtin-basic-actions">
+            <!-- Anti-Replay-OK: ui-only refresh of LanguageModel.availability -->
+            <button type="button" id="btnRefreshBuiltinStatus" class="btn btn-sm" data-i18n="paBuiltinRefresh">刷新状态</button>
+            <button type="button" id="btnDownloadBuiltinModel" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
+            <button type="button" id="btnCancelBuiltinDownload" class="btn btn-sm" data-i18n="paBuiltinCancelDownload" hidden>取消下载</button>
+            <!-- Anti-Replay-OK: ui-only — tell sidepanel shell to switch tab -->
+            <button type="button" id="btnOpenBuiltinFullMgmt" class="btn btn-sm" data-i18n="paBuiltinOpenFull">打开完整管理</button>
+          </div>
+        </div>
+        <button type="button" id="btnDownloadBuiltinModelPopup" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
         <div class="form-row" id="popupSaasWorkspaceRow" hidden style="display:none">
           <label for="popupSaasWorkspace" data-i18n="paSaasWorkspaceLabel">工作空间</label>
           <select id="popupSaasWorkspace" class="form-select" data-testid="popup-saas-workspace"></select>
@@ -353,7 +363,9 @@
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/popup-saas-workspace.js"></script>
   <script src="../lib/page-advisor-locale-prompt.js"></script>
+  <script src="../lib/page-advisor-builtin-runtime.js"></script>
   <script src="../lib/page-advisor-builtin-prompt.js"></script>
+  <script src="popup-builtin-mgmt.js"></script>
   <script src="../lib/page-advisor-llm-config.js"></script>
   <script src="../lib/popup-llm-settings-ui.js"></script>
   <script src="../lib/page-advisor-preset-skills.js"></script>

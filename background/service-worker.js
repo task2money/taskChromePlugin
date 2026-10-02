@@ -45,6 +45,7 @@ importScripts(
   '../lib/page-advisor-locale-prompt.js',
   '../lib/page-advisor-anchor.js',
   '../lib/page-advisor-llm-client.js',
+  '../lib/page-advisor-builtin-runtime.js',
   '../lib/page-advisor-builtin-prompt.js',
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-site-pending.js',
