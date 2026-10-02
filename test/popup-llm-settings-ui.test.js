@@ -32,7 +32,7 @@ function fakeEls(display, expanded) {
 }
 
 describe('Popup LLM settings toggle (T1–T4)', () => {
-  it('T1 标题旁有设置按钮，字段包在 #pageAdvisorLlmFields', () => {
+  it('T1 设置按钮在「已保存的 Key」下拉旁，字段包在 #pageAdvisorLlmFields', () => {
     const html = popupHtml();
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(llm, /id="btnToggleLlmSettings"/);
@@ -46,8 +46,12 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     assert.match(fieldsBlock, /id="popupLlmApiKey"/);
     assert.match(fieldsBlock, /id="btnSaveLlmConfig"/);
     assert.doesNotMatch(fieldsBlock, /id="btnToggleLlmSettings"/);
-    const heading = llm.slice(0, fieldsIdx);
-    assert.match(heading, /id="btnToggleLlmSettings"/);
+    const profileRow = llm.match(/id="popupLlmProfileRow"[\s\S]*?(?=<div id="pageAdvisorLlmFields")/)[0];
+    const selectAt = profileRow.indexOf('id="popupLlmProfileSelect"');
+    const settingsAt = profileRow.indexOf('id="btnToggleLlmSettings"');
+    assert.ok(selectAt >= 0 && settingsAt > selectAt, '设置应紧跟「已保存的 Key」下拉');
+    const heading = llm.slice(0, llm.indexOf('id="popupLlmProfileRow"'));
+    assert.doesNotMatch(heading, /id="btnToggleLlmSettings"/);
   });
 
   it('T2 字段区默认折叠且 aria-expanded=false', () => {
@@ -89,13 +93,11 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     assert.match(src, /toggleLlmSettingsExpanded/);
   });
 
-  it('T6 设置按钮右侧是闲置集市外链', () => {
+  it('T6 标题旁是闲置集市；设置在已保存 Key 下拉旁', () => {
     const html = popupHtml();
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
-    const heading = llm.slice(0, llm.indexOf('id="pageAdvisorLlmFields"'));
-    const settingsAt = heading.indexOf('id="btnToggleLlmSettings"');
-    const linkAt = heading.indexOf('id="lnkIdleMarket"');
-    assert.ok(settingsAt >= 0 && linkAt > settingsAt, '闲置集市应在设置按钮之后');
+    const heading = llm.slice(0, llm.indexOf('id="popupLlmProfileRow"'));
+    assert.doesNotMatch(heading, /id="btnToggleLlmSettings"/);
     assert.match(
       heading,
       /id="lnkIdleMarket"[^>]*href="https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market"/,
@@ -105,6 +107,9 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     assert.match(heading, /data-i18n="paLlmIdleMarket"/);
     assert.match(heading, />闲置集市<\/a>/);
     assert.match(heading, /Anti-Replay-OK: external navigation/);
+    const profileRow = llm.match(/id="popupLlmProfileRow"[\s\S]*?(?=<div id="pageAdvisorLlmFields")/)[0];
+    assert.match(profileRow, /id="popupLlmProfileSelect"/);
+    assert.match(profileRow, /id="btnToggleLlmSettings"/);
     const skill = html.match(/id="pageAdvisorSkillSection"[\s\S]*?<\/section>/)[0];
     assert.doesNotMatch(skill, /lnkIdleMarket/);
     const { zh, en } = require('../lib/i18n-llm-route.js');
@@ -116,8 +121,10 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     for (const blob of [guide, guideJs]) {
       assert.match(blob, /闲置集市/);
       assert.match(blob, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+      assert.match(blob, /已保存的 Key.*设置|下拉.*旁.*设置|下拉菜单旁.*设置|「已保存的 Key」下拉旁/);
     }
     assert.match(guideEn, /Idle market/);
     assert.match(guideEn, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+    assert.match(guideEn, /Saved keys|dropdown.*Settings|Settings.*dropdown|next to the dropdown/i);
   });
 });

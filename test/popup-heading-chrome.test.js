@@ -38,25 +38,30 @@ describe('Popup heading chrome colors', () => {
     assert.doesNotMatch(close, /#00bcd4/);
   });
 
-  it('自动创新与提示词的设置按钮背景透明', () => {
+  it('提示词标题行设置按钮背景透明；LLM 设置在下拉旁用普通按钮', () => {
     const css = read('popup/popup.css');
-    const block = ruleBlock(
-      css,
-      '#pageAdvisorLlmSection #btnToggleLlmSettings,\n'
-      + '#pageAdvisorSkillSection #btnToggleSkillSettings',
-    );
+    const block = ruleBlock(css, '#pageAdvisorSkillSection #btnToggleSkillSettings');
     assert.match(block, /background:\s*transparent\b/);
     assert.match(block, /border-color:\s*transparent\b/);
+    assert.doesNotMatch(
+      css,
+      /#pageAdvisorLlmSection #btnToggleLlmSettings[^{]*\{[^}]*background:\s*transparent/,
+      'LLM 设置已离开标题行，不再用透明标题样式',
+    );
   });
 
-  it('侧边栏浅色底上设置文字保持深色', () => {
+  it('侧边栏浅色底上技能设置文字保持深色', () => {
     const css = read('popup/popup-sidepanel.css');
     const block = ruleBlock(
       css,
-      'html[data-taskplugin-host="sidepanel"] #pageAdvisorLlmSection #btnToggleLlmSettings,\n'
-      + 'html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings',
+      'html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings',
     );
     assert.match(block, /background:\s*transparent\b/);
     assert.match(block, /color:\s*#1e1e2e\b/);
+    assert.doesNotMatch(
+      css,
+      /#pageAdvisorLlmSection #btnToggleLlmSettings/,
+      '侧栏不再单独覆盖 LLM 设置标题透明样式',
+    );
   });
 });
