@@ -39,9 +39,10 @@ const LATEST_RELEASE_FIXTURE = {
  *
  * options.installType 提供时补 chrome.management.getSelf（Beta 判定），
  * options.release 提供时把 GitHub latest release 接口换成夹具，避免真网络。
+ * options.languageModel 为真时注入 LanguageModel stub，使「内置模型」单选可见。
  */
 async function installChromeStub(page, options = {}) {
-  await page.addInitScript(({ installType, release, token, username }) => {
+  await page.addInitScript(({ installType, release, token, username, languageModel }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const store = {
       baseUrl: 'https://aidevpush.com',
@@ -110,12 +111,17 @@ async function installChromeStub(page, options = {}) {
         throw new Error('e2e stub: no network');
       };
     }
+    if (languageModel) {
+      // 仅让 popup-builtin-mgmt 露出内置单选；不模拟真实 on-device 推理。
+      window.LanguageModel = { availability: async () => 'available' };
+    }
     window.chrome = chromeApi;
   }, {
     installType: options.installType || '',
     release: options.release || null,
     token: options.token || '',
     username: options.username || '',
+    languageModel: !!options.languageModel,
   });
 }
 
@@ -239,13 +245,91 @@ test.describe('Popup 面板布局', () => {
     await expect(fields).toBeHidden();
   });
 
-  test('登录后「调用平台后端」下出现工作空间下拉', async ({ page }) => {
+  // OPT-20261002-021：几何回归——设置须在「已保存的 Key」下拉右侧、同属 profile 行。
+  test('LLM 设置按钮在已保存 Key 下拉右侧且同属 profile 行', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    const row = page.locator('#popupLlmProfileRow');
+    const select = page.locator('#popupLlmProfileSelect');
+    const settings = page.locator('#btnToggleLlmSettings');
+    await expect(row).toBeVisible({ timeout: 10000 });
+    await expect(select).toBeVisible();
+    await expect(settings).toBeVisible();
+
+    const inRow = await settings.evaluate((el) => !!el.closest('#popupLlmProfileRow'));
+    expect(inRow).toBe(true);
+
+    const selectBox = await select.boundingBox();
+    const settingsBox = await settings.boundingBox();
+    expect(selectBox, '下拉应有几何框').toBeTruthy();
+    expect(settingsBox, '设置按钮应有几何框').toBeTruthy();
+    expect(settingsBox.x).toBeGreaterThan(selectBox.x);
+    // 同行：设置垂直中心落在下拉高度范围内（防 CSS 把按钮甩回标题行）
+    const selectMidY = selectBox.y + selectBox.height / 2;
+    expect(selectMidY).toBeGreaterThanOrEqual(settingsBox.y - 1);
+    expect(selectMidY).toBeLessThanOrEqual(settingsBox.y + settingsBox.height + 1);
+  });
+
+  // OPT-20261002-021：非 direct 时整行（含设置）隐藏。
+  test('非 direct 路由时已保存 Key 行（含设置）隐藏', async ({ page }) => {
+    await installChromeStub(page);
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#popupLlmProfileRow')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#btnToggleLlmSettings')).toBeVisible();
+
+    await page.locator('#popupLlmRouteSaas').check();
+    await expect(page.locator('#popupLlmProfileRow')).toBeHidden();
+    await expect(page.locator('#btnToggleLlmSettings')).toBeHidden();
+
+    await page.locator('#popupLlmRouteDirect').check();
+    await expect(page.locator('#popupLlmProfileRow')).toBeVisible();
+    await expect(page.locator('#btnToggleLlmSettings')).toBeVisible();
+  });
+
+  // OPT-20261002-020：调用方式切换端到端（未登录 + builtin stub）。
+  test('调用方式切换：direct/builtin 隐藏工作空间；saas 未登录显示请先登录', async ({ page }) => {
+    await installChromeStub(page, { languageModel: true });
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    const workspaceRow = page.locator('#popupSaasWorkspaceRow');
+    const workspaceSelect = page.locator('#popupSaasWorkspace');
+
+    // 默认 direct：工作空间行隐藏
+    await expect(page.locator('#popupLlmRouteDirect')).toBeChecked();
+    await expect(workspaceRow).toBeHidden();
+
+    // saas 未登录：行可见，占位「请先登录」，禁用，不靠真实网络
+    await page.locator('#popupLlmRouteSaas').check();
+    await expect(workspaceRow).toBeVisible();
+    await expect(workspaceRow).toContainText('工作空间');
+    await expect(workspaceSelect).toBeDisabled();
+    await expect(workspaceSelect).toContainText(/请先登录|Sign in first/);
+    await expect(workspaceSelect.locator('option')).toHaveCount(1);
+
+    // builtin：工作空间再隐藏（LanguageModel stub 露出单选）
+    await expect(page.locator('#popupLlmRouteBuiltinWrap')).toBeVisible({ timeout: 10000 });
+    await page.locator('#popupLlmRouteBuiltin').check();
+    await expect(workspaceRow).toBeHidden();
+
+    // 切回 direct：仍隐藏
+    await page.locator('#popupLlmRouteDirect').check();
+    await expect(workspaceRow).toBeHidden();
+  });
+
+  // OPT-20261002-020：saas 已登录加载下拉（须先点「调用平台后端」）。
+  test('登录后选择「调用平台后端」出现工作空间下拉', async ({ page }) => {
     await installChromeStub(page, { token: 'at_e2e_workspace', username: 'ada' });
     await page.goto(POPUP_URL);
+    await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
     const row = page.locator('#popupSaasWorkspaceRow');
+    // 已登录默认仍是 direct，工作空间行须隐藏
+    await expect(row).toBeHidden();
+
+    await page.locator('#popupLlmRouteSaas').check();
     await expect(row).toBeVisible({ timeout: 10000 });
     await expect(row).toContainText('工作空间');
     const select = page.locator('#popupSaasWorkspace');
+    await expect(select).toBeEnabled();
     await expect(select.locator('option')).toHaveCount(3, { timeout: 10000 });
     await expect(select).toContainText('空间A');
     await expect(select).toContainText('空间B');

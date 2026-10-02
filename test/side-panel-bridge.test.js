@@ -195,13 +195,59 @@ describe('sidepanel create-form contrast overrides', () => {
     path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'),
     'utf8',
   );
+  const formCss = fs.readFileSync(
+    path.join(__dirname, '..', 'content', 'content-form.css'),
+    'utf8',
+  );
   const host = 'html\\[data-taskplugin-host="sidepanel"\\]';
+  // 深色浮窗浅字 + 结果条/hint 在白底侧栏需覆盖；保留深色底控件（如 .taskplugin-btn）
+  const FORM_LIGHT_TOKENS = [...LIGHT_TEXT_TOKENS, '#6c7086', '#a6e3a1', '#f38ba8'];
+  const READABLE_DARK = ['#1e1e2e', '#4b5563', '#166534', '#b91c1c'];
+  const FORM_EXCLUDE = /adjust-modal|page-toast|taskplugin-picking|modal-card|modal-el|shot-label|btn-primary|result-dismiss|result a|\ba\b|:focus/;
 
   function declsFor(selectorFrag) {
-    const re = new RegExp(`${host}\\s+${selectorFrag}\\s*\\{([^}]+)\\}`, 'm');
+    // 允许多选择器规则：frag 后可跟 `, ...` 再 `{`
+    const re = new RegExp(
+      `${host}\\s+${selectorFrag}\\s*(?:,[^{]*)?\\{([^}]+)\\}`,
+      'm',
+    );
     const m = re.exec(sidepanelCss);
     assert.ok(m, `missing rule for ${selectorFrag}`);
     return m[1];
+  }
+
+  function sidepanelCovers(selectorPart) {
+    const classes = classTokens(selectorPart);
+    const ids = [...selectorPart.matchAll(/#([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+    for (const rule of cssRules(sidepanelCss)) {
+      if (!rule.selector.includes('data-taskplugin-host="sidepanel"')) continue;
+      if (!READABLE_DARK.some((c) => new RegExp(`color:\\s*${c}`, 'i').test(rule.decls))) {
+        continue;
+      }
+      const hitClass = classes.some((cls) => new RegExp(`\\.${cls}(?:\\W|$)`).test(rule.selector));
+      const hitId = ids.some((id) => rule.selector.includes(`#${id}`));
+      const hitLegend = /legend/.test(selectorPart) && /legend/.test(rule.selector);
+      if (hitClass || hitId || hitLegend) return true;
+    }
+    return false;
+  }
+
+  function keepsDarkSurface(decls) {
+    return DARK_SURFACE_TOKENS.some((token) => decls.includes(token));
+  }
+
+  function sidepanelFlattensSurface(selectorPart) {
+    const classes = classTokens(selectorPart);
+    for (const rule of cssRules(sidepanelCss)) {
+      if (!rule.selector.includes('data-taskplugin-host="sidepanel"')) continue;
+      if (!/background:\s*#fff|#f1f2f6|#f9fafb|rgba\(22,\s*101,\s*52|rgba\(185,\s*28,\s*28/i.test(rule.decls)) {
+        continue;
+      }
+      if (classes.some((cls) => new RegExp(`\\.${cls}(?:\\W|$)`).test(rule.selector))) {
+        return true;
+      }
+    }
+    return false;
   }
 
   it('重置按钮在浅色宿主用深色字 + 浅底', () => {
@@ -226,5 +272,27 @@ describe('sidepanel create-form contrast overrides', () => {
   it('项目单选列表 label 覆盖深色浮窗浅字', () => {
     const decls = declsFor('\\.taskplugin-checkbox-list\\s+label');
     assert.match(decls, /color:\s*#1e1e2e\s*!important/);
+  });
+
+  it('fieldset legend / hint / 结果条有侧栏深色字覆盖', () => {
+    assert.match(declsFor('legend'), /color:\s*#1e1e2e\s*!important/);
+    assert.match(declsFor('\\.taskplugin-toggle-hint'), /color:\s*#4b5563\s*!important/);
+    assert.match(declsFor('\\.taskplugin-result-success'), /color:\s*#166534\s*!important/);
+    assert.match(declsFor('\\.taskplugin-result-error'), /color:\s*#b91c1c\s*!important/);
+  });
+
+  it('content-form.css 浅字选择器相对侧栏覆盖差集为空', () => {
+    const gaps = [];
+    for (const rule of cssRules(formCss)) {
+      if (!FORM_LIGHT_TOKENS.some((token) => rule.decls.toLowerCase().includes(token))) continue;
+      for (const part of rule.selector.split(',').map((s) => s.trim()).filter(Boolean)) {
+        if (FORM_EXCLUDE.test(part)) continue;
+        // 深色底控件若侧栏未铺白，浅字仍可读，不算缺口
+        if (keepsDarkSurface(rule.decls) && !sidepanelFlattensSurface(part)) continue;
+        if (sidepanelCovers(part)) continue;
+        gaps.push(part);
+      }
+    }
+    assert.deepEqual(gaps, [], `uncovered light-text selectors: ${gaps.join(' | ')}`);
   });
 });

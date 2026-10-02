@@ -76,13 +76,24 @@ html[data-taskplugin-host="sidepanel"] #taskplugin-float-panel {
   color: #1e1e2e !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-panel-header,
+html[data-taskplugin-host="sidepanel"] .taskplugin-panel-header h1,
 html[data-taskplugin-host="sidepanel"] .taskplugin-panel-header h3,
+html[data-taskplugin-host="sidepanel"] .taskplugin-float-heading,
 html[data-taskplugin-host="sidepanel"] .taskplugin-form-group label,
 html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-label,
-html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-title {
+html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-title,
+html[data-taskplugin-host="sidepanel"] .taskplugin-fieldset legend,
+html[data-taskplugin-host="sidepanel"] legend {
   background: #fff !important;
   color: #1e1e2e !important;
   border-color: #e5e7eb !important;
+}
+html[data-taskplugin-host="sidepanel"] #taskplugin-float-close {
+  color: #1e1e2e !important;
+}
+html[data-taskplugin-host="sidepanel"] #taskplugin-float-close:hover {
+  color: #b91c1c !important;
+  background: rgba(185, 28, 28, 0.1) !important;
 }
 html[data-taskplugin-host="sidepanel"] #taskplugin-page-url {
   display: none !important;
@@ -95,8 +106,16 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-textarea {
   border-color: #d0d0d8 !important;
 }
 /* 深色浮窗基线字色落在白底侧栏会对比度不足（重置约 1.3:1） */
-html[data-taskplugin-host="sidepanel"] .taskplugin-checkbox-list label {
+html[data-taskplugin-host="sidepanel"] .taskplugin-checkbox-list label,
+html[data-taskplugin-host="sidepanel"] .taskplugin-label-row > span:first-child {
   color: #1e1e2e !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-hint,
+html[data-taskplugin-host="sidepanel"] .taskplugin-project-auto-run {
+  color: #4b5563 !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-project-auto-run[data-auto-run="true"] {
+  color: #166534 !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset {
   color: #1e1e2e !important;
@@ -111,4 +130,20 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:hover:not(:disabled
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:disabled {
   opacity: 0.55 !important;
   color: #4b5563 !important;
+}
+/* 结果条：深色浮窗浅绿/粉字在白底约 1.5–2.5:1，侧栏改用深绿/深红 */
+html[data-taskplugin-host="sidepanel"] .taskplugin-result-success {
+  color: #166534 !important;
+  background: rgba(22, 101, 52, 0.08) !important;
+  border-color: #166534 !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-result-error {
+  color: #b91c1c !important;
+  background: rgba(185, 28, 28, 0.08) !important;
+  border-color: #b91c1c !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-captured-url {
+  color: #4b5563 !important;
+  background: #f9fafb !important;
+  border-color: #e5e7eb !important;
 }
