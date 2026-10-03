@@ -92,12 +92,13 @@
         const p = await lm.params();
         paramsSummary = `temp≤${p.maxTemperature}; defaultTopK=${p.defaultTopK}`;
         if (Runtime && Runtime.write) {
-          await Runtime.write({
+          const patch = {
             paramsSummary,
             availability,
             language: Builtin.promptLanguage(locale()),
-            phase,
-          });
+          };
+          if (phase === 'downloading') patch.phase = phase;
+          await Runtime.write(patch);
         }
       } catch (_) { /* ignore */ }
     }
@@ -105,11 +106,22 @@
     let quotaText = '—';
     if (availability === 'available' && typeof lm.create === 'function') {
       try {
-        const session = await lm.create(Builtin.languageOptions(locale()));
-        const q = session && session.inputQuota;
+        const createOpts = (typeof Builtin.resolveLanguageOptions === 'function')
+          ? await Builtin.resolveLanguageOptions(lm, locale())
+          : Builtin.languageOptions(locale());
+        const session = await lm.create(createOpts);
+        const q = session && (session.inputQuota != null ? session.inputQuota : session.contextWindow);
         if (Number.isFinite(Number(q))) {
           quotaText = String(q);
           if (Runtime && Runtime.write) await Runtime.write({ inputQuota: Number(q) });
+        }
+        if (paramsSummary === '—' && session) {
+          const t = session.temperature;
+          const k = session.topK;
+          if (t != null || k != null) {
+            paramsSummary = `temp=${t != null ? t : '—'}; topK=${k != null ? k : '—'}`;
+            if (paramsEl) paramsEl.textContent = paramsSummary;
+          }
         }
         if (session && typeof session.destroy === 'function') session.destroy();
       } catch (_) { /* ignore */ }

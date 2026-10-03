@@ -25,4 +25,9 @@ describe('side panel default tab', () => {
     assert.match(js, /if \(description\.trim\(\)\) showTab\('create'\)/);
     assert.doesNotMatch(js, /showTab\(stored && stored\.sidePanelTab\)/);
   });
+
+  it('启动时 hydrate i18n 再 applyDom，避免本机模型状态显示键名', () => {
+    assert.match(js, /hydrateFromStorage/);
+    assert.match(js, /applyDom\(document\)/);
+  });
 });

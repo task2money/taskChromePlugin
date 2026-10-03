@@ -19,7 +19,12 @@ describe('service-worker', () => {
   it('importScripts 含 builtin enable 等待与看门狗', () => {
     const sw = fs.readFileSync(path.join(__dirname, '..', 'background/service-worker.js'), 'utf8');
     const enableLib = sw.indexOf('../lib/page-advisor-builtin-enable.js');
+    const lang = sw.indexOf('../lib/page-advisor-builtin-language.js');
+    const fit = sw.indexOf('../lib/page-advisor-builtin-fit.js');
     const prompt = sw.indexOf('../lib/page-advisor-builtin-prompt.js');
+    assert.ok(lang >= 0);
+    assert.ok(fit > lang);
+    assert.ok(prompt > fit);
     const watchdog = sw.indexOf('./sw-builtin-enable-watchdog.js');
     assert.ok(prompt >= 0);
     assert.ok(enableLib > prompt);

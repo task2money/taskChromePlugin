@@ -57,4 +57,9 @@ describe('builtin-model-panel download UX', () => {
     const chunk = listener.slice(0, listener.indexOf('updateTabVisibility'));
     assert.doesNotMatch(chunk, /probeDetails\(/);
   });
+
+  it('配额探测使用 resolveLanguageOptions，刷新不得把 phase 写成 idle', () => {
+    assert.match(src, /resolveLanguageOptions/);
+    assert.match(src, /if \(phase === 'downloading'\) patch\.phase = phase/);
+  });
 });
