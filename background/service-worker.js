@@ -54,6 +54,7 @@ importScripts(
   '../lib/plugin-version-download.js',
   '../lib/plugin-install-fingerprint.js',
   '../lib/builtin-edge-node-join.js',
+  '../lib/builtin-edge-supported-models.js',
   '../lib/builtin-edge-tunnel.js',
   './sw-capture.js',
   './sw-auth.js',

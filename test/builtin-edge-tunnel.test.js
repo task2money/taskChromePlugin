@@ -32,6 +32,7 @@ test('registerPluginToSellProject calls nodes API and persists join', async () =
     projectId: 'proj-1',
     deviceLabel: 'desk',
     installFingerprint: 'pf_test_abc12345',
+    supportedModels: ['builtin-edge'],
     storage,
     apiRequest: async (method, path, body) => {
       calls.push({ method, path, body })
@@ -44,6 +45,7 @@ test('registerPluginToSellProject calls nodes API and persists join', async () =
   assert.equal(calls[0].method, 'POST')
   assert.match(calls[0].path, /offers\/proj-1\/nodes/)
   assert.equal(calls[0].body.install_fingerprint, 'pf_test_abc12345')
+  assert.deepEqual(calls[0].body.supported_models, ['builtin-edge'])
   assert.equal(storage._data.builtinEdgeOfferNodes['proj-1'].node_id, 'node-9')
   assert.equal(storage._data.builtinEdgeOfferNodes['proj-1'].install_fingerprint, 'pf_test_abc12345')
 })
@@ -54,8 +56,10 @@ test('runBuiltinEdgeKeepaliveRound heartbeats and polls tunnel', async () => {
   const result = await runBuiltinEdgeKeepaliveRound({
     projectId: 'o1',
     nodeId: 'n1',
-    apiRequest: async (method, path) => {
+    supportedModels: ['builtin-edge'],
+    apiRequest: async (method, path, body) => {
       paths.push(`${method} ${path}`)
+      assert.deepEqual(body.supported_models, ['builtin-edge'])
       return {}
     },
     tunnelFetch: async (action, body) => {
