@@ -55,6 +55,19 @@ test('下载进度 100% 但仍 downloading 时不得显示尚未下载', () => {
   assert.notEqual(runtime.statusLine(snap, tx), 'paBuiltinNeedsDownload');
 });
 
+test('点击下载后 100% 解压载入显示正在启用，而不是再点下载', () => {
+  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
+  const snap = {
+    phase: 'downloading',
+    availability: 'downloading',
+    downloadPct: 100,
+    downloadInFlight: true,
+  };
+  assert.equal(runtime.statusLine(snap, tx), 'paBuiltinEnabling:100');
+  assert.equal(runtime.statusLineForSettings(snap, tx), 'paBuiltinEnabling:100');
+  assert.notEqual(runtime.statusLine(snap, tx), 'paBuiltinDownloadNeedEnable:100');
+});
+
 test('过期 collecting 不再挡住可用性文案', () => {
   const tx = (k) => k;
   const stale = {

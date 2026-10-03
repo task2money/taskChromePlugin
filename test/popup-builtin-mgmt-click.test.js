@@ -79,6 +79,7 @@ function loadMgmt(opts) {
         paBuiltinNeedsDownload: '需要下载内置模型',
         paBuiltinFailed: '内置模型失败',
         paBuiltinDownloadNeedEnable: `内置模型已下载 ${vars && vars.pct != null ? vars.pct : '…'}%，尚未启用`,
+        paBuiltinEnabling: `内置模型已下载 ${vars && vars.pct != null ? vars.pct : '…'}%，正在启用`,
         paBuiltinReady: '就绪',
         paBuiltinUnavailable: '不可用',
         paBuiltinInferring: '正在推理…',
@@ -146,6 +147,24 @@ test('下载点击立刻离开采集中文案', async () => {
   assert.match(status.textContent, /下载/);
   assert.notEqual(status.textContent, '正在采集页面并生成优化建议…');
   await p;
+});
+
+test('下载点击不得先 await 挂起的 storage 再 startDownload', async () => {
+  const { context, download } = loadMgmt();
+  let started = 0;
+  const origWrite = context.PageAdvisorBuiltinRuntime.write;
+  context.PageAdvisorBuiltinRuntime.write = (patch, storage) => {
+    if (started === 0) return new Promise(() => {});
+    return origWrite.call(context.PageAdvisorBuiltinRuntime, patch, storage);
+  };
+  context.PageAdvisorBuiltinPrompt.startDownload = async () => {
+    started += 1;
+  };
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  const done = download.click();
+  await new Promise((r) => setTimeout(r, 20));
+  assert.equal(started, 1, 'LanguageModel.create 必须在用户点击同步窗口内启动');
+  await done;
 });
 
 test('刷新 downloading 100% 不得显示尚未下载', async () => {

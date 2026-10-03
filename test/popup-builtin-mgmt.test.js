@@ -35,6 +35,11 @@ describe('popup-builtin-mgmt download UX', () => {
     const createCall = downloadFn.indexOf('startDownload');
     const immediate = downloadFn.slice(0, createCall);
     assert.match(immediate, /paBuiltinDownloading/);
+    assert.doesNotMatch(
+      immediate,
+      /await PageAdvisorBuiltinRuntime\.write/,
+      'create 前 await storage 会丢掉用户激活，Chrome 拒绝下载',
+    );
   });
 
   it('session 监听不得再 refreshBuiltinRoute 把采集态写回', () => {

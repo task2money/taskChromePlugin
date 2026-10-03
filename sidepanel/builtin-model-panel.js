@@ -153,9 +153,10 @@
         await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, locale(), {
           onProgress(pct) {
             if (statusEl && typeof tx === 'function') {
-              statusEl.textContent = tx('paBuiltinDownloading', { pct });
+              statusEl.textContent = Number(pct) >= 100
+                ? tx('paBuiltinEnabling', { pct })
+                : tx('paBuiltinDownloading', { pct });
             }
-            probeDetails().catch(() => {});
           },
         });
         await probeDetails();

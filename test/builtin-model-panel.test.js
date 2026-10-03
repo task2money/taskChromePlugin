@@ -30,6 +30,18 @@ describe('builtin-model-panel download UX', () => {
     assert.match(src, /paBuiltinDownloading/);
   });
 
+  it('进度回调不得 probeDetails，避免 100% 解压时刷成尚未启用', () => {
+    const downloadFn = src.slice(src.indexOf('function onDownload()'));
+    const progress = downloadFn.slice(
+      downloadFn.indexOf('onProgress'),
+      downloadFn.indexOf('startDownload') > 0 ? downloadFn.indexOf('await probeDetails') : downloadFn.length,
+    );
+    const onProgressBlock = downloadFn.match(/onProgress\s*\([^)]*\)\s*\{[\s\S]*?\n\s*\}/);
+    assert.ok(onProgressBlock, 'missing onProgress');
+    assert.doesNotMatch(onProgressBlock[0], /probeDetails\(/);
+    void progress;
+  });
+
   it('探测用 phaseForSettingsProbe 而不是原样保留 collecting', () => {
     assert.match(src, /phaseForSettingsProbe/);
     assert.match(src, /clearInFlight:\s*true/);

@@ -70,8 +70,9 @@
       else if (availability === 'downloadable') line = tx('paBuiltinNeedsDownload');
       else if (availability === 'downloading') {
         const pct = runtimeSnap && runtimeSnap.downloadPct != null ? String(runtimeSnap.downloadPct) : '…';
+        const inFlight = !!(runtimeSnap && runtimeSnap.downloadInFlight);
         line = Number(pct) >= 100
-          ? tx('paBuiltinDownloadNeedEnable', { pct })
+          ? tx(inFlight ? 'paBuiltinEnabling' : 'paBuiltinDownloadNeedEnable', { pct })
           : tx('paBuiltinDownloading', { pct });
       } else line = tx('paBuiltinUnavailable');
     }
@@ -145,26 +146,23 @@
         status.textContent = tx('paBuiltinDownloading', { pct: '0' });
       }
       try {
-        if (typeof PageAdvisorBuiltinRuntime !== 'undefined' && PageAdvisorBuiltinRuntime.write) {
-          await PageAdvisorBuiltinRuntime.write({
-            phase: 'downloading',
-            downloadPct: 0,
-            availability: 'downloading',
-          });
-        }
         await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, popupLocale(), {
           onProgress(pct) {
             if (status) {
               status.hidden = false;
-              status.textContent = tx('paBuiltinDownloading', { pct });
+              status.textContent = Number(pct) >= 100
+                ? tx('paBuiltinEnabling', { pct })
+                : tx('paBuiltinDownloading', { pct });
             }
           },
         });
         await refreshBuiltinRoute(selectedRouteMode);
-      } catch (_) {
+      } catch (err) {
         if (status) {
+          const base = tx('paBuiltinFailed');
+          const detail = err && err.message ? String(err.message).slice(0, 160) : '';
           status.hidden = false;
-          status.textContent = tx('paBuiltinFailed');
+          status.textContent = detail ? `${base} (${detail})` : base;
         }
       } finally {
         setBusy(btn, false);

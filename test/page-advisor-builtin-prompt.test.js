@@ -217,6 +217,63 @@ test('runAltZ 在 downloading 100% 时与设置页同一句，不说尚未下载
   assert.equal(failed.errorCode, 'builtin_downloading');
 });
 
+test('Prompt API 的 downloadprogress.loaded 为 0..1 时按百分比上报', async () => {
+  const progress = [];
+  const downloadModel = {
+    async availability() { return 'downloadable'; },
+    async create(opts) {
+      opts.monitor({
+        addEventListener(name, fn) {
+          if (name === 'downloadprogress') fn({ loaded: 0.4 });
+        },
+      });
+      return { destroy() {} };
+    },
+  };
+  await builtin.startDownload(downloadModel, 'zh-CN', { onProgress: (pct) => progress.push(pct) });
+  assert.deepEqual(progress, [40]);
+});
+
+test('startDownload 在 100% 解压载入期间标记 downloadInFlight', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  let midSnap = null;
+  const downloadModel = {
+    async create(opts) {
+      opts.monitor({
+        addEventListener(name, fn) {
+          if (name === 'downloadprogress') fn({ loaded: 1, total: 1 });
+        },
+      });
+      await new Promise((r) => setTimeout(r, 20));
+      midSnap = bag[runtime.STORAGE_KEY];
+      return { destroy() {} };
+    },
+  };
+  try {
+    await builtin.startDownload(downloadModel, 'zh-CN', {});
+    assert.equal(midSnap.downloadInFlight, true);
+    assert.equal(midSnap.downloadPct, 100);
+    const done = bag[runtime.STORAGE_KEY];
+    assert.equal(done.downloadInFlight, false);
+    assert.equal(done.availability, 'available');
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+});
+
 test('downloadable 的 Alt+Z 不 create；设置允许时才 create', async () => {
   let created = 0;
   const model = {

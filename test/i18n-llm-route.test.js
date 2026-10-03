@@ -20,6 +20,11 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.match(src, /paBuiltinDownloadNeedEnable:\s*'Built-in model download is \{pct\}%/);
   });
 
+  it('中英都有 paBuiltinEnabling', () => {
+    assert.match(src, /paBuiltinEnabling:\s*'内置模型已下载 \{pct\}%，正在启用/);
+    assert.match(src, /paBuiltinEnabling:\s*'Built-in model is \{pct\}% downloaded and is being enabled/);
+  });
+
   it('中英都警示 on-device-internals 改错参数会搞坏本机模型', () => {
     assert.match(src, /paBuiltinOnDeviceInternalsCaution:\s*'。请谨慎修改其中参数；搞错后可能无法再使用本机模型。'/);
     assert.match(
