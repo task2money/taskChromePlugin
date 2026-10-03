@@ -153,6 +153,70 @@ test('available 时解析建议且不发起 fetch；schema 被拒绝则去掉约
   }
 });
 
+test('downloading 的 Alt+Z 不 create，错误码与尚未下载区分', async () => {
+  let created = 0;
+  const model = {
+    async availability() { return 'downloading'; },
+    async create() {
+      created += 1;
+      return { destroy() {} };
+    },
+  };
+  await assert.rejects(
+    () => builtin.suggest(model, { pageText: 'x', domOutline: [] }, { allowCreate: false }),
+    (err) => err.code === 'builtin_downloading' && err.availability === 'downloading',
+  );
+  assert.equal(created, 0);
+});
+
+test('runAltZ 在 downloading 100% 时与设置页同一句，不说尚未下载', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {
+    [runtime.STORAGE_KEY]: {
+      phase: 'downloading',
+      availability: 'downloading',
+      downloadPct: 100,
+      updatedAt: Date.now(),
+    },
+  };
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  const notes = [];
+  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
+  try {
+    await builtin.runAltZ(1, {
+      languageModel: {
+        async availability() { return 'downloading'; },
+        async create() { throw new Error('should not create'); },
+      },
+      askContext: async () => ({
+        success: true,
+        data: { url: 'https://example.test', title: 't', pageText: 'p', domOutline: [] },
+      }),
+      notify: async (_tab, payload) => { notes.push(payload); },
+      tx,
+      locale: 'zh-CN',
+    });
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+  const failed = notes.find((item) => item && item.ok === false);
+  assert.ok(failed);
+  assert.equal(failed.error, 'paBuiltinDownloadNeedEnable:100');
+  assert.notEqual(failed.error, 'paBuiltinNeedsDownload');
+  assert.equal(failed.errorCode, 'builtin_downloading');
+});
+
 test('downloadable 的 Alt+Z 不 create；设置允许时才 create', async () => {
   let created = 0;
   const model = {

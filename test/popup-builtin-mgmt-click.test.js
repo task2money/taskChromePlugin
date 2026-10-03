@@ -27,7 +27,13 @@ function makeEl() {
   };
 }
 
-function loadMgmt() {
+function loadMgmt(opts) {
+  const probeAv = (opts && opts.availability) || 'downloadable';
+  const seed = (opts && opts.runtime) || {
+    phase: 'collecting',
+    availability: 'downloadable',
+    updatedAt: Date.now(),
+  };
   const status = makeEl();
   status.textContent = '正在采集页面并生成优化建议…';
   const refresh = makeEl();
@@ -52,18 +58,14 @@ function loadMgmt() {
   };
   const listeners = [];
   const store = {
-    pageAdvisorBuiltinRuntime: {
-      phase: 'collecting',
-      availability: 'downloadable',
-      updatedAt: Date.now(),
-    },
+    pageAdvisorBuiltinRuntime: seed,
   };
   const context = {
     console,
     ClickGuard: require('../lib/click-guard.js'),
     PageAdvisorBuiltinRuntime: require('../lib/page-advisor-builtin-runtime.js'),
     PageAdvisorBuiltinPrompt: {
-      probe: async () => 'downloadable',
+      probe: async () => probeAv,
       promptLanguage: () => 'zh',
       startDownload: async (_lm, _loc, hooks) => {
         if (hooks && hooks.onProgress) hooks.onProgress(12);
@@ -76,6 +78,7 @@ function loadMgmt() {
         paBuiltinDownloading: `正在下载内置模型… ${vars && vars.pct != null ? vars.pct : '…'}%`,
         paBuiltinNeedsDownload: '需要下载内置模型',
         paBuiltinFailed: '内置模型失败',
+        paBuiltinDownloadNeedEnable: `内置模型已下载 ${vars && vars.pct != null ? vars.pct : '…'}%，尚未启用`,
         paBuiltinReady: '就绪',
         paBuiltinUnavailable: '不可用',
         paBuiltinInferring: '正在推理…',
@@ -109,10 +112,11 @@ function loadMgmt() {
       },
       runtime: { sendMessage: () => Promise.resolve() },
     },
-    LanguageModel: { availability: async () => 'downloadable' },
+    LanguageModel: { availability: async () => probeAv },
     window: { parent: { postMessage() {} } },
   };
   context.globalThis = context;
+  globalThis.chrome = context.chrome;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'popup/popup-builtin-mgmt.js'), 'utf8'), context);
   return { context, status, refresh, download, store };
@@ -142,4 +146,22 @@ test('下载点击立刻离开采集中文案', async () => {
   assert.match(status.textContent, /下载/);
   assert.notEqual(status.textContent, '正在采集页面并生成优化建议…');
   await p;
+});
+
+test('刷新 downloading 100% 不得显示尚未下载', async () => {
+  const { context, status, refresh } = loadMgmt({
+    availability: 'downloading',
+    runtime: {
+      phase: 'downloading',
+      availability: 'downloading',
+      downloadPct: 100,
+      updatedAt: Date.now(),
+    },
+  });
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  await refresh.click();
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
+  assert.match(status.textContent, /尚未启用/);
+  assert.notEqual(status.textContent, '需要下载内置模型');
+  assert.equal(status.textContent.includes('尚未下载'), false);
 });

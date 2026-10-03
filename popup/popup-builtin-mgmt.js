@@ -70,7 +70,9 @@
       else if (availability === 'downloadable') line = tx('paBuiltinNeedsDownload');
       else if (availability === 'downloading') {
         const pct = runtimeSnap && runtimeSnap.downloadPct != null ? String(runtimeSnap.downloadPct) : '…';
-        line = tx('paBuiltinDownloading', { pct });
+        line = Number(pct) >= 100
+          ? tx('paBuiltinDownloadNeedEnable', { pct })
+          : tx('paBuiltinDownloading', { pct });
       } else line = tx('paBuiltinUnavailable');
     }
     if (status) {
