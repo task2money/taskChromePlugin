@@ -603,3 +603,119 @@ test('Service Worker 在访客门闩之前处理 builtin', () => {
   assert.ok(guestAt > builtinAt);
   assert.match(sw, /withTimeout\(p, 12000/);
 });
+
+test('OPT-20261003-019: 非 owner 广播取消 → owner 上下文 abort 并写回快照', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  const listeners = [];
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+    runtime: {
+      onMessage: { addListener(fn) { listeners.push(fn); } },
+      sendMessage() { return Promise.resolve({ success: true }); },
+    },
+  };
+  let aborted = false;
+  const downloadModel = {
+    async create(opts) {
+      return new Promise((resolve, reject) => {
+        const signal = opts && opts.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          });
+        }
+      });
+    },
+  };
+  try {
+    const pending = builtin.startDownload(downloadModel, 'zh-CN', {});
+    await new Promise((r) => setTimeout(r, 15));
+    assert.equal(listeners.length, 1, 'owner 上下文应安装取消中继监听');
+    const mid = bag[runtime.STORAGE_KEY];
+    assert.ok(mid && mid.enableOwner, '启动下载应登记 owner 上下文（enableOwner）');
+    // 模拟侧栏/设置页另一上下文广播取消
+    listeners[0]({ type: 'builtinDownloadCancel' });
+    await assert.rejects(() => pending);
+    assert.equal(aborted, true);
+    const done = bag[runtime.STORAGE_KEY];
+    assert.equal(done.downloadInFlight, false);
+    assert.equal(done.lastErrorCode, 'download_aborted');
+    assert.equal(done.enableOwner, '');
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+});
+
+test('OPT-20261003-019: 无本地下载时 cancelDownload 广播 builtinDownloadCancel', async () => {
+  const prevChrome = globalThis.chrome;
+  const sent = [];
+  globalThis.chrome = {
+    runtime: {
+      onMessage: { addListener() {} },
+      sendMessage(msg) { sent.push(msg); return Promise.resolve({ success: true }); },
+    },
+  };
+  try {
+    const ok = builtin.cancelDownload();
+    assert.equal(ok, true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].action, 'builtinDownloadCancel');
+    assert.equal(sent[0].type, 'builtinDownloadCancel');
+  } finally {
+    globalThis.chrome = prevChrome;
+  }
+});
+
+test('OPT-20261003-019: 非 owner 收到广播不误 abort（无进行中下载时无副作用）', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  const listeners = [];
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+    runtime: {
+      onMessage: { addListener(fn) { listeners.push(fn); } },
+      sendMessage() { return Promise.resolve({ success: true }); },
+    },
+  };
+  try {
+    const model = { async create() { return { destroy() {} }; } };
+    await builtin.startDownload(model, 'zh-CN', {});
+    assert.equal(bag[runtime.STORAGE_KEY].availability, 'available');
+    assert.equal(listeners.length, 1);
+    // 下载已完成，owner 已释放；广播与无关消息都不应改变快照
+    listeners[0]({ type: 'other' });
+    listeners[0]({ type: 'builtinDownloadCancel' });
+    assert.equal(bag[runtime.STORAGE_KEY].availability, 'available');
+    assert.equal(bag[runtime.STORAGE_KEY].downloadInFlight, false);
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+});
+
+test('OPT-20261003-019: Service Worker 认识 builtinDownloadCancel 广播', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sw = fs.readFileSync(path.join(__dirname, '../background/sw-messages-session.js'), 'utf8');
+  assert.match(sw, /case 'builtinDownloadCancel'/);
+  assert.match(sw, /relayed: true/);
+});

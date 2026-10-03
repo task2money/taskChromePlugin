@@ -426,6 +426,11 @@ async function handleMessage(message, sender) {
       }
     }
 
+    case 'builtinDownloadCancel':
+      // OPT-20261003-019: 跨上下文取消广播。真正的 abort 由持有 AbortController 的
+      // 页面上下文（owner）在各自的 onMessage 监听里执行；SW 只需确认收到，不再落 default。
+      return { success: true, relayed: true };
+
     default:
       return handleMessageRest(message, sender);
   }
