@@ -298,8 +298,8 @@
     ${req.requestBody ? `<div class="detail-section"><h4>${escHtml(tx('popupReqBody'))}</h4><pre class="body-pre">${escHtml(String(req.requestBody))}</pre></div>` : ''}
     ${resHdrHtml}
     ${req.responseBody ? `<div class="detail-section"><h4>${escHtml(tx('popupResBody'))}</h4><pre class="body-pre">${escHtml(String(req.responseBody))}</pre></div>` : ''}
-    <div class="dt-hint" style="margin-top:8px;padding:6px 8px;background:#252536;border-radius:4px;text-align:center">
-      <span style="font-size:10px;color:#89b4fa;">${escHtml(tx('popupReqDetailHint', { brand: globalThis.PLUGIN_DISPLAY_NAME || '' }))}</span>
+    <div class="dt-hint">
+      <span class="dt-hint-text">${escHtml(tx('popupReqDetailHint', { brand: globalThis.PLUGIN_DISPLAY_NAME || '' }))}</span>
     </div>`;
   }
 

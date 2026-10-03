@@ -59,10 +59,12 @@ describe('Popup 标题行字号由 .heading-sm 单点提供', () => {
     assert.match(popupCss, /#lnkIdleMarket\s*\{[^}]*flex-shrink:\s*0/);
   });
 
-  it('popup-guide.css 已挂到 popup.html，且在 popup.css 之后', () => {
+  it('popup-guide.css 已挂到 popup.html，且在 popup.css 之后、浅色层之前', () => {
     const cssAt = popupHtml.indexOf('href="popup.css"');
     const guideAt = popupHtml.indexOf('href="popup-guide.css"');
+    const lightAt = popupHtml.indexOf('href="popup-sidepanel.css"');
     assert.ok(cssAt >= 0, 'popup.html 缺少 popup.css');
     assert.ok(guideAt > cssAt, 'popup-guide.css 须在 popup.css 之后加载以沿用相同层叠次序');
+    assert.ok(lightAt > guideAt, 'popup-sidepanel.css 须在 popup-guide.css 之后以覆盖设置 Tab 深色底');
   });
 });

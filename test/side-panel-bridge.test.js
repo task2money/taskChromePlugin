@@ -102,6 +102,8 @@ const CONTROL_SELECTORS = [
   '.btn-primary', '.btn-danger', '.btn-link',
   '.badge-connected', '.badge-disconnected', '.badge-warning',
   '.req-method', '.req-status', '.result', '.toggle-slider', 'kbd', '.tcp-guide-kbd',
+  // 使用说明展开 CTA：侧栏保留青底强调色，不铺白
+  '.tcp-guide-root-summary',
 ];
 
 function cssRules(css) {
@@ -128,10 +130,26 @@ describe('side panel light surface layer', () => {
     const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)[\s\S]*?\{([\s\S]*?)\}/.exec(settingsCss);
     assert.ok(blanket, '设置页应有 body *:not(:where(...)) 通配覆盖');
     const exclusions = blanket[1].split(',').map((item) => item.trim()).filter(Boolean);
-    assert.match(blanket[2], /background:\s*#fff/);
+    assert.match(blanket[2], /background:\s*#fff\s*!important/);
     assert.ok(exclusions.includes('kbd'), 'kbd 芯片保留深色主题配色');
     assert.ok(exclusions.includes('.btn-primary'), '主按钮保留强调色');
     assert.ok(exclusions.includes('.badge-connected') && exclusions.includes('.req-method'));
+    assert.ok(
+      exclusions.some((item) => item.includes('tcp-guide-root-summary')),
+      '使用说明主 CTA 保留强调色',
+    );
+  });
+
+  it('popup-sidepanel.css 须在 popup-guide.css 之后加载，且钉死使用说明深色块', () => {
+    const popupHtml = fs.readFileSync(path.join(popupDir, 'popup.html'), 'utf8');
+    const guideAt = popupHtml.indexOf('href="popup-guide.css"');
+    const lightAt = popupHtml.indexOf('href="popup-sidepanel.css"');
+    assert.ok(guideAt >= 0 && lightAt > guideAt, '浅色层须在 guide 之后，否则 #popup-user-guide 深色底会漏网');
+    assert.match(
+      settingsCss,
+      /#popup-user-guide\s+\.tcp-guide-body[\s\S]*?background:\s*#fff\s*!important/,
+    );
+    assert.match(settingsCss, /\.popup-req-detail[\s\S]*?background:\s*#fff\s*!important/);
   });
 
   it('深色底选择器要么是控件色，要么被覆盖并且有深色前景', () => {

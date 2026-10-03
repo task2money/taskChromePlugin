@@ -6,8 +6,9 @@
   <script src="popup-host.js"></script>
   <title data-i18n="extTitle">云端Coding: 自动创新助手</title>
   <link rel="stylesheet" href="popup.css">
-  <link rel="stylesheet" href="popup-sidepanel.css">
   <link rel="stylesheet" href="popup-guide.css">
+  <!-- 浅色层必须在 popup.css / popup-guide.css 之后：ID 选择器与后加载深色块否则会压过白底 -->
+  <link rel="stylesheet" href="popup-sidepanel.css">
   <link rel="stylesheet" href="../lib/plugin-version.css">
 </head>
 <body>
