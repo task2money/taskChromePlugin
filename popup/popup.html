@@ -72,19 +72,6 @@
       </div>
     </section>
 
-    <!-- 本机模型出售入口：完整表单在侧栏「本机模型」Tab（登录后可见） -->
-    <section id="builtinEdgeSellOpenHint" class="section" style="display:none" hidden data-testid="builtin-edge-sell-open-hint">
-      <div class="advisor-defaults-heading">
-        <h3>📡 <span data-i18n="builtinEdgeSellTitle">本机模型出售</span></h3>
-        <details class="region-help">
-          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="builtinEdgeSellHint">先在账号中心「本机模型出售」创建出售项目，再在侧栏「本机模型」Tab 下拉选择项目完成注册。插件会主动连接平台保活（无需公网 IP），平台才能把请求转到本机内置模型。</p>
-        </details>
-      </div>
-      <!-- Anti-Replay-OK: ui-only — open side panel tab -->
-      <button type="button" id="btnOpenBuiltinEdgeSellTab" class="btn btn-primary btn-full" data-testid="builtin-edge-open-tab" data-i18n="builtinEdgeOpenInTab">在侧栏「本机模型」中管理出售</button>
-    </section>
-
     <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
     <section id="pageAdvisorLlmSection" class="section" style="display:none">
       <div class="advisor-defaults-heading llm-section-heading">
@@ -393,10 +380,6 @@
   <script src="../lib/page-advisor-skill-draft.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="../lib/click-guard.js"></script>
-  <script src="../lib/builtin-edge-node-join.js"></script>
-  <script src="../lib/builtin-edge-tunnel.js"></script>
-  <script src="../lib/popup-builtin-edge-sell.js"></script>
-  <script src="popup-builtin-edge-sell.js"></script>
   <script src="../lib/page-advisor-llm-probe.js"></script>
   <script src="popup-llm-config.js"></script>
   <script src="popup-prompt-skill-ui.js"></script>

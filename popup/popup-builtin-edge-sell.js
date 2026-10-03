@@ -25,8 +25,7 @@
   }
 
   function sectionEl() {
-    return document.getElementById('builtinEdgeSellSection')
-      || document.getElementById('builtinEdgeSellOpenHint');
+    return document.getElementById('builtinEdgeSellSection');
   }
 
   async function fillFingerprintLine() {
@@ -282,14 +281,6 @@
     }
   }
 
-  function onOpenSidepanelBuiltinTab() {
-    try {
-      chrome.runtime.sendMessage({ action: 'openSidePanel', which: 'builtin' }, () => {
-        void chrome.runtime.lastError;
-      });
-    } catch (_) { /* ignore */ }
-  }
-
   function setLoggedIn(next) {
     loggedIn = Boolean(next);
     refreshVisibility();
@@ -300,7 +291,6 @@
     if (!section) return;
     const btn = document.getElementById('btnBuiltinEdgeRegister');
     const unreg = document.getElementById('btnBuiltinEdgeUnregister');
-    const openTab = document.getElementById('btnOpenBuiltinEdgeSellTab');
     const guard = globalThis.ClickGuard?.createClickGuard
       ? ClickGuard.createClickGuard()
       : null;
@@ -315,7 +305,6 @@
       if (unregGuard) unregGuard.run(onUnregister);
       else onUnregister();
     });
-    openTab?.addEventListener('click', onOpenSidepanelBuiltinTab);
     refreshVisibility();
   }
 

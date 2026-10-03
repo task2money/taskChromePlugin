@@ -210,10 +210,9 @@
     }
   }
 
-  /** 通知依赖登录态的 Popup 模块（工作空间行、本机模型出售等）。 */
+  /** 通知依赖登录态的 Popup 模块（工作空间行等）。 */
   function setLoginGatedModules(loggedIn) {
     window.PopupSaasWorkspace?.setLoggedIn?.(loggedIn);
-    window.PopupBuiltinEdgeSell?.setLoggedIn?.(loggedIn);
   }
 
   async function retryInit() {

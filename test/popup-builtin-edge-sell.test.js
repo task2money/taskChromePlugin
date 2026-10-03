@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 本机模型出售：完整表单在侧栏「本机模型」Tab；Popup 仅登录后入口；项目下拉。
+ * 本机模型出售：完整表单只在侧栏「本机模型」Tab；设置（popup）不展示该区块。
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -48,20 +48,22 @@ describe('Popup / 侧栏 本机模型出售', () => {
     assert.match(sp, /plugin-install-fingerprint\.js/);
   });
 
-  it('Popup 仅保留入口提示，不再内嵌完整注册表单', () => {
+  it('设置页（popup.html）不显示本机模型出售区块或入口', () => {
     const html = popupHtml();
-    assert.match(html, /id="builtinEdgeSellOpenHint"/);
-    assert.match(html, /id="btnOpenBuiltinEdgeSellTab"/);
+    assert.doesNotMatch(html, /id="builtinEdgeSellOpenHint"/);
+    assert.doesNotMatch(html, /id="btnOpenBuiltinEdgeSellTab"/);
     assert.doesNotMatch(html, /id="builtinEdgeSellSection"/);
     assert.doesNotMatch(html, /id="builtinEdgeProjectId"/);
+    assert.doesNotMatch(html, /data-i18n="builtinEdgeSellTitle"/);
+    assert.doesNotMatch(html, /本机模型出售/);
+    assert.doesNotMatch(html, /popup-builtin-edge-sell\.js/);
   });
 
-  it('popup.html 加载控制器；auth 在登录态切换时接线', () => {
-    const html = popupHtml();
-    const libAt = html.indexOf('../lib/popup-builtin-edge-sell.js');
-    const uiAt = html.indexOf('popup-builtin-edge-sell.js');
-    const authAt = html.indexOf('popup-auth.js');
-    assert.ok(libAt >= 0 && uiAt > libAt && authAt > uiAt);
+  it('侧栏加载出售控制器；auth 在登录态切换时接线（可选）', () => {
+    const sp = sidepanelHtml();
+    const libAt = sp.indexOf('../lib/popup-builtin-edge-sell.js');
+    const uiAt = sp.indexOf('../popup/popup-builtin-edge-sell.js');
+    assert.ok(libAt >= 0 && uiAt > libAt);
 
     const auth = fs.readFileSync(path.join(ROOT, 'popup/popup-auth.js'), 'utf8');
     const loginFn = auth.slice(auth.indexOf('function showLoginUI'), auth.indexOf('function showTokenExpiredUI'));
@@ -71,7 +73,7 @@ describe('Popup / 侧栏 本机模型出售', () => {
     assert.match(loginFn, /setLoginGatedModules\(false\)/);
     assert.match(loggedFn, /setLoginGatedModules\(true\)/);
     assert.match(expiredFn, /setLoginGatedModules\(false\)/);
-    assert.match(auth, /PopupBuiltinEdgeSell\?\.setLoggedIn/);
+    assert.doesNotMatch(auth, /PopupBuiltinEdgeSell/);
   });
 
   it('applyEdgeSellSectionVisibility：仅 loggedIn 时显示', () => {
@@ -134,7 +136,6 @@ describe('Popup / 侧栏 本机模型出售', () => {
     assert.match(src, /buildEdgeOfferSelectMenu|PopupBuiltinEdgeSellMenu/);
     assert.match(src, /builtinEdgeProjectId/);
     assert.match(src, /setLoggedIn/);
-    assert.match(src, /openSidePanel.*builtin|which:\s*'builtin'/);
   });
 
   it('已注册态：当前注册情况、调用情况、取消注册、指纹', () => {
