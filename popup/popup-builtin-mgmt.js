@@ -82,6 +82,12 @@
     }
     if (download) {
       download.hidden = availability !== 'downloadable' && availability !== 'downloading';
+      // 字节已下完但 availability 仍报 downloading：动作其实是「启用」，文案对齐以免用户以为要再下一次。
+      const finishEnable = availability === 'downloading'
+        && runtimeSnap && Number(runtimeSnap.downloadPct) >= 100;
+      download.textContent = typeof tx === 'function'
+        ? tx(finishEnable ? 'paBuiltinFinishEnable' : 'paBuiltinDownload')
+        : (finishEnable ? '完成启用' : '下载模型');
     }
     const showCancel = availability === 'downloading'
       || (runtimeSnap && runtimeSnap.phase === 'downloading');

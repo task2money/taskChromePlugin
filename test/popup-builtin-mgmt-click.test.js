@@ -76,6 +76,8 @@ function loadMgmt(opts) {
         paCollecting: '正在采集页面并生成优化建议…',
         paBuiltinRefreshing: '正在刷新内置模型状态…',
         paBuiltinDownloading: `正在下载内置模型… ${vars && vars.pct != null ? vars.pct : '…'}%`,
+        paBuiltinDownload: '下载模型',
+        paBuiltinFinishEnable: '完成启用',
         paBuiltinNeedsDownload: '需要下载内置模型',
         paBuiltinFailed: '内置模型失败',
         paBuiltinDownloadNeedEnable: `内置模型已下载 ${vars && vars.pct != null ? vars.pct : '…'}%，尚未启用`,
@@ -207,6 +209,37 @@ test('刷新 inFlight 100% 后 session 不再 downloadInFlight', async () => {
   await refresh.click();
   const snap = store.pageAdvisorBuiltinRuntime;
   assert.equal(snap.downloadInFlight, false);
+});
+
+test('下载 100% 未启用时按钮文案改为「完成启用」', async () => {
+  const { context, download } = loadMgmt({
+    availability: 'downloading',
+    runtime: {
+      phase: 'downloading',
+      availability: 'downloading',
+      downloadPct: 100,
+      downloadInFlight: false,
+      updatedAt: Date.now(),
+    },
+  });
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
+  assert.equal(download.textContent, '完成启用');
+});
+
+test('下载未到 100% 时按钮仍为「下载模型」', async () => {
+  const { context, download } = loadMgmt({
+    availability: 'downloading',
+    runtime: {
+      phase: 'downloading',
+      availability: 'downloading',
+      downloadPct: 42,
+      updatedAt: Date.now(),
+    },
+  });
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
+  assert.equal(download.textContent, '下载模型');
 });
 
 test('popup pagehide 调用 abandonEnable', () => {
