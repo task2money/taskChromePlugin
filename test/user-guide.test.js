@@ -162,6 +162,7 @@ describe('UserGuide sections', () => {
     assert.match(blob, /\/prompt-shares\//);
     assert.match(blob, /预埋自动创新这一条技能/);
     assert.doesNotMatch(blob, /不应用/);
+    assert.match(blob, /关掉扩展弹窗会中断本次启用/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /自动创新智能体/);
     assert.match(md, /点 \*\*「设置」\*\*/);
@@ -196,6 +197,7 @@ describe('UserGuide sections', () => {
     assert.match(md, /跟随插件顶栏语言/);
     const en = fs.readFileSync(path.join(__dirname, '../lib/user-guide-en-sections.js'), 'utf8');
     assert.match(en, /follow the popup language switch/);
+    assert.match(en, /Closing the popup aborts that enable/);
   });
 
   it('float-create 说明包含面板顶部 × 关闭浮窗', () => {

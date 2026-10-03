@@ -47,6 +47,7 @@ importScripts(
   '../lib/page-advisor-llm-client.js',
   '../lib/page-advisor-builtin-runtime.js',
   '../lib/page-advisor-builtin-prompt.js',
+  '../lib/page-advisor-builtin-enable.js',
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-site-pending.js',
   '../lib/plugin-version.js',
@@ -68,6 +69,7 @@ importScripts(
   './sw-page-advisor.js',
   './sw-page-advisor-pending.js',
   './sw-builtin-edge-tunnel.js',
+  './sw-builtin-enable-watchdog.js',
 );
 
 

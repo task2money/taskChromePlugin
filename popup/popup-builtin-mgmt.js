@@ -129,6 +129,9 @@
             ? PageAdvisorBuiltinPrompt.promptLanguage(popupLocale())
             : 'zh'),
           phase,
+          ...((availability === 'available' || (opts && opts.clearInFlight))
+            ? { downloadInFlight: false }
+            : {}),
         });
         runtimeSnap = await PageAdvisorBuiltinRuntime.read();
       } catch (_) { /* ignore */ }
@@ -168,8 +171,9 @@
         setBusy(btn, false);
       }
     };
-    if (downloadGuard) downloadGuard.run(run).catch(() => {});
-    else run().catch(() => {});
+    const pending = downloadGuard ? downloadGuard.run(run) : run();
+    pending.catch(() => {});
+    return pending;
   }
 
   function onCancelBuiltinDownload(selectedRouteMode) {
@@ -185,8 +189,9 @@
       }
       await refreshBuiltinRoute(selectedRouteMode);
     };
-    if (cancelGuard) cancelGuard.run(run).catch(() => {});
-    else run().catch(() => {});
+    const pending = cancelGuard ? cancelGuard.run(run) : run();
+    pending.catch(() => {});
+    return pending;
   }
 
   function onRefreshBuiltinStatus(selectedRouteMode) {
@@ -204,8 +209,9 @@
         setBusy(btn, false);
       }
     };
-    if (refreshGuard) refreshGuard.run(run).catch(() => {});
-    else run().catch(() => {});
+    const pending = refreshGuard ? refreshGuard.run(run) : run();
+    pending.catch(() => {});
+    return pending;
   }
 
   function onOpenBuiltinFullMgmt() {
@@ -240,16 +246,23 @@
 
   function bindBuiltinMgmt(selectedRouteMode) {
     const download = $('#btnDownloadBuiltinModel');
-    if (download) download.addEventListener('click', () => { onDownloadBuiltinModel(selectedRouteMode); });
+    if (download) download.addEventListener('click', () => onDownloadBuiltinModel(selectedRouteMode));
     const downloadPopup = $('#btnDownloadBuiltinModelPopup');
-    if (downloadPopup) downloadPopup.addEventListener('click', () => { onDownloadBuiltinModel(selectedRouteMode); });
+    if (downloadPopup) downloadPopup.addEventListener('click', () => onDownloadBuiltinModel(selectedRouteMode));
     const refreshBtn = $('#btnRefreshBuiltinStatus');
-    if (refreshBtn) refreshBtn.addEventListener('click', () => { onRefreshBuiltinStatus(selectedRouteMode); });
+    if (refreshBtn) refreshBtn.addEventListener('click', () => onRefreshBuiltinStatus(selectedRouteMode));
     const cancelBtn = $('#btnCancelBuiltinDownload');
-    if (cancelBtn) cancelBtn.addEventListener('click', () => { onCancelBuiltinDownload(selectedRouteMode); });
+    if (cancelBtn) cancelBtn.addEventListener('click', () => onCancelBuiltinDownload(selectedRouteMode));
     const openFull = $('#btnOpenBuiltinFullMgmt');
     if (openFull) openFull.addEventListener('click', () => { onOpenBuiltinFullMgmt(); });
     watchBuiltinRuntime(selectedRouteMode);
+    if (!isSidepanelHost() && typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('pagehide', () => {
+        if (typeof PageAdvisorBuiltinPrompt !== 'undefined' && PageAdvisorBuiltinPrompt.abandonEnable) {
+          PageAdvisorBuiltinPrompt.abandonEnable();
+        }
+      });
+    }
   }
 
   global.PopupBuiltinMgmt = {

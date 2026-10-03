@@ -114,7 +114,13 @@ function loadMgmt(opts) {
       runtime: { sendMessage: () => Promise.resolve() },
     },
     LanguageModel: { availability: async () => probeAv },
-    window: { parent: { postMessage() {} } },
+    window: {
+      parent: { postMessage() {} },
+      addEventListener(type, fn) {
+        this._on = this._on || {};
+        this._on[type] = fn;
+      },
+    },
   };
   context.globalThis = context;
   globalThis.chrome = context.chrome;
@@ -183,4 +189,32 @@ test('刷新 downloading 100% 不得显示尚未下载', async () => {
   assert.match(status.textContent, /尚未启用/);
   assert.notEqual(status.textContent, '需要下载内置模型');
   assert.equal(status.textContent.includes('尚未下载'), false);
+});
+
+test('刷新 inFlight 100% 后 session 不再 downloadInFlight', async () => {
+  const { context, refresh, store } = loadMgmt({
+    availability: 'downloading',
+    runtime: {
+      phase: 'downloading',
+      availability: 'downloading',
+      downloadPct: 100,
+      downloadInFlight: true,
+      enableStartedAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  });
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  await refresh.click();
+  const snap = store.pageAdvisorBuiltinRuntime;
+  assert.equal(snap.downloadInFlight, false);
+});
+
+test('popup pagehide 调用 abandonEnable', () => {
+  const { context } = loadMgmt();
+  let n = 0;
+  context.PageAdvisorBuiltinPrompt.abandonEnable = () => { n += 1; return true; };
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  assert.equal(typeof context.window._on.pagehide, 'function');
+  context.window._on.pagehide();
+  assert.equal(n, 1);
 });

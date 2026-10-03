@@ -100,6 +100,61 @@ test('设置页探测不得把卡住的 collecting 写回去', () => {
   );
 });
 
+test('刷新 clearInFlight 写入 downloadInFlight false（T1）', async () => {
+  const store = memStore();
+  await runtime.write({
+    phase: 'downloading',
+    availability: 'downloading',
+    downloadPct: 100,
+    downloadInFlight: true,
+    enableStartedAt: Date.now(),
+  }, store);
+  await runtime.write({
+    phase: runtime.phaseForSettingsProbe(
+      await runtime.read(store),
+      'downloading',
+      { clearInFlight: true },
+    ),
+    availability: 'downloading',
+    downloadInFlight: false,
+  }, store);
+  const snap = await runtime.read(store);
+  assert.equal(snap.downloadInFlight, false);
+  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
+  assert.equal(runtime.statusLine(snap, tx), 'paBuiltinDownloadNeedEnable:100');
+});
+
+test('100% inFlight 未超时仍是正在启用（T2）', () => {
+  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
+  const snap = {
+    phase: 'downloading',
+    availability: 'downloading',
+    downloadPct: 100,
+    downloadInFlight: true,
+    enableStartedAt: Date.now(),
+  };
+  assert.equal(runtime.isEnableStale(snap), false);
+  assert.equal(runtime.statusLine(snap, tx), 'paBuiltinEnabling:100');
+});
+
+test('100% inFlight 超过 180s 恢复尚未启用（T3）', async () => {
+  const store = memStore();
+  const started = Date.now() - 200_000;
+  await runtime.write({
+    phase: 'downloading',
+    availability: 'downloading',
+    downloadPct: 100,
+    downloadInFlight: true,
+    enableHundredAt: started,
+    enableStartedAt: started,
+  }, store);
+  const rec = await runtime.recoverIfStale(store, Date.now(), runtime.ENABLE_STALE_MS);
+  assert.equal(rec.recovered, true);
+  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
+  assert.equal(runtime.statusLine(rec.snap, tx), 'paBuiltinDownloadNeedEnable:100');
+  assert.notEqual(runtime.statusLine(rec.snap, tx), 'paBuiltinEnabling:100');
+});
+
 test('设置页即使采集刚写入也不展示 paCollecting', () => {
   const tx = (k) => k;
   const fresh = {

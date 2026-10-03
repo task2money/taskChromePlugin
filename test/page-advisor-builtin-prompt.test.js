@@ -2,6 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 require('../lib/page-advisor-locale-prompt.js');
+require('../lib/page-advisor-builtin-enable.js');
 const builtin = require('../lib/page-advisor-builtin-prompt.js');
 
 test('界面语言只映射成 zh 或 en', () => {
@@ -401,6 +402,183 @@ test('内置失败通知不含页面原文', async () => {
   assert.ok(failed);
   assert.equal(JSON.stringify(failed).includes(secret), false);
   assert.equal(JSON.stringify(failed).includes('apiKey'), false);
+});
+
+test('startDownload 100% 后超时 abort（enableTimeoutMs）', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  let aborted = false;
+  const downloadModel = {
+    async create(opts) {
+      opts.monitor({
+        addEventListener(name, fn) {
+          if (name === 'downloadprogress') fn({ loaded: 1, total: 1 });
+        },
+      });
+      return new Promise((_, reject) => {
+        const signal = opts && opts.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            aborted = true;
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        }
+      });
+    },
+  };
+  try {
+    await assert.rejects(
+      () => builtin.startDownload(downloadModel, 'zh-CN', { enableTimeoutMs: 30 }),
+    );
+    assert.equal(aborted, true);
+    const done = bag[runtime.STORAGE_KEY];
+    assert.equal(done.downloadInFlight, false);
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+});
+
+test('abandonEnable 后 runAltZ 提示尚未启用（T4）', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  const hanging = {
+    async availability() { return 'downloading'; },
+    async create(opts) {
+      opts.monitor({
+        addEventListener(name, fn) {
+          if (name === 'downloadprogress') fn({ loaded: 1, total: 1 });
+        },
+      });
+      return new Promise((_, reject) => {
+        const signal = opts && opts.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        }
+      });
+    },
+  };
+  const pending = builtin.startDownload(hanging, 'zh-CN', {});
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal(builtin.abandonEnable(), true);
+  await assert.rejects(() => pending);
+  const notes = [];
+  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
+  try {
+    await builtin.runAltZ(1, {
+      languageModel: {
+        async availability() { return 'downloading'; },
+        async create() { throw new Error('should not create'); },
+      },
+      askContext: async () => ({
+        success: true,
+        data: { url: 'https://example.test', title: 't', pageText: 'p', domOutline: [] },
+      }),
+      notify: async (_tab, payload) => { notes.push(payload); },
+      tx,
+      locale: 'zh-CN',
+      enablePollMs: 0,
+    });
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+  const failed = notes.find((item) => item && item.ok === false);
+  assert.ok(failed);
+  assert.equal(failed.error, 'paBuiltinDownloadNeedEnable:100');
+  assert.match(String(failed.errorCode), /builtin_downloading|builtin_needs_download/);
+});
+
+test('inFlight 未超时 runAltZ 等到 available 后给出建议（T5）', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  require('../lib/page-advisor-builtin-enable.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevLlm = globalThis.PageAdvisorLLM;
+  const prevChrome = globalThis.chrome;
+  const bag = {
+    [runtime.STORAGE_KEY]: {
+      phase: 'downloading',
+      availability: 'downloading',
+      downloadPct: 100,
+      downloadInFlight: true,
+      enableStartedAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+  };
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.PageAdvisorLLM = {
+    parseSuggestionsJSON: () => [{ id: '1', title: 't', summary: 's' }],
+    buildChatMessages: (page) => [{ role: 'user', content: page.pageText }],
+  };
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  let probes = 0;
+  const notes = [];
+  try {
+    await builtin.runAltZ(1, {
+      languageModel: {
+        async availability() {
+          probes += 1;
+          return probes < 2 ? 'downloading' : 'available';
+        },
+        async create() {
+          return {
+            inputQuota: 8000,
+            measureInputUsage: (text) => String(text || '').length,
+            async prompt() { return '[]'; },
+            destroy() {},
+          };
+        },
+      },
+      askContext: async () => ({
+        success: true,
+        data: { url: 'https://example.test', title: 't', pageText: 'p', domOutline: [] },
+      }),
+      notify: async (_tab, payload) => { notes.push(payload); },
+      tx: (k, vars) => k + (vars && vars.sec != null ? `:${vars.sec}` : ''),
+      locale: 'zh-CN',
+      enablePollMs: 10,
+      enableTimeoutMs: 2000,
+    });
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.PageAdvisorLLM = prevLlm;
+    globalThis.chrome = prevChrome;
+  }
+  const done = notes.find((item) => item && item.ok === true && item.phase === 'done');
+  assert.ok(done, JSON.stringify(notes));
+  assert.equal(done.suggestions.length, 1);
+  assert.ok(probes >= 2);
 });
 
 test('内容脚本源码不引用 LanguageModel', () => {
