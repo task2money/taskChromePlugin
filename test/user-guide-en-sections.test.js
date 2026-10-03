@@ -28,4 +28,9 @@ describe('user-guide-en-sections', () => {
     assert.doesNotMatch(src, /stored in this browser LocalStorage/);
     assert.doesNotMatch(src, /\(free;/);
   });
+
+  it('本机模型出售说明覆盖重装后从平台恢复', () => {
+    assert.match(src, /same browser can recompute it after reinstall/);
+    assert.match(src, /restores your sell-project node from the platform/);
+  });
 });

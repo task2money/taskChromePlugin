@@ -46,6 +46,7 @@ describe('Popup / 侧栏 本机模型出售', () => {
     assert.match(sec, /id="builtinEdgeFingerprint"/);
     assert.match(sp, /sidepanel-edge-sell-boot\.js/);
     assert.match(sp, /plugin-install-fingerprint\.js/);
+    assert.match(sp, /builtin-edge-registration-recover\.js/);
   });
 
   it('设置页（popup.html）不显示本机模型出售区块或入口', () => {
@@ -191,5 +192,7 @@ describe('Popup / 侧栏 本机模型出售', () => {
     const src = fs.readFileSync(path.join(ROOT, 'popup/popup-builtin-edge-sell.js'), 'utf8');
     assert.match(src, /nodes\/\$\{encodeURIComponent\(nodeId\)\}\/revoke/);
     assert.match(src, /stopBuiltinEdgeTunnel/);
+    assert.match(src, /restoreRegistrationIfMissing/);
+    assert.match(src, /pickRecoverableBuiltinEdgeNode/);
   });
 });

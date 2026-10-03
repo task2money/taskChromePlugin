@@ -66,4 +66,25 @@ describe('PluginInstallFingerprint', () => {
     assert.equal(storage._data[FP.STORAGE_KEY], first);
     assert.equal(await FP.getPluginInstallFingerprint(storage), first);
   });
+
+  it('ensure 在空 storage 上对相同浏览器特征生成稳定指纹（重装可复算）', async () => {
+    const env = {
+      navigator: { userAgent: 'UA-stable', language: 'zh-CN', platform: 'Linux' },
+      screen: { width: 1920, height: 1080, colorDepth: 24 },
+      timeZone: 'Asia/Shanghai',
+    };
+    const a = await FP.ensurePluginInstallFingerprint(memStorage(), env);
+    const b = await FP.ensurePluginInstallFingerprint(memStorage(), env);
+    assert.equal(a, b);
+    assert.match(a, /^pf_[0-9a-f]{16}_[a-z0-9]{8}$/);
+  });
+
+  it('默认 seed 不含 runtimeId，避免 unpacked 重装改扩展 ID 导致指纹变化', () => {
+    const nav = { userAgent: 'UA', language: 'en', platform: 'Mac' };
+    const scr = { width: 1, height: 2 };
+    const without = FP.collectBrowserFingerprintSeed(nav, scr, { timeZone: 'UTC' });
+    const withRid = FP.collectBrowserFingerprintSeed(nav, scr, { timeZone: 'UTC', runtimeId: 'ext-new' });
+    assert.doesNotMatch(without, /ext-new/);
+    assert.match(withRid, /ext-new/);
+  });
 });

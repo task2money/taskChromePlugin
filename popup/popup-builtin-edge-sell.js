@@ -84,6 +84,75 @@
       .join('');
   }
 
+  async function collectSellerEdgeNodes() {
+    const data = await saasRequest('GET', '/api/cloud/v1/builtin-edge/offers');
+    const items = Array.isArray(data?.items) ? data.items : [];
+    const nodes = [];
+    for (let i = 0; i < items.length; i += 1) {
+      const oid = String(items[i]?.id || '').trim();
+      if (!oid) continue;
+      const listed = await saasRequest(
+        'GET',
+        `/api/cloud/v1/builtin-edge/offers/${encodeURIComponent(oid)}/nodes`,
+      );
+      const chunk = Array.isArray(listed?.items) ? listed.items : [];
+      for (let j = 0; j < chunk.length; j += 1) nodes.push(chunk[j]);
+    }
+    return nodes;
+  }
+
+  async function restoreRegistrationIfMissing() {
+    const Recover = globalThis.BuiltinEdgeRegistrationRecover;
+    if (!Recover?.pickRecoverableBuiltinEdgeNode || !Tunnel || !Join) return null;
+    try {
+      const active = await Tunnel.getActiveBuiltinEdgeTunnel();
+      if (Menu.isEdgeSellRegistered(active)) return active;
+      let fingerprint = '';
+      try {
+        const FP = globalThis.PluginInstallFingerprint;
+        if (FP?.ensurePluginInstallFingerprint) {
+          fingerprint = await FP.ensurePluginInstallFingerprint(chrome.storage?.local);
+        }
+      } catch (e) {
+        console.warn('[builtin-edge-sell] fingerprint for restore failed', e?.message || e);
+      }
+      const nodes = await collectSellerEdgeNodes();
+      const picked = Recover.pickRecoverableBuiltinEdgeNode(fingerprint, nodes);
+      if (!picked) return null;
+      const row = Recover.toActiveTunnelRow(picked);
+      if (!row.projectId || !row.nodeId) return null;
+      await Join.saveBuiltinEdgeNodeJoin({
+        offer_id: row.projectId,
+        node_id: row.nodeId,
+        device_label: row.deviceLabel,
+        install_fingerprint: fingerprint || row.installFingerprint,
+      });
+      await Tunnel.setActiveBuiltinEdgeTunnel(row);
+      try {
+        await chrome.runtime.sendMessage({
+          action: 'startBuiltinEdgeTunnel',
+          projectId: row.projectId,
+          nodeId: row.nodeId,
+        });
+      } catch (e) {
+        console.warn('[builtin-edge-sell] restart tunnel after restore failed', e?.message || e);
+      }
+      console.info('[builtin-edge-sell] restored registration', {
+        projectId: row.projectId,
+        nodeId: row.nodeId,
+      });
+      const status = document.getElementById('builtinEdgeSellStatus');
+      if (status) {
+        status.textContent = tx('builtinEdgeSellRestored', '已从平台恢复本机注册');
+        status.removeAttribute('data-traceId');
+      }
+      return row;
+    } catch (e) {
+      console.warn('[builtin-edge-sell] restore registration failed', e?.message || e);
+      return null;
+    }
+  }
+
   async function fetchNodeForActive(active) {
     const projectId = String(active?.projectId || '').trim();
     const nodeId = String(active?.nodeId || '').trim();
@@ -275,6 +344,7 @@
       fillFingerprintLine().catch(() => {});
       if (document.getElementById('builtinEdgeProjectId')) {
         loadOfferSelect()
+          .then(() => restoreRegistrationIfMissing())
           .then(() => refreshRegisteredView())
           .catch(() => {});
       }

@@ -53,6 +53,7 @@ importScripts(
   '../lib/open-chrome-url.js',
   '../lib/plugin-version-download.js',
   '../lib/plugin-install-fingerprint.js',
+  '../lib/builtin-edge-registration-recover.js',
   '../lib/builtin-edge-node-join.js',
   '../lib/builtin-edge-supported-models.js',
   '../lib/builtin-edge-tunnel.js',
