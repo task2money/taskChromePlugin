@@ -120,14 +120,29 @@
   function onDownload() {
     const run = async () => {
       const btn = $('#spBuiltinDownload');
+      const statusEl = $('#spBuiltinStatus');
       setBusy(btn, true);
+      if (statusEl && typeof tx === 'function') {
+        statusEl.textContent = tx('paBuiltinDownloading', { pct: '0' });
+      }
       try {
         await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, locale(), {
-          onProgress() { probeDetails().catch(() => {}); },
+          onProgress(pct) {
+            if (statusEl && typeof tx === 'function') {
+              statusEl.textContent = tx('paBuiltinDownloading', { pct });
+            }
+            probeDetails().catch(() => {});
+          },
         });
         await probeDetails();
-      } catch (_) {
-        await probeDetails();
+      } catch (err) {
+        // 失败须可见：不可仅 probeDetails 静默吞掉（用户感知为「点了没反响」）
+        if (statusEl) {
+          const base = typeof tx === 'function' ? tx('paBuiltinFailed') : 'failed';
+          const detail = err && err.message ? String(err.message).slice(0, 160) : '';
+          statusEl.textContent = detail ? `${base} (${detail})` : base;
+        }
+        await probeDetails().catch(() => {});
       } finally {
         setBusy(btn, false);
       }
@@ -138,7 +153,13 @@
 
   function onCancel() {
     const run = async () => {
-      if (PageAdvisorBuiltinPrompt.cancelDownload) PageAdvisorBuiltinPrompt.cancelDownload();
+      const statusEl = $('#spBuiltinStatus');
+      const cancelled = PageAdvisorBuiltinPrompt.cancelDownload
+        ? PageAdvisorBuiltinPrompt.cancelDownload()
+        : false;
+      if (!cancelled && statusEl && typeof tx === 'function') {
+        statusEl.textContent = tx('paBuiltinNeedsDownload');
+      }
       await probeDetails();
     };
     if (cancelGuard) cancelGuard.run(run).catch(() => {});

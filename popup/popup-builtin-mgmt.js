@@ -161,8 +161,14 @@
 
   function onCancelBuiltinDownload(selectedRouteMode) {
     const run = async () => {
-      if (typeof PageAdvisorBuiltinPrompt !== 'undefined' && PageAdvisorBuiltinPrompt.cancelDownload) {
-        PageAdvisorBuiltinPrompt.cancelDownload();
+      const status = $('#popupBuiltinStatus');
+      const cancelled = (typeof PageAdvisorBuiltinPrompt !== 'undefined'
+        && PageAdvisorBuiltinPrompt.cancelDownload)
+        ? PageAdvisorBuiltinPrompt.cancelDownload()
+        : false;
+      if (!cancelled && status && typeof tx === 'function') {
+        status.hidden = false;
+        status.textContent = tx('paBuiltinNeedsDownload');
       }
       await refreshBuiltinRoute(selectedRouteMode);
     };

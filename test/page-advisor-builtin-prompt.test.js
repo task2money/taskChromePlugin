@@ -208,6 +208,35 @@ test('cancelDownload 会 abort 进行中的下载', async () => {
   assert.equal(aborted, true);
 });
 
+test('startDownload 在 await availability 之前就必须调用 create（保留用户激活）', async () => {
+  let created = 0;
+  let createStarted = null;
+  const downloadModel = {
+    async availability() {
+      // 若实现先 await availability，create 永远不会开始 → 用户激活已丢失
+      return new Promise(() => {});
+    },
+    async create(opts) {
+      created += 1;
+      createStarted = opts;
+      return new Promise((resolve, reject) => {
+        const signal = opts && opts.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        }
+      });
+    },
+  };
+  const pending = builtin.startDownload(downloadModel, 'zh-CN', {});
+  await new Promise((r) => setTimeout(r, 30));
+  assert.equal(created, 1, 'create 必须在 availability 完成前启动，否则 Chrome 会因无用户激活拒绝下载');
+  assert.ok(createStarted && createStarted.signal, 'create 须带 AbortSignal 以支持取消');
+  assert.equal(builtin.cancelDownload(), true);
+  await assert.rejects(() => pending);
+});
+
 test('内置失败通知不含页面原文', async () => {
   const secret = '页面机密原文-不应出现';
   const notes = [];

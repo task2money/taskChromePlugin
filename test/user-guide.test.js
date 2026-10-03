@@ -352,6 +352,14 @@ describe('USER_GUIDE.md sync', () => {
     assert.match(md, /扩展弹窗/);
     assert.match(md, /浮窗不再|页内浮窗不.*使用说明|不在页内浮窗/);
   });
+
+  it('documents builtin model download user-activation and cancel scope', () => {
+    const src = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(src, /按钮点击同一手势内启动/);
+    assert.match(src, /取消本页正在进行的下载/);
+    assert.match(md, /按钮点击同一手势内启动/);
+  });
 });
 
 describe('float surface does not mount UserGuide', () => {
