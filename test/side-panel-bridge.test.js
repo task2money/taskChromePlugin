@@ -78,6 +78,18 @@ describe('side panel manifest', () => {
     assert.match(settingsCss, /width:\s*100%/);
     assert.match(settingsCss, /background:\s*#fff/);
   });
+
+  // 本机模型页签在侧栏宿主直接渲染（非设置 iframe），若只引 popup.css 会吃到 #1e1e2e。
+  it('本机模型页签宿主须加载 popup-sidepanel 浅色覆盖（在 popup.css 之后）', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
+    assert.match(html, /data-taskplugin-host="sidepanel"/);
+    assert.match(html, /id="sp-pane-builtin"/);
+    const popupCss = html.indexOf('href="../popup/popup.css"');
+    const lightCss = html.indexOf('href="../popup/popup-sidepanel.css"');
+    assert.ok(popupCss >= 0, 'sidepanel 须引用 popup.css');
+    assert.ok(lightCss >= 0, 'sidepanel 须引用 popup-sidepanel.css，否则本机模型区仍为深色底');
+    assert.ok(lightCss > popupCss, 'popup-sidepanel.css 须排在 popup.css 之后以覆盖深色底');
+  });
 });
 
 // OPT-20260929-014：侧边栏设置页此前按类名逐条把深色块改成白底，
