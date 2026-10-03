@@ -428,6 +428,13 @@ async function handleMessageRest(message, sender) {
       return startBuiltinEdgeTunnelFromMessage(message);
     }
 
+    case 'stopBuiltinEdgeTunnel': {
+      if (typeof stopBuiltinEdgeTunnelFromMessage !== 'function') {
+        return { success: false, error: 'builtin edge tunnel not loaded' };
+      }
+      return stopBuiltinEdgeTunnelFromMessage(message);
+    }
+
     default:
       return { error: `Unknown action: ${message.action}` };
   }

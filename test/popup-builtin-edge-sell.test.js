@@ -13,6 +13,9 @@ const {
   applyEdgeSellSectionVisibility,
   buildEdgeOfferSelectMenu,
   applyEdgeOfferSelect,
+  isEdgeSellRegistered,
+  applyEdgeSellRegisteredMode,
+  formatEdgeSellRegisteredView,
 } = require('../lib/popup-builtin-edge-sell.js');
 
 function popupHtml() {
@@ -114,5 +117,44 @@ describe('Popup 本机模型出售 — 登录可见 + 项目下拉', () => {
     assert.match(src, /buildEdgeOfferSelectMenu|PopupBuiltinEdgeSellMenu/);
     assert.match(src, /builtinEdgeProjectId/);
     assert.match(src, /setLoggedIn/);
+  });
+
+  it('已注册态：当前注册情况、调用情况、取消注册', () => {
+    const sec = edgeSellSection();
+    assert.match(sec, /id="builtinEdgeSellRegisteredPanel"/);
+    assert.match(sec, /data-i18n="builtinEdgeRegistrationTitle"/);
+    assert.match(sec, /data-i18n="builtinEdgeCallStatsTitle"/);
+    assert.match(sec, /id="btnBuiltinEdgeUnregister"/);
+    assert.match(sec, /data-testid="builtin-edge-unregister"/);
+
+    const view = formatEdgeSellRegisteredView(
+      {
+        status: 'online',
+        inflight: 1,
+        max_concurrency: 2,
+        dispatch_count: 5,
+        success_count: 4,
+        error_count: 1,
+        last_seen_at: '2026-10-03T01:00:00Z',
+        last_dispatch_at: '2026-10-03T01:02:00Z',
+        device_label: '书房',
+      },
+      { projectId: 'p1', nodeId: 'n1', projectTitle: '家用' },
+      { labels: { project: '项目', node: '节点', status: '状态', device: '设备', lastSeen: '最近保活', inflight: '进行中', dispatch: '已分派', success: '成功', error: '失败', lastDispatch: '最近分派' } },
+    );
+    assert.ok(view.registrationLines.some((l) => l.includes('家用')));
+    assert.ok(view.callLines.some((l) => l.includes('已分派') && l.includes('5')));
+
+    const register = { hidden: false, style: { display: '' } };
+    const registered = { hidden: true, style: { display: 'none' } };
+    applyEdgeSellRegisteredMode(register, registered, true);
+    assert.equal(register.hidden, true);
+    assert.equal(registered.hidden, false);
+    assert.equal(isEdgeSellRegistered({ projectId: 'p', nodeId: 'n' }), true);
+    assert.equal(isEdgeSellRegistered({ projectId: '', nodeId: 'n' }), false);
+
+    const src = fs.readFileSync(path.join(ROOT, 'popup/popup-builtin-edge-sell.js'), 'utf8');
+    assert.match(src, /nodes\/\$\{encodeURIComponent\(nodeId\)\}\/revoke/);
+    assert.match(src, /stopBuiltinEdgeTunnel/);
   });
 });

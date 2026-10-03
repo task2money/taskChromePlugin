@@ -80,16 +80,27 @@
           <p class="float-ball-hint" data-region-help="1" data-i18n="builtinEdgeSellHint">先在账号中心「本机模型出售」创建出售项目，再在下方下拉选择项目完成注册。插件会主动连接平台保活（无需公网 IP），平台才能把请求转到本机内置模型。</p>
         </details>
       </div>
-      <label class="form-row">
-        <span data-i18n="builtinEdgeProjectIdLabel">出售项目</span>
-        <select id="builtinEdgeProjectId" class="form-select" data-testid="builtin-edge-project-id" data-i18n-aria-label="builtinEdgeProjectIdLabel" aria-label="出售项目"></select>
-      </label>
-      <label class="form-row">
-        <span data-i18n="builtinEdgeDeviceLabel">设备备注（可选）</span>
-        <input type="text" id="builtinEdgeDeviceLabel" class="form-input" data-testid="builtin-edge-device-label" autocomplete="off" />
-      </label>
-      <div class="btn-row">
-        <button type="button" id="btnBuiltinEdgeRegister" class="btn btn-primary" data-testid="builtin-edge-register" data-i18n="builtinEdgeRegister">注册本机到项目</button>
+      <div id="builtinEdgeSellRegisterPanel" data-testid="builtin-edge-sell-register-panel">
+        <label class="form-row">
+          <span data-i18n="builtinEdgeProjectIdLabel">出售项目</span>
+          <select id="builtinEdgeProjectId" class="form-select" data-testid="builtin-edge-project-id" data-i18n-aria-label="builtinEdgeProjectIdLabel" aria-label="出售项目"></select>
+        </label>
+        <label class="form-row">
+          <span data-i18n="builtinEdgeDeviceLabel">设备备注（可选）</span>
+          <input type="text" id="builtinEdgeDeviceLabel" class="form-input" data-testid="builtin-edge-device-label" autocomplete="off" />
+        </label>
+        <div class="btn-row">
+          <button type="button" id="btnBuiltinEdgeRegister" class="btn btn-primary" data-testid="builtin-edge-register" data-i18n="builtinEdgeRegister">注册本机到项目</button>
+        </div>
+      </div>
+      <div id="builtinEdgeSellRegisteredPanel" class="builtin-edge-registered" style="display:none" hidden data-testid="builtin-edge-sell-registered-panel">
+        <h4 class="heading-sm" data-i18n="builtinEdgeRegistrationTitle">当前注册情况</h4>
+        <ul id="builtinEdgeRegistrationLines" class="hint-list" data-testid="builtin-edge-registration-lines"></ul>
+        <h4 class="heading-sm" data-i18n="builtinEdgeCallStatsTitle">调用情况</h4>
+        <ul id="builtinEdgeCallLines" class="hint-list" data-testid="builtin-edge-call-lines"></ul>
+        <div class="btn-row">
+          <button type="button" id="btnBuiltinEdgeUnregister" class="btn btn-danger" data-testid="builtin-edge-unregister" data-i18n="builtinEdgeUnregister">取消注册</button>
+        </div>
       </div>
       <p id="builtinEdgeSellStatus" class="hint" aria-live="polite" data-testid="builtin-edge-sell-status"></p>
     </section>

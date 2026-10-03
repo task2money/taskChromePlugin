@@ -135,6 +135,16 @@
     return { success: true, ok: true };
   };
 
+  globalThis.stopBuiltinEdgeTunnelFromMessage = async function stopBuiltinEdgeTunnelFromMessage() {
+    if (chrome?.alarms?.clear) {
+      await chrome.alarms.clear(ALARM);
+    }
+    if (Tunnel?.clearActiveBuiltinEdgeTunnel) {
+      await Tunnel.clearActiveBuiltinEdgeTunnel();
+    }
+    return { success: true, ok: true };
+  };
+
   // Resume keepalive when SW wakes if an active tunnel is stored.
   chrome.runtime.onStartup?.addListener?.(() => { startAlarm(); });
   chrome.runtime.onInstalled?.addListener?.(() => { startAlarm(); });

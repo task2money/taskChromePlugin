@@ -1,6 +1,7 @@
 /**
- * Popup: register this Chrome to a sell project + start outbound tunnel keepalive (ADR-0130).
+ * Popup: register this Chrome to a sell project + start outbound tunnel keepalive (ADR-0130/0132).
  * Visible only when logged in; project id chosen from GET /offers dropdown.
+ * When registered: show registration + call stats + unregister.
  */
 (function () {
   'use strict';
@@ -10,6 +11,7 @@
   const Menu = globalThis.PopupBuiltinEdgeSellMenu;
 
   let loggedIn = false;
+  let offerTitleById = {};
 
   function tx(key, fallback) {
     try {
@@ -56,16 +58,75 @@
     return res.json();
   }
 
-  async function refreshStatusEl() {
-    const el = document.getElementById('builtinEdgeSellStatus');
-    if (!el || !Tunnel) return;
+  function fillList(el, lines) {
+    if (!el) return;
+    el.innerHTML = (Array.isArray(lines) ? lines : [])
+      .map((line) => `<li>${String(line)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')}</li>`)
+      .join('');
+  }
+
+  async function fetchNodeForActive(active) {
+    const projectId = String(active?.projectId || '').trim();
+    const nodeId = String(active?.nodeId || '').trim();
+    if (!projectId || !nodeId) return null;
+    const data = await saasRequest(
+      'GET',
+      `/api/cloud/v1/builtin-edge/offers/${encodeURIComponent(projectId)}/nodes`,
+    );
+    const items = Array.isArray(data?.items) ? data.items : [];
+    return items.find((n) => String(n?.id || '') === nodeId) || null;
+  }
+
+  async function refreshRegisteredView() {
+    if (!Menu || !Tunnel) return;
     const active = await Tunnel.getActiveBuiltinEdgeTunnel();
-    if (!active?.nodeId) {
-      el.textContent = tx('builtinEdgeSellIdle', '尚未注册到出售项目');
+    const registered = Menu.isEdgeSellRegistered(active);
+    Menu.applyEdgeSellRegisteredMode(
+      document.getElementById('builtinEdgeSellRegisterPanel'),
+      document.getElementById('builtinEdgeSellRegisteredPanel'),
+      registered,
+    );
+    const status = document.getElementById('builtinEdgeSellStatus');
+    if (!registered) {
+      if (status && !status.textContent) {
+        status.textContent = tx('builtinEdgeSellIdle', '尚未注册到出售项目');
+      }
       return;
     }
-    el.textContent = tx('builtinEdgeSellOnline', '已注册') +
-      ` · project ${active.projectId} · node ${active.nodeId}`;
+    let node = null;
+    try {
+      node = await fetchNodeForActive(active);
+    } catch (e) {
+      if (status) status.textContent = e?.message || String(e);
+    }
+    const view = Menu.formatEdgeSellRegisteredView(node, {
+      projectId: active.projectId,
+      nodeId: active.nodeId,
+      projectTitle: offerTitleById[active.projectId] || '',
+      deviceLabel: active.deviceLabel || '',
+    }, {
+      labels: {
+        project: tx('builtinEdgeRegProject', '项目'),
+        node: tx('builtinEdgeRegNode', '节点'),
+        status: tx('builtinEdgeRegStatus', '状态'),
+        device: tx('builtinEdgeRegDevice', '设备'),
+        lastSeen: tx('builtinEdgeRegLastSeen', '最近保活'),
+        inflight: tx('builtinEdgeCallInflight', '进行中'),
+        dispatch: tx('builtinEdgeCallDispatch', '已分派'),
+        success: tx('builtinEdgeCallSuccess', '成功'),
+        error: tx('builtinEdgeCallError', '失败'),
+        lastDispatch: tx('builtinEdgeCallLastDispatch', '最近分派'),
+      },
+    });
+    fillList(document.getElementById('builtinEdgeRegistrationLines'), view.registrationLines);
+    fillList(document.getElementById('builtinEdgeCallLines'), view.callLines);
+    if (status) {
+      status.textContent = tx('builtinEdgeSellOnline', '已注册');
+      status.removeAttribute('data-traceId');
+    }
   }
 
   async function loadOfferSelect() {
@@ -80,12 +141,19 @@
     try {
       const data = await saasRequest('GET', '/api/cloud/v1/builtin-edge/offers');
       const items = Array.isArray(data?.items) ? data.items : [];
+      offerTitleById = {};
+      items.forEach((o) => {
+        const id = String(o?.id || '').trim();
+        if (id) offerTitleById[id] = String(o?.title || id);
+      });
       const menu = Menu.buildEdgeOfferSelectMenu(items, activeId, {
         placeholder: tx('builtinEdgeProjectPlaceholder', '-- 请选择出售项目 --'),
         pausedSuffix: tx('builtinEdgeProjectPaused', '(已暂停)'),
       });
       Menu.applyEdgeOfferSelect(sel, menu);
-      if (!items.length && status) {
+      if (!items.length && status && !Menu.isEdgeSellRegistered(
+        Tunnel ? await Tunnel.getActiveBuiltinEdgeTunnel() : null,
+      )) {
         status.textContent = tx('builtinEdgeProjectEmpty', '暂无出售项目，请先在账号中心创建');
       }
     } catch (e) {
@@ -141,7 +209,43 @@
           nodeId: out.nodeId,
         });
       } catch (_) { /* SW may still pick from storage */ }
-      await refreshStatusEl();
+      await refreshRegisteredView();
+    } catch (e) {
+      if (status) status.textContent = e?.message || String(e);
+    }
+  }
+
+  async function onUnregister() {
+    const status = document.getElementById('builtinEdgeSellStatus');
+    if (!Tunnel) return;
+    const active = await Tunnel.getActiveBuiltinEdgeTunnel();
+    const nodeId = String(active?.nodeId || '').trim();
+    const projectId = String(active?.projectId || '').trim();
+    if (!nodeId) {
+      await refreshRegisteredView();
+      return;
+    }
+    if (status) {
+      status.textContent = tx('builtinEdgeUnregistering', '正在取消注册…');
+      status.removeAttribute('data-traceId');
+    }
+    try {
+      await saasRequest('POST', `/api/cloud/v1/builtin-edge/nodes/${encodeURIComponent(nodeId)}/revoke`, {}, {
+        'Idempotency-Key': newIdem('edge-revoke'),
+      });
+      if (Join?.clearBuiltinEdgeNodeJoin && projectId) {
+        await Join.clearBuiltinEdgeNodeJoin(projectId);
+      }
+      try {
+        await chrome.runtime.sendMessage({ action: 'stopBuiltinEdgeTunnel' });
+      } catch (_) {
+        if (Tunnel.clearActiveBuiltinEdgeTunnel) {
+          await Tunnel.clearActiveBuiltinEdgeTunnel();
+        }
+      }
+      if (status) status.textContent = tx('builtinEdgeUnregistered', '已取消注册');
+      await loadOfferSelect();
+      await refreshRegisteredView();
     } catch (e) {
       if (status) status.textContent = e?.message || String(e);
     }
@@ -151,7 +255,9 @@
     if (!Menu) return;
     Menu.applyEdgeSellSectionVisibility(sectionEl(), loggedIn);
     if (loggedIn) {
-      loadOfferSelect().then(() => refreshStatusEl()).catch(() => {});
+      loadOfferSelect()
+        .then(() => refreshRegisteredView())
+        .catch(() => {});
     }
   }
 
@@ -164,15 +270,21 @@
     const section = sectionEl();
     if (!section) return;
     const btn = document.getElementById('btnBuiltinEdgeRegister');
-    // Anti-Replay-OK: createClickGuard if available
+    const unreg = document.getElementById('btnBuiltinEdgeUnregister');
     const guard = globalThis.ClickGuard?.createClickGuard
+      ? ClickGuard.createClickGuard()
+      : null;
+    const unregGuard = globalThis.ClickGuard?.createClickGuard
       ? ClickGuard.createClickGuard()
       : null;
     btn?.addEventListener('click', () => {
       if (guard) guard.run(onRegister);
       else onRegister();
     });
-    // Anti-Replay-OK: select change is local UI only
+    unreg?.addEventListener('click', () => {
+      if (unregGuard) unregGuard.run(onUnregister);
+      else onUnregister();
+    });
     refreshVisibility();
   }
 
