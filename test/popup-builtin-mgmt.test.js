@@ -37,7 +37,13 @@ describe('popup-builtin-mgmt download UX', () => {
     assert.match(immediate, /paBuiltinDownloading/);
   });
 
-  it('弹窗与侧栏都能点刷新状态', () => {
-    assert.match(src, /if \(refresh\) refresh\.hidden = false/);
+  it('session 监听不得再 refreshBuiltinRoute 把采集态写回', () => {
+    const watchFn = src.slice(src.indexOf('function watchBuiltinRuntime'));
+    assert.match(watchFn, /applyBuiltinStatusFromProbe/);
+    assert.doesNotMatch(watchFn, /refreshBuiltinRoute\(/);
+  });
+
+  it('设置行用 statusLineForSettings，不展示采集中', () => {
+    assert.match(src, /statusLineForSettings/);
   });
 });

@@ -78,3 +78,15 @@ test('设置页探测不得把卡住的 collecting 写回去', () => {
     'downloading',
   );
 });
+
+test('设置页即使采集刚写入也不展示 paCollecting', () => {
+  const tx = (k) => k;
+  const fresh = {
+    phase: 'collecting',
+    availability: 'downloadable',
+    updatedAt: Date.now(),
+  };
+  assert.equal(runtime.statusLine(fresh, tx), 'paCollecting');
+  assert.equal(runtime.statusLineForSettings(fresh, tx), 'paBuiltinNeedsDownload');
+  assert.equal(runtime.phaseForSettingsProbe(fresh, 'downloadable'), 'idle');
+});

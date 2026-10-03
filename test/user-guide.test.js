@@ -28,7 +28,8 @@ describe('UserGuide sections', () => {
     assert.match(blob, /单击|点击.*元素/);
     const direct = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
     assert.match((direct.steps || []).join('\n'), /离开弹窗去复制下一项/);
-    assert.match((direct.steps || []).join('\n'), /卡住的采集态/);
+    assert.match((direct.steps || []).join('\n'), /不会把页内/);
+    assert.match((direct.steps || []).join('\n'), /正在刷新/);
     assert.match(blob, /悬停|Alt\+X/);
     assert.doesNotMatch(blob, /拖拽画出矩形|拖拽框选/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');

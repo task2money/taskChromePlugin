@@ -60,12 +60,17 @@
         clearInFlight: !!(opts && opts.clearInFlight),
       })
       : 'idle';
-    if (statusEl && Runtime && Runtime.statusLine) {
-      statusEl.textContent = Runtime.statusLine({
-        ...(snap || {}),
-        availability,
-        phase,
-      }, typeof tx === 'function' ? tx : (k) => k);
+    if (statusEl && Runtime) {
+      const lineFn = typeof Runtime.statusLineForSettings === 'function'
+        ? Runtime.statusLineForSettings
+        : Runtime.statusLine;
+      if (typeof lineFn === 'function') {
+        statusEl.textContent = lineFn({
+          ...(snap || {}),
+          availability,
+          phase,
+        }, typeof tx === 'function' ? tx : (k) => k);
+      }
     }
     if (download) {
       download.hidden = availability !== 'downloadable' && availability !== 'downloading';
@@ -220,8 +225,18 @@
     if (chrome.storage && chrome.storage.onChanged) {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'session') return;
-        const key = PageAdvisorBuiltinRuntime && PageAdvisorBuiltinRuntime.STORAGE_KEY;
-        if (key && changes[key]) probeDetails().catch(() => {});
+        const Runtime = globalThis.PageAdvisorBuiltinRuntime;
+        const key = Runtime && Runtime.STORAGE_KEY;
+        if (!key || !changes[key]) return;
+        const nv = changes[key].newValue || {};
+        const statusEl = $('#spBuiltinStatus');
+        if (!statusEl || !Runtime) return;
+        const lineFn = typeof Runtime.statusLineForSettings === 'function'
+          ? Runtime.statusLineForSettings
+          : Runtime.statusLine;
+        if (typeof lineFn === 'function') {
+          statusEl.textContent = lineFn(nv, typeof tx === 'function' ? tx : (k) => k);
+        }
       });
     }
     updateTabVisibility();

@@ -38,4 +38,11 @@ describe('builtin-model-panel download UX', () => {
       /snap\.phase === 'generating' \|\| snap\.phase === 'collecting'/,
     );
   });
+
+  it('session 变化只刷新设置文案，不重跑 probeDetails', () => {
+    assert.match(src, /statusLineForSettings/);
+    const listener = src.slice(src.indexOf('chrome.storage.onChanged.addListener'));
+    const chunk = listener.slice(0, listener.indexOf('updateTabVisibility'));
+    assert.doesNotMatch(chunk, /probeDetails\(/);
+  });
 });

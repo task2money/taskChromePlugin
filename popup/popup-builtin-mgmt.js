@@ -57,8 +57,13 @@
     if (popupOnly) popupOnly.hidden = true;
     const Runtime = typeof PageAdvisorBuiltinRuntime !== 'undefined' ? PageAdvisorBuiltinRuntime : null;
     let line = '';
-    if (Runtime && runtimeSnap && typeof Runtime.statusLine === 'function') {
-      line = Runtime.statusLine({ ...(runtimeSnap || {}), availability }, tx);
+    if (Runtime && runtimeSnap) {
+      const lineFn = typeof Runtime.statusLineForSettings === 'function'
+        ? Runtime.statusLineForSettings
+        : Runtime.statusLine;
+      if (typeof lineFn === 'function') {
+        line = lineFn({ ...(runtimeSnap || {}), availability }, tx);
+      }
     }
     if (!line) {
       if (availability === 'available') line = tx('paBuiltinReady');
@@ -138,6 +143,13 @@
         status.textContent = tx('paBuiltinDownloading', { pct: '0' });
       }
       try {
+        if (typeof PageAdvisorBuiltinRuntime !== 'undefined' && PageAdvisorBuiltinRuntime.write) {
+          await PageAdvisorBuiltinRuntime.write({
+            phase: 'downloading',
+            downloadPct: 0,
+            availability: 'downloading',
+          });
+        }
         await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, popupLocale(), {
           onProgress(pct) {
             if (status) {
@@ -213,7 +225,12 @@
         ? PageAdvisorBuiltinRuntime.STORAGE_KEY
         : 'pageAdvisorBuiltinRuntime';
       if (!changes || !changes[key]) return;
-      refreshBuiltinRoute(selectedRouteMode).catch(() => {});
+      const nv = changes[key].newValue;
+      applyBuiltinStatusFromProbe(
+        (nv && nv.availability) || 'unavailable',
+        nv,
+        selectedRouteMode,
+      ).catch(() => {});
     };
     if (chrome.storage && chrome.storage.onChanged && chrome.storage.onChanged.addListener) {
       chrome.storage.onChanged.addListener(onChanged);
