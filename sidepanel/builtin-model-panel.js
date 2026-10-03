@@ -152,7 +152,8 @@
 
   function updateTabVisibility() {
     const tab = $('#sp-tab-builtin');
-    if (tab) tab.hidden = !languageModelSupported();
+    // 「本机模型」含出售注册；始终展示，LanguageModel 不可用时面板内自行提示。
+    if (tab) tab.hidden = false;
   }
 
   function onOpenInternals(e) {

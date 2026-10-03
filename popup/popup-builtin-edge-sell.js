@@ -25,7 +25,24 @@
   }
 
   function sectionEl() {
-    return document.getElementById('builtinEdgeSellSection');
+    return document.getElementById('builtinEdgeSellSection')
+      || document.getElementById('builtinEdgeSellOpenHint');
+  }
+
+  async function fillFingerprintLine() {
+    const el = document.getElementById('builtinEdgeFingerprint');
+    if (!el) return;
+    const FP = globalThis.PluginInstallFingerprint;
+    if (!FP?.ensurePluginInstallFingerprint) {
+      el.textContent = '—';
+      return;
+    }
+    try {
+      const id = await FP.ensurePluginInstallFingerprint(chrome.storage?.local);
+      el.textContent = id || '—';
+    } catch (_) {
+      el.textContent = '—';
+    }
   }
 
   function selectEl() {
@@ -113,6 +130,7 @@
         node: tx('builtinEdgeRegNode', '节点'),
         status: tx('builtinEdgeRegStatus', '状态'),
         device: tx('builtinEdgeRegDevice', '设备'),
+        fingerprint: tx('builtinEdgeRegFingerprint', '插件指纹'),
         lastSeen: tx('builtinEdgeRegLastSeen', '最近保活'),
         inflight: tx('builtinEdgeCallInflight', '进行中'),
         dispatch: tx('builtinEdgeCallDispatch', '已分派'),
@@ -255,10 +273,21 @@
     if (!Menu) return;
     Menu.applyEdgeSellSectionVisibility(sectionEl(), loggedIn);
     if (loggedIn) {
-      loadOfferSelect()
-        .then(() => refreshRegisteredView())
-        .catch(() => {});
+      fillFingerprintLine().catch(() => {});
+      if (document.getElementById('builtinEdgeProjectId')) {
+        loadOfferSelect()
+          .then(() => refreshRegisteredView())
+          .catch(() => {});
+      }
     }
+  }
+
+  function onOpenSidepanelBuiltinTab() {
+    try {
+      chrome.runtime.sendMessage({ action: 'openSidePanel', which: 'builtin' }, () => {
+        void chrome.runtime.lastError;
+      });
+    } catch (_) { /* ignore */ }
   }
 
   function setLoggedIn(next) {
@@ -271,6 +300,7 @@
     if (!section) return;
     const btn = document.getElementById('btnBuiltinEdgeRegister');
     const unreg = document.getElementById('btnBuiltinEdgeUnregister');
+    const openTab = document.getElementById('btnOpenBuiltinEdgeSellTab');
     const guard = globalThis.ClickGuard?.createClickGuard
       ? ClickGuard.createClickGuard()
       : null;
@@ -285,6 +315,7 @@
       if (unregGuard) unregGuard.run(onUnregister);
       else onUnregister();
     });
+    openTab?.addEventListener('click', onOpenSidepanelBuiltinTab);
     refreshVisibility();
   }
 

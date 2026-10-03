@@ -6,6 +6,7 @@
   <title>云端Coding: 自动创新助手</title>
   <link rel="stylesheet" href="../content/content.css">
   <link rel="stylesheet" href="../content/content-form.css">
+  <link rel="stylesheet" href="../popup/popup.css">
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
@@ -14,15 +15,15 @@
       <!-- Anti-Replay-OK: ui-only — 只切换已挂载的页签，不发写请求 -->
       <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="false" aria-controls="sp-pane-create">创建任务</button>
       <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="true" aria-controls="sp-pane-settings">设置</button>
-      <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" hidden data-i18n="paBuiltinTab">内置模型</button>
+      <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" data-i18n="paBuiltinTab" data-testid="sp-tab-builtin">本机模型</button>
     </div>
     <div id="sp-pane-create" class="sp-pane" role="tabpanel" hidden></div>
     <div id="sp-pane-settings" class="sp-pane" role="tabpanel">
       <iframe id="sp-settings-frame" title="设置" src="../popup/popup.html?host=sidepanel"></iframe>
     </div>
-    <div id="sp-pane-builtin" class="sp-pane" role="tabpanel" hidden>
+    <div id="sp-pane-builtin" class="sp-pane" role="tabpanel" hidden data-testid="sp-pane-builtin">
       <section class="section builtin-full-panel" id="spBuiltinPanel">
-        <h3 data-i18n="paBuiltinTab">内置模型</h3>
+        <h3 data-i18n="paBuiltinTab">本机模型</h3>
         <p id="spBuiltinStatus" class="hint" aria-live="polite"></p>
         <div class="btn-row">
           <!-- Anti-Replay-OK: ui-only LanguageModel probe -->
@@ -48,6 +49,44 @@
           <a href="#" id="spBuiltinInternalsLink">chrome://on-device-internals</a>
         </p>
       </section>
+
+      <!-- 本机模型出售：登录后可见；注册指纹 + 出站保活（ADR-0130/0132） -->
+      <section id="builtinEdgeSellSection" class="section" style="display:none" hidden data-testid="builtin-edge-sell-plugin">
+        <div class="advisor-defaults-heading">
+          <h3>📡 <span data-i18n="builtinEdgeSellTitle">本机模型出售</span></h3>
+          <details class="region-help">
+            <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+            <p class="float-ball-hint" data-region-help="1" data-i18n="builtinEdgeSellHint">先在账号中心「本机模型出售」创建出售项目，再在下方下拉选择项目完成注册。插件会主动连接平台保活（无需公网 IP），平台才能把请求转到本机内置模型。</p>
+          </details>
+        </div>
+        <p class="hint" data-testid="builtin-edge-fingerprint-line">
+          <span data-i18n="builtinEdgeFingerprintLabel">本机插件指纹</span>:
+          <code id="builtinEdgeFingerprint" class="select-all">—</code>
+        </p>
+        <div id="builtinEdgeSellRegisterPanel" data-testid="builtin-edge-sell-register-panel">
+          <label class="form-row">
+            <span data-i18n="builtinEdgeProjectIdLabel">出售项目</span>
+            <select id="builtinEdgeProjectId" class="form-select" data-testid="builtin-edge-project-id" data-i18n-aria-label="builtinEdgeProjectIdLabel" aria-label="出售项目"></select>
+          </label>
+          <label class="form-row">
+            <span data-i18n="builtinEdgeDeviceLabel">设备备注（可选）</span>
+            <input type="text" id="builtinEdgeDeviceLabel" class="form-input" data-testid="builtin-edge-device-label" autocomplete="off" />
+          </label>
+          <div class="btn-row">
+            <button type="button" id="btnBuiltinEdgeRegister" class="btn btn-primary" data-testid="builtin-edge-register" data-i18n="builtinEdgeRegister">注册本机到项目</button>
+          </div>
+        </div>
+        <div id="builtinEdgeSellRegisteredPanel" class="builtin-edge-registered" style="display:none" hidden data-testid="builtin-edge-sell-registered-panel">
+          <h4 class="heading-sm" data-i18n="builtinEdgeRegistrationTitle">当前注册情况</h4>
+          <ul id="builtinEdgeRegistrationLines" class="hint-list" data-testid="builtin-edge-registration-lines"></ul>
+          <h4 class="heading-sm" data-i18n="builtinEdgeCallStatsTitle">调用情况</h4>
+          <ul id="builtinEdgeCallLines" class="hint-list" data-testid="builtin-edge-call-lines"></ul>
+          <div class="btn-row">
+            <button type="button" id="btnBuiltinEdgeUnregister" class="btn btn-danger" data-testid="builtin-edge-unregister" data-i18n="builtinEdgeUnregister">取消注册</button>
+          </div>
+        </div>
+        <p id="builtinEdgeSellStatus" class="hint" aria-live="polite" data-testid="builtin-edge-sell-status"></p>
+      </section>
     </div>
   </div>
   <script src="../lib/i18n.js"></script>
@@ -61,7 +100,17 @@
   <script src="../lib/page-advisor-builtin-prompt.js"></script>
   <script src="../lib/side-panel-bridge.js"></script>
   <script src="../lib/open-chrome-url.js"></script>
+  <script src="../lib/storage.js"></script>
+  <script src="../lib/api-http.js"></script>
+  <script src="../lib/api.js"></script>
+  <script src="../lib/click-guard.js"></script>
+  <script src="../lib/plugin-install-fingerprint.js"></script>
+  <script src="../lib/builtin-edge-node-join.js"></script>
+  <script src="../lib/builtin-edge-tunnel.js"></script>
+  <script src="../lib/popup-builtin-edge-sell.js"></script>
+  <script src="../popup/popup-builtin-edge-sell.js"></script>
   <script src="builtin-model-panel.js"></script>
+  <script src="sidepanel-edge-sell-boot.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

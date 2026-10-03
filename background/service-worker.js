@@ -52,6 +52,7 @@ importScripts(
   '../lib/plugin-version.js',
   '../lib/open-chrome-url.js',
   '../lib/plugin-version-download.js',
+  '../lib/plugin-install-fingerprint.js',
   '../lib/builtin-edge-node-join.js',
   '../lib/builtin-edge-tunnel.js',
   './sw-capture.js',
@@ -116,6 +117,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true;
 });
 
+chrome.runtime.onInstalled.addListener(() => {
+  whenI18nReady()
+    .then(() => {
+      if (globalThis.PluginInstallFingerprint?.ensurePluginInstallFingerprint) {
+        return PluginInstallFingerprint.ensurePluginInstallFingerprint(chrome.storage.local);
+      }
+      return null;
+    })
+    .catch((e) => {
+      console.warn('[taskChromePlugin] onInstalled fingerprint failed:', e?.message || e);
+    });
+});
+
 chrome.commands.onCommand.addListener(async (command) => {
   await whenI18nReady();
   if (command === 'page-optimization-suggest') {
@@ -161,6 +175,12 @@ chrome.commands.onCommand.addListener(async (command) => {
     } catch (_) { /* ignore */ }
     // 启动即暖缓存（getCaptureConfigCached），webRequest 热路径零 storage IPC
     const captureCfg = await getCaptureConfigCached();
+    // 指纹不阻塞暖缓存（F1 契约：init 后恰好 1 次 captureEnabled 读取）
+    if (globalThis.PluginInstallFingerprint?.ensurePluginInstallFingerprint) {
+      PluginInstallFingerprint.ensurePluginInstallFingerprint(chrome.storage.local).catch((fpErr) => {
+        console.warn('[taskChromePlugin] install fingerprint ensure failed:', fpErr?.message || fpErr);
+      });
+    }
     if (typeof clearLegacyPageAdvisorChromeShortcuts === 'function') {
       await clearLegacyPageAdvisorChromeShortcuts();
     }

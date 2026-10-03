@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 本机模型出售：仅登录后显示；出售项目为下拉而非手输 ID。
+ * 本机模型出售：完整表单在侧栏「本机模型」Tab；Popup 仅登录后入口；项目下拉。
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -22,24 +22,41 @@ function popupHtml() {
   return fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 }
 
+function sidepanelHtml() {
+  return fs.readFileSync(path.join(ROOT, 'sidepanel/sidepanel.html'), 'utf8');
+}
+
 function edgeSellSection() {
-  const html = popupHtml();
+  const html = sidepanelHtml();
   const m = html.match(/id="builtinEdgeSellSection"[\s\S]*?<\/section>/);
-  assert.ok(m, '缺少 builtinEdgeSellSection');
+  assert.ok(m, '缺少 sidepanel builtinEdgeSellSection');
   return m[0];
 }
 
-describe('Popup 本机模型出售 — 登录可见 + 项目下拉', () => {
-  it('区块默认隐藏，使用 select 而非 text input', () => {
+describe('Popup / 侧栏 本机模型出售', () => {
+  it('完整出售表单在侧栏「本机模型」Tab，使用 select 而非 text input', () => {
+    const sp = sidepanelHtml();
+    assert.match(sp, /id="sp-tab-builtin"[^>]*data-i18n="paBuiltinTab"/);
+    assert.doesNotMatch(sp, /id="sp-tab-builtin"[^>]*\bhidden\b/);
+    assert.match(sp, /data-i18n="paBuiltinTab"[^>]*>本机模型</);
     const sec = edgeSellSection();
     assert.match(sec, /id="builtinEdgeSellSection"[^>]*(?:\bhidden\b|style="display:none")/);
-    assert.match(sec, /id="builtinEdgeProjectId"/);
     assert.match(sec, /<select[^>]*id="builtinEdgeProjectId"/);
     assert.doesNotMatch(sec, /<input[^>]*id="builtinEdgeProjectId"/);
-    assert.match(sec, /data-testid="builtin-edge-project-id"/);
+    assert.match(sec, /id="builtinEdgeFingerprint"/);
+    assert.match(sp, /sidepanel-edge-sell-boot\.js/);
+    assert.match(sp, /plugin-install-fingerprint\.js/);
   });
 
-  it('popup.html 加载纯函数库与控制器；auth 在登录态切换时接线', () => {
+  it('Popup 仅保留入口提示，不再内嵌完整注册表单', () => {
+    const html = popupHtml();
+    assert.match(html, /id="builtinEdgeSellOpenHint"/);
+    assert.match(html, /id="btnOpenBuiltinEdgeSellTab"/);
+    assert.doesNotMatch(html, /id="builtinEdgeSellSection"/);
+    assert.doesNotMatch(html, /id="builtinEdgeProjectId"/);
+  });
+
+  it('popup.html 加载控制器；auth 在登录态切换时接线', () => {
     const html = popupHtml();
     const libAt = html.indexOf('../lib/popup-builtin-edge-sell.js');
     const uiAt = html.indexOf('popup-builtin-edge-sell.js');
@@ -117,9 +134,10 @@ describe('Popup 本机模型出售 — 登录可见 + 项目下拉', () => {
     assert.match(src, /buildEdgeOfferSelectMenu|PopupBuiltinEdgeSellMenu/);
     assert.match(src, /builtinEdgeProjectId/);
     assert.match(src, /setLoggedIn/);
+    assert.match(src, /openSidePanel.*builtin|which:\s*'builtin'/);
   });
 
-  it('已注册态：当前注册情况、调用情况、取消注册', () => {
+  it('已注册态：当前注册情况、调用情况、取消注册、指纹', () => {
     const sec = edgeSellSection();
     assert.match(sec, /id="builtinEdgeSellRegisteredPanel"/);
     assert.match(sec, /data-i18n="builtinEdgeRegistrationTitle"/);
@@ -138,11 +156,27 @@ describe('Popup 本机模型出售 — 登录可见 + 项目下拉', () => {
         last_seen_at: '2026-10-03T01:00:00Z',
         last_dispatch_at: '2026-10-03T01:02:00Z',
         device_label: '书房',
+        install_fingerprint: 'pf_deadbeef_cafe0123',
       },
       { projectId: 'p1', nodeId: 'n1', projectTitle: '家用' },
-      { labels: { project: '项目', node: '节点', status: '状态', device: '设备', lastSeen: '最近保活', inflight: '进行中', dispatch: '已分派', success: '成功', error: '失败', lastDispatch: '最近分派' } },
+      {
+        labels: {
+          project: '项目',
+          node: '节点',
+          status: '状态',
+          device: '设备',
+          fingerprint: '插件指纹',
+          lastSeen: '最近保活',
+          inflight: '进行中',
+          dispatch: '已分派',
+          success: '成功',
+          error: '失败',
+          lastDispatch: '最近分派',
+        },
+      },
     );
     assert.ok(view.registrationLines.some((l) => l.includes('家用')));
+    assert.ok(view.registrationLines.some((l) => l.includes('插件指纹') && l.includes('pf_deadbeef_cafe0123')));
     assert.ok(view.callLines.some((l) => l.includes('已分派') && l.includes('5')));
 
     const register = { hidden: false, style: { display: '' } };

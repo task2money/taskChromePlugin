@@ -31,17 +31,21 @@ test('registerPluginToSellProject calls nodes API and persists join', async () =
   const out = await registerPluginToSellProject({
     projectId: 'proj-1',
     deviceLabel: 'desk',
+    installFingerprint: 'pf_test_abc12345',
     storage,
     apiRequest: async (method, path, body) => {
       calls.push({ method, path, body })
-      return { id: 'node-9', device_label: body.device_label }
+      return { id: 'node-9', device_label: body.device_label, install_fingerprint: body.install_fingerprint }
     },
   })
   assert.equal(out.nodeId, 'node-9')
   assert.equal(out.projectId, 'proj-1')
+  assert.equal(out.installFingerprint, 'pf_test_abc12345')
   assert.equal(calls[0].method, 'POST')
   assert.match(calls[0].path, /offers\/proj-1\/nodes/)
+  assert.equal(calls[0].body.install_fingerprint, 'pf_test_abc12345')
   assert.equal(storage._data.builtinEdgeOfferNodes['proj-1'].node_id, 'node-9')
+  assert.equal(storage._data.builtinEdgeOfferNodes['proj-1'].install_fingerprint, 'pf_test_abc12345')
 })
 
 test('runBuiltinEdgeKeepaliveRound heartbeats and polls tunnel', async () => {
