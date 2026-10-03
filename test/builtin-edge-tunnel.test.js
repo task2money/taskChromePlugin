@@ -73,6 +73,38 @@ test('runBuiltinEdgeKeepaliveRound heartbeats and polls tunnel', async () => {
   assert.equal(result.polled.id, 'j1')
 })
 
+test('runBuiltinEdgeKeepaliveRound 心跳携带 install_fingerprint 回写（OPT-20261003-021）', async () => {
+  const bodies = []
+  await runBuiltinEdgeKeepaliveRound({
+    projectId: 'o1',
+    nodeId: 'n1',
+    installFingerprint: 'pf_reinstalled_9f',
+    apiRequest: async (method, path, body) => {
+      if (String(path).includes('/heartbeat')) bodies.push(body)
+      return {}
+    },
+    tunnelFetch: async (action) => (action === 'poll' ? { job: null } : {}),
+  })
+  assert.equal(bodies.length, 1)
+  assert.equal(bodies[0].install_fingerprint, 'pf_reinstalled_9f')
+  assert.equal(bodies[0].online, true)
+})
+
+test('runBuiltinEdgeKeepaliveRound 无指纹来源时省略 install_fingerprint', async () => {
+  const bodies = []
+  await runBuiltinEdgeKeepaliveRound({
+    projectId: 'o1',
+    nodeId: 'n1',
+    apiRequest: async (method, path, body) => {
+      if (String(path).includes('/heartbeat')) bodies.push(body)
+      return {}
+    },
+    tunnelFetch: async (action) => (action === 'poll' ? { job: null } : {}),
+  })
+  assert.equal(bodies.length, 1)
+  assert.equal(Object.prototype.hasOwnProperty.call(bodies[0], 'install_fingerprint'), false)
+})
+
 test('executeBuiltinEdgeTunnelJob runs LanguageModel via builtin prompt adapter', async () => {
   const { executeBuiltinEdgeTunnelJob } = require('../lib/builtin-edge-tunnel.js')
   const calls = []

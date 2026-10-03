@@ -75,6 +75,8 @@
       const round = await Tunnel.runBuiltinEdgeKeepaliveRound({
         projectId: active.projectId,
         nodeId: active.nodeId,
+        installFingerprint: active.installFingerprint || '',
+        storage: chrome.storage?.local,
         apiRequest: saasRequest,
         tunnelFetch,
       });

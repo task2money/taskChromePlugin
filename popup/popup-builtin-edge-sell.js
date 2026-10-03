@@ -287,6 +287,7 @@
         projectId: out.projectId,
         nodeId: out.nodeId,
         deviceLabel: out.deviceLabel,
+        installFingerprint: out.installFingerprint || '',
       });
       try {
         await chrome.runtime.sendMessage({
