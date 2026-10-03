@@ -54,9 +54,11 @@ describe('Popup 平台后端工作空间下拉', () => {
     const loginFn = auth.slice(auth.indexOf('function showLoginUI'), auth.indexOf('function showTokenExpiredUI'));
     const loggedFn = auth.slice(auth.indexOf('function showLoggedInUI'), auth.indexOf('function refreshPopupLocaleFromProfile'));
     const expiredFn = auth.slice(auth.indexOf('function showTokenExpiredUI'), auth.indexOf('function refreshPopupLocaleFromProfile'));
-    assert.match(loginFn, /PopupSaasWorkspace\.setLoggedIn\(false\)/);
-    assert.match(loggedFn, /PopupSaasWorkspace\.setLoggedIn\(true\)/);
-    assert.match(expiredFn, /PopupSaasWorkspace\.setLoggedIn\(false\)/);
+    assert.match(auth, /function setLoginGatedModules/);
+    assert.match(loginFn, /setLoginGatedModules\(false\)/);
+    assert.match(loggedFn, /setLoginGatedModules\(true\)/);
+    assert.match(expiredFn, /setLoginGatedModules\(false\)/);
+    assert.match(auth, /PopupSaasWorkspace\?\.setLoggedIn/);
     const llmCfg = fs.readFileSync(path.join(ROOT, 'popup/popup-llm-config.js'), 'utf8');
     assert.match(llmCfg, /syncSaasWorkspaceRow/);
     assert.match(llmCfg, /PopupSaasWorkspace\.syncRoute/);

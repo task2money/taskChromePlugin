@@ -1,11 +1,15 @@
 /**
  * Popup: register this Chrome to a sell project + start outbound tunnel keepalive (ADR-0130).
+ * Visible only when logged in; project id chosen from GET /offers dropdown.
  */
 (function () {
   'use strict';
 
   const Tunnel = globalThis.BuiltinEdgeTunnel;
   const Join = globalThis.BuiltinEdgeNodeJoin;
+  const Menu = globalThis.PopupBuiltinEdgeSellMenu;
+
+  let loggedIn = false;
 
   function tx(key, fallback) {
     try {
@@ -16,6 +20,14 @@
 
   function newIdem(prefix) {
     return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  function sectionEl() {
+    return document.getElementById('builtinEdgeSellSection');
+  }
+
+  function selectEl() {
+    return document.getElementById('builtinEdgeProjectId');
   }
 
   async function saasRequest(method, path, body, extraHeaders) {
@@ -44,27 +56,6 @@
     return res.json();
   }
 
-  async function tunnelFetch(action, body) {
-    const base = API.getBaseUrl();
-    const token = API.getToken();
-    const headers = {
-      'Content-Type': 'application/json',
-      'X-Trace-Id': `tunnel-${Date.now()}`,
-    };
-    const auth = API.buildAuthorizationHeader(token);
-    if (auth) headers.Authorization = auth;
-    const res = await fetch(`${base}/api/ai-endpoint/v1/builtin-edge/tunnel/${action}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body || {}),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(text || `tunnel ${action} ${res.status}`);
-    }
-    return res.json();
-  }
-
   async function refreshStatusEl() {
     const el = document.getElementById('builtinEdgeSellStatus');
     if (!el || !Tunnel) return;
@@ -77,20 +68,59 @@
       ` · project ${active.projectId} · node ${active.nodeId}`;
   }
 
+  async function loadOfferSelect() {
+    const sel = selectEl();
+    if (!sel || !Menu) return;
+    const status = document.getElementById('builtinEdgeSellStatus');
+    let activeId = '';
+    try {
+      const active = Tunnel ? await Tunnel.getActiveBuiltinEdgeTunnel() : null;
+      activeId = String(active?.projectId || '').trim();
+    } catch (_) { /* ignore */ }
+    try {
+      const data = await saasRequest('GET', '/api/cloud/v1/builtin-edge/offers');
+      const items = Array.isArray(data?.items) ? data.items : [];
+      const menu = Menu.buildEdgeOfferSelectMenu(items, activeId, {
+        placeholder: tx('builtinEdgeProjectPlaceholder', '-- 请选择出售项目 --'),
+        pausedSuffix: tx('builtinEdgeProjectPaused', '(已暂停)'),
+      });
+      Menu.applyEdgeOfferSelect(sel, menu);
+      if (!items.length && status) {
+        status.textContent = tx('builtinEdgeProjectEmpty', '暂无出售项目，请先在账号中心创建');
+      }
+    } catch (e) {
+      Menu.applyEdgeOfferSelect(sel, Menu.buildEdgeOfferSelectMenu([], '', {
+        placeholder: tx('builtinEdgeProjectPlaceholder', '-- 请选择出售项目 --'),
+      }));
+      if (status) {
+        status.textContent = e?.message || String(e);
+        const tid = String(e?.traceId || '').trim();
+        if (tid) status.setAttribute('data-traceId', tid);
+        else status.removeAttribute('data-traceId');
+      }
+    }
+  }
+
   async function onRegister() {
-    const input = document.getElementById('builtinEdgeProjectId');
+    const sel = selectEl();
     const labelInput = document.getElementById('builtinEdgeDeviceLabel');
     const status = document.getElementById('builtinEdgeSellStatus');
-    const projectId = String(input?.value || '').trim();
+    const projectId = String(sel?.value || '').trim();
     if (!projectId) {
-      if (status) status.textContent = tx('builtinEdgeNeedProjectId', '请填写出售项目 ID');
+      if (status) {
+        status.textContent = tx('builtinEdgeNeedProjectId', '请选择出售项目');
+        status.removeAttribute('data-traceId');
+      }
       return;
     }
     if (!Tunnel || !Join) {
       if (status) status.textContent = 'BuiltinEdgeTunnel missing';
       return;
     }
-    if (status) status.textContent = tx('builtinEdgeRegistering', '正在注册…');
+    if (status) {
+      status.textContent = tx('builtinEdgeRegistering', '正在注册…');
+      status.removeAttribute('data-traceId');
+    }
     try {
       const out = await Tunnel.registerPluginToSellProject({
         projectId,
@@ -117,8 +147,21 @@
     }
   }
 
+  function refreshVisibility() {
+    if (!Menu) return;
+    Menu.applyEdgeSellSectionVisibility(sectionEl(), loggedIn);
+    if (loggedIn) {
+      loadOfferSelect().then(() => refreshStatusEl()).catch(() => {});
+    }
+  }
+
+  function setLoggedIn(next) {
+    loggedIn = Boolean(next);
+    refreshVisibility();
+  }
+
   function bind() {
-    const section = document.getElementById('builtinEdgeSellSection');
+    const section = sectionEl();
     if (!section) return;
     const btn = document.getElementById('btnBuiltinEdgeRegister');
     // Anti-Replay-OK: createClickGuard if available
@@ -129,8 +172,11 @@
       if (guard) guard.run(onRegister);
       else onRegister();
     });
-    refreshStatusEl();
+    // Anti-Replay-OK: select change is local UI only
+    refreshVisibility();
   }
+
+  globalThis.PopupBuiltinEdgeSell = { setLoggedIn };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bind);

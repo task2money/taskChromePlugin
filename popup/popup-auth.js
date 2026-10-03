@@ -210,6 +210,12 @@
     }
   }
 
+  /** 通知依赖登录态的 Popup 模块（工作空间行、本机模型出售等）。 */
+  function setLoginGatedModules(loggedIn) {
+    window.PopupSaasWorkspace?.setLoggedIn?.(loggedIn);
+    window.PopupBuiltinEdgeSell?.setLoggedIn?.(loggedIn);
+  }
+
   async function retryInit() {
     const spinner = $('#loadingSpinner');
     const retryBtn = $('#btnRetryInit');
@@ -260,9 +266,7 @@
     if (window.PopupPageAdvisorSkills?.loadSkills) {
       window.PopupPageAdvisorSkills.loadSkills();
     }
-    if (window.PopupSaasWorkspace?.setLoggedIn) {
-      window.PopupSaasWorkspace.setLoggedIn(false);
-    }
+    setLoginGatedModules(false);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -312,9 +316,7 @@
       btn.textContent = tx('popupReloginBtn');
       btn.disabled = false;
     }
-    if (window.PopupSaasWorkspace?.setLoggedIn) {
-      window.PopupSaasWorkspace.setLoggedIn(false);
-    }
+    setLoginGatedModules(false);
   }
 
   function showLoggedInUI(username) {
@@ -339,9 +341,7 @@
     if (window.PopupPageAdvisorSkills?.setSkillSectionVisible) {
       window.PopupPageAdvisorSkills.setSkillSectionVisible(true);
     }
-    if (window.PopupSaasWorkspace?.setLoggedIn) {
-      window.PopupSaasWorkspace.setLoggedIn(true);
-    }
+    setLoginGatedModules(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
   }
