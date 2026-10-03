@@ -58,6 +58,11 @@ describe('builtin-model-panel download UX', () => {
     assert.doesNotMatch(chunk, /probeDetails\(/);
   });
 
+  it('首次探测前 hydrate i18n，避免状态行显示 paBuiltinReady 键名', () => {
+    assert.match(src, /hydrateFromStorage/);
+    assert.match(src, /applyDom\(document\)/);
+  });
+
   it('配额探测使用 resolveLanguageOptions，刷新不得把 phase 写成 idle', () => {
     assert.match(src, /resolveLanguageOptions/);
     assert.match(src, /if \(phase === 'downloading'\) patch\.phase = phase/);

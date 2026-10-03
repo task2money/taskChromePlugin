@@ -717,3 +717,38 @@ test('OPT-20261003-019: Service Worker 认识 builtinDownloadCancel 广播', () 
   assert.match(sw, /case 'builtinDownloadCancel'/);
   assert.match(sw, /relayed: true/);
 });
+
+test('suggest 接受 {output} 对象；空 JSON 抛 builtin_empty', async () => {
+  require('../lib/page-advisor-llm-client.js');
+  const okSession = {
+    inputQuota: 8000,
+    async measureInputUsage(text) { return String(text || '').length; },
+    async prompt() { return { output: '[{"id":"s1","title":"T","summary":"S"}]' }; },
+    destroy() {},
+  };
+  const okModel = {
+    async availability() { return 'available'; },
+    async create() { return okSession; },
+  };
+  const ok = await builtin.suggest(okModel, {
+    url: 'https://example.test', title: 't', pageText: 'hi', domOutline: [],
+  }, { locale: 'en' });
+  assert.equal(ok.suggestions.length, 1);
+
+  const badSession = {
+    inputQuota: 8000,
+    async measureInputUsage(text) { return String(text || '').length; },
+    async prompt() { return 'not-json'; },
+    destroy() {},
+  };
+  const badModel = {
+    async availability() { return 'available'; },
+    async create() { return badSession; },
+  };
+  await assert.rejects(
+    () => builtin.suggest(badModel, {
+      url: 'https://example.test', title: 't', pageText: 'hi', domOutline: [],
+    }, { locale: 'en' }),
+    (err) => err && err.code === 'builtin_empty',
+  );
+});

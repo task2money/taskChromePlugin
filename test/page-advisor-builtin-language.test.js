@@ -30,3 +30,9 @@ test('zh 不可用时 resolveLanguageOptions 回退 en 并缓存给下载手势'
   assert.deepEqual(opts.expectedInputs, [{ type: 'text', languages: ['en'] }]);
   assert.deepEqual(lang.cachedLanguageOptions('zh-CN'), opts);
 });
+
+test('coercePromptOutput 解开 Prompt API 对象结果', () => {
+  assert.equal(lang.coercePromptOutput('[{"id":"s1"}]'), '[{"id":"s1"}]');
+  assert.equal(lang.coercePromptOutput({ output: '[{"id":"s1"}]' }), '[{"id":"s1"}]');
+  assert.equal(lang.coercePromptOutput({ output: [{ content: '{"a":1}' }] }), '{"a":1}');
+});

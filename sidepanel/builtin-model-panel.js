@@ -268,7 +268,13 @@
       });
     }
     updateTabVisibility();
-    if (languageModelSupported()) probeDetails().catch(() => {});
+    (async () => {
+      if (globalThis.AidevpushI18n && typeof AidevpushI18n.hydrateFromStorage === 'function') {
+        await AidevpushI18n.hydrateFromStorage().catch(() => {});
+        if (typeof AidevpushI18n.applyDom === 'function') AidevpushI18n.applyDom(document);
+      }
+      if (languageModelSupported()) await probeDetails();
+    })().catch(() => {});
   }
 
   globalThis.SidepanelBuiltinPanel = {
