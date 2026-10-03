@@ -204,6 +204,14 @@
 
   function onOpenInternals(e) {
     if (e) e.preventDefault();
+    // 常显警示拦不住误点：进入可改坏本机模型的页面要先确认。
+    const confirmFn = typeof globalThis.confirm === 'function' ? globalThis.confirm : null;
+    if (confirmFn) {
+      const caution = typeof tx === 'function' ? tx('paBuiltinOnDeviceInternalsCaution') : '';
+      const message = String(caution || '').replace(/^[。.]+/, '').trim()
+        || 'chrome://on-device-internals';
+      if (!confirmFn(message)) return;
+    }
     const Open = globalThis.OpenChromeUrl;
     const url = (Open && Open.ON_DEVICE_INTERNALS) || 'chrome://on-device-internals';
     const open = Open && Open.openChromeUrl
