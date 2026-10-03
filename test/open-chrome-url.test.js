@@ -75,7 +75,25 @@ describe('sidepanel / popup load OpenChromeUrl', () => {
     assert.match(html, /id="spBuiltinInternalsLink"/);
     assert.match(html, /chrome:\/\/on-device-internals/);
     assert.match(html, /src="\.\.\/lib\/open-chrome-url\.js"/);
+    assert.match(html, /data-i18n="paBuiltinOnDeviceInternalsCaution"/);
+    assert.match(html, /请谨慎修改其中参数；搞错后可能无法再使用本机模型/);
+    assert.doesNotMatch(html, /id="spBuiltinInternalsHint"[^>]*class="region-help"/);
     assert.doesNotMatch(html, /扩展无法直接打开该页/);
+  });
+
+  it('i18n warns that wrong internals params can brick the on-device model', () => {
+    const src = fs.readFileSync(
+      path.join(ROOT, 'lib', 'i18n-llm-route.js'),
+      'utf8',
+    );
+    assert.match(
+      src,
+      /paBuiltinOnDeviceInternalsCaution:\s*'。请谨慎修改其中参数；搞错后可能无法再使用本机模型。'/,
+    );
+    assert.match(
+      src,
+      /paBuiltinOnDeviceInternalsCaution:\s*'\. Change those settings carefully; a wrong parameter can make the on-device model unusable\.'/,
+    );
   });
 
   it('popup loads open-chrome-url before popup.js', () => {

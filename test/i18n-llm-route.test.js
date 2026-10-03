@@ -14,4 +14,12 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.ok(zh > 0);
     assert.ok(en > zh);
   });
+
+  it('中英都警示 on-device-internals 改错参数会搞坏本机模型', () => {
+    assert.match(src, /paBuiltinOnDeviceInternalsCaution:\s*'。请谨慎修改其中参数；搞错后可能无法再使用本机模型。'/);
+    assert.match(
+      src,
+      /paBuiltinOnDeviceInternalsCaution:\s*'\. Change those settings carefully; a wrong parameter can make the on-device model unusable\.'/,
+    );
+  });
 });

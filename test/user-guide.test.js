@@ -142,7 +142,8 @@ describe('UserGuide sections', () => {
   it('page-optimization-suggest documents plugin-direct LLM API key', () => {
     const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
     const blob = (section.steps || []).join('\n');
-    assert.match(blob, /API Key/);
+    assert.match(blob, /chrome:\/\/on-device-internals/);
+    assert.match(blob, /请谨慎修改其中参数，搞错后可能无法再使用本机模型/);
     assert.match(blob, /点「设置」/);
     assert.match(blob, /不上传，换浏览器需要重新设置/);
     assert.match(blob, /调用平台后端（须登录）/);
