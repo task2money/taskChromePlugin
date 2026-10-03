@@ -22,19 +22,14 @@ async function capturePageAdvisorScreenshotHook(_tabId) {
  * @param {number} tabId
  */
 async function askContentPageAdvisorContext(tabId) {
-  let resp;
+  const msg = { action: 'getPageAdvisorContext' };
+  const wrap = (p) => (typeof withTimeout === 'function' ? withTimeout(p, 12000, 'getPageAdvisorContext') : p);
   try {
-    resp = await chrome.tabs.sendMessage(
-      tabId,
-      { action: 'getPageAdvisorContext' },
-      { frameId: 0 },
-    );
+    return await wrap(chrome.tabs.sendMessage(tabId, msg, { frameId: 0 }));
   } catch (frame0Err) {
-    // 单行：i18n 门禁按行扫描，多行 console 调用的续行会被误判为界面文案。
     console.warn('[taskChromePlugin] getPageAdvisorContext frame0 失败，回退整 tab 广播:', frame0Err?.message || frame0Err);
-    resp = await chrome.tabs.sendMessage(tabId, { action: 'getPageAdvisorContext' });
+    return await wrap(chrome.tabs.sendMessage(tabId, msg));
   }
-  return resp;
 }
 
 async function notifyContentPageAdvisor(tabId, payload) {

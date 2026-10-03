@@ -237,6 +237,29 @@ test('startDownload 在 await availability 之前就必须调用 create（保留
   await assert.rejects(() => pending);
 });
 
+test('askContext 挂起时 runAltZ 超时并通知失败', async () => {
+  const { withTimeout } = require('../lib/async-timeout.js');
+  globalThis.withTimeout = withTimeout;
+  globalThis.tx = (key) => key;
+  const notes = [];
+  const started = Date.now();
+  await builtin.runAltZ(1, {
+    languageModel: {
+      async availability() { return 'available'; },
+      async create() { throw new Error('should not create'); },
+    },
+    askContext: () => new Promise(() => {}),
+    askContextTimeoutMs: 40,
+    notify: async (_tab, payload) => { notes.push(payload); },
+    tx: (key) => key,
+    locale: 'zh-CN',
+  });
+  assert.ok(Date.now() - started < 2000);
+  const failed = notes.find((item) => item && item.ok === false);
+  assert.ok(failed);
+  assert.equal(failed.errorCode, 'PLUGIN_BUILTIN_CONTEXT');
+});
+
 test('内置失败通知不含页面原文', async () => {
   const secret = '页面机密原文-不应出现';
   const notes = [];
@@ -279,4 +302,5 @@ test('Service Worker 在访客门闩之前处理 builtin', () => {
   const guestAt = sw.indexOf('!directReady && !sessionOk');
   assert.ok(builtinAt > 0);
   assert.ok(guestAt > builtinAt);
+  assert.match(sw, /withTimeout\(p, 12000/);
 });

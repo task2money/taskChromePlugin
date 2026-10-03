@@ -42,7 +42,39 @@ test('write/read 合并 session 快照', async () => {
 
 test('statusLine 按 phase 优先', () => {
   const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
-  assert.equal(runtime.statusLine({ phase: 'generating' }, tx), 'paBuiltinInferring');
+  assert.equal(runtime.statusLine({ phase: 'generating', updatedAt: Date.now() }, tx), 'paBuiltinInferring');
   assert.equal(runtime.statusLine({ phase: 'downloading', downloadPct: 42 }, tx), 'paBuiltinDownloading:42');
   assert.equal(runtime.statusLine({ phase: 'idle', availability: 'downloadable' }, tx), 'paBuiltinNeedsDownload');
+});
+
+test('过期 collecting 不再挡住可用性文案', () => {
+  const tx = (k) => k;
+  const stale = {
+    phase: 'collecting',
+    availability: 'downloadable',
+    updatedAt: Date.now() - 60_000,
+  };
+  assert.equal(runtime.statusLine(stale, tx), 'paBuiltinNeedsDownload');
+  assert.equal(runtime.effectivePhase(stale), 'idle');
+});
+
+test('新鲜 collecting 仍显示采集中', () => {
+  const tx = (k) => k;
+  const fresh = { phase: 'collecting', availability: 'available', updatedAt: Date.now() };
+  assert.equal(runtime.statusLine(fresh, tx), 'paCollecting');
+});
+
+test('设置页探测不得把卡住的 collecting 写回去', () => {
+  const stale = { phase: 'collecting', updatedAt: Date.now() - 60_000 };
+  assert.equal(runtime.phaseForSettingsProbe(stale, 'downloadable'), 'idle');
+  assert.equal(
+    runtime.phaseForSettingsProbe({ phase: 'collecting', updatedAt: Date.now() }, 'available', {
+      clearInFlight: true,
+    }),
+    'idle',
+  );
+  assert.equal(
+    runtime.phaseForSettingsProbe({ phase: 'downloading' }, 'downloading'),
+    'downloading',
+  );
 });

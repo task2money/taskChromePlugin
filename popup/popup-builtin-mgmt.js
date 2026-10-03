@@ -23,9 +23,7 @@
   }
 
   function downloadBtn() {
-    return isSidepanelHost()
-      ? $('#btnDownloadBuiltinModel')
-      : ($('#btnDownloadBuiltinModelPopup') || $('#btnDownloadBuiltinModel'));
+    return $('#btnDownloadBuiltinModel') || $('#btnDownloadBuiltinModelPopup');
   }
 
   function popupLocale() {
@@ -52,17 +50,15 @@
     const refresh = $('#btnRefreshBuiltinStatus');
     const openFull = $('#btnOpenBuiltinFullMgmt');
     const side = isSidepanelHost();
-    if (basic) basic.hidden = !side;
-    if (refresh) refresh.hidden = !side;
+    if (basic) basic.hidden = false;
+    if (refresh) refresh.hidden = false;
     if (openFull) openFull.hidden = !side;
+    const popupOnly = $('#btnDownloadBuiltinModelPopup');
+    if (popupOnly) popupOnly.hidden = true;
     const Runtime = typeof PageAdvisorBuiltinRuntime !== 'undefined' ? PageAdvisorBuiltinRuntime : null;
     let line = '';
     if (Runtime && runtimeSnap && typeof Runtime.statusLine === 'function') {
-      const phase = runtimeSnap.phase;
-      if (phase === 'collecting' || phase === 'generating' || phase === 'downloading'
-        || phase === 'failed' || phase === 'done') {
-        line = Runtime.statusLine(runtimeSnap, tx);
-      }
+      line = Runtime.statusLine({ ...(runtimeSnap || {}), availability }, tx);
     }
     if (!line) {
       if (availability === 'available') line = tx('paBuiltinReady');
@@ -81,11 +77,11 @@
     }
     const showCancel = availability === 'downloading'
       || (runtimeSnap && runtimeSnap.phase === 'downloading');
-    if (cancel) cancel.hidden = !side || !showCancel;
+    if (cancel) cancel.hidden = !showCancel;
     void selectedRouteMode;
   }
 
-  async function refreshBuiltinRoute(selectedRouteMode) {
+  async function refreshBuiltinRoute(selectedRouteMode, opts) {
     const wrap = $('#popupLlmRouteBuiltinWrap');
     const status = $('#popupBuiltinStatus');
     const download = downloadBtn();
@@ -114,16 +110,17 @@
     }
     if (typeof PageAdvisorBuiltinRuntime !== 'undefined' && PageAdvisorBuiltinRuntime.write) {
       try {
+        const phase = typeof PageAdvisorBuiltinRuntime.phaseForSettingsProbe === 'function'
+          ? PageAdvisorBuiltinRuntime.phaseForSettingsProbe(runtimeSnap, availability, {
+            clearInFlight: !!(opts && opts.clearInFlight),
+          })
+          : 'idle';
         await PageAdvisorBuiltinRuntime.write({
           availability,
           language: (typeof PageAdvisorBuiltinPrompt.promptLanguage === 'function'
             ? PageAdvisorBuiltinPrompt.promptLanguage(popupLocale())
             : 'zh'),
-          phase: (runtimeSnap && (runtimeSnap.phase === 'generating'
-            || runtimeSnap.phase === 'collecting'
-            || runtimeSnap.phase === 'downloading'))
-            ? runtimeSnap.phase
-            : 'idle',
+          phase,
         });
         runtimeSnap = await PageAdvisorBuiltinRuntime.read();
       } catch (_) { /* ignore */ }
@@ -136,6 +133,10 @@
       const btn = downloadBtn();
       const status = $('#popupBuiltinStatus');
       setBusy(btn, true);
+      if (status && typeof tx === 'function') {
+        status.hidden = false;
+        status.textContent = tx('paBuiltinDownloading', { pct: '0' });
+      }
       try {
         await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, popupLocale(), {
           onProgress(pct) {
@@ -177,7 +178,20 @@
   }
 
   function onRefreshBuiltinStatus(selectedRouteMode) {
-    const run = () => refreshBuiltinRoute(selectedRouteMode);
+    const run = async () => {
+      const status = $('#popupBuiltinStatus');
+      const btn = $('#btnRefreshBuiltinStatus');
+      setBusy(btn, true);
+      if (status && typeof tx === 'function') {
+        status.hidden = false;
+        status.textContent = tx('paBuiltinRefreshing');
+      }
+      try {
+        await refreshBuiltinRoute(selectedRouteMode, { clearInFlight: true });
+      } finally {
+        setBusy(btn, false);
+      }
+    };
     if (refreshGuard) refreshGuard.run(run).catch(() => {});
     else run().catch(() => {});
   }
@@ -192,7 +206,6 @@
   }
 
   function watchBuiltinRuntime(selectedRouteMode) {
-    if (!isSidepanelHost()) return;
     if (runtimeUnsub) return;
     const onChanged = (changes, area) => {
       if (area !== 'session') return;

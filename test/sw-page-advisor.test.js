@@ -156,4 +156,25 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     assert.ok(failPayload, `expected fail payload, got: ${JSON.stringify(payloads)}`);
     assert.equal(failPayload.traceId, 'resolved-fail-trace');
   });
+
+  it('采集超时后通知失败而不是永久 loading', async () => {
+    const payloads = [];
+    const sandbox = loadSwPageAdvisorStack({
+      withTimeout: (p, _ms, _label) => new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('getPageAdvisorContext timeout')), 40);
+      }),
+    });
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return new Promise(() => {});
+      }
+      if (msg.action === 'pageAdvisorResult') {
+        payloads.push(msg);
+      }
+      return undefined;
+    };
+    await sandbox.runPageOptimizationSuggest(1);
+    const fail = payloads.find((p) => p && p.ok === false);
+    assert.ok(fail, `expected timeout failure, got: ${JSON.stringify(payloads)}`);
+  });
 });

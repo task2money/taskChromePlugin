@@ -29,4 +29,13 @@ describe('builtin-model-panel download UX', () => {
   it('点击下载后立即显示下载中文案', () => {
     assert.match(src, /paBuiltinDownloading/);
   });
+
+  it('探测用 phaseForSettingsProbe 而不是原样保留 collecting', () => {
+    assert.match(src, /phaseForSettingsProbe/);
+    assert.match(src, /clearInFlight:\s*true/);
+    assert.doesNotMatch(
+      src,
+      /snap\.phase === 'generating' \|\| snap\.phase === 'collecting'/,
+    );
+  });
 });

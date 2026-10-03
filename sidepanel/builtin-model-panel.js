@@ -31,7 +31,7 @@
     else btn.removeAttribute('aria-busy');
   }
 
-  async function probeDetails() {
+  async function probeDetails(opts) {
     const lm = globalThis.LanguageModel;
     const Builtin = globalThis.PageAdvisorBuiltinPrompt;
     const Runtime = globalThis.PageAdvisorBuiltinRuntime;
@@ -55,14 +55,16 @@
     if (Runtime && Runtime.read) {
       try { snap = await Runtime.read(); } catch (_) { snap = null; }
     }
+    const phase = (Runtime && typeof Runtime.phaseForSettingsProbe === 'function')
+      ? Runtime.phaseForSettingsProbe(snap, availability, {
+        clearInFlight: !!(opts && opts.clearInFlight),
+      })
+      : 'idle';
     if (statusEl && Runtime && Runtime.statusLine) {
       statusEl.textContent = Runtime.statusLine({
         ...(snap || {}),
         availability,
-        phase: (snap && (snap.phase === 'generating' || snap.phase === 'collecting'
-          || snap.phase === 'downloading' || snap.phase === 'failed' || snap.phase === 'done'))
-          ? snap.phase
-          : 'idle',
+        phase,
       }, typeof tx === 'function' ? tx : (k) => k);
     }
     if (download) {
@@ -78,7 +80,12 @@
         const p = await lm.params();
         paramsSummary = `temp≤${p.maxTemperature}; defaultTopK=${p.defaultTopK}`;
         if (Runtime && Runtime.write) {
-          await Runtime.write({ paramsSummary, availability, language: Builtin.promptLanguage(locale()) });
+          await Runtime.write({
+            paramsSummary,
+            availability,
+            language: Builtin.promptLanguage(locale()),
+            phase,
+          });
         }
       } catch (_) { /* ignore */ }
     }
@@ -112,7 +119,19 @@
   }
 
   function onRefresh() {
-    const run = () => probeDetails();
+    const run = async () => {
+      const statusEl = $('#spBuiltinStatus');
+      const btn = $('#spBuiltinRefresh');
+      setBusy(btn, true);
+      if (statusEl && typeof tx === 'function') {
+        statusEl.textContent = tx('paBuiltinRefreshing');
+      }
+      try {
+        await probeDetails({ clearInFlight: true });
+      } finally {
+        setBusy(btn, false);
+      }
+    };
     if (refreshGuard) refreshGuard.run(run).catch(() => {});
     else run().catch(() => {});
   }
