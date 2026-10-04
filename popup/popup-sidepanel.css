@@ -58,7 +58,9 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   .toggle-slider,
   kbd,
   .tcp-guide-kbd,
-  #popup-user-guide .tcp-guide-root-summary
+  #popup-user-guide .tcp-guide-root-summary,
+  .pa-wf-bar,
+  .pa-wf-track
 )) {
   background: #fff !important;
   border-color: #e5e7eb;
@@ -128,3 +130,48 @@ html[data-taskplugin-host="sidepanel"] .dt-hint {
   background: #fff !important;
   border-color: #e5e7eb;
 }
+
+/* DESIGN.md tokens: capture ink-muted, network primary, llm primary-dark, parse secondary, fail accent */
+html[data-taskplugin-host="sidepanel"] #pageAdvisorWaterfall {
+  margin-top: 8px;
+  min-height: 88px;
+  max-height: 120px;
+  overflow-y: auto;
+  font-size: 11px;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  color: #4B5563;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-row {
+  display: grid;
+  grid-template-columns: 4.5rem 1fr 3.2rem;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: #F1F2F6 !important;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 4px;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-capture { background: #4B5563 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-prompt { background: color-mix(in srgb, #F1F2F6 35%, #4B5563) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network,
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_poll { background: #7241F2 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-llm_wait,
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin { background: #5C2DC7 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-parse { background: color-mix(in srgb, #F1F2F6 20%, #7241F2) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-render { background: color-mix(in srgb, #7241F2 55%, #fff) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-error { background: #FF324D !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-idle { color: #4B5563; margin: 0; }

@@ -404,7 +404,8 @@ describe('page-advisor wiring contracts', () => {
     assert.match(layer, /getPendingPageAdvisorElements/);
     assert.match(layer, /capturePageContextInRect/);
     assert.match(layer, /getPendingPageAdvisorRegion/);
-    const swAdvisor = fs.readFileSync(path.join(root, 'background/sw-page-advisor.js'), 'utf8');
+    const swAdvisor = fs.readFileSync(path.join(root, 'background/sw-page-advisor.js'), 'utf8')
+      + fs.readFileSync(path.join(root, 'background/sw-page-advisor-commands.js'), 'utf8');
     assert.match(swAdvisor, /clearLegacyPageAdvisorChromeShortcuts/);
     const swMain = fs.readFileSync(path.join(root, 'background/service-worker.js'), 'utf8');
     assert.match(swMain, /clearLegacyPageAdvisorChromeShortcuts/);

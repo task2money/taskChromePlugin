@@ -255,4 +255,29 @@ describe('PageAdvisorLLM locale system prompt', () => {
     );
     assert.equal(msgs[0].content.includes('你是网页体验'), false);
   });
+
+  it('suggest reports network llm_wait parse spans without leaking the key', async () => {
+    const spans = [];
+    await PageAdvisorLLM.suggest(
+      { apiKey: 'sk-secret-onspan', baseUrl: 'https://llm.test/v1', model: 'm' },
+      { url: 'https://p', title: 'Hi', pageText: 'body' },
+      {
+        onSpan: (id, startAbs, endAbs, status) => {
+          spans.push({ id, startAbs, endAbs, status });
+        },
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            choices: [{ message: { content: '[{"title":"Idea","summary":"ok"}]' } }],
+          }),
+        }),
+      },
+    );
+    assert.deepEqual(spans.map((s) => s.id), ['network', 'llm_wait', 'parse']);
+    spans.forEach((s) => {
+      assert.equal(s.status, 'ok');
+      assert.ok(s.endAbs >= s.startAbs);
+    });
+  });
 });

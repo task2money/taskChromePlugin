@@ -80,6 +80,7 @@
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
           <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 不上传，换浏览器需要重新设置。未选择时默认直连。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。「已保存的 Key」下拉旁点「设置」新增或修改一组。点「测试连通性」用当前填写的 Base URL、模型和 API Key 发一次最短请求，不改已保存的 Key。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」下选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paWfHelp">按 Alt+Z 或区域确认后，本区块底部显示各环节耗时条（仅侧栏设置页）。点选区域等待不计入。测试连通性不画这条。</p>
         </details>
         <!-- Anti-Replay-OK: external navigation -->
         <a id="lnkIdleMarket" class="heading-sm" href="https://www.aidevpush.com/friend-links/#idle-market" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket">闲置集市</a>
@@ -150,6 +151,8 @@
         </div>
       </div>
       <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
+      <!-- Anti-Replay-OK: ui-only timing chart; no write API -->
+      <div id="pageAdvisorWaterfall" class="page-advisor-waterfall" hidden data-testid="page-advisor-waterfall"></div>
     </section>
 
     <section id="pageAdvisorSkillSection" class="section" style="display:none">
@@ -384,7 +387,10 @@
   <script src="../lib/page-advisor-api.js"></script>
   <script src="../lib/click-guard.js"></script>
   <script src="../lib/page-advisor-llm-probe.js"></script>
+  <script src="../lib/page-advisor-timing.js"></script>
+  <script src="../lib/page-advisor-waterfall-view.js"></script>
   <script src="popup-llm-config.js"></script>
+  <script src="popup-waterfall.js"></script>
   <script src="popup-prompt-skill-ui.js"></script>
   <script src="popup-prompt-skill-session.js"></script>
   <script src="popup-prompt-skill-cloud.js"></script>

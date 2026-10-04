@@ -37,4 +37,12 @@ describe('i18n-llm-route builtin refresh copy', () => {
       /paBuiltinOnDeviceInternalsCaution:\s*'\. Change those settings carefully; a wrong parameter can make the on-device model unusable\.'/,
     );
   });
+
+  it('中英都有 waterfall 空闲与环节文案', () => {
+    assert.match(src, /paWfIdle:\s*'按 Alt\+Z 或 Alt\+Shift\+Z 后这里显示各环节耗时'/);
+    assert.match(src, /paWfIdle:\s*'After Alt\+Z or Alt\+Shift\+Z/);
+    assert.match(src, /paWfHelp:\s*'按 Alt\+Z 或区域确认后/);
+    assert.match(src, /paWfCapture:\s*'采集'/);
+    assert.match(src, /paWfCapture:\s*'Capture'/);
+  });
 });

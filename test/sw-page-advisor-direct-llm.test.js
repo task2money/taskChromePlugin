@@ -56,6 +56,8 @@ function loadSw(extra = {}) {
     'lib/page-advisor-locale-prompt.js',
     'lib/page-advisor-anchor.js',
     'lib/page-advisor-llm-client.js',
+    'lib/page-advisor-timing.js',
+    'background/sw-page-advisor-timing-run.js',
     'background/sw-page-advisor.js',
   ]) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, rel), 'utf8'), sandbox, {

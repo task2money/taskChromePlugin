@@ -149,19 +149,24 @@ async function runPageOptimizationSuggest(tabId) {
   const expired = cfg.token ? await Storage.isTokenExpired() : false;
   const { llmCfg, directReady, route } = await loadPageAdvisorDirectReady();
   const sessionOk = !!(cfg.token && !expired);
+  const command = consumePageAdvisorSuggestCommand();
+  const timingRun = beginPageAdvisorTimingRun(route, command);
+  const withSpan = bindPageAdvisorWithSpan(timingRun);
 
   if (route === 'builtin' && globalThis.LanguageModel && PageAdvisorBuiltinPrompt?.runAltZ) {
     await PageAdvisorBuiltinPrompt.runAltZ(tabId, {
       languageModel: globalThis.LanguageModel,
-      askContext: askContentPageAdvisorContext,
-      notify: notifyContentPageAdvisor,
-      loadSkill: () => loadDirectLlmSkill(sessionOk),
+      askContext: (id) => withSpan('capture', () => askContentPageAdvisorContext(id)),
+      notify: wrapBuiltinAdvisorNotify(notifyContentPageAdvisor, withSpan, timingRun),
+      loadSkill: () => withSpan('prompt', () => loadDirectLlmSkill(sessionOk)),
       locale: resolvePageAdvisorLocale(),
       tx,
+      withSpan,
     });
     return;
   }
   if (route === 'direct' && !directReady) {
+    finishPageAdvisorTiming(timingRun, false, '');
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: tx('paDirectNeedsConfig'),
@@ -170,6 +175,7 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   if (!directReady && !sessionOk) {
+    finishPageAdvisorTiming(timingRun, false, '');
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: tx('paGuestNeedLlmOrLogin'),
@@ -186,8 +192,9 @@ async function runPageOptimizationSuggest(tabId) {
 
   let ctxResp;
   try {
-    ctxResp = await askContentPageAdvisorContext(tabId);
+    ctxResp = await withSpan('capture', () => askContentPageAdvisorContext(tabId));
   } catch (e) {
+    finishPageAdvisorTiming(timingRun, false, '');
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: e?.message || tx('paContextReadFailed'),
@@ -196,6 +203,7 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   if (!ctxResp?.success || !ctxResp.data) {
+    finishPageAdvisorTiming(timingRun, false, '');
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: ctxResp?.error || tx('paContextUnavailable'),
@@ -214,7 +222,7 @@ async function runPageOptimizationSuggest(tabId) {
     try {
       let skill = null;
       try {
-        skill = await loadDirectLlmSkill(sessionOk);
+        skill = await withSpan('prompt', () => loadDirectLlmSkill(sessionOk));
       } catch (skillErr) {
         console.warn('[taskChromePlugin] load prompt skills:', skillErr?.message || skillErr);
       }
@@ -223,19 +231,28 @@ async function runPageOptimizationSuggest(tabId) {
         title: data.title,
         pageText: data.pageText,
         domOutline: Array.isArray(data.domOutline) ? data.domOutline : [],
-      }, { skill, locale });
-      await notifyContentPageAdvisor(tabId, {
+      }, {
+        skill,
+        locale,
+        onSpan: (id, startAbs, endAbs, status) => {
+          if (!timingRun || typeof PageAdvisorTiming === 'undefined') return;
+          PageAdvisorTiming.addClosedSpan(timingRun, id, startAbs, endAbs, status);
+          broadcastPageAdvisorWaterfall(timingRun);
+        },
+      });
+      await notifyPageAdvisorDone(tabId, {
         ok: true,
         phase: 'done',
         jobId: '',
         pageUrl: String(data.url || ''),
         suggestions,
         featureParamsSource: 'plugin_direct',
-      });
+      }, withSpan, timingRun);
     } catch (e) {
       const tid = (typeof APIHttp !== 'undefined' && APIHttp.newRequestTraceId)
         ? String(APIHttp.newRequestTraceId() || '').trim()
         : `page-advisor-direct-${Date.now()}`;
+      finishPageAdvisorTiming(timingRun, false, tid);
       await notifyContentPageAdvisor(tabId, {
         ok: false,
         error: e?.message || tx('paGenerateFailed'),
@@ -285,6 +302,7 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   if (!workspaceId || !tenantId) {
+    finishPageAdvisorTiming(timingRun, false, '');
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: tx('paSelectWorkspaceAltZ'),
@@ -303,7 +321,7 @@ async function runPageOptimizationSuggest(tabId) {
     ? ClickGuard.newIdempotencyKey()
     : `page-advisor-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 
-  const body = {
+  const body = await withSpan('prompt', async () => ({
     workspace_id: workspaceId,
     page_url: String(data.url || ''),
     page_title: String(data.title || ''),
@@ -311,14 +329,15 @@ async function runPageOptimizationSuggest(tabId) {
     screenshot_url: screenshotUrl || '',
     dom_outline: Array.isArray(data.domOutline) ? data.domOutline : [],
     locale,
-  };
+  }));
 
   let created;
   let createTraceId = '';
   try {
-    created = await PageAdvisorAPI.createSuggestJob(tenantId, body, idempotencyKey);
+    created = await withSpan('network', () => PageAdvisorAPI.createSuggestJob(tenantId, body, idempotencyKey));
     createTraceId = String(created?.trace_id || created?.traceId || created?._resolvedTraceId || '').trim();
   } catch (e) {
+    finishPageAdvisorTiming(timingRun, false, e?.traceId || '');
     if (e?.status === 422 || e?.errorCode === 'AGENT_RESOURCE_NOT_CONFIGURED') {
       await notifyContentPageAdvisor(tabId, {
         ok: false,
@@ -350,6 +369,7 @@ async function runPageOptimizationSuggest(tabId) {
 
   const jobId = String(created?.job_id || created?.id || '').trim();
   if (!jobId) {
+    finishPageAdvisorTiming(timingRun, false, createTraceId);
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: tx('paNoJobId'),
@@ -360,10 +380,10 @@ async function runPageOptimizationSuggest(tabId) {
 
   let job;
   try {
-    job = await PageAdvisorAPI.pollSuggestJob(tenantId, jobId, {
+    job = await withSpan('saas_poll', () => PageAdvisorAPI.pollSuggestJob(tenantId, jobId, {
       maxMs: PAGE_ADVISOR_POLL_MAX_MS,
       seedTraceId: createTraceId,
-    });
+    }));
   } catch (e) {
     const timedOut = /timeout|超时|timed?\s*out/i.test(String(e?.message || e?.errorCode || ''));
     const timeoutTraceId = String(e?.traceId || createTraceId || '').trim()
@@ -371,6 +391,7 @@ async function runPageOptimizationSuggest(tabId) {
         ? String(APIHttp.newRequestTraceId() || '').trim()
         : '')
       || `page-advisor-timeout-${Date.now()}`;
+    finishPageAdvisorTiming(timingRun, false, timeoutTraceId);
     await notifyContentPageAdvisor(tabId, {
       ok: false,
       error: timedOut
@@ -387,6 +408,7 @@ async function runPageOptimizationSuggest(tabId) {
   if (status === 'failed' || status === 'expired') {
     // LLM 402 Insufficient Balance 等失败也须带 data-traceId（约束 24）。
     const failTraceId = PageAdvisorFailTraceId.resolvePageAdvisorFailTraceId(job, createTraceId);
+    finishPageAdvisorTiming(timingRun, false, failTraceId);
     if (job?.error_code === 'AGENT_RESOURCE_NOT_CONFIGURED') {
       await notifyContentPageAdvisor(tabId, {
         ok: false,
@@ -405,91 +427,22 @@ async function runPageOptimizationSuggest(tabId) {
   }
 
   let suggestions = job?.suggestions;
-  if (typeof suggestions === 'string') {
-    try { suggestions = JSON.parse(suggestions); } catch (_) { suggestions = []; }
-  }
-  if (!Array.isArray(suggestions)) {
-    suggestions = Array.isArray(job?.suggestions_json) ? job.suggestions_json : [];
-  }
+  await withSpan('parse', async () => {
+    if (typeof suggestions === 'string') {
+      try { suggestions = JSON.parse(suggestions); } catch (_) { suggestions = []; }
+    }
+    if (!Array.isArray(suggestions)) {
+      suggestions = Array.isArray(job?.suggestions_json) ? job.suggestions_json : [];
+    }
+  });
 
-  await notifyContentPageAdvisor(tabId, {
+  await notifyPageAdvisorDone(tabId, {
     ok: true,
     phase: 'done',
     jobId,
     pageUrl: body.page_url,
     suggestions,
     featureParamsSource: job?.feature_params_source || '',
-  });
-}
-
-/**
- * chrome.commands 入口。
- * @param {string} command
- */
-async function handlePageOptimizationSuggestCommand() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
-  if (!tabId) return;
-  await runPageOptimizationSuggest(tabId);
-}
-
-/**
- * Alt+Shift+Z：先让 content 进入元素点选，确认后由 content 再发 pageOptimizationSuggest。
- */
-async function handlePageOptimizationSuggestRegionCommand() {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tabId = tabs[0]?.id;
-  if (!tabId) return;
-  try {
-    await chrome.tabs.sendMessage(tabId, { action: 'startPageAdvisorRegionSelect' }, { frameId: 0 });
-  } catch (frame0Err) {
-    console.warn('[taskChromePlugin] startPageAdvisorRegionSelect frame0 失败，回退整 tab:', frame0Err?.message || frame0Err);
-    await chrome.tabs.sendMessage(tabId, { action: 'startPageAdvisorRegionSelect' });
-  }
-}
-
-/**
- * 迁移页面优化建议 chrome.commands：
- * - 清除遗留 Alt+E / Alt+Shift+E / Alt+`（及 Backquote）绑定
- * - 若当前无绑定，写入默认 Alt+Z / Alt+Shift+Z（升级自无 suggested_key 的版本）
- * 保留用户已改绑的其它组合。
- */
-async function clearLegacyPageAdvisorChromeShortcuts() {
-  if (
-    typeof chrome.commands?.getAll !== 'function'
-    || typeof chrome.commands?.update !== 'function'
-  ) {
-    return;
-  }
-  const legacy = new Set([
-    'Alt+E',
-    'Alt+Shift+E',
-    'Alt+`',
-    'Alt+Shift+`',
-    'Alt+Backquote',
-    'Alt+Shift+Backquote',
-  ]);
-  const defaults = {
-    'page-optimization-suggest': 'Alt+Z',
-    'page-optimization-suggest-region': 'Alt+Shift+Z',
-  };
-  try {
-    const commands = await chrome.commands.getAll();
-    for (const [name, desired] of Object.entries(defaults)) {
-      const found = (commands || []).find((c) => c && c.name === name);
-      const sc = String(found?.shortcut || '');
-      if (legacy.has(sc)) {
-        await chrome.commands.update({ name, shortcut: desired });
-        continue;
-      }
-      if (!sc) {
-        await chrome.commands.update({ name, shortcut: desired });
-      }
-    }
-  } catch (e) {
-    console.warn(
-      '[taskChromePlugin] migrate page-advisor shortcuts:',
-      e?.message || e,
-    );
-  }
+    traceId: createTraceId,
+  }, withSpan, timingRun);
 }

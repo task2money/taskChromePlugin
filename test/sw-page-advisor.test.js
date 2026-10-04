@@ -58,6 +58,8 @@ function loadSwPageAdvisorStack(extraSandbox = {}) {
     'lib/api-http.js',
     'lib/page-advisor-api.js',
     'lib/page-advisor-fail-trace-id.js',
+    'lib/page-advisor-timing.js',
+    'background/sw-page-advisor-timing-run.js',
     'background/sw-page-advisor.js',
   ]) {
     vm.runInContext(
@@ -176,5 +178,45 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     await sandbox.runPageOptimizationSuggest(1);
     const fail = payloads.find((p) => p && p.ok === false);
     assert.ok(fail, `expected timeout failure, got: ${JSON.stringify(payloads)}`);
+  });
+
+  it('failed job waterfall has no render span', async () => {
+    const wf = [];
+    const sandbox = loadSwPageAdvisorStack();
+    sandbox.chrome.runtime = {
+      sendMessage: (msg) => { wf.push(msg); },
+    };
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            domOutline: [],
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({ job_id: 'job-1', trace_id: 'create-trace' });
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => jobWithResolvedTrace('llm-402-trace', {
+      error_code: 'PAYMENT_REQUIRED',
+    });
+    await sandbox.runPageOptimizationSuggest(1);
+    const last = [...wf].reverse().find((m) => m && m.action === 'pageAdvisorWaterfall');
+    assert.ok(last && last.run);
+    assert.equal(last.run.status, 'error');
+    assert.equal((last.run.spans || []).some((s) => s.id === 'render'), false);
+  });
+
+  it('region command marks alt-shift-z until consumed', () => {
+    const sandbox = loadSwPageAdvisorStack();
+    sandbox.markPageAdvisorSuggestCommand('alt-shift-z');
+    assert.equal(sandbox.consumePageAdvisorSuggestCommand(), 'alt-shift-z');
+    assert.equal(sandbox.consumePageAdvisorSuggestCommand(), 'alt-z');
   });
 });

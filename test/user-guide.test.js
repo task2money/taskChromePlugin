@@ -179,6 +179,8 @@ describe('UserGuide sections', () => {
     assert.match(md, /提示词集市/);
     assert.match(md, /\/prompt-shares\//);
     assert.match(md, /预埋自动创新这一条技能/);
+    assert.match(blob, /各环节耗时条/);
+    assert.match(md, /各环节耗时条/);
   });
 
   it('page-optimization-suggest: 快速创建任务仅在填入后打开', () => {
