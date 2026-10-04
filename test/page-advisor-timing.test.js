@@ -81,3 +81,41 @@ describe('PageAdvisorTiming', () => {
     assert.equal(run.spans[1].status, 'error');
   });
 });
+
+describe('PageAdvisorTiming network subspans (OPT-20261004-011)', () => {
+  const ENTRY = { requestStart: 120, responseStart: 300, responseEnd: 460 };
+
+  it('splits network into wait (TTFB) and download using timeOrigin', () => {
+    const sub = Timing.networkSubspansFromEntry(ENTRY, 1_000_000);
+    assert.deepEqual(sub, {
+      waitStartMs: 1_000_120,
+      waitEndMs: 1_000_300,
+      downloadEndMs: 1_000_460,
+      waitMs: 180,
+      downloadMs: 160,
+    });
+  });
+
+  it('returns null when the entry or timing is unusable (keeps whole-network behavior)', () => {
+    assert.equal(Timing.networkSubspansFromEntry(null, 0), null);
+    assert.equal(Timing.networkSubspansFromEntry(ENTRY, undefined), null);
+    assert.equal(Timing.networkSubspansFromEntry(ENTRY, NaN), null);
+    assert.equal(Timing.networkSubspansFromEntry({}, 0), null);
+    assert.equal(Timing.networkSubspansFromEntry(
+      { requestStart: 300, responseStart: 120, responseEnd: 460 }, 0), null); // 倒挂
+    assert.equal(Timing.networkSubspansFromEntry(
+      { requestStart: 120, responseStart: 460, responseEnd: 300 }, 0), null); // 倒挂
+  });
+
+  it('resourceEntryForUrl returns the latest matching entry and never throws', () => {
+    const first = { responseEnd: 1 };
+    const last = { responseEnd: 2 };
+    const perf = { getEntriesByName: (name) => (name === 'https://llm.test/v1/chat/completions' ? [first, last] : []) };
+    assert.equal(Timing.resourceEntryForUrl(perf, 'https://llm.test/v1/chat/completions'), last);
+    assert.equal(Timing.resourceEntryForUrl(perf, 'https://other/'), null);
+    assert.equal(Timing.resourceEntryForUrl(null, 'https://x/'), null);
+    assert.equal(Timing.resourceEntryForUrl(perf, ''), null);
+    assert.equal(Timing.resourceEntryForUrl({ getEntriesByName: () => { throw new Error('boom'); } }, 'u'), null);
+    assert.equal(Timing.resourceEntryForUrl({ getEntriesByName: () => undefined }, 'u'), null);
+  });
+});

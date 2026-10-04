@@ -5,6 +5,8 @@ const assert = require('node:assert/strict');
 
 const PageAdvisorLLM = require('../lib/page-advisor-llm-client.js');
 const PageAdvisorLlmConfig = require('../lib/page-advisor-llm-config.js');
+// 挂载 globalThis.PageAdvisorTiming（suggest 的 network wait/download 子段依赖）
+require('../lib/page-advisor-timing.js');
 
 describe('PageAdvisorLlmConfig', () => {
   it('isDirectLlmReady requires apiKey, baseUrl, and model', () => {
@@ -279,5 +281,38 @@ describe('PageAdvisorLLM locale system prompt', () => {
       assert.equal(s.status, 'ok');
       assert.ok(s.endAbs >= s.startAbs);
     });
+  });
+
+  it('splits network into wait/download subspans when Resource Timing is available', async () => {
+    const endpoint = 'https://llm.test/v1/chat/completions';
+    const spans = [];
+    await PageAdvisorLLM.suggest(
+      { apiKey: 'sk-secret-sub', baseUrl: 'https://llm.test/v1', model: 'm' },
+      { url: 'https://p', title: 'Hi', pageText: 'body' },
+      {
+        onSpan: (id, startAbs, endAbs, status) => spans.push({ id, startAbs, endAbs, status }),
+        fetchImpl: async () => ({
+          ok: true,
+          status: 200,
+          text: async () => JSON.stringify({
+            choices: [{ message: { content: '[{"title":"Idea","summary":"ok"}]' } }],
+          }),
+        }),
+        performanceImpl: {
+          timeOrigin: 1000,
+          getEntriesByName: (name) => (name === endpoint
+            ? [{ requestStart: 10, responseStart: 40, responseEnd: 90 }]
+            : []),
+        },
+      },
+    );
+    assert.deepEqual(
+      spans.map((s) => s.id),
+      ['network', 'network_wait', 'network_download', 'llm_wait', 'parse'],
+    );
+    const wait = spans.find((s) => s.id === 'network_wait');
+    const download = spans.find((s) => s.id === 'network_download');
+    assert.deepEqual([wait.startAbs, wait.endAbs], [1010, 1040]);
+    assert.deepEqual([download.startAbs, download.endAbs], [1040, 1090]);
   });
 });
