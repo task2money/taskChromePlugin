@@ -70,7 +70,7 @@ taskChromePlugin/
 │   ├── sw-messages-task.js        # runtime 消息：任务/捕获/账号
 │   ├── sw-pick.js                 # 选元素广播 / 截图 / 快捷键改绑
 │   ├── sw-page-advisor.js         # Alt+Z 页面优化建议：建 job + 轮询
-│   └── (无 sw-expiry：过期仅用时校验，无 alarms)
+│   └── (无 sw-expiry：过期仅用时校验；alarms 用于出站隧道保活/启用看门狗，ADR-0130)
 ├── devtools/
 │   ├── devtools.html              # DevTools 入口页
 │   └── devtools.js                # 创建 DevTools 面板
@@ -177,7 +177,7 @@ bash scripts/hooks/install.sh
 
 ## 技术栈
 
-- Manifest V3（权限最小化：`storage` / `webRequest` / `tabs` / `webNavigation` + `host_permissions: <all_urls>`；无 `cookies` / `activeTab` / `alarms`）
+- Manifest V3（权限最小化：`storage` / `alarms` / `webRequest` / `tabs` / `webNavigation` / `sidePanel` / `downloads` + `host_permissions: <all_urls>`；无 `cookies` / `activeTab`。`alarms` 仅用于本机模型出售出站隧道保活与启用看门狗，见 ADR-0130）
 - Vanilla JavaScript (无框架依赖)
 - chrome.devtools.network (HAR API)
 - chrome.webRequest (网络拦截)

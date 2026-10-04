@@ -4,7 +4,7 @@
  * 与既有 e2e（file:// + mock chrome）不同，本测试通过 --load-extension 加载真实扩展，
  * 覆盖 file:// 测试无法捕获的两类缺陷：
  * 1. SW 启动失败 → 扩展 runtime 消息通道双向全断（所有 sendMessage 超时）
- *    （历史：缺 alarms 守卫曾 TypeError；现正式包无 alarms，须仍能启动）
+ *    （历史：缺 alarms 守卫曾 TypeError；正式包声明 alarms，须存在且无 TypeError）
  * 2. MV3 扩展页面 CSP (script-src 'self') 阻止 panel.html head 内联脚本
  *    → devtools postMessage relay 不生效 → 网络请求列表为空
  *
@@ -32,13 +32,15 @@ const EXT_PATH = ROOT;
 const T = (ms) => new Promise((r) => setTimeout(r, ms));
 
 test.describe('真实扩展：SW 消息通道与 panel 消息管道', () => {
-  test('manifest 无 alarms + 双向消息往返 + panel 无 CSP 拦截 + 请求列表渲染', async () => {
+  test('manifest 声明 alarms 守卫 + 双向消息往返 + panel 无 CSP 拦截 + 请求列表渲染', async () => {
     test.setTimeout(120_000);
 
     // ---- 0. manifest 静态断言：权限瘦身禁止回潮 ----
     const manifest = JSON.parse(fs.readFileSync(path.join(EXT_PATH, 'manifest.json'), 'utf8'));
-    expect(manifest.permissions, '正式包不得声明 alarms（仅用时校验，无后台定时扫）')
-      .not.toContain('alarms');
+    // ADR-0130：alarms 用于本机模型出售出站隧道保活 + 启用看门狗，缺失会让看门狗静默失效，
+    // 故守卫其必须声明（此前禁止 alarms 的断言已过时，见 ADR-0130）。
+    expect(manifest.permissions, '正式包必须声明 alarms（隧道保活/启用看门狗，ADR-0130）')
+      .toContain('alarms');
     expect(manifest.permissions, '正式包不得声明 cookies（OAuth 后无生产调用）')
       .not.toContain('cookies');
     expect(manifest.permissions, '正式包不得声明 activeTab（tabs + <all_urls> 已覆盖）')
@@ -66,13 +68,15 @@ test.describe('真实扩展：SW 消息通道与 panel 消息管道', () => {
         swLogs.push(m.text());
       });
 
-      // ---- 2. SW 主 listener 注册（无 alarms 权限时 chrome.alarms 应为 undefined）----
+      // ---- 2. SW 主 listener 注册 + chrome.alarms 可用（ADR-0130）----
       const swState = await sw.evaluate(() => ({
         hasAlarms: typeof chrome.alarms !== 'undefined',
+        hasAlarmsGetAll: typeof chrome.alarms?.getAll === 'function',
         hasMainListener: chrome.runtime.onMessage.hasListeners(),
         runtimeId: chrome.runtime.id,
       }));
-      expect(swState.hasAlarms, '正式包无 alarms 权限时 SW 中 chrome.alarms 应为 undefined').toBe(false);
+      expect(swState.hasAlarms, '正式包声明 alarms，SW 中 chrome.alarms 应可用').toBe(true);
+      expect(swState.hasAlarmsGetAll, 'chrome.alarms.getAll 应为函数（避免缺少 alarms 时的 TypeError）').toBe(true);
       expect(swState.hasMainListener, 'SW 主 onMessage listener 应已注册').toBe(true);
       expect(swState.runtimeId).toBe(extId);
 
@@ -151,7 +155,7 @@ test.describe('真实扩展：SW 消息通道与 panel 消息管道', () => {
       await expect(page.locator('.request-item')).toHaveCount(1, { timeout: 10_000 });
       await expect(page.locator('.request-item')).toContainText('api.example.com/real');
 
-      // ---- 6. SW 无 alarms TypeError；不得启动后台过期定时扫 ----
+      // ---- 6. alarms 存在但不得抛 TypeError；不得启动后台过期定时扫 ----
       expect(swErrors.filter((e) => e.includes('alarms')), `SW console 不应有 alarms 相关错误：${swErrors.join('; ')}`)
         .toHaveLength(0);
       expect(swLogs.some((l) => l.includes('账号过期检测已启动')), '不得启动账号过期定时检测').toBe(false);
