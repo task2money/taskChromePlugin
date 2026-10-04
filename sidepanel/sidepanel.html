@@ -27,6 +27,7 @@
       <section class="section builtin-full-panel" id="spBuiltinPanel">
         <h3 data-i18n="paBuiltinTab">本机模型</h3>
         <p id="spBuiltinStatus" class="hint" aria-live="polite"></p>
+        <progress id="spBuiltinProgress" class="builtin-progress" max="100" value="0" hidden></progress>
         <div class="btn-row">
           <!-- Anti-Replay-OK: ui-only LanguageModel probe -->
           <button type="button" id="spBuiltinRefresh" class="btn btn-sm" data-i18n="paBuiltinRefresh">刷新状态</button>
@@ -102,6 +103,7 @@
   <script src="../lib/page-advisor-builtin-runtime.js"></script>
   <script src="../lib/page-advisor-builtin-language.js"></script>
   <script src="../lib/page-advisor-builtin-fit.js"></script>
+  <script src="../lib/page-advisor-builtin-progress.js"></script>
   <script src="../lib/page-advisor-builtin-prompt.js"></script>
   <script src="../lib/page-advisor-builtin-enable.js"></script>
   <script src="../lib/side-panel-bridge.js"></script>

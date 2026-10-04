@@ -30,6 +30,11 @@ describe('builtin-model-panel download UX', () => {
     assert.match(src, /paBuiltinDownloading/);
   });
 
+  it('解压进度条随 session 刷新，不 probeDetails', () => {
+    assert.match(src, /syncSpProgress/);
+    assert.match(src, /applyProgressBar/);
+  });
+
   it('进度回调不得 probeDetails，避免 100% 解压时刷成尚未启用', () => {
     const downloadFn = src.slice(src.indexOf('function onDownload()'));
     const progress = downloadFn.slice(

@@ -131,6 +131,9 @@ test.describe('Popup 内置模型下载→启用文案', () => {
     // 进度同步到 100%，create 仍挂起：应为「正在启用」，绝不能是「尚未启用」。
     await expect(status).toContainText(ENABLING, { timeout: 10000 });
     await expect(status).not.toContainText(NOT_ENABLED);
+    const bar = page.locator('#popupBuiltinProgress');
+    await expect(bar).toBeVisible();
+    await expect(bar).toHaveAttribute('data-kind', 'enable');
 
     // 结束 create → 模型可用 → 就绪。
     await page.evaluate(() => {
@@ -139,6 +142,7 @@ test.describe('Popup 内置模型下载→启用文案', () => {
     });
     await expect(status).toContainText(READY, { timeout: 10000 });
     await expect(status).not.toContainText(ENABLING);
+    await expect(bar).toBeHidden();
 
     // 成功路径：session 快照 lastErrorCode 为空。
     const snap = await page.evaluate(async () => {

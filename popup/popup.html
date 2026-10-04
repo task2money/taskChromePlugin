@@ -100,6 +100,7 @@
           <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型（留在本机，不必填写 API Key）</span>
         </label>
         <p id="popupBuiltinStatus" hidden aria-live="polite"></p>
+        <progress id="popupBuiltinProgress" class="builtin-progress" max="100" value="0" hidden></progress>
         <div id="popupBuiltinBasicMgmt" class="builtin-basic-mgmt" hidden>
           <div class="btn-row builtin-basic-actions">
             <!-- Anti-Replay-OK: ui-only refresh of LanguageModel.availability -->
@@ -375,6 +376,7 @@
   <script src="../lib/page-advisor-builtin-runtime.js"></script>
   <script src="../lib/page-advisor-builtin-language.js"></script>
   <script src="../lib/page-advisor-builtin-fit.js"></script>
+  <script src="../lib/page-advisor-builtin-progress.js"></script>
   <script src="../lib/page-advisor-builtin-prompt.js"></script>
   <script src="../lib/page-advisor-builtin-enable.js"></script>
   <script src="popup-builtin-mgmt.js"></script>

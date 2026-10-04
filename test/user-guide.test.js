@@ -32,6 +32,7 @@ describe('UserGuide sections', () => {
     assert.match((direct.steps || []).join('\n'), /正在刷新/);
     assert.match((direct.steps || []).join('\n'), /尚未启用/);
     assert.match((direct.steps || []).join('\n'), /正在启用/);
+    assert.match((direct.steps || []).join('\n'), /解压进度条/);
     assert.match((direct.steps || []).join('\n'), /正在下载 100%/);
     assert.match((direct.steps || []).join('\n'), /chrome-urls/);
     assert.match((direct.steps || []).join('\n'), /英语模型包/);

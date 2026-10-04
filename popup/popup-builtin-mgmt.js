@@ -42,6 +42,17 @@
     if (!busy) btn.removeAttribute('aria-busy');
   }
 
+  function syncBuiltinProgress(runtimeSnap) {
+    const el = $('#popupBuiltinProgress');
+    const Runtime = typeof PageAdvisorBuiltinRuntime !== 'undefined' ? PageAdvisorBuiltinRuntime : null;
+    const Progress = typeof PageAdvisorBuiltinProgress !== 'undefined' ? PageAdvisorBuiltinProgress : null;
+    if (!el || !Runtime || typeof Runtime.progressBarModel !== 'function'
+      || !Progress || typeof Progress.applyProgressBar !== 'function') {
+      return;
+    }
+    Progress.applyProgressBar(el, Runtime.progressBarModel(runtimeSnap));
+  }
+
   async function applyBuiltinStatusFromProbe(availability, runtimeSnap, selectedRouteMode) {
     const status = $('#popupBuiltinStatus');
     const download = downloadBtn();
@@ -80,6 +91,7 @@
       status.hidden = false;
       status.textContent = line;
     }
+    syncBuiltinProgress({ ...(runtimeSnap || {}), availability });
     if (download) {
       download.hidden = availability !== 'downloadable' && availability !== 'downloading';
       // 字节已下完但 availability 仍报 downloading：动作其实是「启用」，文案对齐以免用户以为要再下一次。
@@ -110,6 +122,7 @@
       if (basic) basic.hidden = true;
       const popupOnly = $('#btnDownloadBuiltinModelPopup');
       if (popupOnly) popupOnly.hidden = true;
+      syncBuiltinProgress({ downloadInFlight: false });
       return;
     }
     let availability = 'unavailable';
@@ -118,6 +131,7 @@
     } catch (_) {
       availability = 'unavailable';
     }
+    if (opts && opts.forceAvailable) availability = 'available';
     let runtimeSnap = null;
     if (typeof PageAdvisorBuiltinRuntime !== 'undefined' && PageAdvisorBuiltinRuntime.read) {
       try { runtimeSnap = await PageAdvisorBuiltinRuntime.read(); } catch (_) { runtimeSnap = null; }
@@ -155,17 +169,31 @@
         status.textContent = tx('paBuiltinDownloading', { pct: '0' });
       }
       try {
-        await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, popupLocale(), {
-          onProgress(pct) {
+        const result = await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, popupLocale(), {
+          onProgress(pct, extra) {
+            const loadPct = extra && extra.loadPct != null ? extra.loadPct : (Number(pct) >= 100 ? 1 : 0);
             if (status) {
               status.hidden = false;
               status.textContent = Number(pct) >= 100
-                ? tx('paBuiltinEnabling', { pct })
+                ? tx('paBuiltinEnabling', { pct, loadPct })
                 : tx('paBuiltinDownloading', { pct });
             }
+            const hundredAt = extra && Number(extra.enableHundredAt) > 0
+              ? Number(extra.enableHundredAt)
+              : 0;
+            syncBuiltinProgress({
+              phase: 'downloading',
+              availability: 'downloading',
+              downloadPct: pct,
+              downloadInFlight: true,
+              enablePct: Number(pct) >= 100 ? loadPct : 0,
+              enableHundredAt: Number(pct) >= 100 ? hundredAt : 0,
+            });
           },
         });
-        await refreshBuiltinRoute(selectedRouteMode);
+        await refreshBuiltinRoute(selectedRouteMode, result && result.availability === 'available'
+          ? { forceAvailable: true }
+          : {});
       } catch (err) {
         if (status) {
           const base = tx('paBuiltinFailed');

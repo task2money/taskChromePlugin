@@ -473,3 +473,12 @@ body {
 /* Dark popup: default browser link blue/purple is unreadable on #1e1e2e */
 a { color: #89b4fa; }
 a:hover { color: #74c7ec; }
+
+progress.builtin-progress {
+  display: block;
+  width: 100%;
+  height: 8px;
+  margin: 6px 0 8px;
+  accent-color: #89b4fa;
+}
+progress.builtin-progress[hidden] { display: none; }

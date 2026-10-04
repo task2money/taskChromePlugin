@@ -21,8 +21,8 @@ describe('i18n-llm-route builtin refresh copy', () => {
   });
 
   it('中英都有 paBuiltinEnabling', () => {
-    assert.match(src, /paBuiltinEnabling:\s*'内置模型已下载 \{pct\}%，正在启用/);
-    assert.match(src, /paBuiltinEnabling:\s*'Built-in model is \{pct\}% downloaded and is being enabled/);
+    assert.match(src, /paBuiltinEnabling:\s*'内置模型已下载 \{pct\}%，正在启用.*\{loadPct\}%/);
+    assert.match(src, /paBuiltinEnabling:\s*'Built-in model is \{pct\}% downloaded and is being enabled.*\{loadPct\}%/);
   });
 
   it('中英都有 paBuiltinEnablingWait', () => {

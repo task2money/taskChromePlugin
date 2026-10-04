@@ -60,7 +60,8 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   .tcp-guide-kbd,
   #popup-user-guide .tcp-guide-root-summary,
   .pa-wf-bar,
-  .pa-wf-track
+  .pa-wf-track,
+  progress.builtin-progress
 )) {
   background: #fff !important;
   border-color: #e5e7eb;

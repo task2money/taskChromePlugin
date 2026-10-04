@@ -31,6 +31,17 @@
     else btn.removeAttribute('aria-busy');
   }
 
+  function syncSpProgress(runtimeSnap) {
+    const el = $('#spBuiltinProgress');
+    const Runtime = globalThis.PageAdvisorBuiltinRuntime;
+    const Progress = globalThis.PageAdvisorBuiltinProgress;
+    if (!el || !Runtime || typeof Runtime.progressBarModel !== 'function'
+      || !Progress || typeof Progress.applyProgressBar !== 'function') {
+      return;
+    }
+    Progress.applyProgressBar(el, Runtime.progressBarModel(runtimeSnap));
+  }
+
   async function probeDetails(opts) {
     const lm = globalThis.LanguageModel;
     const Builtin = globalThis.PageAdvisorBuiltinPrompt;
@@ -43,6 +54,7 @@
     const cancel = $('#spBuiltinCancel');
     if (!lm || !Builtin) {
       if (statusEl) statusEl.textContent = typeof tx === 'function' ? tx('paBuiltinUnavailable') : 'unavailable';
+      syncSpProgress({ downloadInFlight: false });
       return { supported: false };
     }
     let availability = 'unavailable';
@@ -51,6 +63,7 @@
     } catch (_) {
       availability = 'unavailable';
     }
+    if (opts && opts.forceAvailable) availability = 'available';
     let snap = null;
     if (Runtime && Runtime.read) {
       try { snap = await Runtime.read(); } catch (_) { snap = null; }
@@ -72,6 +85,22 @@
         }, typeof tx === 'function' ? tx : (k) => k);
       }
     }
+    const inFlight = (availability === 'available' || (opts && opts.clearInFlight))
+      ? false
+      : !!(snap && snap.downloadInFlight);
+    if (Runtime && Runtime.write) {
+      try {
+        const patch = {
+          availability,
+          phase,
+          language: Builtin.promptLanguage(locale()),
+        };
+        if (!inFlight) patch.downloadInFlight = false;
+        await Runtime.write(patch);
+        snap = await Runtime.read();
+      } catch (_) { /* ignore */ }
+    }
+    syncSpProgress({ ...(snap || {}), availability, phase, downloadInFlight: inFlight });
     if (download) {
       download.hidden = availability !== 'downloadable' && availability !== 'downloading';
       // 字节已下完但 availability 仍报 downloading：动作其实是「启用」，文案对齐以免用户以为要再下一次。
@@ -98,6 +127,9 @@
             language: Builtin.promptLanguage(locale()),
           };
           if (phase === 'downloading') patch.phase = phase;
+          if (availability === 'available' || (opts && opts.clearInFlight)) {
+            patch.downloadInFlight = false;
+          }
           await Runtime.write(patch);
         }
       } catch (_) { /* ignore */ }
@@ -169,16 +201,30 @@
         statusEl.textContent = tx('paBuiltinDownloading', { pct: '0' });
       }
       try {
-        await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, locale(), {
-          onProgress(pct) {
+        const result = await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, locale(), {
+          onProgress(pct, extra) {
+            const loadPct = extra && extra.loadPct != null ? extra.loadPct : (Number(pct) >= 100 ? 1 : 0);
             if (statusEl && typeof tx === 'function') {
               statusEl.textContent = Number(pct) >= 100
-                ? tx('paBuiltinEnabling', { pct })
+                ? tx('paBuiltinEnabling', { pct, loadPct })
                 : tx('paBuiltinDownloading', { pct });
             }
+            const hundredAt = extra && Number(extra.enableHundredAt) > 0
+              ? Number(extra.enableHundredAt)
+              : 0;
+            syncSpProgress({
+              phase: 'downloading',
+              availability: 'downloading',
+              downloadPct: pct,
+              downloadInFlight: true,
+              enablePct: Number(pct) >= 100 ? loadPct : 0,
+              enableHundredAt: Number(pct) >= 100 ? hundredAt : 0,
+            });
           },
         });
-        await probeDetails();
+        await probeDetails(result && result.availability === 'available'
+          ? { forceAvailable: true }
+          : {});
       } catch (err) {
         // 失败须可见：不可仅 probeDetails 静默吞掉（用户感知为「点了没反响」）
         if (statusEl) {
@@ -265,6 +311,7 @@
         if (typeof lineFn === 'function') {
           statusEl.textContent = lineFn(nv, typeof tx === 'function' ? tx : (k) => k);
         }
+        syncSpProgress(nv);
       });
     }
     updateTabVisibility();

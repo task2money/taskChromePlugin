@@ -273,6 +273,62 @@ test('startDownload 在 100% 解压载入期间标记 downloadInFlight', async (
   }
 });
 
+test('解压期间 availability 变 available 则结束启用并进入就绪', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  let av = 'downloading';
+  const downloadModel = {
+    async availability() { return av; },
+    create(opts) {
+      opts.monitor({
+        addEventListener(name, fn) {
+          if (name === 'downloadprogress') fn({ loaded: 1, total: 1 });
+        },
+      });
+      return new Promise((_, reject) => {
+        const signal = opts && opts.signal;
+        if (signal) {
+          signal.addEventListener('abort', () => {
+            reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+          }, { once: true });
+        }
+      });
+    },
+  };
+  try {
+    const pending = builtin.startDownload(downloadModel, 'zh-CN', {
+      enableHeartbeatMs: 15,
+      enableTimeoutMs: 5000,
+      probe: async () => av,
+    });
+    await new Promise((r) => setTimeout(r, 25));
+    const mid = bag[runtime.STORAGE_KEY];
+    assert.equal(mid.downloadInFlight, true);
+    assert.ok(Number(mid.enablePct) >= 1);
+    av = 'available';
+    const result = await pending;
+    assert.equal(result.availability, 'available');
+    const done = bag[runtime.STORAGE_KEY];
+    assert.equal(done.downloadInFlight, false);
+    assert.equal(done.availability, 'available');
+    assert.equal(done.enablePct, 100);
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+});
+
 test('downloadable 的 Alt+Z 不 create；设置允许时才 create', async () => {
   let created = 0;
   const model = {
@@ -349,7 +405,7 @@ test('startDownload 在 await availability 之前就必须调用 create（保留
       });
     },
   };
-  const pending = builtin.startDownload(downloadModel, 'zh-CN', {});
+  const pending = builtin.startDownload(downloadModel, 'zh-CN', { enableHeartbeatMs: 0 });
   await new Promise((r) => setTimeout(r, 30));
   assert.equal(created, 1, 'create 必须在 availability 完成前启动，否则 Chrome 会因无用户激活拒绝下载');
   assert.ok(createStarted && createStarted.signal, 'create 须带 AbortSignal 以支持取消');

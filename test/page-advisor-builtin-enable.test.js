@@ -42,6 +42,7 @@ test('waitIfEnabling 偏死后清 inFlight 且不 probe', async () => {
     storage: { session: store },
   };
   let probes = 0;
+  const notes = [];
   try {
     await enable.waitIfEnabling({}, 'zh-CN', 1, {
       enableTimeoutMs: runtime.ENABLE_STALE_MS,
@@ -49,8 +50,8 @@ test('waitIfEnabling 偏死后清 inFlight 且不 probe', async () => {
         probes += 1;
         return 'downloading';
       },
-      notify: async () => {},
-      tx: (k) => k,
+      notify: async (_tab, payload) => { notes.push(payload); },
+      tx: (k, vars) => `${k}:${vars && vars.loadPct != null ? vars.loadPct : ''}`,
     });
   } finally {
     globalThis.PageAdvisorBuiltinRuntime = prev;
@@ -59,4 +60,5 @@ test('waitIfEnabling 偏死后清 inFlight 且不 probe', async () => {
   const snap = await runtime.read(store);
   assert.equal(snap.downloadInFlight, false);
   assert.equal(probes, 0);
+  assert.equal(notes.length, 0);
 });

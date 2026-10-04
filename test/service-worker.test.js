@@ -21,10 +21,12 @@ describe('service-worker', () => {
     const enableLib = sw.indexOf('../lib/page-advisor-builtin-enable.js');
     const lang = sw.indexOf('../lib/page-advisor-builtin-language.js');
     const fit = sw.indexOf('../lib/page-advisor-builtin-fit.js');
+    const prog = sw.indexOf('../lib/page-advisor-builtin-progress.js');
     const prompt = sw.indexOf('../lib/page-advisor-builtin-prompt.js');
     assert.ok(lang >= 0);
     assert.ok(fit > lang);
-    assert.ok(prompt > fit);
+    assert.ok(prog > fit);
+    assert.ok(prompt > prog);
     const watchdog = sw.indexOf('./sw-builtin-enable-watchdog.js');
     assert.ok(prompt >= 0);
     assert.ok(enableLib > prompt);

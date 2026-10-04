@@ -166,3 +166,51 @@ test('设置页即使采集刚写入也不展示 paCollecting', () => {
   assert.equal(runtime.statusLineForSettings(fresh, tx), 'paBuiltinNeedsDownload');
   assert.equal(runtime.phaseForSettingsProbe(fresh, 'downloadable'), 'idle');
 });
+
+test('progressBarModel 下载中显示确定进度，解压中显示 enablePct', () => {
+  const down = runtime.progressBarModel({
+    downloadInFlight: true,
+    downloadPct: 40,
+  });
+  assert.equal(down.visible, true);
+  assert.equal(down.kind, 'download');
+  assert.equal(down.value, 40);
+  const enable = runtime.progressBarModel({
+    downloadInFlight: true,
+    downloadPct: 100,
+    enablePct: 37,
+    enableHundredAt: Date.now(),
+  });
+  assert.equal(enable.visible, true);
+  assert.equal(enable.kind, 'enable');
+  assert.equal(enable.value, 37);
+  const done = runtime.progressBarModel({
+    downloadInFlight: false,
+    availability: 'available',
+    downloadPct: 100,
+    enablePct: 100,
+  });
+  assert.equal(done.visible, false);
+});
+
+test('enableLoadPercent 解压阶段不到 100%', () => {
+  assert.equal(runtime.enableLoadPercent(0), 0);
+  const mid = runtime.enableLoadPercent(25_000);
+  assert.ok(mid >= 50 && mid <= 80, String(mid));
+  assert.equal(runtime.enableLoadPercent(180_000) < 100, true);
+});
+
+test('enableLoadPercentFromSnap 不因残留 enablePct=1 冻住进度', () => {
+  const snap = {
+    downloadInFlight: true,
+    downloadPct: 100,
+    enablePct: 1,
+    enableHundredAt: Date.now() - 25_000,
+  };
+  const pct = runtime.enableLoadPercentFromSnap(snap);
+  assert.ok(pct >= 50 && pct <= 80, String(pct));
+  const bar = runtime.progressBarModel(snap);
+  assert.equal(bar.kind, 'enable');
+  assert.equal(bar.visible, true);
+  assert.ok(bar.value >= 50 && bar.value <= 80, String(bar.value));
+});

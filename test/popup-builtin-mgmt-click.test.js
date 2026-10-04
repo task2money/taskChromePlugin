@@ -43,11 +43,14 @@ function loadMgmt(opts) {
   wrap.hidden = false;
   const cancel = makeEl();
   cancel.hidden = true;
+  const progress = makeEl();
+  progress.hidden = true;
   const openFull = makeEl();
   const popupOnly = makeEl();
   popupOnly.hidden = true;
   const els = {
     '#popupBuiltinStatus': status,
+    '#popupBuiltinProgress': progress,
     '#btnRefreshBuiltinStatus': refresh,
     '#btnDownloadBuiltinModel': download,
     '#popupBuiltinBasicMgmt': basic,
@@ -64,6 +67,7 @@ function loadMgmt(opts) {
     console,
     ClickGuard: require('../lib/click-guard.js'),
     PageAdvisorBuiltinRuntime: require('../lib/page-advisor-builtin-runtime.js'),
+    PageAdvisorBuiltinProgress: require('../lib/page-advisor-builtin-progress.js'),
     PageAdvisorBuiltinPrompt: {
       probe: async () => probeAv,
       promptLanguage: () => 'zh',
@@ -154,6 +158,7 @@ test('下载点击立刻离开采集中文案', async () => {
   const p = download.click();
   assert.match(status.textContent, /下载/);
   assert.notEqual(status.textContent, '正在采集页面并生成优化建议…');
+  assert.equal(context.document.querySelector('#popupBuiltinProgress').hidden, false);
   await p;
 });
 
@@ -250,4 +255,18 @@ test('popup pagehide 调用 abandonEnable', () => {
   assert.equal(typeof context.window._on.pagehide, 'function');
   context.window._on.pagehide();
   assert.equal(n, 1);
+});
+
+test('create 完成后即使 probe 仍 downloading 也切到就绪并隐藏进度条', async () => {
+  const { context, status, download } = loadMgmt({ availability: 'downloading' });
+  context.PageAdvisorBuiltinPrompt.startDownload = async (_lm, _loc, hooks) => {
+    if (hooks && hooks.onProgress) {
+      hooks.onProgress(100, { loadPct: 40, enableHundredAt: Date.now() - 8000 });
+    }
+    return { availability: 'available' };
+  };
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  await download.click();
+  assert.equal(status.textContent, '就绪');
+  assert.equal(context.document.querySelector('#popupBuiltinProgress').hidden, true);
 });
