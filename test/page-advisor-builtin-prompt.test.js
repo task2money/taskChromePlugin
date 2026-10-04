@@ -273,6 +273,58 @@ test('startDownload 在 100% 解压载入期间标记 downloadInFlight', async (
   }
 });
 
+test('重复 100% downloadprogress 不得把解压进度打回 1', async () => {
+  const runtime = require('../lib/page-advisor-builtin-runtime.js');
+  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
+  const prevChrome = globalThis.chrome;
+  const bag = {};
+  globalThis.PageAdvisorBuiltinRuntime = runtime;
+  globalThis.chrome = {
+    storage: {
+      session: {
+        async get(key) { return { [key]: bag[key] }; },
+        async set(next) { Object.assign(bag, next); },
+      },
+    },
+  };
+  const extras = [];
+  let fire100 = null;
+  const downloadModel = {
+    availability: async () => 'downloading',
+    create(opts) {
+      opts.monitor({
+        addEventListener(name, fn) {
+          if (name !== 'downloadprogress') return;
+          fn({ loaded: 1, total: 1 });
+          fire100 = () => fn({ loaded: 1, total: 1 });
+        },
+      });
+      return new Promise((resolve) => {
+        setTimeout(() => resolve({ destroy() {} }), 900);
+      });
+    },
+  };
+  try {
+    const pending = builtin.startDownload(downloadModel, 'zh-CN', {
+      enableHeartbeatMs: 15,
+      enableTimeoutMs: 5000,
+      onProgress(pct, extra) { extras.push({ pct, extra }); },
+    });
+    await new Promise((r) => setTimeout(r, 700));
+    if (typeof fire100 === 'function') fire100();
+    await new Promise((r) => setTimeout(r, 40));
+    const grown = extras.filter((e) => e.pct === 100 && e.extra && Number(e.extra.loadPct) > 1);
+    assert.ok(grown.length >= 1, JSON.stringify(extras.slice(-5)));
+    const afterRepeat = extras[extras.length - 1];
+    assert.equal(afterRepeat.pct, 100);
+    assert.ok(afterRepeat.extra && Number(afterRepeat.extra.loadPct) > 1, JSON.stringify(afterRepeat));
+    await pending;
+  } finally {
+    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
+    globalThis.chrome = prevChrome;
+  }
+});
+
 test('解压期间 availability 变 available 则结束启用并进入就绪', async () => {
   const runtime = require('../lib/page-advisor-builtin-runtime.js');
   const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
