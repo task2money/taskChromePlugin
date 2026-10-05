@@ -86,6 +86,30 @@ describe('popup page-advisor waterfall host', () => {
     assert.match(builtin.innerHTML, /data-span="builtin_infer"/);
   });
 
+  it('成功运行默认折叠 skipped 细项，点击切换展开（OPT-20261005-003）', () => {
+    const doc = fakeDoc('sidepanel', { builtin: true });
+    PopupWf.mount(doc);
+    const settings = doc.getElementById('pageAdvisorWaterfall');
+
+    PopupWf.applyRun({
+      runId: 'r-ok',
+      route: 'direct',
+      status: 'ok',
+      startedAt: 0,
+      endedAt: 20,
+      spans: [
+        { id: 'capture', startMs: 0, endMs: 20, status: 'ok' },
+        { id: 'llm_wait', startMs: 0, endMs: 0, status: 'skipped' },
+      ],
+    });
+    assert.doesNotMatch(settings.innerHTML, /data-span="llm_wait"/);
+    assert.match(settings.innerHTML, /pa-wf-toggle-skipped/);
+
+    // 点击切换：调用事件处理（测试用 fake 事件，closest 命中切换按钮）。
+    PopupWf.onRootClick({ target: { closest: () => ({}) } });
+    assert.match(settings.innerHTML, /data-span="llm_wait"/);
+  });
+
   it('本机模型 Tab 仅在非 builtin 路由时给出说明行（OPT-20261005-004）', () => {
     const doc = fakeDoc('sidepanel', { builtin: true });
     PopupWf.mount(doc);

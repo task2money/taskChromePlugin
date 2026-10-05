@@ -28,6 +28,27 @@ describe('PageAdvisorWaterfallView', () => {
     assert.match(html, /paWfStatusOk/);
   });
 
+  it('成功运行默认隐藏 skipped 细项并给出切换按钮（OPT-20261005-003）', () => {
+    let t = 0;
+    const now = () => t;
+    const run = Timing.createRun({ runId: 'skip', command: 'alt-z', route: 'direct', now });
+    Timing.seedPlannedSpans(run);
+    Timing.startSpan(run, 'capture', now);
+    t = 20;
+    Timing.endSpan(run, 'capture', now);
+    Timing.completeRun(run, now);
+    const layout = (r) => Timing.layoutBars(r, now);
+
+    const hidden = View.renderRun(run, (k) => k, layout, { hideSkipped: true });
+    assert.doesNotMatch(hidden, /data-span="llm_wait"/);
+    assert.match(hidden, /pa-wf-toggle-skipped/);
+    assert.match(hidden, /paWfShowSkipped/);
+
+    const shown = View.renderRun(run, (k) => k, layout, { hideSkipped: false });
+    assert.match(shown, /data-span="llm_wait"/);
+    assert.match(shown, /paWfHideSkipped/);
+  });
+
   it('error span uses pa-wf-bar-error', () => {
     let t = 0;
     const now = () => t;

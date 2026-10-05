@@ -12,6 +12,8 @@ const PageAdvisorWaterfallPopup = (() => {
   let roots = [];
   let tickTimer = 0;
   let currentRun = null;
+  // OPT-20261005-003: 成功运行的 skipped 细项默认折叠，点击切换展开。
+  let showSkipped = false;
 
   function isSidepanel(doc) {
     const el = doc && doc.documentElement;
@@ -32,7 +34,8 @@ const PageAdvisorWaterfallPopup = (() => {
 
   function renderFor(rootId) {
     if (!currentRun) return PageAdvisorWaterfallView.renderIdle(txKey);
-    const body = PageAdvisorWaterfallView.renderRun(currentRun, txKey);
+    const hideSkipped = currentRun.status === 'ok' && !showSkipped;
+    const body = PageAdvisorWaterfallView.renderRun(currentRun, txKey, undefined, { hideSkipped });
     // OPT-20261005-004: 仅「本机模型」Tab 在非 builtin 路由时加一行说明。
     if (rootId === 'pageAdvisorWaterfallBuiltin') {
       return PageAdvisorWaterfallView.renderRouteNotice(txKey, currentRun.route) + body;
@@ -45,8 +48,25 @@ const PageAdvisorWaterfallPopup = (() => {
     roots.forEach((el) => { el.innerHTML = renderFor(el.id); });
   }
 
+  function onRootClick(event) {
+    const target = event && event.target;
+    const toggle = target && typeof target.closest === 'function'
+      ? target.closest('[data-pa-wf-toggle]')
+      : null;
+    if (!toggle) return;
+    showSkipped = !showSkipped;
+    paint();
+  }
+
+  function bindRootEvents(el) {
+    if (el && typeof el.addEventListener === 'function') {
+      el.addEventListener('click', onRootClick);
+    }
+  }
+
   function applyRun(run) {
     currentRun = run || null;
+    showSkipped = false;
     paint();
     stopTick();
     if (currentRun && currentRun.status === 'running') {
@@ -68,6 +88,10 @@ const PageAdvisorWaterfallPopup = (() => {
       parent.appendChild(el);
     }
     el.hidden = false;
+    if (!el.__paWfClickBound) {
+      bindRootEvents(el);
+      el.__paWfClickBound = true;
+    }
     return el;
   }
 
@@ -111,7 +135,7 @@ const PageAdvisorWaterfallPopup = (() => {
     return el;
   }
 
-  return { isSidepanel, mount, applyRun, onRuntimeMessage, bindRuntime, restoreFromSession, boot, SLOTS };
+  return { isSidepanel, mount, applyRun, onRuntimeMessage, bindRuntime, restoreFromSession, boot, SLOTS, onRootClick };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
