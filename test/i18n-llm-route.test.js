@@ -8,6 +8,19 @@ const path = require('node:path');
 const src = fs.readFileSync(path.join(__dirname, '../lib/i18n-llm-route.js'), 'utf8');
 
 describe('i18n-llm-route builtin refresh copy', () => {
+  it('paLlmRouteBuiltin 标明机子速度差异与约 130s 耗时', () => {
+    assert.match(
+      src,
+      /paLlmRouteBuiltin:\s*'使用浏览器内置模型\(不同机子速度不一样，我的机子耗费时间130s\)'/,
+    );
+    assert.match(
+      src,
+      /paLlmRouteBuiltin:\s*'Use the browser’s built-in model \(speed varies by machine; ~130s on mine\)'/,
+    );
+    assert.equal(src.includes('留在本机，不必填写 API Key'), false);
+    assert.equal(src.includes('stays on this device, no API key'), false);
+  });
+
   it('中英都有 paBuiltinRefreshing', () => {
     const zh = src.indexOf("paBuiltinRefreshing: '正在刷新内置模型状态…'");
     const en = src.indexOf("paBuiltinRefreshing: 'Refreshing on-device model status…'");
