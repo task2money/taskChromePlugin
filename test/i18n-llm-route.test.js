@@ -21,6 +21,11 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.equal(src.includes('stays on this device, no API key'), false);
   });
 
+  it('paLlmRouteBuiltinMeasured 中英均带 {sec} 占位（OPT-20261005-005）', () => {
+    assert.match(src, /paLlmRouteBuiltinMeasured:\s*'使用浏览器内置模型（本机最近约 \{sec\}s）'/);
+    assert.match(src, /paLlmRouteBuiltinMeasured:\s*'Use the browser’s built-in model \(about \{sec\}s on this machine recently\)'/);
+  });
+
   it('中英都有 paBuiltinRefreshing', () => {
     const zh = src.indexOf("paBuiltinRefreshing: '正在刷新内置模型状态…'");
     const en = src.indexOf("paBuiltinRefreshing: 'Refreshing on-device model status…'");

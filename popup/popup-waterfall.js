@@ -12,8 +12,35 @@ const PageAdvisorWaterfallPopup = (() => {
   let roots = [];
   let tickTimer = 0;
   let currentRun = null;
+  let mountedDoc = null;
   // OPT-20261005-003: 成功运行的 skipped 细项默认折叠，点击切换展开。
   let showSkipped = false;
+
+  function localStorageArea() {
+    return (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) || null;
+  }
+
+  /**
+   * OPT-20261005-005: 用本机最近一次 builtin 成功耗时刷新「本机模型」标题；
+   * 无实测数据时保持静态文案（由 PageAdvisorBuiltinLastRun 决定回退）。
+   */
+  function refreshBuiltinRouteLabel() {
+    const mod = globalThis.PageAdvisorBuiltinLastRun;
+    if (!mod || !mountedDoc || typeof mountedDoc.querySelector !== 'function') return;
+    const el = mountedDoc.querySelector('[data-i18n="paLlmRouteBuiltin"]');
+    if (!el) return;
+    mod.readBuiltinLastMs(localStorageArea())
+      .then((ms) => { el.textContent = mod.builtinRouteLabel(txKey, ms); })
+      .catch(() => { /* ignore */ });
+  }
+
+  function recordBuiltinRun(run) {
+    const mod = globalThis.PageAdvisorBuiltinLastRun;
+    if (!mod || typeof mod.recordBuiltinRun !== 'function') return;
+    mod.recordBuiltinRun(localStorageArea(), run)
+      .then((ms) => { if (ms) refreshBuiltinRouteLabel(); })
+      .catch(() => { /* ignore */ });
+  }
 
   function isSidepanel(doc) {
     const el = doc && doc.documentElement;
@@ -68,6 +95,7 @@ const PageAdvisorWaterfallPopup = (() => {
     currentRun = run || null;
     showSkipped = false;
     paint();
+    recordBuiltinRun(currentRun);
     stopTick();
     if (currentRun && currentRun.status === 'running') {
       tickTimer = setInterval(paint, 250);
@@ -101,9 +129,11 @@ const PageAdvisorWaterfallPopup = (() => {
       roots = [];
       return null;
     }
+    mountedDoc = d;
     roots = SLOTS.map((spec) => ensureSlot(d, spec)).filter(Boolean);
     if (!roots.length) return null;
     paint();
+    refreshBuiltinRouteLabel();
     return roots[0];
   }
 
@@ -135,7 +165,10 @@ const PageAdvisorWaterfallPopup = (() => {
     return el;
   }
 
-  return { isSidepanel, mount, applyRun, onRuntimeMessage, bindRuntime, restoreFromSession, boot, SLOTS, onRootClick };
+  return {
+    isSidepanel, mount, applyRun, onRuntimeMessage, bindRuntime, restoreFromSession, boot, SLOTS,
+    onRootClick, refreshBuiltinRouteLabel,
+  };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {
