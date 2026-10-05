@@ -86,6 +86,36 @@ describe('popup page-advisor waterfall host', () => {
     assert.match(builtin.innerHTML, /data-span="builtin_infer"/);
   });
 
+  it('本机模型 Tab 仅在非 builtin 路由时给出说明行（OPT-20261005-004）', () => {
+    const doc = fakeDoc('sidepanel', { builtin: true });
+    PopupWf.mount(doc);
+    const settings = doc.getElementById('pageAdvisorWaterfall');
+    const builtin = doc.getElementById('pageAdvisorWaterfallBuiltin');
+
+    // 平台/直连路由：本机模型 Tab 顶部提示，设置 Tab 不提示。
+    PopupWf.applyRun({
+      runId: 'r-platform',
+      route: 'platform',
+      status: 'ok',
+      startedAt: 0,
+      endedAt: 10,
+      spans: [{ id: 'builtin_infer', startMs: 0, endMs: 10, status: 'ok' }],
+    });
+    assert.match(builtin.innerHTML, /pa-wf-route-notice/);
+    assert.doesNotMatch(settings.innerHTML, /pa-wf-route-notice/);
+
+    // builtin 路由：两个 Tab 都不提示。
+    PopupWf.applyRun({
+      runId: 'r-builtin',
+      route: 'builtin',
+      status: 'ok',
+      startedAt: 0,
+      endedAt: 10,
+      spans: [{ id: 'builtin_infer', startMs: 0, endMs: 10, status: 'ok' }],
+    });
+    assert.doesNotMatch(builtin.innerHTML, /pa-wf-route-notice/);
+  });
+
   it('sidepanel.html 本机模型 Tab has waterfall slot and loads paint scripts', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
     const lastAt = html.indexOf('id="spBuiltinLastRun"');

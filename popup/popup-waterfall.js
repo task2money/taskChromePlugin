@@ -30,12 +30,19 @@ const PageAdvisorWaterfallPopup = (() => {
     }
   }
 
+  function renderFor(rootId) {
+    if (!currentRun) return PageAdvisorWaterfallView.renderIdle(txKey);
+    const body = PageAdvisorWaterfallView.renderRun(currentRun, txKey);
+    // OPT-20261005-004: 仅「本机模型」Tab 在非 builtin 路由时加一行说明。
+    if (rootId === 'pageAdvisorWaterfallBuiltin') {
+      return PageAdvisorWaterfallView.renderRouteNotice(txKey, currentRun.route) + body;
+    }
+    return body;
+  }
+
   function paint() {
     if (!roots.length || typeof PageAdvisorWaterfallView === 'undefined') return;
-    const html = currentRun
-      ? PageAdvisorWaterfallView.renderRun(currentRun, txKey)
-      : PageAdvisorWaterfallView.renderIdle(txKey);
-    roots.forEach((el) => { el.innerHTML = html; });
+    roots.forEach((el) => { el.innerHTML = renderFor(el.id); });
   }
 
   function applyRun(run) {
