@@ -214,3 +214,20 @@ test('enableLoadPercentFromSnap 不因残留 enablePct=1 冻住进度', () => {
   assert.equal(bar.visible, true);
   assert.ok(bar.value >= 50 && bar.value <= 80, String(bar.value));
 });
+
+// OPT-20261005-001: 流式推理已生成字数（inferChars）须持久化并进入状态行。
+test('sanitize 保留 inferChars 为非负整数，丢弃非法值', () => {
+  assert.equal(runtime.sanitize({ inferChars: 42 }).inferChars, 42);
+  assert.equal(runtime.sanitize({ inferChars: 12.9 }).inferChars, 12);
+  assert.equal(runtime.sanitize({ inferChars: -5 }).inferChars, 0);
+  assert.equal(runtime.sanitize({ inferChars: 'abc' }).inferChars, undefined);
+});
+
+test('statusLine 生成阶段带 inferChars 时显示已生成字数', () => {
+  const tx = (k, vars) => (vars && vars.n != null ? `${k}:${vars.n}` : k);
+  const snap = { phase: 'generating', updatedAt: Date.now(), inferChars: 128 };
+  assert.equal(runtime.statusLine(snap, tx), 'paBuiltinInferringChars:128');
+  // 未回报字数时退回无计数的推理提示
+  const bare = { phase: 'generating', updatedAt: Date.now() };
+  assert.equal(runtime.statusLine(bare, tx), 'paBuiltinInferring');
+});

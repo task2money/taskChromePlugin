@@ -142,3 +142,97 @@ describe('PageAdvisorBuiltinSuggest spans', () => {
     }
   });
 });
+
+// OPT-20261005-001: 流式推理（promptStreaming）——累计片段与增量片段都要拼出完整
+// JSON，并回报已生成字数；不支持时回退一次性 prompt。
+function streamOf(chunks) {
+  let i = 0;
+  return {
+    getReader() {
+      return {
+        async read() {
+          if (i >= chunks.length) return { done: true, value: undefined };
+          return { done: false, value: chunks[i++] };
+        },
+      };
+    },
+  };
+}
+
+function streamingModel(chunks, opts) {
+  const calls = { streaming: 0, prompt: 0 };
+  const session = {
+    inputQuota: 100000,
+    measureInputUsage: (t) => String(t).length,
+    promptStreaming() { calls.streaming += 1; return streamOf(chunks); },
+    async prompt() { calls.prompt += 1; return '[{"id":"p","title":"t","summary":"s"}]'; },
+    destroy() {},
+  };
+  return {
+    calls,
+    model: {
+      async availability() { return 'available'; },
+      async params() { return {}; },
+      async create() { return session; },
+    },
+  };
+}
+
+const PAGE = {
+  url: 'https://example.test',
+  title: '页',
+  pageText: '按钮',
+  domOutline: [{ nid: 'n1', tag: 'button', text: '按钮' }],
+};
+
+describe('PageAdvisorBuiltinSuggest streaming (OPT-20261005-001)', () => {
+  let builtin;
+  before(() => {
+    require('../lib/page-advisor-llm-client.js');
+    require('../lib/page-advisor-builtin-language.js');
+    require('../lib/page-advisor-builtin-fit.js');
+    builtin = require('../lib/page-advisor-builtin-prompt.js');
+  });
+
+  it('增量片段拼出完整结果并回报递增字数', async () => {
+    const finalJson = '[{"id":"s1","title":"标题","summary":"摘要"}]';
+    const { model } = streamingModel(['[{"id":"s1",', '"title":"标题",', '"summary":"摘要"}]']);
+    const counts = [];
+    const out = await builtin.suggest(model, PAGE, {
+      locale: 'zh-CN', skill: null, onInferProgress: (n) => counts.push(n),
+    });
+    assert.equal(out.suggestions.length, 1);
+    assert.equal(out.suggestions[0].id, 's1');
+    assert.ok(counts.length >= 1);
+    for (let i = 1; i < counts.length; i += 1) assert.ok(counts[i] > counts[i - 1]);
+    assert.equal(counts[counts.length - 1], finalJson.length);
+  });
+
+  it('累计片段（历史上游行为）也能拼出完整结果且不重复', async () => {
+    const chunks = ['[', '[{"id":"s1",', '[{"id":"s1","title":"标题","summary":"摘要"}]'];
+    const { model } = streamingModel(chunks);
+    const counts = [];
+    const out = await builtin.suggest(model, PAGE, {
+      locale: 'zh-CN', skill: null, onInferProgress: (n) => counts.push(n),
+    });
+    assert.equal(out.suggestions.length, 1);
+    assert.equal(counts[counts.length - 1], chunks[chunks.length - 1].length);
+  });
+
+  it('promptStreaming 不可用时回退一次性 prompt', async () => {
+    const session = {
+      inputQuota: 100000,
+      measureInputUsage: (t) => String(t).length,
+      async prompt() { return '[{"id":"p","title":"t","summary":"s"}]'; },
+      destroy() {},
+    };
+    const model = {
+      async availability() { return 'available'; },
+      async params() { return {}; },
+      async create() { return session; },
+    };
+    const out = await builtin.suggest(model, PAGE, { locale: 'zh-CN', skill: null });
+    assert.equal(out.suggestions.length, 1);
+    assert.equal(out.suggestions[0].id, 'p');
+  });
+});
