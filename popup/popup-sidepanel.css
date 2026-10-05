@@ -169,9 +169,22 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-bar {
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-capture { background: #4B5563 !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-prompt { background: color-mix(in srgb, #F1F2F6 35%, #4B5563) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network,
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network_wait,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_poll { background: #7241F2 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network_download {
+  background: color-mix(in srgb, #7241F2 70%, #fff) !important;
+}
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-llm_wait,
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin { background: #5C2DC7 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin,
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_infer { background: #5C2DC7 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_probe,
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_create {
+  background: color-mix(in srgb, #5C2DC7 55%, #F1F2F6) !important;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_fit {
+  background: color-mix(in srgb, #5C2DC7 75%, #F1F2F6) !important;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_parse,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-parse { background: color-mix(in srgb, #F1F2F6 20%, #7241F2) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-render { background: color-mix(in srgb, #7241F2 55%, #fff) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-error { background: #FF324D !important; }
