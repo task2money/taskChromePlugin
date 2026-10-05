@@ -36,15 +36,14 @@ describe('content.js 调整期望输入框默认提示语', () => {
   });
 });
 
-// OPT-20260821-008: Popup 悬浮球开关只写 storage，content 监听 onChanged 自更新。
-describe('content.js 悬浮球 storage 变更监听', () => {
+// 页内不再注入悬浮球；storage 监听只合并登录态与快捷键。
+describe('content.js storage 变更监听', () => {
   it('存在 bindStorageListeners', () => {
-    assert.ok(contentJs.includes('function bindStorageListeners'), 'content.js 应监听 floatBallEnabled storage 变更');
+    assert.ok(contentJs.includes('function bindStorageListeners'), 'content.js 应监听 storage 变更');
   });
 
-  it('监听 floatBallEnabled 键并更新显隐', () => {
-    assert.ok(contentJs.includes('changes.floatBallEnabled'), '应检查 floatBallEnabled 变更');
-    assert.ok(contentJs.includes("setProperty('display', enabled ? 'block' : 'none'"), '应据变更更新悬浮球显隐');
+  it('不再按 floatBallEnabled 隐藏根节点', () => {
+    assert.ok(!contentJs.includes('changes.floatBallEnabled'), '不应再检查 floatBallEnabled 变更');
   });
 });
 

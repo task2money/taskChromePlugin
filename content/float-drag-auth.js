@@ -47,95 +47,6 @@ function setupDescReset() {
   syncDescResetButton();
 }
 
-// ---- Drag Logic ----
-function setupDrag() {
-  if (!btn) return;
-  btn.addEventListener('mousedown', onDragStart);
-  btn.addEventListener('dragstart', (e) => e.preventDefault());
-}
-
-function onDragStart(e) {
-  if (e.button !== 0) return;
-  isDragging = true;
-  hasMoved = false;
-  dragStartX = e.clientX;
-  dragStartY = e.clientY;
-  const rect = btn.getBoundingClientRect();
-  if (btn.style.bottom && btn.style.bottom !== 'auto') {
-    btn.style.left = rect.left + 'px';
-    btn.style.top = rect.top + 'px';
-    btn.style.bottom = 'auto';
-    btn.style.right = 'auto';
-  }
-  btnStartX = rect.left;
-  btnStartY = rect.top;
-  btn.style.transition = 'none';
-  btn.style.cursor = 'grabbing';
-  document.addEventListener('mousemove', onDragMove);
-  document.addEventListener('mouseup', onDragEnd);
-}
-
-function onDragMove(e) {
-  if (!isDragging) return;
-  const dx = e.clientX - dragStartX;
-  const dy = e.clientY - dragStartY;
-  if (Math.abs(dx) < DRAG_THRESHOLD && Math.abs(dy) < DRAG_THRESHOLD) return;
-  hasMoved = true;
-  let newX = btnStartX + dx;
-  let newY = btnStartY + dy;
-  const w = btn.offsetWidth;
-  const h = btn.offsetHeight;
-  newX = Math.max(0, Math.min(newX, window.innerWidth - w));
-  newY = Math.max(0, Math.min(newY, window.innerHeight - h));
-  btn.style.left = newX + 'px';
-  btn.style.top = newY + 'px';
-}
-
-function onDragEnd() {
-  document.removeEventListener('mousemove', onDragMove);
-  document.removeEventListener('mouseup', onDragEnd);
-  if (!isDragging) return;
-  isDragging = false;
-  btn.style.transition = '';
-  btn.style.cursor = '';
-  if (hasMoved) {
-    const x = parseInt(btn.style.left, 10);
-    const y = parseInt(btn.style.top, 10);
-    if (!isNaN(x) && !isNaN(y)) {
-      chrome.runtime.sendMessage({ action: 'saveFloatBallPosition', x, y }).catch(() => {});
-    }
-  }
-}
-
-if (btn) btn.addEventListener('click', async (e) => {
-  if (hasMoved) {
-    hasMoved = false;
-    return;
-  }
-  // 选元素模式下，点击悬浮球 = 取消选择
-  if (pickMode) {
-    setPickMode(false);
-    return;
-  }
-  if (!panel) {
-    await openSidePanelFromPage('create');
-    return;
-  }
-  isOpen = !isOpen;
-  panel.classList.toggle('taskplugin-open', isOpen);
-  btn.classList.toggle('taskplugin-active', isOpen);
-  btn.textContent = isOpen ? '×' : '+';
-
-  if (isOpen) {
-    await refreshAuthAndWorkspaces();
-    openSnapshot = captureOpenSnapshot();
-    syncFloatPanelFocusTrap();
-  } else {
-    if (typeof clearFloatResult === 'function') clearFloatResult();
-    syncFloatPanelFocusTrap();
-  }
-});
-
 function syncFloatPanelFocusTrap() {
   const Trap = typeof DialogFocusTrap !== 'undefined' ? DialogFocusTrap : null;
   if (!Trap || !panel) return;
@@ -446,18 +357,12 @@ function handleApiAuthFailure(err) {
   return true;
 }
 
-/** storage 变更：单一监听合并登录态 / 悬浮球 / 快捷键（禁止三个 onChanged 叠加唤醒） */
+/** storage 变更：单一监听合并登录态 / 快捷键（禁止多个 onChanged 叠加唤醒） */
 function bindStorageListeners() {
   try {
     if (!chrome.storage?.onChanged) return;
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return;
-      if (changes.floatBallEnabled !== undefined
-          && document.documentElement.getAttribute('data-taskplugin-host') !== 'sidepanel') {
-        const enabled = changes.floatBallEnabled.newValue !== false;
-        root.style.setProperty('display', enabled ? 'block' : 'none', 'important');
-        if (!enabled) hideFloatPanel();
-      }
       if (changes.elementPickerShortcut) {
         const combo = resolveShortcutCombo(changes.elementPickerShortcut.newValue);
         if (combo) {

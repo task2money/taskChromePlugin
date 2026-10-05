@@ -52,7 +52,6 @@ function bootAuth(authReply) {
     UserGuide: { mount() {}, renderCollapsibleHtml() { return ''; }, loadShortcutModeFromStorage: async () => {} },
     Storage: {
       getEndpointMapping: async () => ({ foo: 1 }),
-      getFloatBallConfig: async () => ({ enabled: false }),
       formatTokenExpiryHint: () => '',
     },
     API: {

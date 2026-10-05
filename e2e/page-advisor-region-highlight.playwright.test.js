@@ -166,7 +166,7 @@ async function loadPluginIntoPage(page) {
   ]) {
     await page.addStyleTag({ path: path.join(ROOT, rel) });
   }
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 15000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 15000 });
 }
 
 /** 注入三条建议：s1→host-para，s2→host-side，s3 无任何可解析锚点（角落卡） */

@@ -47,20 +47,8 @@
       <div id="loginResult" class="result"></div>
     </section>
 
-    <!-- 悬浮球开关：登录与未登录均可见，便于浮窗 × 关闭后重新打开 -->
-    <section id="floatBallSection" class="section" style="display:none">
-      <div class="float-ball-row">
-        <label class="tracking-toggle" for="floatBallToggle">
-          <input type="checkbox" id="floatBallToggle" checked>
-          <span class="toggle-slider"></span>
-        </label>
-        <span class="float-ball-label" data-i18n="showFloatBall">显示悬浮球</span>
-        <!-- Anti-Replay-OK: native details; ui-only expand of help copy; no HTTP -->
-        <details class="region-help">
-          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="floatBallHint">关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。</p>
-        </details>
-      </div>
+    <!-- 固定到工具栏：只读状态；创建任务走侧栏，页内不再注入悬浮球 -->
+    <section id="toolbarPinSection" class="section" style="display:none">
       <div class="float-ball-row" id="toolbarPinRow">
         <span class="float-ball-label" data-i18n="toolbarPinLabel">固定到工具栏</span>
         <span id="toolbarPinStatus" class="badge badge-disconnected" role="status" aria-live="polite"></span>

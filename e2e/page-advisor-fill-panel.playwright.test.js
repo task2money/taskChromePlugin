@@ -179,7 +179,7 @@ async function loadPluginIntoPage(page) {
   ]) {
     await page.addStyleTag({ path: path.join(ROOT, rel) });
   }
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 15000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 15000 });
 }
 
 function readPanel(page) {
@@ -199,25 +199,15 @@ function readPanel(page) {
   });
 }
 
-test.describe('建议展示期间面板保持关闭，填入后打开', () => {
-  test('show suggestions keeps panel closed; fill-all opens panel and appends text', async ({ page }) => {
+test.describe('建议展示期间不打开页内面板，填入后请求打开侧栏', () => {
+  test('show suggestions keeps page without create panel; fill-all opens side panel', async ({ page }) => {
     const pageErrors = [];
     page.on('pageerror', (err) => pageErrors.push(String(err && err.message)));
 
     await loadPluginIntoPage(page);
+    expect(await page.locator('#taskplugin-float-btn').count()).toBe(0);
+    expect(await page.locator('#taskplugin-float-panel').count()).toBe(0);
 
-    // 打开「快速创建任务」面板（真实用户入口）
-    await page.click('#taskplugin-float-btn');
-    await page.waitForFunction(
-      () => !!document
-        .getElementById('taskplugin-float-panel')
-        ?.classList.contains('taskplugin-open'),
-      null,
-      { timeout: 8000 },
-    );
-    expect((await readPanel(page)).panelOpen).toBe(true);
-
-    // 建议返回：面板应保持关闭，建议层可见
     await page.evaluate((suggestions) => {
       showPageAdvisorSuggestions({
         suggestions,
@@ -233,27 +223,15 @@ test.describe('建议展示期间面板保持关闭，填入后打开', () => {
     expect(during.layerVisible).toBe(true);
     expect(during.fillAllVisible).toBe(true);
     expect(during.fillAllDisabled).toBe(false);
-    expect(during.desc).not.toContain('页面优化建议');
 
-    // 点击「全部填入任务描述」→ 面板打开且描述含建议文案
     await page.click('#taskplugin-page-advisor-fill-all');
     await page.waitForFunction(
-      () => !!document
-        .getElementById('taskplugin-float-panel')
-        ?.classList.contains('taskplugin-open'),
+      () => (window.__sentMessages || []).some((m) => m && (m.action === 'openSidePanel' || m.action === 'setCreateDescription')),
       null,
       { timeout: 8000 },
     );
-
-    const after = await readPanel(page);
-    expect(after.panelOpen).toBe(true);
-    expect(after.desc).toContain('## 页面优化建议（Alt+Z）');
-    for (const s of SUGGESTIONS) {
-      expect(after.desc).toContain(`[${s.title}]`);
-      expect(after.desc).toContain(s.detail);
-    }
-    expect(after.desc).toContain('来源页: https://example.test/page');
-
+    const sent = await page.evaluate(() => window.__sentMessages || []);
+    expect(sent.some((m) => m && (m.action === 'openSidePanel' || m.action === 'setCreateDescription'))).toBe(true);
     expect(pageErrors).toEqual([]);
   });
 });

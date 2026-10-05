@@ -34,11 +34,10 @@ describe('content.js CPU 热路径契约', () => {
     );
   });
 
-  it('setupDrag 不在初始化时把 mousemove 挂到 document', () => {
-    const setup = content.slice(content.indexOf('function setupDrag'), content.indexOf('function onDragStart'));
-    assert.doesNotMatch(setup, /document\.addEventListener\('mousemove'/);
-    assert.match(content, /onDragStart[\s\S]{0,800}document\.addEventListener\('mousemove',\s*onDragMove\)/);
-    assert.match(content, /onDragEnd[\s\S]{0,500}document\.removeEventListener\('mousemove',\s*onDragMove\)/);
+  it('setupDrag 已删除，初始化不挂悬浮球拖拽', () => {
+    assert.doesNotMatch(content, /function setupDrag/);
+    assert.doesNotMatch(content, /function onDragStart/);
+    assert.doesNotMatch(content, /document\.addEventListener\('mousemove',\s*onDragMove\)/);
   });
 
   it('选元素 mouseover/click 仅在 pickMode 时挂载', () => {
@@ -53,7 +52,7 @@ describe('content.js CPU 热路径契约', () => {
     const matches = content.match(/chrome\.storage\.onChanged\.addListener/g) || [];
     assert.equal(matches.length, 1, `content.js 应只有 1 个 storage.onChanged 监听，实际 ${matches.length}`);
     assert.match(content, /function bindStorageListeners/);
-    assert.match(content, /changes\.floatBallEnabled/);
+    assert.doesNotMatch(content, /changes\.floatBallEnabled/);
   });
 });
 

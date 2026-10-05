@@ -205,11 +205,11 @@ describe('UserGuide sections', () => {
     assert.match(en, /Closing the popup aborts that enable/);
   });
 
-  it('float-create 说明包含面板顶部 × 关闭浮窗', () => {
+  it('float-create 说明侧栏顶栏 × 关闭侧栏', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
-    assert.match(html, /面板顶部[「"]×[」"]/);
-    assert.match(html, /关闭浮窗/);
-    assert.doesNotMatch(html, /面板顶部[「"]×[」"].*关闭悬浮球/);
+    assert.match(html, /创建任务」顶栏「×」关闭侧栏/);
+    assert.match(html, /页内不再显示悬浮球/);
+    assert.doesNotMatch(html, /显示悬浮球」开关/);
   });
 
   it('float-create 说明创建成功 toast 任务 ID 可点进详情', () => {

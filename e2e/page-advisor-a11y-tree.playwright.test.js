@@ -148,7 +148,7 @@ async function loadPluginIntoPage(page) {
   for (const rel of CSS_FILES) {
     await page.addStyleTag({ path: path.join(ROOT, rel) });
   }
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 15000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 15000 });
 }
 
 /**

@@ -71,7 +71,7 @@
     const loginToggle = $('#btnToggleLogin');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
-    const floatSec = $('#floatBallSection');
+    const floatSec = $('#toolbarPinSection');
     const reqSec = $('#requestsSection');
     const userGuideSec = $('#popupGuideSection');
     const spinnerVisible = spinner && spinner.style.display !== 'none';
@@ -185,8 +185,8 @@
     if (section) section.style.display = visible ? 'block' : 'none';
   }
 
-  function setFloatBallSectionVisible(visible) {
-    const section = $('#floatBallSection');
+  function setToolbarPinSectionVisible(visible) {
+    const section = $('#toolbarPinSection');
     if (section) section.style.display = visible ? 'block' : 'none';
   }
 
@@ -229,7 +229,7 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
-    setFloatBallSectionVisible(false);
+    setToolbarPinSectionVisible(false);
     setPopupGuideVisible(false);
 
     await init();
@@ -251,8 +251,7 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
-    setFloatBallSectionVisible(true);
-    loadFloatBallConfig();
+    setToolbarPinSectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
     }
@@ -300,7 +299,7 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
-    setFloatBallSectionVisible(true);
+    setToolbarPinSectionVisible(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -333,7 +332,7 @@
     if (devGuide) devGuide.style.display = 'block';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
-    setFloatBallSectionVisible(true);
+    setToolbarPinSectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
     }
@@ -457,7 +456,6 @@
   async function loadSubModules() {
     try {
       const results = await Promise.allSettled([
-        loadFloatBallConfig(),
         loadTrackingConfig(),
         loadCapturedRequests(),
         window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig
@@ -472,14 +470,6 @@
           console.warn('[TaskPlugin] loadState 子模块加载失败:', r.reason);
         }
       }
-    } catch (_) { /* ignore */ }
-  }
-
-  async function loadFloatBallConfig() {
-    try {
-      const cfg = await Storage.getFloatBallConfig();
-      const toggle = $('#floatBallToggle');
-      if (toggle) toggle.checked = cfg.enabled;
     } catch (_) { /* ignore */ }
   }
 

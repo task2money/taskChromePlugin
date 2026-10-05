@@ -134,69 +134,31 @@ async function loadPluginIntoPage(page) {
   for (const rel of LIB_FILES) {
     await page.addScriptTag({ path: path.join(ROOT, rel) });
   }
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 10000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 10000 });
 }
 
-/** 读取面板/悬浮球/存储三态 */
-async function panelState(page) {
+async function pagePluginState(page) {
   return page.evaluate(() => {
     const panel = document.getElementById('taskplugin-float-panel');
     const btn = document.getElementById('taskplugin-float-btn');
-    const btnVisible = btn
-      ? (btn.offsetWidth > 0 || btn.offsetHeight > 0) && getComputedStyle(btn).display !== 'none'
-      : false;
+    const modal = document.getElementById('taskplugin-adjust-modal');
     return {
-      open: panel ? panel.classList.contains('taskplugin-open') : false,
-      btnAttached: !!btn,
-      btnVisible,
-      floatBallEnabled: window.chrome.storage.local._store.floatBallEnabled,
+      hasPanel: !!panel,
+      hasBtn: !!btn,
+      hasModal: !!modal,
+      hasRoot: !!document.getElementById('taskplugin-float-root'),
     };
   });
 }
 
-test.describe('浮窗 × 仅收起面板', () => {
-  test('点悬浮球打开面板后点 × 只收起面板，悬浮球可见且 floatBallEnabled 不变', async ({ page }) => {
+test.describe('页内不再注入悬浮球', () => {
+  test('页面只有调整弹窗根节点，没有悬浮球和创建表单', async ({ page }) => {
     await loadPluginIntoPage(page);
-
-    // 初始：面板收起、悬浮球可见、floatBallEnabled=true
-    expect(await panelState(page)).toEqual({
-      open: false,
-      btnAttached: true,
-      btnVisible: true,
-      floatBallEnabled: true,
+    expect(await pagePluginState(page)).toEqual({
+      hasPanel: false,
+      hasBtn: false,
+      hasModal: true,
+      hasRoot: true,
     });
-
-    // 点悬浮球 → 面板打开
-    await page.click('#taskplugin-float-btn');
-    await page.waitForFunction(
-      () => document.getElementById('taskplugin-float-panel')?.classList.contains('taskplugin-open'),
-      null,
-      { timeout: 5000 },
-    );
-    expect((await panelState(page)).open).toBe(true);
-
-    // 点 ×（#taskplugin-float-close）→ 面板收起
-    await page.click('#taskplugin-float-close');
-    await page.waitForFunction(
-      () => !document.getElementById('taskplugin-float-panel')?.classList.contains('taskplugin-open'),
-      null,
-      { timeout: 5000 },
-    );
-
-    // 收起后：面板无 open、悬浮球仍可见、floatBallEnabled 未被写 false
-    const after = await panelState(page);
-    expect(after.open).toBe(false);
-    expect(after.btnAttached).toBe(true);
-    expect(after.btnVisible).toBe(true);
-    expect(after.floatBallEnabled).toBe(true);
-
-    // 再次点悬浮球仍可重新打开（关闭动作不破坏后续交互）
-    await page.click('#taskplugin-float-btn');
-    await page.waitForFunction(
-      () => document.getElementById('taskplugin-float-panel')?.classList.contains('taskplugin-open'),
-      null,
-      { timeout: 5000 },
-    );
-    expect((await panelState(page)).open).toBe(true);
   });
 });

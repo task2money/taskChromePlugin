@@ -230,7 +230,7 @@ async function loadPluginIntoPage(page) {
     await page.addScriptTag({ path: path.join(ROOT, rel) });
   }
   // 悬浮球可能因配置隐藏，仅需保证 DOM 已挂载（断言基于类名/文本，不依赖可见性）
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 10000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 10000 });
 }
 
 /** 读取指针选择模式状态：documentElement 类 + 悬浮球按钮文本 */

@@ -154,19 +154,12 @@ async function loadPluginIntoPage(page) {
   }
   await page.addStyleTag({ path: path.join(ROOT, 'content/content.css') });
   await page.addStyleTag({ path: path.join(ROOT, 'content/content-region.css') });
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 15000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 15000 });
 }
 
 test.describe('Alt+Shift+E region pick not blocked by float', () => {
   test('opens float then region select: panel closes, hint under body', async ({ page }) => {
     await loadPluginIntoPage(page);
-
-    await page.click('#taskplugin-float-btn');
-    await page.waitForFunction(
-      () => document.getElementById('taskplugin-float-panel')?.classList.contains('taskplugin-open'),
-      null,
-      { timeout: 8000 },
-    );
 
     const started = await page.evaluate(() => {
       if (typeof startPageAdvisorRegionSelect !== 'function') {

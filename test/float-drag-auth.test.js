@@ -15,21 +15,26 @@ describe('float-drag-auth 不再隐式 resolveTaskOwner', () => {
     assert.doesNotMatch(src, /无法确定任务负责人/);
   });
 
-  it('页面没有浮窗面板时，点击悬浮球打开侧边栏并切到创建任务', () => {
+  it('页面没有悬浮球；打开侧栏走 openSidePanelFromPage', () => {
     const src = fs.readFileSync(
       path.join(__dirname, '..', 'content', 'float-drag-auth.js'),
       'utf8',
     );
-    const click = src.slice(src.indexOf("btn.addEventListener('click'"), src.indexOf('function syncFloatPanelFocusTrap'));
-    assert.match(click, /if \(!panel\) \{\s*await openSidePanelFromPage\('create'\)/);
+    assert.doesNotMatch(src, /btn\.addEventListener\('click'/);
+    assert.doesNotMatch(src, /function setupDrag/);
+    const boot = fs.readFileSync(
+      path.join(__dirname, '..', 'content', 'float-boot.js'),
+      'utf8',
+    );
+    assert.match(boot, /function openSidePanelFromPage/);
   });
 
-  it('悬浮球收起面板时清掉结果提示', () => {
+  it('收起侧栏面板时清掉结果提示', () => {
     const src = fs.readFileSync(
-      path.join(__dirname, '..', 'content', 'float-drag-auth.js'),
+      path.join(__dirname, '..', 'content', 'content.js'),
       'utf8',
     );
-    assert.match(src, /clearFloatResult\(\)/);
+    assert.match(src, /function hideFloatPanel\(\)[\s\S]*clearFloatResult\(\)/);
   });
 
   it('未登录角标可点击，已登录不可点击', () => {

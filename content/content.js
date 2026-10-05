@@ -7,7 +7,7 @@ function bindFloatPanelCloseButton() {
   closeBtn.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    // Anti-Replay-OK: ui-only — 仅收起浮窗，不隐藏悬浮球、无写接口
+    // Anti-Replay-OK: ui-only — 仅收起侧栏创建面板，无写接口
     hideFloatPanel();
   });
 }
@@ -134,15 +134,7 @@ if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
 // ---- 监听来自 popup / background 的消息 ----
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.action === 'openDevToolsHint') {
-    if (!btn) return;
-    btn.style.animation = 'none';
-    void btn.getBoundingClientRect();
-    btn.style.animation = 'taskplugin-pulse 0.3s ease 3';
-  }
-  if (msg.action === 'setFloatBallEnabled') {
-    console.log('[taskChromePlugin] setFloatBallEnabled from popup:', msg.enabled);
-    root.style.setProperty('display', msg.enabled ? 'block' : 'none', 'important');
-    if (!msg.enabled) hideFloatPanel();
+    return;
   }
   if (msg.action === 'getPageAdvisorContext') {
     try {
@@ -311,18 +303,6 @@ function findIframeByUrl(frameUrl) {
   return match || null;
 }
 
-if (!__taskpluginFloatSkip) {
-// pulse 动画
-var style = document.createElement('style');
-style.textContent = `
-  @keyframes taskplugin-pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.2); }
-  }
-`;
-document.head.appendChild(style);
-}
-
 if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
 chrome.runtime.onMessage.addListener((message) => {
   if (!message || message.action !== 'relayPageToast') return;
@@ -333,9 +313,7 @@ chrome.runtime.onMessage.addListener((message) => {
 // ---- Init ----
 (async function init() {
   try {
-    // 0. 立即绑定 UI 交互（拖拽），不依赖任何异步操作
-    //    防止 Service Worker 延迟 / 启动失败导致按钮无响应
-    setupDrag();
+    // 0. 立即绑定 UI 交互，不依赖任何异步操作
     bindFloatPanelCloseButton();
     bindFloatLocaleSwitcher();
     bindStorageListeners();
@@ -346,20 +324,12 @@ chrome.runtime.onMessage.addListener((message) => {
     seedBranchDatalists();
 
     // 2. 异步恢复配置和认证状态（失败不影响核心交互）
-    const floatCfg = await loadFloatBallConfigFromStorage();
-    console.log('[taskChromePlugin] floatBall enabled:', floatCfg.enabled);
-    if (!floatCfg.enabled) {
-      root.style.setProperty('display', 'none', 'important');
-    }
-
     // 加载元素拾取快捷键配置（Popup 可自定义任意组合，默认 Alt+X）
     try {
       pickShortcutCombo = await Storage.getElementPickerShortcut();
       renderShortcutHints();
       console.log('[taskChromePlugin] pick shortcut combo:', pickShortcutCombo);
     } catch (_) { /* 保持默认 Alt+X */ }
-
-    await restoreFloatBallPosition();
 
     const urlEl = document.getElementById('taskplugin-page-url');
     if (urlEl) {
@@ -379,8 +349,6 @@ chrome.runtime.onMessage.addListener((message) => {
     startAuthBadgeTimer();
   } catch (err) {
     console.error('[taskChromePlugin] init() 初始化失败，核心交互已就绪:', err.message || err);
-    // setupDrag 已在 try 块首行执行，
-    // 即使后续异步操作全部失败，悬浮球仍可正常工作
   }
 })();
 

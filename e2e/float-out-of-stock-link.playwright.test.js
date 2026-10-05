@@ -119,7 +119,7 @@ async function loadPluginIntoPage(page) {
   for (const rel of LIB_FILES) {
     await page.addScriptTag({ path: path.join(ROOT, rel) });
   }
-  await page.waitForSelector('#taskplugin-float-btn', { state: 'attached', timeout: 10000 });
+  await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 10000 });
 }
 
 /** 浮窗创建失败：硬件无库存，携带项目定位信息。 */

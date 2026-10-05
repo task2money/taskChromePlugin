@@ -33,13 +33,6 @@ if (__taskpluginOnAuthRoute && root) {
   root.setAttribute('data-taskplugin-auth-route', '1');
   root.style.display = 'none';
   root.setAttribute('aria-hidden', 'true');
-  // Leave a single-line tip on the ball if markup exists (for e2e / power users who force-show).
-  var authBtn = document.getElementById('taskplugin-float-btn');
-  if (authBtn) {
-    const hint = typeof tx === 'function' ? tx('floatLoginBeforeCreate') : '请先登录后再创建任务';
-    authBtn.title = hint;
-    authBtn.setAttribute('aria-label', hint);
-  }
 }
 
 (async function hydrateFloatI18n() {
@@ -161,35 +154,8 @@ function sendMessageWithTimeout(action, timeoutMs = 8000) {
   });
 }
 
-// ---- Drag State ----
-var isDragging = false;
-var dragStartX = 0;
-var dragStartY = 0;
-var btnStartX = 0;
-var btnStartY = 0;
-var hasMoved = false;
-var DRAG_THRESHOLD = 4;
-
 // 分支模板 datalist 预设值前缀（须在 init → seedBranchDatalists 之前初始化）
 var PRESET_PREFIX = '__preset:';
-
-async function loadFloatBallConfigFromStorage() {
-  try {
-    const r = await sendMessageWithTimeout({ action: 'getFloatBallConfig' }, 5000);
-    if (r && r.success) return r.data;
-  } catch (e) {
-    console.warn('[taskChromePlugin] loadFloatBallConfig 失败:', e.message);
-  }
-  return { enabled: true };
-}
-
-async function saveFloatBallConfigToStorage(enabled) {
-  try {
-    await sendMessageWithTimeout({ action: 'saveFloatBallConfig', enabled }, 5000);
-  } catch (e) {
-    console.warn('[taskChromePlugin] saveFloatBallConfig 失败:', e.message);
-  }
-}
 
 function sidePanelOpenHintText() {
   var locale = '';
@@ -243,21 +209,6 @@ async function writeCreateDescription(next) {
     }
   } catch (_) {
     if (!onForm && typeof showPageToast === 'function') showPageToast(sidePanelOpenHintText());
-  }
-}
-
-async function restoreFloatBallPosition() {
-  if (!btn) return;
-  try {
-    const r = await sendMessageWithTimeout({ action: 'getFloatBallPosition' }, 5000);
-    if (r && r.success && r.data && r.data.x != null && r.data.y != null) {
-      btn.style.bottom = 'auto';
-      btn.style.right = 'auto';
-      btn.style.left = r.data.x + 'px';
-      btn.style.top = r.data.y + 'px';
-    }
-  } catch (e) {
-    console.warn('[taskChromePlugin] restoreFloatBallPosition 失败:', e.message);
   }
 }
 

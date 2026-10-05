@@ -7,10 +7,6 @@
     try {
       chrome.storage.onChanged.addListener((changes, area) => {
         if (area !== 'local') return;
-        if (changes.floatBallEnabled !== undefined) {
-          const toggle = $('#floatBallToggle');
-          if (toggle) toggle.checked = changes.floatBallEnabled.newValue !== false;
-        }
         if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
           return;
         }
@@ -46,19 +42,6 @@
     // 重试初始化
     const btnRetry = $('#btnRetryInit');
     if (btnRetry) btnRetry.addEventListener('click', retryInit);
-
-    // 悬浮球开关 — Anti-Replay-OK: ui-only（仅写本地 storage，无 HTTP 写接口）
-    const floatToggle = $('#floatBallToggle');
-    if (floatToggle) {
-      floatToggle.addEventListener('change', async () => {
-        const enabled = floatToggle.checked;
-        try {
-          await withTimeout(Storage.saveFloatBallConfig(enabled), STORAGE_READ_TIMEOUT, tx('opSaveFloatBallConfig'));
-        } catch (_) { /* ignore */ }
-        // OPT-20260821-008: 只写 storage；content 监听 floatBallEnabled onChanged 自更新，
-        // 不再向全部标签页 sendMessage（与登录/快捷键同类的跨 tab 扇出已下线）。
-      });
-    }
 
     // 跟踪开关
     const trackingToggle = $('#trackingToggle');

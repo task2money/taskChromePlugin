@@ -142,36 +142,6 @@ async function handleMessageRest(message, sender) {
       }
       return { success: true };
 
-    case 'getFloatBallConfig':
-      try {
-        return { success: true, data: await Storage.getFloatBallConfig() };
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
-
-    case 'saveFloatBallConfig':
-      try {
-        await Storage.saveFloatBallConfig(message.enabled);
-        return { success: true };
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
-
-    case 'getFloatBallPosition':
-      try {
-        return { success: true, data: await Storage.getFloatBallPosition() };
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
-
-    case 'saveFloatBallPosition':
-      try {
-        await Storage.saveFloatBallPosition(message.x, message.y);
-        return { success: true };
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
-
     case 'startElementPick':
       {
         const tabId = message.tabId || sender?.tab?.id;

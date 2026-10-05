@@ -110,10 +110,8 @@ describe('float result dismiss', () => {
     assert.equal(resultDiv.querySelector('a'), null);
   });
 
-  it('ball × close path clears the result the same way as the header', () => {
-    const drag = fs.readFileSync(path.join(ROOT, 'content/float-drag-auth.js'), 'utf8');
+  it('header × close path clears the result', () => {
     const close = fs.readFileSync(path.join(ROOT, 'content/content.js'), 'utf8');
-    assert.match(drag, /clearFloatResult\(\)/);
     assert.match(close, /function hideFloatPanel\(\)[\s\S]*clearFloatResult\(\)/);
   });
 });

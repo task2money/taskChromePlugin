@@ -44,7 +44,7 @@ describe('toolbarPinView', () => {
 describe('设置页不提供可写入的固定开关', () => {
   it('状态行在悬浮球区内，且没有可勾选的固定开关', () => {
     const html = read('popup/popup.html');
-    const start = html.indexOf('id="floatBallSection"');
+    const start = html.indexOf('id="toolbarPinSection"');
     const end = html.indexOf('id="pageAdvisorLlmSection"');
     const block = html.slice(start, end);
     assert.match(block, /id="toolbarPinStatus"/);

@@ -201,9 +201,9 @@ describe('side panel light surface layer', () => {
 describe('float markup host split', () => {
   const markup = require('../lib/float-panel-markup.js');
 
-  it('页面只留悬浮球和元素调整框', () => {
+  it('页面只留元素调整框，不注入悬浮球', () => {
     const html = markup.html('page');
-    assert.match(html, /id="taskplugin-float-btn"/);
+    assert.doesNotMatch(html, /id="taskplugin-float-btn"/);
     assert.match(html, /id="taskplugin-adjust-modal"/);
     assert.doesNotMatch(html, /id="taskplugin-float-panel"/);
     assert.doesNotMatch(html, /id="taskplugin-desc"/);

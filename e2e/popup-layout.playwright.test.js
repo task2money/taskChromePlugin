@@ -217,13 +217,13 @@ test.describe('Popup 面板布局', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
   });
 
-  test('未登录态可见「显示悬浮球」开关，且不在请求预览区内', async ({ page }) => {
+  test('未登录态可见「固定到工具栏」，且无悬浮球开关', async ({ page }) => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
-    await expect(page.locator('#floatBallSection')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#floatBallToggle')).toBeAttached();
-    await expect(page.locator('#floatBallSection .toggle-slider')).toBeVisible();
-    await expect(page.locator('#floatBallSection')).toContainText('显示悬浮球');
+    await expect(page.locator('#toolbarPinSection')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#floatBallToggle')).toHaveCount(0);
+    await expect(page.locator('#toolbarPinStatus')).toBeVisible();
+    await expect(page.locator('#toolbarPinSection')).toContainText('固定到工具栏');
     await expect(page.locator('#requestsSection')).toBeHidden();
   });
 

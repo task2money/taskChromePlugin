@@ -33,21 +33,19 @@ describe('跨 tab 扇出已下线', () => {
     assert.doesNotMatch(popup, /action: 'authStateChanged'/);
   });
 
-  it('T7 Popup 悬浮球开关不再向全部标签页 sendMessage (OPT-20260821-008)', () => {
+  it('T7 Popup 无悬浮球开关、不向全部标签页 sendMessage', () => {
     const { readPopupBundle } = require('./helpers/popupBundle.js');
     const popup = readPopupBundle();
-    const start = popup.indexOf('悬浮球开关');
-    const end = popup.indexOf('跟踪开关');
-    const seg = popup.slice(start, end === -1 ? popup.length : end);
-    assert.doesNotMatch(seg, /chrome\.tabs\.query\(\{\}\)/);
-    assert.doesNotMatch(seg, /setFloatBallEnabled/);
+    assert.doesNotMatch(popup, /floatBallToggle/);
+    assert.doesNotMatch(popup, /setFloatBallEnabled/);
+    assert.doesNotMatch(popup, /chrome\.tabs\.query\(\{\}\)/);
   });
 
-  it('T8 content 监听 floatBallEnabled storage 变更自更新 (OPT-20260821-008)', () => {
+  it('T8 content 不再监听 floatBallEnabled', () => {
     const { readContentBundle } = require('./helpers/contentBundle.js');
     const content = readContentBundle();
     assert.match(content, /function bindStorageListeners/);
-    assert.match(content, /changes\.floatBallEnabled/);
+    assert.doesNotMatch(content, /changes\.floatBallEnabled/);
   });
 
   it('T5 选元素仍按当前 tab 广播子 frame', () => {
