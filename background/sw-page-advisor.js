@@ -330,6 +330,10 @@ async function runPageOptimizationSuggest(tabId) {
     dom_outline: Array.isArray(data.domOutline) ? data.domOutline : [],
     locale,
   }));
+  if (route === 'system') {
+    body.agent_source = 'system';
+    body.sku_id = String(llmCfg.systemSkuId || '').trim();
+  }
 
   let created;
   let createTraceId = '';

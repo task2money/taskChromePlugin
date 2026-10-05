@@ -260,6 +260,31 @@ describe('sw-page-advisor direct LLM', () => {
     assert.equal(body.locale, 'en');
   });
 
+  it('system route posts agent_source and sku_id', async () => {
+    const sandbox = loadSw();
+    let body;
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: { url: 'https://example.test/page', title: 'T', pageText: 'x', workspaceId: 'w1', companyId: 't1' },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({
+      apiKey: '', baseUrl: '', model: '', routeMode: 'system', systemSkuId: 'sku-9',
+    });
+    sandbox.PageAdvisorAPI.createSuggestJob = async (_t, b) => {
+      body = b;
+      return { job_id: 'j1', status: 'queued' };
+    };
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({ status: 'succeeded', suggestions: [] });
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(body.agent_source, 'system');
+    assert.equal(body.sku_id, 'sku-9');
+  });
+
   it('explicit saas route calls the platform even when a local key is ready', async () => {
     const sandbox = loadSw();
     let created = 0;
