@@ -49,6 +49,7 @@ importScripts(
   '../lib/page-advisor-builtin-runtime.js',
   '../lib/page-advisor-builtin-language.js',
   '../lib/page-advisor-builtin-fit.js',
+  '../lib/page-advisor-hardware-tier.js',
   '../lib/page-advisor-builtin-progress.js',
   '../lib/page-advisor-builtin-suggest.js',
   '../lib/page-advisor-builtin-prompt.js',

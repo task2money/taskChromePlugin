@@ -49,6 +49,7 @@
     const statusEl = $('#spBuiltinStatus');
     const paramsEl = $('#spBuiltinParams');
     const quotaEl = $('#spBuiltinQuota');
+    const hardwareEl = $('#spBuiltinHardware');
     const lastEl = $('#spBuiltinLastRun');
     const download = $('#spBuiltinDownload');
     const cancel = $('#spBuiltinCancel');
@@ -159,6 +160,17 @@
       } catch (_) { /* ignore */ }
     }
     if (quotaEl) quotaEl.textContent = quotaText;
+    // OPT-20261005-002: 展示当前硬件档位（决定建议条数与上下文预算）。
+    if (hardwareEl) {
+      const HW = typeof PageAdvisorHardwareTier !== 'undefined' ? PageAdvisorHardwareTier : null;
+      if (HW && typeof HW.estimateTier === 'function' && typeof tx === 'function') {
+        const tier = HW.estimateTier(typeof navigator !== 'undefined' ? navigator : null);
+        const tierText = tx(HW.tierLabelKey(tier));
+        hardwareEl.textContent = tx('paBuiltinHardwareHint').replace('{tier}', tierText);
+      } else {
+        hardwareEl.textContent = '—';
+      }
+    }
     if (lastEl) {
       if (snap && (snap.lastOkAt || snap.phase === 'failed' || snap.durationMs != null)) {
         const parts = [];
