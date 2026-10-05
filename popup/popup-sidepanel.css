@@ -133,7 +133,8 @@ html[data-taskplugin-host="sidepanel"] .dt-hint {
 }
 
 /* DESIGN.md tokens: capture ink-muted, network primary, llm primary-dark, parse secondary, fail accent */
-html[data-taskplugin-host="sidepanel"] #pageAdvisorWaterfall {
+html[data-taskplugin-host="sidepanel"] #pageAdvisorWaterfall,
+html[data-taskplugin-host="sidepanel"] #pageAdvisorWaterfallBuiltin {
   margin-top: 8px;
   min-height: 88px;
   max-height: 120px;

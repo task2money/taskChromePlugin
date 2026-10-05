@@ -5,15 +5,24 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+require('../lib/page-advisor-timing.js');
+require('../lib/page-advisor-waterfall-view.js');
 const PopupWf = require('../popup/popup-waterfall.js');
 
-function fakeDoc(host) {
+function fakeDoc(host, extras) {
   const attrs = host ? { 'data-taskplugin-host': host } : {};
   const nodes = {};
-  const section = {
-    appendChild(el) { nodes[el.id] = el; return el; },
-  };
-  nodes.pageAdvisorLlmSection = section;
+  function makeParent() {
+    return {
+      appendChild(el) { nodes[el.id] = el; return el; },
+    };
+  }
+  if (!extras || extras.llm !== false) {
+    nodes.pageAdvisorLlmSection = makeParent();
+  }
+  if (extras && extras.builtin) {
+    nodes.spBuiltinPanel = makeParent();
+  }
   return {
     documentElement: {
       getAttribute(name) { return attrs[name] || null; },
@@ -51,5 +60,39 @@ describe('popup page-advisor waterfall host', () => {
     assert.match(html, /popup-waterfall\.js/);
     assert.match(html, /page-advisor-timing\.js/);
     assert.match(html, /data-i18n="paWfHelp"/);
+  });
+
+  it('mounts waterfall under 本机模型 panel when settings section is absent', () => {
+    const el = PopupWf.mount(fakeDoc('sidepanel', { llm: false, builtin: true }));
+    assert.ok(el);
+    assert.equal(el.id, 'pageAdvisorWaterfallBuiltin');
+    assert.equal(el.hidden, false);
+  });
+
+  it('applyRun paints settings and 本机模型 slots together', () => {
+    const doc = fakeDoc('sidepanel', { builtin: true });
+    PopupWf.mount(doc);
+    const settings = doc.getElementById('pageAdvisorWaterfall');
+    const builtin = doc.getElementById('pageAdvisorWaterfallBuiltin');
+    assert.ok(settings && builtin);
+    PopupWf.applyRun({
+      runId: 'r1',
+      status: 'ok',
+      startedAt: 0,
+      endedAt: 10,
+      spans: [{ id: 'builtin_infer', startMs: 0, endMs: 10, status: 'ok' }],
+    });
+    assert.match(settings.innerHTML, /data-span="builtin_infer"/);
+    assert.match(builtin.innerHTML, /data-span="builtin_infer"/);
+  });
+
+  it('sidepanel.html 本机模型 Tab has waterfall slot and loads paint scripts', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
+    const lastAt = html.indexOf('id="spBuiltinLastRun"');
+    const wfAt = html.indexOf('id="pageAdvisorWaterfallBuiltin"');
+    assert.ok(lastAt >= 0 && wfAt > lastAt);
+    assert.match(html, /popup-waterfall\.js/);
+    assert.match(html, /page-advisor-waterfall-view\.js/);
+    assert.match(html, /page-advisor-timing\.js/);
   });
 });

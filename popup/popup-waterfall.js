@@ -1,10 +1,15 @@
 /**
- * Side Panel 自动创新 waterfall：仅 data-taskplugin-host=sidepanel 挂载。
+ * Side Panel 自动创新 waterfall：设置 iframe 与「本机模型」Tab 同步挂载。
  */
 'use strict';
 
 const PageAdvisorWaterfallPopup = (() => {
-  let root = null;
+  const SLOTS = Object.freeze([
+    { id: 'pageAdvisorWaterfall', parentId: 'pageAdvisorLlmSection' },
+    { id: 'pageAdvisorWaterfallBuiltin', parentId: 'spBuiltinPanel' },
+  ]);
+
+  let roots = [];
   let tickTimer = 0;
   let currentRun = null;
 
@@ -26,11 +31,11 @@ const PageAdvisorWaterfallPopup = (() => {
   }
 
   function paint() {
-    if (!root || typeof PageAdvisorWaterfallView === 'undefined') return;
+    if (!roots.length || typeof PageAdvisorWaterfallView === 'undefined') return;
     const html = currentRun
       ? PageAdvisorWaterfallView.renderRun(currentRun, txKey)
       : PageAdvisorWaterfallView.renderIdle(txKey);
-    root.innerHTML = html;
+    roots.forEach((el) => { el.innerHTML = html; });
   }
 
   function applyRun(run) {
@@ -42,23 +47,33 @@ const PageAdvisorWaterfallPopup = (() => {
     }
   }
 
-  function mount(doc) {
-    const d = doc || (typeof document !== 'undefined' ? document : null);
-    if (!d || !isSidepanel(d)) return null;
-    const section = d.getElementById('pageAdvisorLlmSection');
-    if (!section) return null;
-    let el = d.getElementById('pageAdvisorWaterfall');
+  function ensureSlot(d, spec) {
+    const parent = d.getElementById(spec.parentId);
+    if (!parent) return null;
+    let el = d.getElementById(spec.id);
     if (!el) {
       el = d.createElement('div');
-      el.id = 'pageAdvisorWaterfall';
+      el.id = spec.id;
       el.className = 'page-advisor-waterfall';
-      el.setAttribute('data-testid', 'page-advisor-waterfall');
-      section.appendChild(el);
+      el.setAttribute('data-testid', spec.id === 'pageAdvisorWaterfallBuiltin'
+        ? 'page-advisor-waterfall-builtin'
+        : 'page-advisor-waterfall');
+      parent.appendChild(el);
     }
     el.hidden = false;
-    root = el;
-    paint();
     return el;
+  }
+
+  function mount(doc) {
+    const d = doc || (typeof document !== 'undefined' ? document : null);
+    if (!d || !isSidepanel(d)) {
+      roots = [];
+      return null;
+    }
+    roots = SLOTS.map((spec) => ensureSlot(d, spec)).filter(Boolean);
+    if (!roots.length) return null;
+    paint();
+    return roots[0];
   }
 
   function onRuntimeMessage(msg) {
@@ -89,7 +104,7 @@ const PageAdvisorWaterfallPopup = (() => {
     return el;
   }
 
-  return { isSidepanel, mount, applyRun, onRuntimeMessage, bindRuntime, restoreFromSession, boot };
+  return { isSidepanel, mount, applyRun, onRuntimeMessage, bindRuntime, restoreFromSession, boot, SLOTS };
 })();
 
 if (typeof module !== 'undefined' && module.exports) {

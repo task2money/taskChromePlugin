@@ -46,6 +46,11 @@
           <label data-i18n="paBuiltinLastRunLabel">最近一次本机运行</label>
           <p id="spBuiltinLastRun" class="hint">—</p>
         </div>
+        <div class="form-row" id="spBuiltinWaterfallRow">
+          <label data-i18n="paWfBuiltinPanelLabel">快捷键耗时</label>
+          <!-- Anti-Replay-OK: ui-only timing chart; no write API -->
+          <div id="pageAdvisorWaterfallBuiltin" class="page-advisor-waterfall" data-testid="page-advisor-waterfall-builtin"></div>
+        </div>
         <p id="spBuiltinInternalsHint" class="hint">
           <span data-i18n="paBuiltinOnDeviceInternalsLead">高级排障请打开 </span>
           <!-- Anti-Replay-OK: navigation only — chrome.tabs.create 打开 chrome:// 页 -->
@@ -98,6 +103,9 @@
   <script src="../lib/i18n-ui-messages.js"></script>
   <script src="../lib/i18n-llm-route.js"></script>
   <script src="../lib/i18n-tx.js"></script>
+  <script src="../lib/page-advisor-timing.js"></script>
+  <script src="../lib/page-advisor-waterfall-view.js"></script>
+  <script src="../popup/popup-waterfall.js"></script>
   <script src="../lib/hot-path-guards.js"></script>
   <script src="../lib/page-advisor-locale-prompt.js"></script>
   <script src="../lib/page-advisor-builtin-runtime.js"></script>
