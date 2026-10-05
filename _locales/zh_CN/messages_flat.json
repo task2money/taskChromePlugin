@@ -2,8 +2,6 @@
   "extName": "云端Coding: 自动创新助手",
   "extTitle": "云端Coding: 自动创新助手",
   "statusLoading": "加载中...",
-  "showFloatBall": "显示悬浮球",
-  "floatBallHint": "关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。",
   "altZDefaults": "Alt+Shift+Z",
   "altZHint": "Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」下选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。",
   "defaultWorkspace": "默认工作空间",

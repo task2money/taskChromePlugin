@@ -8,12 +8,6 @@
   "statusLoading": {
     "message": "加载中..."
   },
-  "showFloatBall": {
-    "message": "显示悬浮球"
-  },
-  "floatBallHint": {
-    "message": "关闭后隐藏页内右下角悬浮球。浮窗顶部「×」只收起面板，不会关掉悬浮球。"
-  },
   "altZDefaults": {
     "message": "Alt+Shift+Z"
   },

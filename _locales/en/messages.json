@@ -8,12 +8,6 @@
   "statusLoading": {
     "message": "Loading..."
   },
-  "showFloatBall": {
-    "message": "Show floating ball"
-  },
-  "floatBallHint": {
-    "message": "When off, hides the in-page floating ball. The panel × only collapses the panel; it does not turn off the ball."
-  },
   "altZDefaults": {
     "message": "Alt+Shift+Z"
   },

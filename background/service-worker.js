@@ -175,6 +175,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   try {
     await whenI18nReady();
     await Storage.migrateStaleTokenExpiryOnce();
+    await Storage.purgeLegacyFloatBallStorageOnce();
     const cfg = await Storage.getApiConfig();
     const mapping = await Storage.getEndpointMapping();
     const cred = await Storage.getCredentials();
