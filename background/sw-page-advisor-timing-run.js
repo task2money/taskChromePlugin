@@ -59,13 +59,16 @@ function broadcastPageAdvisorWaterfall(run) {
   } catch (_) { /* ignore */ }
 }
 
-function bindPageAdvisorWithSpan(run) {
+  function bindPageAdvisorWithSpan(run) {
   if (!run || typeof PageAdvisorTiming === 'undefined') {
     return async function passthrough(_id, fn) { return fn(); };
   }
   return async function timed(id, fn) {
     try {
-      const value = await PageAdvisorTiming.withSpan(run, id, () => Date.now(), fn);
+      // onStart：细项一进入 running 即广播，侧栏可先显示行再更新耗时
+      const value = await PageAdvisorTiming.withSpan(run, id, () => Date.now(), fn, {
+        onStart: () => broadcastPageAdvisorWaterfall(run),
+      });
       broadcastPageAdvisorWaterfall(run);
       return value;
     } catch (err) {
@@ -91,6 +94,9 @@ function beginPageAdvisorTimingRun(route, command) {
     route,
     now: () => Date.now(),
   });
+  if (typeof PageAdvisorTiming.seedPlannedSpans === 'function') {
+    PageAdvisorTiming.seedPlannedSpans(run);
+  }
   broadcastPageAdvisorWaterfall(run);
   return run;
 }

@@ -180,7 +180,7 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     assert.ok(fail, `expected timeout failure, got: ${JSON.stringify(payloads)}`);
   });
 
-  it('failed job waterfall has no render span', async () => {
+  it('failed job waterfall keeps planned render as skipped (never ran)', async () => {
     const wf = [];
     const sandbox = loadSwPageAdvisorStack();
     sandbox.chrome.runtime = {
@@ -210,7 +210,9 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     const last = [...wf].reverse().find((m) => m && m.action === 'pageAdvisorWaterfall');
     assert.ok(last && last.run);
     assert.equal(last.run.status, 'error');
-    assert.equal((last.run.spans || []).some((s) => s.id === 'render'), false);
+    const render = (last.run.spans || []).find((s) => s.id === 'render');
+    assert.ok(render, 'planned render row is visible from the start');
+    assert.equal(render.status, 'skipped');
   });
 
   it('region command marks alt-shift-z until consumed', () => {

@@ -188,4 +188,15 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_parse,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-parse { background: color-mix(in srgb, #F1F2F6 20%, #7241F2) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-render { background: color-mix(in srgb, #7241F2 55%, #fff) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-error { background: #FF324D !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-pending,
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-skipped {
+  background: #D1D5DB !important;
+  opacity: 0.55;
+}
+html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="pending"] .pa-wf-label,
+html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="skipped"] .pa-wf-label,
+html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="pending"] .pa-wf-ms,
+html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="skipped"] .pa-wf-ms {
+  color: #9CA3AF;
+}
 html[data-taskplugin-host="sidepanel"] .pa-wf-idle { color: #4B5563; margin: 0; }
