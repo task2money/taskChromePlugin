@@ -149,7 +149,7 @@ describe('Popup 系统智能体：登录后再拉下拉', () => {
     assert.equal(nodes['#popupLlmSystemLoginHint'].hidden, true);
     assert.equal(skuCalls(sent).length, 1);
     assert.equal(sent.filter((m) => m && m.action === 'getOwnAgents').length, 1);
-    assert.deepEqual(optionLabels(nodes['#popupLlmSystemSku']), ['deepseek-chat*公司主账号，deepseek', '甲', '乙']);
+    assert.deepEqual(optionLabels(nodes['#popupLlmSystemSku']), ['公司主账号*deepseek-chat', '甲', '乙']);
     assert.equal(nodes['#popupLlmSystemSku'].value, 'system:sku-b');
   });
 

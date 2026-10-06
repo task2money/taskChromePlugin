@@ -130,15 +130,15 @@ describe('Popup 平台后端智能体下拉', () => {
     assert.equal(legacy.selectedId, 'system:sku-only');
   });
 
-  it('自有智能体选项显示 模型*供应商备注，供应商名称', () => {
+  it('自有智能体选项显示 供应商备注*模型', () => {
     const {
       formatOwnAgentOptionLabel,
       collectOwnAgentOptions,
       encodeOwnAgentValue,
     } = require('../lib/popup-system-sku.js');
-    assert.equal(formatOwnAgentOptionLabel('deepseek-chat', '公司主账号', 'deepseek'), 'deepseek-chat*公司主账号，deepseek');
-    assert.equal(formatOwnAgentOptionLabel('gpt-4.1', '', 'openai'), 'gpt-4.1*openai');
-    assert.equal(formatOwnAgentOptionLabel('m1', '备注', ''), 'm1*备注');
+    assert.equal(formatOwnAgentOptionLabel('deepseek-chat', '公司主账号', 'deepseek'), '公司主账号*deepseek-chat');
+    assert.equal(formatOwnAgentOptionLabel('gpt-4.1', '', 'openai'), 'openai*gpt-4.1');
+    assert.equal(formatOwnAgentOptionLabel('m1', '备注', ''), '备注*m1');
     assert.equal(formatOwnAgentOptionLabel('m1', '', ''), 'm1');
 
     const ownOpts = collectOwnAgentOptions({
@@ -151,8 +151,8 @@ describe('Popup 平台后端智能体下拉', () => {
       providers: [{ provider: 'openai', remark: '忽略', supported_models: ['gpt-4.1'] }],
     });
     assert.deepEqual(ownOpts.map((o) => o.label), [
-      'deepseek-chat*公司主账号，deepseek',
-      'deepseek-reasoner*公司主账号，deepseek',
+      '公司主账号*deepseek-chat',
+      '公司主账号*deepseek-reasoner',
     ]);
     assert.equal(ownOpts[0].id, encodeOwnAgentValue('deepseek', 'deepseek-chat'));
 
@@ -163,7 +163,7 @@ describe('Popup 平台后端智能体下拉', () => {
         providers: [{ provider: 'openai', remark: '备用', supported_models: 'gpt-4.1' }],
       },
     });
-    assert.equal(fromCompanyDefault[0].label, 'gpt-4.1*备用，openai');
+    assert.equal(fromCompanyDefault[0].label, '备用*gpt-4.1');
 
     const encoded = encodeOwnAgentValue('deepseek', 'deepseek-chat');
     assert.deepEqual(parsePlatformAgentValue(encoded), {
@@ -181,7 +181,7 @@ describe('Popup 平台后端智能体下拉', () => {
       { ownGroup: '自有智能体', systemGroup: '系统智能体' },
       ownOpts,
     );
-    assert.equal(menu.options[0].label, 'deepseek-chat*公司主账号，deepseek');
+    assert.equal(menu.options[0].label, '公司主账号*deepseek-chat');
     assert.equal(menu.options[0].group, '自有智能体');
     assert.equal(menu.selectedId, encoded);
     assert.ok(!menu.options.some((o) => o.id === 'own' && o.label === '自有智能体'));

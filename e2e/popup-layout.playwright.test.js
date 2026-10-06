@@ -347,7 +347,7 @@ test.describe('Popup 面板布局', () => {
     await expect(row).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#popupLlmSystemSkuRow')).toBeVisible();
     await expect(page.locator('#popupLlmSystemSku')).toContainText('自有智能体');
-    await expect(page.locator('#popupLlmSystemSku')).toContainText('deepseek-chat*公司主账号，deepseek');
+    await expect(page.locator('#popupLlmSystemSku')).toContainText('公司主账号*deepseek-chat');
     await expect(page.locator('#popupLlmSystemSku')).toContainText('系统甲');
     await expect(row).toContainText('工作空间');
     const select = page.locator('#popupSaasWorkspace');
