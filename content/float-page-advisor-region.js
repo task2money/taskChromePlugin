@@ -11,6 +11,7 @@ var pageAdvisorRegionMode = false;
 var pageAdvisorPickSelection = [];
 var pageAdvisorPickFrame = null;
 var pageAdvisorLastRegion = null;
+var lastAdvisorPickGestureAt = 0;
 
 function unionPageAdvisorElementRects(els) {
   const list = Array.isArray(els) ? els : [];
@@ -130,7 +131,9 @@ function clearAdvisorPickSelection() {
 
 function detachRegionSelectListeners() {
   document.removeEventListener('mouseover', onRegionSelectMouseOver, true);
-  document.removeEventListener('click', onRegionSelectClick, true);
+  document.removeEventListener('pointerdown', onRegionSelectPointerEvent, true);
+  document.removeEventListener('click', onRegionSelectPointerEvent, true);
+  document.removeEventListener('contextmenu', onRegionSelectPointerEvent, true);
   document.removeEventListener('keydown', onRegionSelectKeyDown, true);
 }
 
@@ -177,6 +180,7 @@ function startPageAdvisorRegionSelect() {
   clearPendingPageAdvisorRegion();
   clearPendingPageAdvisorElements();
   clearAdvisorPickSelection();
+  lastAdvisorPickGestureAt = 0;
   closeFloatPanelForRegionSelect();
   pageAdvisorRegionMode = true;
   try {
@@ -192,7 +196,9 @@ function startPageAdvisorRegionSelect() {
   }
   if (typeof ensureHighlightStyle === 'function') ensureHighlightStyle(document);
   document.addEventListener('mouseover', onRegionSelectMouseOver, true);
-  document.addEventListener('click', onRegionSelectClick, true);
+  document.addEventListener('pointerdown', onRegionSelectPointerEvent, true);
+  document.addEventListener('click', onRegionSelectPointerEvent, true);
+  document.addEventListener('contextmenu', onRegionSelectPointerEvent, true);
   document.addEventListener('keydown', onRegionSelectKeyDown, true);
   if (typeof showPageToast === 'function') {
     showPageToast(typeof tx === 'function' ? tx('paRegionStartToast') : '请点击要创新的页面元素（Esc 取消）');
@@ -238,13 +244,21 @@ function confirmAdvisorElements(els) {
   }
 }
 
-function onRegionSelectClick(e) {
+function onRegionSelectPointerEvent(e) {
   if (!pageAdvisorRegionMode) return;
-  if (e.button !== 0) return;
+  const kind = pickGestureKind(e, Date.now(), lastAdvisorPickGestureAt, PICK_CLICK_SUPPRESS_MS);
+  if (kind === 'ignore') return;
+  if (kind === 'suppress') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    return;
+  }
   const t = e.target;
   if (t && typeof t.closest === 'function' && t.closest('#taskplugin-float-btn')) {
     e.preventDefault();
     e.stopPropagation();
+    lastAdvisorPickGestureAt = Date.now();
     stopPageAdvisorRegionSelect();
     if (typeof showPageToast === 'function') showPageToast(typeof tx === 'function' ? tx('paRegionCancelled') : '已取消元素选择');
     return;
@@ -254,6 +268,7 @@ function onRegionSelectClick(e) {
   if (crossOrigin) {
     e.preventDefault();
     e.stopPropagation();
+    lastAdvisorPickGestureAt = Date.now();
     if (typeof showPageToast === 'function') {
       showPageToast(typeof tx === 'function' ? tx('paRegionCrossOrigin') : '跨域 iframe 请在顶层页面选择元素');
     }
@@ -264,9 +279,9 @@ function onRegionSelectClick(e) {
   e.preventDefault();
   e.stopPropagation();
   if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+  lastAdvisorPickGestureAt = Date.now();
 
-  const meta = !!(e.metaKey || e.ctrlKey);
-  if (meta) {
+  if (kind === 'toggle') {
     if (
       pageAdvisorPickSelection.length > 0
       && pageAdvisorPickFrame !== (frameElement || null)

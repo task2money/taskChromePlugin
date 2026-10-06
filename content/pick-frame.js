@@ -15,6 +15,7 @@
   // 子 frame 内按键不冒泡到顶层，content.js 的顶层 keydown 兜底在子 frame
   // 聚焦时不触发（OPT-20260806-016）— 此处检测并转发 SW。
   let pickShortcutCombo = 'Alt+X';
+  var lastPickGestureAt = 0;
 
   function ensureHighlightStyle() {
     if (document.getElementById('taskplugin-el-hl-style')) return;
@@ -57,9 +58,11 @@
     if (!pickMode) {
       clearHighlight();
       pickSelection = [];
+      lastPickGestureAt = 0;
       detachPickPointerListeners();
     } else {
       pickSelection = [];
+      lastPickGestureAt = 0;
       attachPickPointerListeners();
     }
     console.log('[taskChromePlugin] pick-frame mode:', pickMode ? 'on' : 'off', location.href);
@@ -133,11 +136,20 @@
     applyHighlightMany(hoverSet);
   }
 
-  function onClick(e) {
+  function onPickSelectEvent(e) {
     if (!pickMode) return;
+    const kind = pickGestureKind(e, Date.now(), lastPickGestureAt, PICK_CLICK_SUPPRESS_MS);
+    if (kind === 'ignore') return;
+    if (kind === 'suppress') {
+      e.preventDefault();
+      e.stopPropagation();
+      if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    lastPickGestureAt = Date.now();
 
     const { el, closedShadow } = resolveTarget(e);
     if (!el || typeof ElementPicker === 'undefined') {
@@ -146,7 +158,7 @@
     }
 
     try {
-      if (e.metaKey || e.ctrlKey) {
+      if (kind === 'toggle') {
         pickSelection = ElementPicker.toggleDisjointSelection(pickSelection, el);
         applyHighlightMany(pickSelection.length ? pickSelection : [el]);
         return;
@@ -250,14 +262,18 @@
   function attachPickPointerListeners() {
     if (pickPointerListenersAttached) return;
     document.addEventListener('mouseover', onMouseOver, true);
-    document.addEventListener('click', onClick, true);
+    document.addEventListener('pointerdown', onPickSelectEvent, true);
+    document.addEventListener('click', onPickSelectEvent, true);
+    document.addEventListener('contextmenu', onPickSelectEvent, true);
     document.addEventListener('keydown', onKeyDown, true);
     pickPointerListenersAttached = true;
   }
   function detachPickPointerListeners() {
     if (!pickPointerListenersAttached) return;
     document.removeEventListener('mouseover', onMouseOver, true);
-    document.removeEventListener('click', onClick, true);
+    document.removeEventListener('pointerdown', onPickSelectEvent, true);
+    document.removeEventListener('click', onPickSelectEvent, true);
+    document.removeEventListener('contextmenu', onPickSelectEvent, true);
     document.removeEventListener('keydown', onKeyDown, true);
     pickPointerListenersAttached = false;
   }

@@ -76,6 +76,14 @@ describe('UserGuide sections', () => {
     assert.doesNotMatch(html, /Shift\+点击/);
   });
 
+  it('element-pick 说明按住 Ctrl/⌘ 再按下鼠标多选', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'element-pick');
+    const blob = (section.steps || []).join('\n');
+    assert.match(blob, /按住 ⌘\/Ctrl 再按下鼠标/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /按住 `⌘\/Ctrl` 再按下鼠标/);
+  });
+
   it('login 说明插件会话与网页登录互相独立', () => {
     const html = UserGuide.renderCollapsibleHtml({ surface: 'popup', open: false });
     assert.match(html, /插件登录与网页登录是两套会话/);

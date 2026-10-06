@@ -17,7 +17,9 @@ describe('float-page-advisor-region element pick', () => {
       path.join(root, 'content/float-page-advisor-region.js'),
       'utf8',
     );
-    assert.match(src, /addEventListener\('click', onRegionSelectClick/);
+    assert.match(src, /addEventListener\('pointerdown', onRegionSelectPointerEvent/);
+    assert.match(src, /addEventListener\('click', onRegionSelectPointerEvent/);
+    assert.match(src, /pickGestureKind/);
     assert.match(src, /addEventListener\('mouseover', onRegionSelectMouseOver/);
     assert.match(src, /resolvePickTarget/);
     assert.match(src, /setPendingPageAdvisorElements/);

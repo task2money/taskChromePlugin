@@ -1,12 +1,10 @@
 /** 浮窗指针选择、调整期望弹窗（Shadow DOM / iframe / 可选截图）。高亮框在 float-pick-highlight.js。 */
 
+var lastPickGestureAt = 0;
+
 function clearPickSelection() {
   pickSelection = [];
   pickSelectionFrame = null;
-}
-
-function isMetaClick(e) {
-  return !!(e && (e.metaKey || e.ctrlKey));
 }
 
 function samePickFrame(a, b) {
@@ -89,6 +87,7 @@ function setPickMode(on, source) {
     stopPageAdvisorRegionSelect({ remove: false });
   }
   pickMode = !!on;
+  if (on) lastPickGestureAt = 0;
   if (on && source) pickSource = source;
   if (!on) {
     pickCrossOriginHintShown = false;
@@ -151,8 +150,16 @@ function finishPickWithElements(els, frameElement, closedShadow) {
   openAdjustModal(pendingElementSnapshot);
 }
 
-function onPickClick(e) {
+function onPickSelectEvent(e) {
   if (!pickMode) return;
+  const kind = pickGestureKind(e, Date.now(), lastPickGestureAt, PICK_CLICK_SUPPRESS_MS);
+  if (kind === 'ignore') return;
+  if (kind === 'suppress') {
+    e.preventDefault();
+    e.stopPropagation();
+    if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+    return;
+  }
   if (typeof ElementPicker === 'undefined') {
     console.error('[taskChromePlugin] ElementPicker 未加载');
     setPickMode(false);
@@ -162,7 +169,7 @@ function onPickClick(e) {
   if (crossOrigin) {
     e.preventDefault();
     e.stopPropagation();
-    // 跨域：继续等待子 frame 的 elementPickedInFrame；给一次提示
+    lastPickGestureAt = Date.now();
     if (!pickCrossOriginHintShown) {
       pickCrossOriginHintShown = true;
       showResult((typeof tx === 'function' ? tx('floatPickCrossOriginToast') : '已进入跨域 iframe 选择：请直接点击框内元素（⌘/Ctrl+点击多选）'), 'success');
@@ -174,9 +181,10 @@ function onPickClick(e) {
   e.preventDefault();
   e.stopPropagation();
   if (typeof e.stopImmediatePropagation === 'function') e.stopImmediatePropagation();
+  lastPickGestureAt = Date.now();
 
   try {
-    if (isMetaClick(e)) {
+    if (kind === 'toggle') {
       if (pickSelection.length > 0 && !samePickFrame(frameElement, pickSelectionFrame)) {
         showResult((typeof tx === 'function' ? tx('floatPickSameFrameOnly') : '多选仅限同一 frame，请先清空或在同一框架内选择'), 'error');
         return;
@@ -192,7 +200,6 @@ function onPickClick(e) {
       return;
     }
 
-    // 普通点击：立即单选
     clearPickSelection();
     finishPickWithElements([el], frameElement, closedShadow);
   } catch (err) {
@@ -443,14 +450,18 @@ var pickPointerListenersAttached = false;
 function attachPickPointerListeners() {
   if (pickPointerListenersAttached) return;
   document.addEventListener('mouseover', onPickMouseOver, true);
-  document.addEventListener('click', onPickClick, true);
+  document.addEventListener('pointerdown', onPickSelectEvent, true);
+  document.addEventListener('click', onPickSelectEvent, true);
+  document.addEventListener('contextmenu', onPickSelectEvent, true);
   document.addEventListener('keydown', onPickKeyDown, true);
   pickPointerListenersAttached = true;
 }
 function detachPickPointerListeners() {
   if (!pickPointerListenersAttached) return;
   document.removeEventListener('mouseover', onPickMouseOver, true);
-  document.removeEventListener('click', onPickClick, true);
+  document.removeEventListener('pointerdown', onPickSelectEvent, true);
+  document.removeEventListener('click', onPickSelectEvent, true);
+  document.removeEventListener('contextmenu', onPickSelectEvent, true);
   document.removeEventListener('keydown', onPickKeyDown, true);
   pickPointerListenersAttached = false;
 }
