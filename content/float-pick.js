@@ -66,11 +66,17 @@ function resolvePickTarget(e) {
   const deep = ElementPicker.deepElementFromPoint(document, e.clientX, e.clientY, {
     isExcluded: isPluginDom,
   });
+  // composedPath 是事件真实派发的目标；合成 pointerdown 的 clientX/Y 未对准元素时
+  // hit-test 会命中无关元素并盖过 composedPath，令 Ctrl 多选静默丢目标。
+  // 仅当 hit-test 结果落在 composed 子树内（open shadow 穿透）才采信更深结果，
+  // 否则一律以 composed 为准。
+  const withinComposed = !!deep.el && (deep.el === composed
+    || (typeof composed.contains === 'function' && composed.contains(deep.el)));
   return {
-    el: deep.el || composed,
+    el: withinComposed ? deep.el : composed,
     frameElement: null,
     crossOrigin: false,
-    closedShadow: !!deep.closedShadow,
+    closedShadow: withinComposed ? !!deep.closedShadow : false,
   };
 }
 
