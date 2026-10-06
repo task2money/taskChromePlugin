@@ -146,6 +146,12 @@
       systemSkuId: (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.currentSkuId === 'function')
         ? PopupSystemSku.currentSkuId()
         : ($('#popupLlmSystemSku')?.value || ''),
+      ownProvider: (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.currentOwnProvider === 'function')
+        ? PopupSystemSku.currentOwnProvider()
+        : '',
+      ownModel: (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.currentOwnModel === 'function')
+        ? PopupSystemSku.currentOwnModel()
+        : '',
       profileLabel: $('#popupLlmProfileName')?.value || '',
       profileId: (opts && opts.profileId) || selected,
       profileAction: action,

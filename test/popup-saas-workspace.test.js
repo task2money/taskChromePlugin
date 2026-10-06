@@ -115,6 +115,11 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.equal(already.persist, false);
   });
 
+  it('切换工作空间后重载智能体下拉', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'popup/popup-saas-workspace.js'), 'utf8');
+    assert.match(src, /PopupSystemSku\?\.loadMenu/);
+  });
+
   it('文案：工作空间 + 请先登录占位；altZHint 指向调用平台后端', () => {
     const { I18N_SCRIPT_RELS } = require('./helpers/txRuntime.js');
     const merged = { zh: {}, en: {} };

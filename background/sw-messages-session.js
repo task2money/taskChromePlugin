@@ -326,6 +326,13 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    case 'getOwnAgents':
+      try {
+        return await handleGetOwnAgents(message);
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
     case 'getProjects':
       try {
         await initApiFromMessage(message);

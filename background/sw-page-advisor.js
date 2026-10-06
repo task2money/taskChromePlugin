@@ -333,6 +333,11 @@ async function runPageOptimizationSuggest(tabId) {
   if (route === 'system') {
     body.agent_source = 'system';
     body.sku_id = String(llmCfg.systemSkuId || '').trim();
+  } else if (route === 'saas') {
+    const ownModel = String(llmCfg.ownModel || '').trim();
+    const ownProvider = String(llmCfg.ownProvider || '').trim();
+    if (ownModel) body.own_model = ownModel;
+    if (ownProvider) body.own_provider = ownProvider;
   }
 
   let created;

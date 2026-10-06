@@ -29,4 +29,12 @@ describe('popup-llm-config saas workspace sync', () => {
     assert.match(changeBody, /syncSaasWorkspaceRow\s*\(/);
     assert.match(changeBody, /syncSystemSkuRow\s*\(/);
   });
+
+  it('currentLlmPayload 带上自有智能体 provider/model', () => {
+    const src = fs.readFileSync(path.join(ROOT, 'popup/popup-llm-config.js'), 'utf8');
+    assert.match(src, /ownProvider:/);
+    assert.match(src, /PopupSystemSku\.currentOwnProvider/);
+    assert.match(src, /ownModel:/);
+    assert.match(src, /PopupSystemSku\.currentOwnModel/);
+  });
 });

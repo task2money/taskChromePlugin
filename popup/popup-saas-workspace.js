@@ -232,6 +232,9 @@
       const id = sel.value;
       if (!id) return;
       persist(id);
+      if (typeof window.PopupSystemSku?.loadMenu === 'function') {
+        window.PopupSystemSku.loadMenu().catch(() => {});
+      }
     });
   }
 

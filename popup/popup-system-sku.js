@@ -12,6 +12,8 @@
   let loggedIn = false;
   let routeMode = 'direct';
   let lastSkuId = '';
+  let lastOwnProvider = '';
+  let lastOwnModel = '';
 
   function setRetryVisible(visible) {
     const btn = retryEl();
@@ -61,8 +63,10 @@
     const lib = Lib();
     const parsed = lib && typeof lib.parsePlatformAgentValue === 'function'
       ? lib.parsePlatformAgentValue(value)
-      : { routeMode: 'saas', systemSkuId: '' };
+      : { routeMode: 'saas', systemSkuId: '', ownProvider: '', ownModel: '' };
     lastSkuId = parsed.systemSkuId;
+    lastOwnProvider = parsed.ownProvider || '';
+    lastOwnModel = parsed.ownModel || '';
     routeMode = parsed.routeMode;
     if (typeof PageAdvisorLlmConfig === 'undefined' || typeof PageAdvisorLlmConfig.saveToStorage !== 'function') {
       return;
@@ -70,6 +74,8 @@
     PageAdvisorLlmConfig.saveToStorage({
       routeMode: parsed.routeMode,
       systemSkuId: parsed.systemSkuId,
+      ownProvider: parsed.ownProvider || '',
+      ownModel: parsed.ownModel || '',
       profileAction: 'route-only',
     }).catch((e) => {
       console.warn('[taskChromePlugin] save platform agent failed', { message: e?.message || '' });
@@ -134,6 +140,8 @@
       if (lib && typeof lib.parsePlatformAgentValue === 'function') {
         const parsed = lib.parsePlatformAgentValue(sel.value);
         lastSkuId = parsed.systemSkuId;
+        lastOwnProvider = parsed.ownProvider || '';
+        lastOwnModel = parsed.ownModel || '';
         routeMode = parsed.routeMode;
       }
     } finally {
@@ -167,14 +175,26 @@
       try {
         const cfg = await PageAdvisorLlmConfig.loadFromStorage();
         if (cfg && cfg.systemSkuId) lastSkuId = String(cfg.systemSkuId);
+        if (cfg && cfg.ownProvider) lastOwnProvider = String(cfg.ownProvider);
+        if (cfg && cfg.ownModel) lastOwnModel = String(cfg.ownModel);
         if (cfg && cfg.routeMode) lastRoute = String(cfg.routeMode);
       } catch (_) { /* 沿用内存 */ }
     }
     if (gen !== loadGen) return;
     if (typeof sendMessageWithTimeout !== 'function') return;
     let response;
+    let ownResponse;
     try {
-      response = await sendMessageWithTimeout({ action: 'getSystemAgents' }, 12000);
+      const [sysRes, ownRes] = await Promise.all([
+        sendMessageWithTimeout({ action: 'getSystemAgents' }, 12000),
+        sendMessageWithTimeout({ action: 'getOwnAgents' }, 12000).catch((e) => ({
+          success: false,
+          error: e?.message || 'getOwnAgents failed',
+          traceId: e?.traceId || '',
+        })),
+      ]);
+      response = sysRes;
+      ownResponse = ownRes;
     } catch (e) {
       if (gen !== loadGen) return;
       showError(e);
@@ -187,9 +207,25 @@
       showError(err);
       return;
     }
+    if (ownResponse && ownResponse.success === false) {
+      console.warn('[taskChromePlugin] popup own agents load failed', {
+        traceId: ownResponse.traceId || '',
+        message: ownResponse.error || '',
+      });
+    }
     const lib = Lib();
+    const ownItems = (lib && typeof lib.collectOwnAgentOptions === 'function')
+      ? lib.collectOwnAgentOptions(ownResponse?.data)
+      : [];
     render(lib && typeof lib.buildPlatformAgentMenu === 'function'
-      ? lib.buildPlatformAgentMenu(unwrapItems(response.data), lastRoute, lastSkuId, menuLabels())
+      ? lib.buildPlatformAgentMenu(
+        unwrapItems(response.data),
+        lastRoute,
+        lastSkuId,
+        menuLabels(),
+        ownItems,
+        { ownProvider: lastOwnProvider, ownModel: lastOwnModel },
+      )
       : { options: [], selectedId: '', persist: false });
   }
 
@@ -230,23 +266,34 @@
     refreshUi();
   }
 
-  function currentSkuId() {
+  function parsedSelection() {
     const lib = Lib();
     const raw = String(selectEl()?.value || '').trim();
     if (lib && typeof lib.parsePlatformAgentValue === 'function' && raw) {
-      return lib.parsePlatformAgentValue(raw).systemSkuId;
+      return lib.parsePlatformAgentValue(raw);
     }
-    if (resolveMode() !== 'menu') return lastSkuId;
-    return lastSkuId;
+    return {
+      routeMode: routeMode === 'system' ? 'system' : 'saas',
+      systemSkuId: lastSkuId,
+      ownProvider: lastOwnProvider,
+      ownModel: lastOwnModel,
+    };
+  }
+
+  function currentSkuId() {
+    return parsedSelection().systemSkuId || lastSkuId;
   }
 
   function currentRouteMode() {
-    const lib = Lib();
-    const raw = String(selectEl()?.value || '').trim();
-    if (lib && typeof lib.parsePlatformAgentValue === 'function' && raw) {
-      return lib.parsePlatformAgentValue(raw).routeMode;
-    }
-    return routeMode === 'system' ? 'system' : 'saas';
+    return parsedSelection().routeMode;
+  }
+
+  function currentOwnProvider() {
+    return parsedSelection().ownProvider || lastOwnProvider;
+  }
+
+  function currentOwnModel() {
+    return parsedSelection().ownModel || lastOwnModel;
   }
 
   function bind() {
@@ -267,6 +314,7 @@
 
   window.PopupSystemSku = {
     setLoggedIn, syncRoute, loadMenu, currentSkuId, currentRouteMode,
+    currentOwnProvider, currentOwnModel,
   };
 
   if (document.readyState === 'loading') {

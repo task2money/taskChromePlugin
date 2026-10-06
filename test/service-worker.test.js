@@ -32,4 +32,14 @@ describe('service-worker', () => {
     assert.ok(enableLib > prompt);
     assert.ok(watchdog > enableLib);
   });
+
+  it('importScripts 含 popup-system-sku 与 getOwnAgents', () => {
+    const sw = fs.readFileSync(path.join(__dirname, '..', 'background/service-worker.js'), 'utf8');
+    const menu = sw.indexOf('../lib/popup-system-sku.js');
+    const own = sw.indexOf('./sw-messages-own-agents.js');
+    const session = sw.indexOf('./sw-messages-session.js');
+    assert.ok(menu >= 0);
+    assert.ok(own > menu);
+    assert.ok(session > own);
+  });
 });

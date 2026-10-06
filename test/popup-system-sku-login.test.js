@@ -82,10 +82,24 @@ function setup() {
       sent.push(msg);
       return sandbox.__respond(msg);
     },
-    __respond: () => Promise.resolve({
-      success: true,
-      data: { items: [{ id: 'sku-a', name: '甲' }, { id: 'sku-b', name: '乙' }] },
-    }),
+    __respond: (msg) => {
+      if (msg && msg.action === 'getOwnAgents') {
+        return Promise.resolve({
+          success: true,
+          data: {
+            providers: [{
+              provider: 'deepseek',
+              remark: '公司主账号',
+              supported_models: ['deepseek-chat'],
+            }],
+          },
+        });
+      }
+      return Promise.resolve({
+        success: true,
+        data: { items: [{ id: 'sku-a', name: '甲' }, { id: 'sku-b', name: '乙' }] },
+      });
+    },
     ClickGuard: undefined,
   };
   sandbox.globalThis = sandbox;
@@ -134,7 +148,8 @@ describe('Popup 系统智能体：登录后再拉下拉', () => {
     assert.equal(nodes['#popupLlmSystemSku'].hidden, false);
     assert.equal(nodes['#popupLlmSystemLoginHint'].hidden, true);
     assert.equal(skuCalls(sent).length, 1);
-    assert.deepEqual(optionLabels(nodes['#popupLlmSystemSku']), ['paLlmOwnAgent', '甲', '乙']);
+    assert.equal(sent.filter((m) => m && m.action === 'getOwnAgents').length, 1);
+    assert.deepEqual(optionLabels(nodes['#popupLlmSystemSku']), ['deepseek-chat*公司主账号，deepseek', '甲', '乙']);
     assert.equal(nodes['#popupLlmSystemSku'].value, 'system:sku-b');
   });
 

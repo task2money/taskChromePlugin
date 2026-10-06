@@ -68,4 +68,27 @@ describe('PageAdvisorLlmConfig draft', () => {
     assert.equal(store.mem.pageAdvisorLlmDraft, undefined);
     assert.equal(await PageAdvisorLlmConfig.loadDraftFromStorage(store), null);
   });
+
+  it('route-only save keeps ownProvider and ownModel', async () => {
+    const store = memStore({
+      pageAdvisorLlmApiKey: 'sk-live-aaaa',
+      pageAdvisorLlmBaseUrl: 'https://live.example/v1',
+      pageAdvisorLlmModel: 'live-model',
+      pageAdvisorLlmRoute: 'saas',
+      pageAdvisorLlmOwnProvider: 'openai',
+      pageAdvisorLlmOwnModel: 'gpt-4.1',
+    });
+    await PageAdvisorLlmConfig.saveToStorage({
+      routeMode: 'saas',
+      systemSkuId: '',
+      ownProvider: 'deepseek',
+      ownModel: 'deepseek-chat',
+      profileAction: 'route-only',
+    }, store);
+    const loaded = await PageAdvisorLlmConfig.loadFromStorage(store);
+    assert.equal(loaded.ownProvider, 'deepseek');
+    assert.equal(loaded.ownModel, 'deepseek-chat');
+    assert.equal(loaded.routeMode, 'saas');
+    assert.equal(loaded.apiKey, 'sk-live-aaaa');
+  });
 });
