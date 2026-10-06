@@ -158,4 +158,32 @@ describe('page-advisor-delivery', () => {
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));
     assert.ok(js.includes('content/float-page-advisor-deliver.js'));
   });
+
+  it('native host 标题匹配覆盖 Trae/WorkBuddy 变体（OPT-20261006-037）', () => {
+    const { spawnSync } = require('node:child_process');
+    const py = path.join(__dirname, '../native-host/ide_bridge.py');
+    const script = [
+      'import importlib.util, json',
+      `spec = importlib.util.spec_from_file_location("ide_bridge", ${JSON.stringify(py)})`,
+      'm = importlib.util.module_from_spec(spec)',
+      'spec.loader.exec_module(m)',
+      'print(json.dumps({',
+      '  "trae_cn": m.match_title(m.TITLES["trae"], ["x", "Trae CN — f.py"]),',
+      '  "byte_trae": m.match_title(m.TITLES["trae"], ["ByteDance Trae"]),',
+      '  "work_buddy": m.match_title(m.TITLES["workbuddy"], ["Work Buddy"]),',
+      '  "byte_wb": m.match_title(m.TITLES["workbuddy"], ["ByteDance WorkBuddy"]),',
+      '  "case_insensitive": m.match_title(m.TITLES["workbuddy"], ["workbuddy v2"]),',
+      '  "none": m.match_title(m.TITLES["trae"], ["gedit notes.txt"]),',
+      '}))',
+    ].join('\n');
+    const r = spawnSync('python3', ['-c', script], { encoding: 'utf8' });
+    assert.equal(r.status, 0, String(r.stderr || ''));
+    const out = JSON.parse(r.stdout.trim());
+    assert.equal(out.trae_cn, 'Trae');
+    assert.equal(out.byte_trae, 'Trae');
+    assert.equal(out.work_buddy, 'Work Buddy');
+    assert.equal(out.byte_wb, 'WorkBuddy');
+    assert.equal(out.case_insensitive, 'WorkBuddy');
+    assert.equal(out.none, null);
+  });
 });

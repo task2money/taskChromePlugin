@@ -13,13 +13,44 @@ import subprocess
 import sys
 
 ALLOWED = frozenset({"cursor", "claude", "codex", "trae", "workbuddy"})
+# OPT-20261006-037: 部分发行版窗口标题带变体后缀/空格（如「Trae CN」
+# 「ByteDance Trae」「Work Buddy」），只匹配基名会让已装桥静默降级到剪贴板。
 TITLES = {
     "cursor": ("Cursor",),
     "claude": ("Claude",),
     "codex": ("Codex",),
-    "trae": ("Trae",),
-    "workbuddy": ("WorkBuddy", "Workbuddy"),
+    "trae": ("Trae", "Trae CN", "ByteDance Trae"),
+    "workbuddy": ("WorkBuddy", "Workbuddy", "Work Buddy", "ByteDance WorkBuddy"),
 }
+
+
+def match_title(titles, window_titles):
+    """在已知窗口标题里找第一个命中的候选（大小写不敏感子串）。
+
+    返回命中的候选字符串；无命中返回 None。抽为纯函数便于用 wmctrl 输出做单测。
+    """
+    lowered = [str(w).lower() for w in (window_titles or [])]
+    for cand in titles or ():
+        needle = str(cand).lower()
+        if any(needle in wt for wt in lowered):
+            return cand
+    return None
+
+
+def list_window_titles() -> list[str]:
+    """读取 wmctrl -l 的窗口标题（第 4 列起），失败返回空表。"""
+    try:
+        r = subprocess.run(["wmctrl", "-l"], capture_output=True, text=True, check=False)
+    except OSError:
+        return []
+    if r.returncode != 0:
+        return []
+    titles: list[str] = []
+    for line in r.stdout.splitlines():
+        parts = line.split(None, 3)
+        if len(parts) == 4:
+            titles.append(parts[3])
+    return titles
 
 
 def read_msg() -> dict | None:
@@ -64,7 +95,9 @@ def focus_and_paste(target: str) -> bool:
         return False
     titles = TITLES.get(target) or ()
     if shutil.which("wmctrl"):
-        for title in titles:
+        # 先用真实窗口标题挑出命中的候选（含变体），再激活；挑不到则按原顺序逐个尝试。
+        matched = match_title(titles, list_window_titles())
+        for title in ((matched,) if matched else titles):
             r = subprocess.run(["wmctrl", "-a", title], check=False)
             if r.returncode == 0:
                 break
