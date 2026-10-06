@@ -85,6 +85,12 @@ function setup() {
   sandbox.window = sandbox;
 
   vm.createContext(sandbox);
+  // OPT-20261006-014: 控制器改用共用 loginGatedSelect 的重试控制器，先加载。
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'lib', 'popup-login-gated-select.js'), 'utf8'),
+    sandbox,
+    { filename: 'popup-login-gated-select.js' },
+  );
   vm.runInContext(fs.readFileSync(MODULE, 'utf8'), sandbox, { filename: MODULE });
   return { sandbox, nodes, sent };
 }

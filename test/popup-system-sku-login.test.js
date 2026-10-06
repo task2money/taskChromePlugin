@@ -105,6 +105,12 @@ function setup() {
   sandbox.globalThis = sandbox;
   sandbox.window.PopupSystemSku = undefined;
   vm.createContext(sandbox);
+  // OPT-20261006-014: popup-system-sku.js 的显隐/重试委托给共用 loginGatedSelect。
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'lib', 'popup-login-gated-select.js'), 'utf8'),
+    sandbox,
+    { filename: 'popup-login-gated-select.js' },
+  );
   vm.runInContext(fs.readFileSync(LIB, 'utf8'), sandbox, { filename: 'popup-system-sku.js' });
   vm.runInContext(fs.readFileSync(MODULE, 'utf8'), sandbox, { filename: 'popup-system-sku-ui.js' });
   return { sandbox, nodes, sent, prompts };

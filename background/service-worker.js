@@ -69,6 +69,7 @@ importScripts(
   '../lib/side-panel-bridge.js',
   '../lib/toolbar-pin.js',
   './sw-side-panel.js',
+  '../lib/popup-login-gated-select.js',
   '../lib/popup-system-sku.js',
   './sw-messages-own-agents.js',
   './sw-messages-session.js',

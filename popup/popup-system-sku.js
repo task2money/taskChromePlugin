@@ -8,56 +8,29 @@
   const retryEl = () => document.querySelector('#popupLlmSystemSkuRetry');
   let suppress = false;
   let loadGen = 0;
-  let retrying = false;
   let loggedIn = false;
   let routeMode = 'direct';
   let lastSkuId = '';
   let lastOwnProvider = '';
   let lastOwnModel = '';
 
-  function setRetryVisible(visible) {
-    const btn = retryEl();
-    if (!btn) return;
-    btn.hidden = !visible;
-    btn.disabled = false;
-  }
+  // OPT-20261006-014: 重试按钮/状态条/同步点击锁统一走共用 loginGatedSelect 控制器。
+  const gated = (typeof LoginGatedSelect !== 'undefined')
+    ? LoginGatedSelect.createRetryController({
+      retryEl,
+      statusEl,
+      warnLabel: 'popup platform agent',
+      load: () => loadMenu(),
+    })
+    : null;
 
-  function clearStatus() {
-    const st = statusEl();
-    setRetryVisible(false);
-    if (!st) return;
-    st.textContent = '';
-    if (typeof setDataTraceId === 'function') setDataTraceId(st, '');
-  }
+  function setRetryVisible(visible) { if (gated) gated.setRetryVisible(visible); }
 
-  function showError(err) {
-    const st = statusEl();
-    if (!st) return;
-    const detail = err?.message || '';
-    st.textContent = (typeof tx === 'function')
-      ? tx('commonLoadFailed', { msg: detail })
-      : detail;
-    if (typeof setDataTraceId === 'function') setDataTraceId(st, err);
-    setRetryVisible(true);
-    console.warn('[taskChromePlugin] popup platform agent load failed', {
-      traceId: err?.traceId || '',
-    });
-  }
+  function clearStatus() { if (gated) gated.clearStatus(); }
 
-  function retry() {
-    if (retrying) return;
-    retrying = true;
-    const btn = retryEl();
-    if (btn) btn.disabled = true;
-    Promise.resolve()
-      .then(() => loadMenu())
-      .catch((e) => showError(e))
-      .then(() => {
-        retrying = false;
-        const b = retryEl();
-        if (b) b.disabled = false;
-      });
-  }
+  function showError(err) { if (gated) gated.showError(err); }
+
+  function retry() { if (gated) gated.retry(); }
 
   function persistFromValue(value) {
     const lib = Lib();
