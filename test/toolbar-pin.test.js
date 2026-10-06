@@ -22,14 +22,12 @@ describe('toolbarPinView', () => {
     assert.equal(view.pinned, true);
     assert.equal(view.known, true);
     assert.equal(view.writable, false);
-    assert.equal(view.statusKey, 'toolbarPinOn');
   });
 
   it('未固定时只读展示未打开', () => {
     const view = toolbarPinView({ isOnToolbar: false });
     assert.equal(view.pinned, false);
     assert.equal(view.writable, false);
-    assert.equal(view.statusKey, 'toolbarPinOff');
   });
 
   it('读不到设置时不假装已打开', () => {
@@ -37,7 +35,14 @@ describe('toolbarPinView', () => {
     assert.equal(view.pinned, false);
     assert.equal(view.known, false);
     assert.equal(view.writable, false);
-    assert.equal(view.statusKey, 'toolbarPinUnknown');
+  });
+
+  it('不再返回已无 UI 的 statusKey / badgeClass 死字段', () => {
+    for (const settings of [{ isOnToolbar: true }, { isOnToolbar: false }, null]) {
+      const view = toolbarPinView(settings);
+      assert.equal(Object.prototype.hasOwnProperty.call(view, 'statusKey'), false);
+      assert.equal(Object.prototype.hasOwnProperty.call(view, 'badgeClass'), false);
+    }
   });
 });
 
