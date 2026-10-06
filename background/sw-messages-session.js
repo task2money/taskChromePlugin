@@ -321,6 +321,25 @@ async function handleMessage(message, sender) {
           return { success: true, data: { items: [] } };
         }
         const data = await PageAdvisorAPI.listTenantSystemAgents(tenantId);
+        // OPT-20261006-021: 贴合计费配额剩余量，供 popup 显示「剩余 (N+M) 次」。
+        // 配额拉取失败不影响智能体列表（不显示剩余，而非显示 0）。
+        try {
+          if (PageAdvisorAPI.getTenantBillingQuotas) {
+            const quotas = await PageAdvisorAPI.getTenantBillingQuotas(tenantId);
+            const Merge = (typeof PopupSystemSkuMenu !== 'undefined'
+              && typeof PopupSystemSkuMenu.mergeSystemSkuRemaining === 'function')
+              ? PopupSystemSkuMenu.mergeSystemSkuRemaining
+              : null;
+            const items = Array.isArray(data && data.items) ? data.items : [];
+            if (Merge) {
+              data.items = Merge(items, quotas && quotas.sys_auto_innovate_skus);
+            }
+          }
+        } catch (e) {
+          console.warn('[taskChromePlugin] system agent quotas skipped', {
+            message: e?.message || '', traceId: e?.traceId || '',
+          });
+        }
         return { success: true, data };
       } catch (e) {
         return { success: false, error: e.message, traceId: e.traceId || '' };

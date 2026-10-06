@@ -263,6 +263,58 @@ describe('Popup 平台后端智能体下拉', () => {
     assert.equal(merged.ownModel, 'deepseek-chat');
   });
 
+  it('OPT-20261006-021: 系统 SKU 文案带剩余次数，赠送+购买时为 (N+M)', () => {
+    const {
+      formatSystemSkuRemainingCount,
+      mergeSystemSkuRemaining,
+      systemSkuOptionLabel,
+    } = require('../lib/popup-system-sku.js');
+
+    assert.equal(formatSystemSkuRemainingCount(5, 0), '5');
+    assert.equal(formatSystemSkuRemainingCount(0, 3), '3');
+    assert.equal(formatSystemSkuRemainingCount(5, 3), '(5+3)');
+    assert.equal(formatSystemSkuRemainingCount(0, 0), '0');
+    assert.equal(formatSystemSkuRemainingCount('2', '4'), '(2+4)');
+    assert.equal(formatSystemSkuRemainingCount(-1, 'x'), '0');
+
+    const merged = mergeSystemSkuRemaining(
+      [{ id: 'sku-a', name: 'A' }, { id: 'sku-b', name: 'B' }],
+      [
+        { sku_id: 'sku-a', remaining_gifted: 5, remaining_purchased: 3 },
+        { sku_id: 'sku-b', remaining_gifted: 2, remaining_purchased: 0 },
+      ],
+    );
+    assert.equal(systemSkuOptionLabel(merged[0]), 'A (5+3)');
+    assert.equal(systemSkuOptionLabel(merged[1]), 'B 2');
+
+    // 配额里没有的 SKU 视为 0；未提供配额（拉取失败）时原样不带次数。
+    const zeroed = mergeSystemSkuRemaining([{ id: 'sku-c', name: 'C' }], []);
+    assert.equal(systemSkuOptionLabel(zeroed[0]), 'C 0');
+    assert.equal(systemSkuOptionLabel({ id: 'sku-d', name: 'D' }), 'D');
+
+    const menu = buildPlatformAgentMenu(
+      merged,
+      'system',
+      'sku-a',
+      { own: '自有智能体', ownGroup: '自有智能体', systemGroup: '系统智能体' },
+    );
+    const sysA = menu.options.find((o) => o.id === 'system:sku-a');
+    const sysB = menu.options.find((o) => o.id === 'system:sku-b');
+    assert.equal(sysA.label, 'A (5+3)');
+    assert.equal(sysA.group, '系统智能体');
+    assert.equal(sysB.label, 'B 2');
+    assert.equal(menu.selectedId, 'system:sku-a');
+  });
+
+  it('OPT-20261006-021: popup 控制器读取计费配额并接线', () => {
+    const sw = fs.readFileSync(path.join(ROOT, 'background/sw-messages-session.js'), 'utf8');
+    assert.match(sw, /getTenantBillingQuotas/);
+    assert.match(sw, /mergeSystemSkuRemaining/);
+    const api = fs.readFileSync(path.join(ROOT, 'lib/page-advisor-api.js'), 'utf8');
+    assert.match(api, /tenantBillingQuotas/);
+    assert.match(api, /\/api\/tenant\/\{tenantId\}\/billing\/quotas\//);
+  });
+
   it('OPT-20261006-019: 本机未选调用方式时采用租户默认，已选则不覆盖', () => {
     const prefSystem = { mode: 'system', sku_id: 'sku-web' };
     const unset = mergeLlmCfgWithTenantPrefIfUnset({}, prefSystem);
