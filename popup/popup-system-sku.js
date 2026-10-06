@@ -171,14 +171,32 @@
     }
     clearStatus();
     let lastRoute = routeMode;
+    let llmCfg = null;
     if (typeof PageAdvisorLlmConfig !== 'undefined' && typeof PageAdvisorLlmConfig.loadFromStorage === 'function') {
       try {
         const cfg = await PageAdvisorLlmConfig.loadFromStorage();
+        llmCfg = cfg;
         if (cfg && cfg.systemSkuId) lastSkuId = String(cfg.systemSkuId);
         if (cfg && cfg.ownProvider) lastOwnProvider = String(cfg.ownProvider);
         if (cfg && cfg.ownModel) lastOwnModel = String(cfg.ownModel);
         if (cfg && cfg.routeMode) lastRoute = String(cfg.routeMode);
       } catch (_) { /* 沿用内存 */ }
+    }
+    // OPT-20261006-019: 本机未显式选择调用方式时采用租户（公司）默认。
+    if (!(llmCfg && String(llmCfg.routeMode || '').trim())
+      && typeof sendMessageWithTimeout === 'function'
+      && typeof PopupSystemSkuMenu !== 'undefined'
+      && typeof PopupSystemSkuMenu.mergeLlmCfgWithTenantPrefIfUnset === 'function') {
+      try {
+        const prefRes = await sendMessageWithTimeout({ action: 'getTenantAgentPref' }, 8000);
+        if (prefRes && prefRes.success !== false && prefRes.data) {
+          const merged = PopupSystemSkuMenu.mergeLlmCfgWithTenantPrefIfUnset(llmCfg || {}, prefRes.data);
+          if (merged && merged.routeMode) lastRoute = String(merged.routeMode);
+          if (merged && merged.systemSkuId) lastSkuId = String(merged.systemSkuId);
+          if (merged && merged.ownProvider) lastOwnProvider = String(merged.ownProvider);
+          if (merged && merged.ownModel) lastOwnModel = String(merged.ownModel);
+        }
+      } catch (_) { /* 拉取失败沿用本机默认 */ }
     }
     if (gen !== loadGen) return;
     if (typeof sendMessageWithTimeout !== 'function') return;

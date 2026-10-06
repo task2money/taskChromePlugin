@@ -22,6 +22,7 @@ const {
   llmFromTenantAgentPref,
   ownSelectionFromFeatureParams,
   mergeLlmCfgWithTenantPref,
+  mergeLlmCfgWithTenantPrefIfUnset,
   saasSettingsLinkVisible,
   applySaasSettingsLink,
 } = require('../lib/popup-system-sku.js');
@@ -260,5 +261,24 @@ describe('Popup 平台后端智能体下拉', () => {
     assert.equal(merged.systemSkuId, '');
     assert.equal(merged.ownProvider, 'deepseek');
     assert.equal(merged.ownModel, 'deepseek-chat');
+  });
+
+  it('OPT-20261006-019: 本机未选调用方式时采用租户默认，已选则不覆盖', () => {
+    const prefSystem = { mode: 'system', sku_id: 'sku-web' };
+    const unset = mergeLlmCfgWithTenantPrefIfUnset({}, prefSystem);
+    assert.equal(unset.routeMode, 'system');
+    assert.equal(unset.systemSkuId, 'sku-web');
+
+    const direct = mergeLlmCfgWithTenantPrefIfUnset({ routeMode: 'direct' }, prefSystem);
+    assert.equal(direct.routeMode, 'direct');
+    assert.equal(direct.systemSkuId, undefined);
+
+    const ownLocal = mergeLlmCfgWithTenantPrefIfUnset(
+      { routeMode: 'direct', ownProvider: 'deepseek', ownModel: 'deepseek-chat' },
+      prefSystem,
+    );
+    assert.equal(ownLocal.routeMode, 'direct');
+    assert.equal(ownLocal.ownProvider, 'deepseek');
+    assert.equal(ownLocal.ownModel, 'deepseek-chat');
   });
 });
