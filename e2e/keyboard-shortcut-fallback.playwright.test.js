@@ -35,6 +35,7 @@ const LIB_FILES = [
   'lib/branch-datalist.js',
   'lib/create-task-payload.js',
   'lib/element-picker.js',
+  'lib/pick-additive-modifier.js',
   'lib/user-guide.js',
   'lib/float-workspace-select.js',
   'lib/project-auto-run-label.js',
@@ -233,22 +234,17 @@ async function loadPluginIntoPage(page) {
   await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 10000 });
 }
 
-/** 读取指针选择模式状态：documentElement 类 + 悬浮球按钮文本 */
+/** 读取指针选择模式状态：documentElement 类（页内 mode=page 不再注入悬浮球） */
 async function pickState(page) {
-  return page.evaluate(() => {
-    const btn = document.getElementById('taskplugin-float-btn');
-    return {
-      on: document.documentElement.classList.contains('taskplugin-picking'),
-      btnText: btn ? btn.textContent : null,
-    };
-  });
+  return page.evaluate(() => ({
+    on: document.documentElement.classList.contains('taskplugin-picking'),
+  }));
 }
 
 async function waitPickState(page, expectedOn) {
   await page.waitForFunction((wantOn) => {
-    const btn = document.getElementById('taskplugin-float-btn');
     const on = document.documentElement.classList.contains('taskplugin-picking');
-    return wantOn ? (on && btn && btn.textContent === '✕') : (!on && btn && btn.textContent === '+');
+    return wantOn ? on : !on;
   }, expectedOn, { timeout: 5000 });
 }
 
@@ -258,7 +254,7 @@ test.describe('快捷键页内兜底', () => {
     await page.evaluate(setShortcutMode('cmd'));
 
     // 初始：未选择模式
-    expect(await pickState(page)).toEqual({ on: false, btnText: '+' });
+    expect(await pickState(page)).toEqual({ on: false });
 
     // 第一次 ⌘+Shift+X → 进入指针选择模式
     await page.evaluate(dispatchCmdShortcutKey());
@@ -415,5 +411,55 @@ test.describe('快捷键页内兜底', () => {
     // 新组合 Ctrl+Alt+P 生效 → 退出选择模式
     await page.evaluate(dispatchComboShortcutKey('Ctrl+Alt+P'));
     await waitPickState(page, false);
+  });
+
+  test('Alt+X 后 Ctrl+pointerdown 累加两元素；剥掉 ctrlKey 的 click 不结束选择', async ({ page }) => {
+    await loadPluginIntoPage(page);
+    await page.evaluate(() => {
+      const place = (id, label, left) => {
+        const el = document.createElement('button');
+        el.id = id;
+        el.textContent = label;
+        el.style.cssText = `position:fixed;left:${left}px;top:80px;width:90px;height:40px;z-index:20`;
+        document.body.appendChild(el);
+        return el;
+      };
+      place('pick-a', 'A', 40);
+      place('pick-b', 'B', 160);
+    });
+    await page.evaluate(
+      dispatchRuntimeMessage('__onMessageHandlers', `{ action: 'toggleElementPick' }`),
+    );
+    await waitPickState(page, true);
+
+    await page.keyboard.down('Control');
+    await page.locator('#pick-a').click({ force: true });
+    await page.locator('#pick-b').click({ force: true });
+    await page.keyboard.up('Control');
+
+    const mid = await page.evaluate(() => ({
+      on: document.documentElement.classList.contains('taskplugin-picking'),
+      n: Array.isArray(pickSelection) ? pickSelection.length : -1,
+      ids: (pickSelection || []).map((el) => el && el.id),
+    }));
+    expect(mid).toEqual({ on: true, n: 2, ids: ['pick-a', 'pick-b'] });
+
+    await page.evaluate(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', {
+        key: 'Enter',
+        bubbles: true,
+        cancelable: true,
+      }));
+    });
+    const after = await page.evaluate(() => ({
+      on: document.documentElement.classList.contains('taskplugin-picking'),
+      kind: pendingElementSnapshot && pendingElementSnapshot.selectionKind,
+      count: pendingElementSnapshot && pendingElementSnapshot.elements
+        ? pendingElementSnapshot.elements.length
+        : 0,
+    }));
+    expect(after.on).toBe(false);
+    expect(after.kind).toBe('disjoint');
+    expect(after.count).toBe(2);
   });
 });

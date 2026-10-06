@@ -196,7 +196,7 @@ function onPickSelectEvent(e) {
       const tip = pickSelection.length
         ? (typeof tx === 'function' ? tx('floatPickSelectedHint', { n: pickSelection.length }) : `已选 ${pickSelection.length} 个：Enter 确认；⌘/Ctrl+点击继续增删（Esc 清空）`)
         : (typeof tx === 'function' ? tx('floatPickClearedHint') : '已清空多选：⌘/Ctrl+点击添加，或普通点击单选');
-      btn.title = tip;
+      if (typeof btn !== 'undefined' && btn) btn.title = tip;
       return;
     }
 
@@ -223,7 +223,7 @@ function onPickKeyDown(e) {
       clearPickSelection();
       clearHighlight();
       const tip = (typeof tx === 'function' ? tx('floatPickClearedExitTip') : '已清空多选；Esc 再按退出指针模式');
-      btn.title = tip;
+      if (typeof btn !== 'undefined' && btn) btn.title = tip;
       return;
     }
     setPickMode(false);

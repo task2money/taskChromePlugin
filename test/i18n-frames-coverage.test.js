@@ -3,7 +3,8 @@
 /**
  * all_frames 组（cs1）i18n 门禁（ADR-0089，OPT-20260919-009 第 10 批）。
  *
- * cs1 只加载 `content-boot-gate.js` / `lib/element-picker.js` / `content/pick-frame.js`，
+ * cs1 只加载 `content-boot-gate.js` / `lib/element-picker.js` /
+ * `lib/pick-additive-modifier.js` / `content/pick-frame.js`，
  * **不加载任何 lib/i18n*.js**（顶层 cs0、扩展页与 SW 都加载），因此这些文件里
  * 裸写 `tx('k')` 会在子 frame 抛 ReferenceError。与 content 层沿用同一约定：
  * 只能内联 `typeof tx === 'function' ? tx('k') : '中文'` 兜底。
@@ -30,7 +31,11 @@ const {
 } = require('./helpers/i18nScan.js');
 
 /** cs1（all_frames）注入组：这些文件必须容忍 tx() 不存在。 */
-const FRAMES_FILES = ['lib/element-picker.js', 'content/pick-frame.js'];
+const FRAMES_FILES = [
+  'lib/element-picker.js',
+  'content/pick-frame.js',
+  'lib/pick-additive-modifier.js',
+];
 
 /** 裸 tx() 取词（不含 `TypeScript` 之类误伤；含 `?tx(` / `: tx(` 以外的一切前缀）。 */
 const BARE_TX = /(?:^|[^.\w$])tx\s*\(/;

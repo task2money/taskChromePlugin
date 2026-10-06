@@ -35,6 +35,7 @@ const LIB_FILES = [
   'lib/branch-datalist.js',
   'lib/create-task-payload.js',
   'lib/element-picker.js',
+  'lib/pick-additive-modifier.js',
   'lib/user-guide.js',
   'lib/float-workspace-select.js',
   'lib/project-auto-run-label.js',
