@@ -26,11 +26,13 @@ const popupHtml = read('popup/popup.html');
 const popupJs = readPopupBundle();
 const popupCss = read('popup/popup.css');
 
-describe('Popup 不再提供悬浮球开关，保留固定到工具栏', () => {
-  it('有独立 #toolbarPinSection，无 floatBallToggle', () => {
-    assert.match(popupHtml, /id="toolbarPinSection"/);
+describe('Popup 不再提供悬浮球开关，也不展示固定到工具栏栏', () => {
+  it('无 #toolbarPinSection / floatBallToggle', () => {
+    assert.doesNotMatch(popupHtml, /id="toolbarPinSection"/);
+    assert.doesNotMatch(popupHtml, /id="toolbarPinStatus"/);
     assert.doesNotMatch(popupHtml, /id="floatBallToggle"/);
     assert.doesNotMatch(popupHtml, /id="floatBallSection"/);
+    assert.doesNotMatch(popupHtml, /固定到工具栏/);
     assert.doesNotMatch(popupHtml, /显示悬浮球/);
     const reqStart = popupHtml.indexOf('id="requestsSection"');
     assert.ok(reqStart >= 0, '缺少 requestsSection');
@@ -39,18 +41,9 @@ describe('Popup 不再提供悬浮球开关，保留固定到工具栏', () => {
     assert.doesNotMatch(reqBlock, /toolbarPinStatus/, '工具栏固定状态不得放在请求预览区内');
   });
 
-  it('登录态与未登录态都会显示固定到工具栏区', () => {
-    assert.match(popupJs, /function setToolbarPinSectionVisible/);
-    const loginFn = popupJs.slice(
-      popupJs.indexOf('function showLoginUI'),
-      popupJs.indexOf('function showTokenExpiredUI')
-    );
-    const loggedInFn = popupJs.slice(
-      popupJs.indexOf('function showLoggedInUI'),
-      popupJs.indexOf('async function loadStateFromStorage')
-    );
-    assert.match(loginFn, /setToolbarPinSectionVisible\(\s*true\s*\)/, '未登录须显示固定到工具栏');
-    assert.match(loggedInFn, /setToolbarPinSectionVisible\(\s*true\s*\)/, '已登录须显示固定到工具栏');
+  it('登录态切换不再显示或隐藏固定到工具栏区', () => {
+    assert.doesNotMatch(popupJs, /setToolbarPinSectionVisible/);
+    assert.doesNotMatch(popupJs, /toolbarPinSection/);
   });
 });
 
@@ -63,13 +56,13 @@ describe('Popup 无悬浮球开关跨 tab 扇出', () => {
 });
 
 describe('Popup 未登录：登录入口置顶并可折叠', () => {
-  it('T1 #loginSection 紧随 header，且在悬浮球区之前', () => {
+  it('T1 #loginSection 紧随 header，且在智能体区之前', () => {
     const headerEnd = popupHtml.indexOf('</header>');
     const loginIdx = popupHtml.indexOf('id="loginSection"');
-    const floatIdx = popupHtml.indexOf('id="toolbarPinSection"');
-    assert.ok(headerEnd > 0 && loginIdx > 0 && floatIdx > 0, '缺少 header / login / toolbarPin 锚点');
+    const llmIdx = popupHtml.indexOf('id="pageAdvisorLlmSection"');
+    assert.ok(headerEnd > 0 && loginIdx > 0 && llmIdx > 0, '缺少 header / login / LLM 锚点');
     assert.ok(loginIdx > headerEnd, '登录区必须在 </header> 之后');
-    assert.ok(loginIdx < floatIdx, '登录区必须在 #toolbarPinSection 之前（最上方功能区）');
+    assert.ok(loginIdx < llmIdx, '登录区必须在 #pageAdvisorLlmSection 之前（最上方功能区）');
   });
 
   it('T2 顶栏 ⚠️ 未登录旁有 #btnToggleLogin；登录区默认折叠', () => {

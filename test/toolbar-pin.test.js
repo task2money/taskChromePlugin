@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 设置页「固定到工具栏」：Chrome 只提供读取，扩展不能代为打开。
+ * 设置页不再展示「固定到工具栏」只读栏。
  */
 
 const { describe, it } = require('node:test');
@@ -41,25 +41,14 @@ describe('toolbarPinView', () => {
   });
 });
 
-describe('设置页不提供可写入的固定开关', () => {
-  it('状态行在悬浮球区内，且没有可勾选的固定开关', () => {
+describe('设置页不再展示固定到工具栏栏', () => {
+  it('popup.html 无 toolbarPin 区块与开关', () => {
     const html = read('popup/popup.html');
-    const start = html.indexOf('id="toolbarPinSection"');
-    const end = html.indexOf('id="pageAdvisorLlmSection"');
-    const block = html.slice(start, end);
-    assert.match(block, /id="toolbarPinStatus"/);
-    assert.match(block, /data-i18n="toolbarPinLabel"/);
-    assert.match(block, /data-i18n="toolbarPinHint"/);
-    assert.match(block, /data-region-help="1"/);
-    assert.doesNotMatch(block, /id="toolbarPinToggle"/);
-    assert.doesNotMatch(block, /<input[^>]*toolbarPin/);
-  });
-
-  it('脚本只读取 getUserSettings，不调用写入接口', () => {
-    const src = read('popup/popup-toolbar-pin.js');
-    assert.match(src, /getUserSettings/);
-    assert.doesNotMatch(src, /setUserSettings/);
-    assert.doesNotMatch(src, /toolbar_pin/);
-    assert.doesNotMatch(src, /\.pin\s*\(/);
+    assert.doesNotMatch(html, /id="toolbarPinSection"/);
+    assert.doesNotMatch(html, /id="toolbarPinStatus"/);
+    assert.doesNotMatch(html, /id="toolbarPinToggle"/);
+    assert.doesNotMatch(html, /data-i18n="toolbarPinLabel"/);
+    assert.doesNotMatch(html, /popup-toolbar-pin\.js/);
+    assert.equal(fs.existsSync(path.join(ROOT, 'popup/popup-toolbar-pin.js')), false);
   });
 });

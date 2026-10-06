@@ -80,12 +80,11 @@ describe('Popup 区域说明收在 ! 内（默认折叠）', () => {
     );
   });
 
-  it('Auto-innovate / Skill / 悬浮球标题行均有 !', () => {
+  it('Auto-innovate / Skill 标题行均有 !', () => {
     const html = popupHtml();
     for (const id of [
       'pageAdvisorLlmSection',
       'pageAdvisorSkillSection',
-      'toolbarPinSection',
     ]) {
       const m = html.match(new RegExp(`id="${id}"[\\s\\S]*?<\\/section>`));
       assert.ok(m, `缺少 ${id}`);

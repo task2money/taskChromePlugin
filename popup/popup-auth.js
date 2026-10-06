@@ -71,7 +71,6 @@
     const loginToggle = $('#btnToggleLogin');
     const devGuide = $('#devtoolsGuide');
     const shortcutsSec = $('#shortcutsSection');
-    const floatSec = $('#toolbarPinSection');
     const reqSec = $('#requestsSection');
     const userGuideSec = $('#popupGuideSection');
     const spinnerVisible = spinner && spinner.style.display !== 'none';
@@ -79,10 +78,9 @@
     const loginToggleHidden = !loginToggle || loginToggle.style.display === 'none';
     const guideHidden = !devGuide || devGuide.style.display === 'none';
     const shortcutsHidden = !shortcutsSec || shortcutsSec.style.display === 'none';
-    const floatHidden = !floatSec || floatSec.style.display === 'none';
     const reqHidden = !reqSec || reqSec.style.display === 'none';
     const userGuideHidden = !userGuideSec || userGuideSec.style.display === 'none';
-    return spinnerVisible && loginHidden && loginToggleHidden && guideHidden && shortcutsHidden && floatHidden && reqHidden && userGuideHidden;
+    return spinnerVisible && loginHidden && loginToggleHidden && guideHidden && shortcutsHidden && reqHidden && userGuideHidden;
   }
 
   async function restoreRememberedFormFields() {
@@ -185,11 +183,6 @@
     if (section) section.style.display = visible ? 'block' : 'none';
   }
 
-  function setToolbarPinSectionVisible(visible) {
-    const section = $('#toolbarPinSection');
-    if (section) section.style.display = visible ? 'block' : 'none';
-  }
-
   function setLoginToggleVisible(visible) {
     const btn = $('#btnToggleLogin');
     if (!btn) return;
@@ -240,7 +233,6 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
-    setToolbarPinSectionVisible(false);
     setPopupGuideVisible(false);
 
     await init();
@@ -262,7 +254,6 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
-    setToolbarPinSectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
     }
@@ -310,7 +301,6 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
-    setToolbarPinSectionVisible(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -343,7 +333,6 @@
     if (devGuide) devGuide.style.display = 'block';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
-    setToolbarPinSectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
     }
