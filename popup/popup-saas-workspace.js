@@ -213,7 +213,7 @@
 
   function syncRoute(nextRoute) {
     const value = String(nextRoute || '');
-    routeMode = (value === 'saas' || value === 'builtin') ? value : 'direct';
+    routeMode = (value === 'saas' || value === 'system' || value === 'builtin') ? value : 'direct';
     refreshUi();
   }
 

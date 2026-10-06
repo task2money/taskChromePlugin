@@ -92,6 +92,12 @@ async function installChromeStub(page, options = {}) {
               ],
             };
           }
+          if (msg?.action === 'getSystemAgents') {
+            return {
+              success: true,
+              data: { items: [{ id: 'sku-a', name: '系统甲' }, { id: 'sku-b', name: '系统乙' }] },
+            };
+          }
           return { success: true };
         },
         lastError: null,
@@ -300,6 +306,8 @@ test.describe('Popup 面板布局', () => {
 
     // saas 未登录：行可见，占位「请先登录」，禁用，不靠真实网络
     await page.locator('#popupLlmRouteSaas').check();
+    await expect(page.locator('#popupLlmRouteSystem')).toHaveCount(0);
+    await expect(page.locator('#popupLlmSystemSkuRow')).toBeVisible();
     await expect(workspaceRow).toBeVisible();
     await expect(workspaceRow).toContainText('工作空间');
     await expect(workspaceSelect).toBeDisabled();
@@ -327,6 +335,9 @@ test.describe('Popup 面板布局', () => {
 
     await page.locator('#popupLlmRouteSaas').check();
     await expect(row).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#popupLlmSystemSkuRow')).toBeVisible();
+    await expect(page.locator('#popupLlmSystemSku')).toContainText('自有智能体');
+    await expect(page.locator('#popupLlmSystemSku')).toContainText('系统甲');
     await expect(row).toContainText('工作空间');
     const select = page.locator('#popupSaasWorkspace');
     await expect(select).toBeEnabled();

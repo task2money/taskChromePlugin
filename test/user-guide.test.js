@@ -36,8 +36,8 @@ describe('UserGuide sections', () => {
     assert.match((direct.steps || []).join('\n'), /正在下载 100%/);
     assert.match((direct.steps || []).join('\n'), /chrome-urls/);
     assert.match((direct.steps || []).join('\n'), /英语模型包/);
-    assert.match((direct.steps || []).join('\n'), /调用系统智能体/);
-    assert.match((direct.steps || []).join('\n'), /不显示系统智能体下拉/);
+    assert.match((direct.steps || []).join('\n'), /自有智能体与系统智能体/);
+    assert.match((direct.steps || []).join('\n'), /不再提供独立的「调用系统智能体」/);
     assert.match(blob, /悬停|Alt\+X/);
     assert.doesNotMatch(blob, /拖拽画出矩形|拖拽框选/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');

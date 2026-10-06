@@ -75,7 +75,7 @@ function setup() {
       else delete el['data-traceId'];
     },
     PageAdvisorLlmConfig: {
-      loadFromStorage: async () => ({ systemSkuId: 'sku-b' }),
+      loadFromStorage: async () => ({ routeMode: 'system', systemSkuId: 'sku-b' }),
       saveToStorage: async (cfg) => cfg,
     },
     sendMessageWithTimeout: (msg) => {
@@ -100,11 +100,23 @@ function skuCalls(sent) {
   return sent.filter((m) => m && m.action === 'getSystemAgents');
 }
 
+function optionLabels(sel) {
+  const out = [];
+  for (const node of sel.childNodes || []) {
+    if (Array.isArray(node.childNodes) && node.childNodes.length) {
+      for (const child of node.childNodes) out.push(child.textContent);
+    } else {
+      out.push(node.textContent);
+    }
+  }
+  return out;
+}
+
 describe('Popup 系统智能体：登录后再拉下拉', () => {
-  it('system 未登录：提示登录、隐藏 select、不发 getSystemAgents', async () => {
+  it('saas 未登录：提示登录、隐藏 select、不发 getSystemAgents', async () => {
     const { sandbox, nodes, sent, prompts } = setup();
     sandbox.window.PopupSystemSku.setLoggedIn(false);
-    sandbox.window.PopupSystemSku.syncRoute('system');
+    sandbox.window.PopupSystemSku.syncRoute('saas');
     await Promise.resolve();
     assert.equal(nodes['#popupLlmSystemSkuRow'].hidden, false);
     assert.equal(nodes['#popupLlmSystemLoginHint'].hidden, false);
@@ -113,18 +125,17 @@ describe('Popup 系统智能体：登录后再拉下拉', () => {
     assert.equal(prompts.length, 1);
   });
 
-  it('system 已登录：显示 select 并发 getSystemAgents', async () => {
+  it('saas 已登录：显示自有+系统 SKU 并发 getSystemAgents', async () => {
     const { sandbox, nodes, sent } = setup();
     sandbox.window.PopupSystemSku.setLoggedIn(true);
-    sandbox.window.PopupSystemSku.syncRoute('system');
+    sandbox.window.PopupSystemSku.syncRoute('saas');
     await new Promise((r) => setImmediate(r));
     await new Promise((r) => setImmediate(r));
     assert.equal(nodes['#popupLlmSystemSku'].hidden, false);
     assert.equal(nodes['#popupLlmSystemLoginHint'].hidden, true);
     assert.equal(skuCalls(sent).length, 1);
-    const labels = nodes['#popupLlmSystemSku'].childNodes.map((n) => n.textContent);
-    assert.deepEqual(labels, ['甲', '乙']);
-    assert.equal(nodes['#popupLlmSystemSku'].value, 'sku-b');
+    assert.deepEqual(optionLabels(nodes['#popupLlmSystemSku']), ['paLlmOwnAgent', '甲', '乙']);
+    assert.equal(nodes['#popupLlmSystemSku'].value, 'system:sku-b');
   });
 
   it('direct 隐藏行且不拉列表', async () => {

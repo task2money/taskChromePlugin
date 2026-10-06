@@ -71,6 +71,8 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.equal(saasWorkspaceUiMode(true, 'builtin'), 'hidden');
     assert.equal(saasWorkspaceUiMode(false, 'saas'), 'login_required');
     assert.equal(saasWorkspaceUiMode(true, 'saas'), 'menu');
+    assert.equal(saasWorkspaceUiMode(true, 'system'), 'menu');
+    assert.equal(saasWorkspaceUiMode(false, 'system'), 'login_required');
     assert.equal(saasWorkspaceVisible(false, 'saas'), true);
     assert.equal(saasWorkspaceVisible(true, 'direct'), false);
     assert.equal(saasWorkspaceVisible(true, 'saas'), true);

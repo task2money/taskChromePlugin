@@ -25,7 +25,13 @@
   function selectedRouteMode() {
     const el = document.querySelector('input[name="popupLlmRoute"]:checked');
     const value = el && el.value;
-    if (value === 'saas' || value === 'builtin' || value === 'system') return value;
+    if (value === 'builtin') return 'builtin';
+    if (value === 'saas' || value === 'system') {
+      if (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.currentRouteMode === 'function') {
+        return PopupSystemSku.currentRouteMode();
+      }
+      return 'saas';
+    }
     return 'direct';
   }
 
@@ -116,11 +122,9 @@
     const direct = $('#popupLlmRouteDirect');
     const saas = $('#popupLlmRouteSaas');
     const builtin = $('#popupLlmRouteBuiltin');
-    const system = $('#popupLlmRouteSystem');
     if (direct) direct.checked = route === 'direct';
-    if (saas) saas.checked = route === 'saas';
+    if (saas) saas.checked = route === 'saas' || route === 'system';
     if (builtin) builtin.checked = route === 'builtin';
-    if (system) system.checked = route === 'system';
     fillProfileSelect(cfg?.profiles || [], draftNew ? '' : cfg?.activeProfileId);
     const del = $('#btnDeleteLlmProfile');
     if (del) del.hidden = draftNew || !cfg?.activeProfileId;

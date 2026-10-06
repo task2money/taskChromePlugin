@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 「调用系统智能体」：未登录提示先登录且不展示下拉；登录后才显示 SKU 菜单。
+ * 「调用平台后端」智能体下拉：自有 + 系统 SKU；无独立「调用系统智能体」单选。
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -14,6 +14,10 @@ const {
   applySystemSkuRow,
   applySystemSkuLoginGate,
   buildSystemSkuMenu,
+  buildPlatformAgentMenu,
+  encodePlatformAgentValue,
+  parsePlatformAgentValue,
+  OWN_VALUE,
 } = require('../lib/popup-system-sku.js');
 
 function popupHtml() {
@@ -27,16 +31,17 @@ function llmSection() {
   return m[0];
 }
 
-describe('Popup 系统智能体登录门闩', () => {
-  it('下拉紧挨在「调用系统智能体」之后，且默认隐藏', () => {
+describe('Popup 平台后端智能体下拉', () => {
+  it('下拉紧挨在「调用平台后端」之后，且无独立系统智能体单选', () => {
     const llm = llmSection();
-    const system = llm.indexOf('id="popupLlmRouteSystem"');
-    const row = llm.indexOf('id="popupLlmSystemSkuRow"');
     const saas = llm.indexOf('id="popupLlmRouteSaas"');
-    assert.ok(saas >= 0 && system > saas, '调用系统智能体应在调用平台后端之后');
-    assert.ok(row > system, '系统智能体行应在该单选之后');
+    const row = llm.indexOf('id="popupLlmSystemSkuRow"');
+    assert.ok(saas >= 0, '缺少调用平台后端单选');
+    assert.doesNotMatch(llm, /id="popupLlmRouteSystem"/);
+    assert.doesNotMatch(llm, /data-i18n="paLlmRouteSystem"/);
+    assert.ok(row > saas, '智能体行应在调用平台后端之后');
     assert.match(llm, /id="popupLlmSystemSku"/);
-    assert.match(llm, /data-i18n="paLlmSystemSku"/);
+    assert.match(llm, /data-i18n="paLlmPlatformAgent"/);
     assert.match(llm, /id="popupLlmSystemSkuRow"[^>]*\bhidden\b/);
     assert.match(llm, /id="popupLlmSystemLoginHint"/);
   });
@@ -56,16 +61,18 @@ describe('Popup 系统智能体登录门闩', () => {
     const llmCfg = fs.readFileSync(path.join(ROOT, 'popup/popup-llm-config.js'), 'utf8');
     assert.match(llmCfg, /syncSystemSkuRow/);
     assert.match(llmCfg, /PopupSystemSku\.syncRoute/);
+    assert.match(llmCfg, /route === 'saas' \|\| route === 'system'/);
     const sw = fs.readFileSync(path.join(ROOT, 'background/sw-messages-session.js'), 'utf8');
     assert.match(sw, /case 'getSystemAgents'/);
     assert.match(sw, /listTenantSystemAgents/);
   });
 
-  it('uiMode：仅 system 显示；未登录 login_required；已登录 menu', () => {
+  it('uiMode：saas 与 system 均显示；未登录 login_required；已登录 menu', () => {
     assert.equal(systemSkuUiMode(false, 'direct'), 'hidden');
     assert.equal(systemSkuUiMode(true, 'direct'), 'hidden');
-    assert.equal(systemSkuUiMode(false, 'saas'), 'hidden');
     assert.equal(systemSkuUiMode(false, 'builtin'), 'hidden');
+    assert.equal(systemSkuUiMode(false, 'saas'), 'login_required');
+    assert.equal(systemSkuUiMode(true, 'saas'), 'menu');
     assert.equal(systemSkuUiMode(false, 'system'), 'login_required');
     assert.equal(systemSkuUiMode(true, 'system'), 'menu');
   });
@@ -91,21 +98,32 @@ describe('Popup 系统智能体登录门闩', () => {
     assert.equal(row.style.display, 'none');
   });
 
-  it('恢复上次 SKU；仅一个时自动选中', () => {
-    const many = buildSystemSkuMenu(
-      [{ id: 'sku-a', name: 'A' }, { id: 'sku-b', name: 'B' }],
-      'sku-b',
-    );
-    assert.deepEqual(many.options.map((o) => o.label), ['A', 'B']);
-    assert.equal(many.selectedId, 'sku-b');
-    assert.equal(many.persist, false);
+  it('下拉同时含自有智能体与系统 SKU，并恢复上次系统选择', () => {
+    assert.equal(OWN_VALUE, 'own');
+    assert.equal(encodePlatformAgentValue('saas', ''), 'own');
+    assert.equal(encodePlatformAgentValue('system', 'sku-b'), 'system:sku-b');
+    assert.deepEqual(parsePlatformAgentValue('own'), { routeMode: 'saas', systemSkuId: '' });
+    assert.deepEqual(parsePlatformAgentValue('system:sku-b'), { routeMode: 'system', systemSkuId: 'sku-b' });
 
-    const only = buildSystemSkuMenu([{ id: 'sku-only', name: '唯一' }], '');
-    assert.equal(only.selectedId, 'sku-only');
-    assert.equal(only.persist, true);
+    const many = buildPlatformAgentMenu(
+      [{ id: 'sku-a', name: 'A' }, { id: 'sku-b', name: 'B' }],
+      'system',
+      'sku-b',
+      { own: '自有智能体', ownGroup: '自有智能体', systemGroup: '系统智能体' },
+    );
+    assert.deepEqual(many.options.map((o) => o.id), ['own', 'system:sku-a', 'system:sku-b']);
+    assert.equal(many.options[0].group, '自有智能体');
+    assert.equal(many.options[1].group, '系统智能体');
+    assert.equal(many.selectedId, 'system:sku-b');
+
+    const own = buildPlatformAgentMenu([{ id: 'sku-a', name: 'A' }], 'saas', '', {});
+    assert.equal(own.selectedId, 'own');
+
+    const legacy = buildSystemSkuMenu([{ id: 'sku-only', name: '唯一' }], 'sku-only');
+    assert.equal(legacy.selectedId, 'system:sku-only');
   });
 
-  it('文案：请先登录后再选择系统智能体', () => {
+  it('文案：请先登录后再选择平台智能体', () => {
     const { I18N_SCRIPT_RELS } = require('./helpers/txRuntime.js');
     const merged = { zh: {}, en: {} };
     for (const rel of I18N_SCRIPT_RELS) {
@@ -114,7 +132,11 @@ describe('Popup 系统智能体登录门闩', () => {
       Object.assign(merged.zh, mod.zh);
       Object.assign(merged.en, mod.en);
     }
-    assert.equal(merged.zh.paLlmSystemNeedLogin, '请先登录后再选择系统智能体');
-    assert.equal(merged.en.paLlmSystemNeedLogin, 'Sign in first, then pick a system agent');
+    assert.equal(merged.zh.paLlmPlatformAgent, '智能体');
+    assert.equal(merged.zh.paLlmOwnAgent, '自有智能体');
+    assert.equal(merged.zh.paLlmSystemAgentGroup, '系统智能体');
+    assert.equal(merged.zh.paLlmSystemNeedLogin, '请先登录后再选择平台智能体');
+    assert.equal(merged.en.paLlmSystemNeedLogin, 'Sign in first, then pick a platform agent');
+    assert.ok(!merged.zh.paLlmRouteSystem);
   });
 });

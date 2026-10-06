@@ -70,13 +70,9 @@
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
           <span data-i18n="paLlmRouteSaas">调用平台后端</span>
         </label>
-        <label class="llm-route-option">
-          <input type="radio" name="popupLlmRoute" id="popupLlmRouteSystem" value="system">
-          <span data-i18n="paLlmRouteSystem">调用系统智能体</span>
-        </label>
         <div class="form-row" id="popupLlmSystemSkuRow" hidden style="display:none">
-          <p id="popupLlmSystemLoginHint" class="hint" hidden data-i18n="paLlmSystemNeedLogin">请先登录后再选择系统智能体</p>
-          <label for="popupLlmSystemSku" data-i18n="paLlmSystemSku">系统智能体</label>
+          <p id="popupLlmSystemLoginHint" class="hint" hidden data-i18n="paLlmSystemNeedLogin">请先登录后再选择平台智能体</p>
+          <label for="popupLlmSystemSku" data-i18n="paLlmPlatformAgent">智能体</label>
           <select id="popupLlmSystemSku" class="form-select" data-testid="popup-system-sku" hidden></select>
           <p id="popupLlmSystemSkuStatus" class="hint" aria-live="polite"></p>
           <button type="button" id="popupLlmSystemSkuRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-system-sku-retry">重试</button>
