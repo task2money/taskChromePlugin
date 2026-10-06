@@ -333,6 +333,13 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    case 'getTenantAgentPref':
+      try {
+        return await handleGetTenantAgentPref(message);
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
     case 'getProjects':
       try {
         await initApiFromMessage(message);

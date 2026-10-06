@@ -405,6 +405,13 @@ async function handleMessageRest(message, sender) {
       return stopBuiltinEdgeTunnelFromMessage(message);
     }
 
+    case 'deliverPageAdvisorToIde': {
+      if (typeof handleDeliverPageAdvisorToIde !== 'function') {
+        return { success: false, nativeOk: false, error: 'delivery not loaded' };
+      }
+      return handleDeliverPageAdvisorToIde(message);
+    }
+
     default:
       return { error: `Unknown action: ${message.action}` };
   }

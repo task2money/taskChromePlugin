@@ -56,6 +56,7 @@
           <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 不上传，换浏览器需要重新设置。未选择时默认直连。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。「已保存的 Key」下拉旁点「设置」新增或修改一组。点「测试连通性」用当前填写的 Base URL、模型和 API Key 发一次最短请求，不改已保存的 Key。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」下选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="paWfHelp">按 Alt+Z 或区域确认后，本区块底部显示各环节耗时条（仅侧栏设置页）。点选区域等待不计入。测试连通性不画这条。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paDeliveryHint">「建议送达」一次只选一个。任务描述：生成后仍要点底栏填入才会打开创建浮窗。选 Cursor / Claude / Codex / Trae / WorkBuddy 后，生成成功会自动复制建议并尝试本机桥粘贴，不打开创建任务；未装桥时请在对应编辑器粘贴（Ctrl+V / ⌘V）。</p>
         </details>
         <!-- Anti-Replay-OK: external navigation -->
         <a id="lnkIdleMarket" class="heading-sm" href="https://www.aidevpush.com/friend-links/#idle-market" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket">闲置集市</a>
@@ -69,6 +70,8 @@
         <label class="llm-route-option">
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
           <span data-i18n="paLlmRouteSaas">调用平台后端</span>
+          <!-- Anti-Replay-OK: real href to tenant page-advisor settings -->
+          <a id="lnkPageAdvisorSettings" class="saas-settings-link" hidden href="" target="_blank" rel="noopener noreferrer" data-testid="popup-page-advisor-settings" data-i18n="paLlmSaasSettingsLink">网页设置</a>
         </label>
         <div class="form-row" id="popupLlmSystemSkuRow" hidden style="display:none">
           <p id="popupLlmSystemLoginHint" class="hint" hidden data-i18n="paLlmSystemNeedLogin">请先登录后再选择平台智能体</p>
@@ -101,6 +104,33 @@
           <!-- 加载失败时才出现；点它就地重拉，不必关掉再打开弹窗（OPT-20260928-004） -->
           <button type="button" id="popupSaasWorkspaceRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-saas-workspace-retry">重试</button>
         </div>
+      </fieldset>
+      <fieldset class="form-row" id="popupDeliveryTargetField">
+        <legend data-i18n="paDeliveryLegend">建议送达</legend>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="task_description" checked>
+          <span data-i18n="paDeliveryTaskDesc">任务描述</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="cursor">
+          <span data-i18n="paDeliveryCursor">Cursor</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="claude">
+          <span data-i18n="paDeliveryClaude">Claude</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="codex">
+          <span data-i18n="paDeliveryCodex">Codex</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="trae">
+          <span data-i18n="paDeliveryTrae">Trae</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="workbuddy">
+          <span data-i18n="paDeliveryWorkBuddy">WorkBuddy</span>
+        </label>
       </fieldset>
       <div class="form-row" id="popupLlmProfileRow">
         <label for="popupLlmProfileSelect" data-i18n="paLlmProfileLabel">已保存的 Key</label>
@@ -375,6 +405,8 @@
   <script src="../lib/page-advisor-waterfall-view.js"></script>
   <script src="../lib/page-advisor-builtin-last-run.js"></script>
   <script src="popup-llm-config.js"></script>
+  <script src="../lib/page-advisor-delivery.js"></script>
+  <script src="popup-delivery.js"></script>
   <script src="popup-waterfall.js"></script>
   <script src="popup-prompt-skill-ui.js"></script>
   <script src="popup-prompt-skill-session.js"></script>

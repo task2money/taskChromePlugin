@@ -27,6 +27,8 @@ html[data-taskplugin-host="sidepanel"] legend,
 html[data-taskplugin-host="sidepanel"] .llm-route-option,
 html[data-taskplugin-host="sidepanel"] #popupLlmRouteField > legend,
 html[data-taskplugin-host="sidepanel"] #popupLlmRouteField .llm-route-option,
+html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField > legend,
+html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .llm-route-option,
 html[data-taskplugin-host="sidepanel"] .status-row .value,
 html[data-taskplugin-host="sidepanel"] .hint {
   color: #1e1e2e;

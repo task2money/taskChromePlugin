@@ -78,6 +78,10 @@ describe('quick-create float opens only after fill into description', () => {
       path.join(__dirname, '../content/float-page-advisor.js'),
       'utf8',
     );
+    const fillUi = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-fill-ui.js'),
+      'utf8',
+    );
     const layer = fs.readFileSync(
       path.join(__dirname, '../content/float-page-advisor-layer.js'),
       'utf8',
@@ -100,7 +104,7 @@ describe('quick-create float opens only after fill into description', () => {
         `${name} must collapse 快速创建任务 while advisor runs`,
       );
     }
-    const fillBody = extractFunctionBody(ui, 'confirmPageAdvisorFill');
+    const fillBody = extractFunctionBody(fillUi, 'confirmPageAdvisorFill');
     assert.ok(fillBody);
     assert.match(
       fillBody,
@@ -246,8 +250,12 @@ describe('quick-create float opens only after fill into description', () => {
       path.join(__dirname, '../content/float-page-advisor.js'),
       'utf8',
     );
+    const fillSrc = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-fill-ui.js'),
+      'utf8',
+    );
     vm.runInNewContext(
-      `${layerSrc}\n${advisorSrc}\n;`
+      `${layerSrc}\n${advisorSrc}\n${fillSrc}\n;`
         + 'this.showPageAdvisorSuggestions = showPageAdvisorSuggestions;'
         + 'this.confirmPageAdvisorFill = confirmPageAdvisorFill;'
         + 'this.getIsOpen = () => isOpen;'

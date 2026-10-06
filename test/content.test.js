@@ -169,6 +169,8 @@ describe('content 脚本行数门禁与注入顺序', () => {
       'content/float-page-advisor-layer.js',
       'content/float-page-advisor-drag.js',
       'content/float-page-advisor.js',
+      'content/float-page-advisor-fill-ui.js',
+      'content/float-page-advisor-deliver.js',
       'content/float-page-advisor-site-pending.js',
       'content/content.js',
     ]);

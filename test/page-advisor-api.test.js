@@ -33,6 +33,10 @@ describe('page-advisor-api endpoints', () => {
       PageAdvisorAPI.ENDPOINTS.tenantSystemAgents,
       '/api/page-advisor/v1/tenant_id/{tenantId}/system-agents/',
     );
+    assert.equal(
+      PageAdvisorAPI.ENDPOINTS.tenantAgentPref,
+      '/api/page-advisor/v1/tenant_id/{tenantId}/agent-pref/',
+    );
   });
 });
 
@@ -436,7 +440,8 @@ describe('page-advisor wiring contracts', () => {
   });
 
   it('content confirm path does not call createTask', () => {
-    const ui = fs.readFileSync(path.join(root, 'content/float-page-advisor.js'), 'utf8');
+    const ui = fs.readFileSync(path.join(root, 'content/float-page-advisor.js'), 'utf8')
+      + fs.readFileSync(path.join(root, 'content/float-page-advisor-fill-ui.js'), 'utf8');
     assert.match(ui, /appendSuggestionsToDescription/);
     assert.match(ui, /createClickGuard|pageAdvisorBusy/);
     assert.doesNotMatch(ui, /action:\s*['"]createTask['"]/);

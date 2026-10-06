@@ -100,9 +100,9 @@ describe('Popup 面板布局', () => {
 
   it('调用方式去掉 fieldset 线框，长文案仍上下排列', () => {
     const sideCss = read('popup/popup-sidepanel.css');
-    assert.match(popupCss, /#popupLlmRouteField\s*\{[^}]*border:\s*0/);
-    assert.match(popupCss, /#popupLlmRouteField\s*\{[^}]*min-inline-size:\s*0/);
-    assert.match(popupCss, /#popupLlmRouteField \.llm-route-option\s*\{[^}]*display:\s*flex/);
+    assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,120}border:\s*0/);
+    assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,160}min-inline-size:\s*0/);
+    assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,280}\.llm-route-option[\s\S]{0,80}display:\s*flex/);
     const llm = popupHtml.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(llm, /<fieldset[^>]*id="popupLlmRouteField"/);
     assert.match(llm, /直连我的 Key（不上传，换浏览器需要重新设置）/);

@@ -147,7 +147,7 @@ async function runPageOptimizationSuggest(tabId) {
   const mapping = await Storage.getEndpointMapping();
   const cred = await Storage.getCredentials();
   const expired = cfg.token ? await Storage.isTokenExpired() : false;
-  const { llmCfg, directReady, route } = await loadPageAdvisorDirectReady();
+  let { llmCfg, directReady, route } = await loadPageAdvisorDirectReady();
   const sessionOk = !!(cfg.token && !expired);
   const command = consumePageAdvisorSuggestCommand();
   const timingRun = beginPageAdvisorTimingRun(route, command);
@@ -308,6 +308,15 @@ async function runPageOptimizationSuggest(tabId) {
       error: tx('paSelectWorkspaceAltZ'),
     });
     return;
+  }
+
+  if ((route === 'saas' || route === 'system')
+    && typeof overlayPageAdvisorTenantPref === 'function') {
+    llmCfg = await overlayPageAdvisorTenantPref(llmCfg, tenantId);
+    route = (typeof PageAdvisorLlmConfig !== 'undefined'
+      && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
+      ? PageAdvisorLlmConfig.resolveRoute(llmCfg)
+      : route;
   }
 
   let screenshotUrl = '';

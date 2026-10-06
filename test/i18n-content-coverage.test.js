@@ -30,6 +30,8 @@ const {
 /** 已完成 content 侧 i18n 迁移、纳入防回退门禁的文件。 */
 const MIGRATED = [
   'content/float-page-advisor.js',
+  'content/float-page-advisor-fill-ui.js',
+  'content/float-page-advisor-deliver.js',
   'content/float-page-advisor-layer.js',
   'content/float-page-advisor-region.js',
   'content/float-page-advisor-site-pending.js',

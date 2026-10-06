@@ -201,7 +201,7 @@ describe('UserGuide sections', () => {
     assert.match(steps, /不打开「快速创建任务」/);
     assert.match(steps, /填入.*后.*打开「快速创建任务」|点击上述填入按钮后才会打开「快速创建任务」/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
-    assert.match(md, /仅在点击上述任一填入按钮后/);
+    assert.match(md, /仅在.*点击上述任一填入按钮后/);
   });
 
   it('page-optimization-suggest documents card copy follows plugin language', () => {

@@ -18,6 +18,12 @@ const {
   encodePlatformAgentValue,
   parsePlatformAgentValue,
   OWN_VALUE,
+  buildPageAdvisorSettingsHref,
+  llmFromTenantAgentPref,
+  ownSelectionFromFeatureParams,
+  mergeLlmCfgWithTenantPref,
+  saasSettingsLinkVisible,
+  applySaasSettingsLink,
 } = require('../lib/popup-system-sku.js');
 
 function popupHtml() {
@@ -44,6 +50,13 @@ describe('Popup 平台后端智能体下拉', () => {
     assert.match(llm, /data-i18n="paLlmPlatformAgent"/);
     assert.match(llm, /id="popupLlmSystemSkuRow"[^>]*\bhidden\b/);
     assert.match(llm, /id="popupLlmSystemLoginHint"/);
+    const linkAt = llm.indexOf('id="lnkPageAdvisorSettings"');
+    assert.ok(linkAt > saas, '网页设置链接应紧挨调用平台后端选项');
+    assert.ok(linkAt < row, '网页设置链接应在智能体下拉之前');
+    assert.match(llm, /id="lnkPageAdvisorSettings"[^>]*\bhidden\b/);
+    assert.match(llm, /id="lnkPageAdvisorSettings"[^>]*target="_blank"/);
+    assert.match(llm, /data-i18n="paLlmSaasSettingsLink"/);
+    assert.doesNotMatch(llm, /884338906839937024/);
   });
 
   it('popup.html 加载纯函数与弹窗控制器；登录态与路由切换均接线', () => {
@@ -65,6 +78,7 @@ describe('Popup 平台后端智能体下拉', () => {
     const sw = fs.readFileSync(path.join(ROOT, 'background/sw-messages-session.js'), 'utf8');
     assert.match(sw, /case 'getSystemAgents'/);
     assert.match(sw, /listTenantSystemAgents/);
+    assert.match(sw, /case 'getTenantAgentPref'/);
     const ownSw = fs.readFileSync(path.join(ROOT, 'background/sw-messages-own-agents.js'), 'utf8');
     assert.match(sw, /case 'getOwnAgents'/);
     assert.match(ownSw, /getWorkspaceFeatureParamsSummary/);
@@ -202,5 +216,49 @@ describe('Popup 平台后端智能体下拉', () => {
     assert.equal(merged.zh.paLlmSystemNeedLogin, '请先登录后再选择平台智能体');
     assert.equal(merged.en.paLlmSystemNeedLogin, 'Sign in first, then pick a platform agent');
     assert.ok(!merged.zh.paLlmRouteSystem);
+    assert.equal(merged.zh.paLlmSaasSettingsLink, '网页设置');
+    assert.equal(merged.en.paLlmSaasSettingsLink, 'Web settings');
+  });
+
+  it('登录后设置页链接按当前租户拼 href，不写死示例租户', () => {
+    assert.equal(saasSettingsLinkVisible(false), false);
+    assert.equal(saasSettingsLinkVisible(true), true);
+    assert.equal(
+      buildPageAdvisorSettingsHref('https://www.aidevpush.com/api', '884338906839937024'),
+      'https://www.aidevpush.com/tenant/884338906839937024/settings/page-advisor/',
+    );
+    assert.equal(buildPageAdvisorSettingsHref('https://www.aidevpush.com', ''), '');
+    const el = { hidden: true, href: '' };
+    applySaasSettingsLink(el, buildPageAdvisorSettingsHref('https://aidevpush.com', 't-9'), true);
+    assert.equal(el.hidden, false);
+    assert.equal(el.href, 'https://aidevpush.com/tenant/t-9/settings/page-advisor/');
+    applySaasSettingsLink(el, 'https://aidevpush.com/tenant/t-9/settings/page-advisor/', false);
+    assert.equal(el.hidden, true);
+  });
+
+  it('网页保存的 agent-pref 覆盖本机 saas/system 选择', () => {
+    assert.deepEqual(llmFromTenantAgentPref({ mode: 'system', sku_id: 'sku-web' }), {
+      routeMode: 'system', systemSkuId: 'sku-web', ownProvider: '', ownModel: '',
+    });
+    assert.deepEqual(
+      ownSelectionFromFeatureParams({
+        page_advisor_agent_model: 'deepseek-chat',
+        page_advisor_agent_model_provider: 'deepseek',
+      }),
+      { ownProvider: 'deepseek', ownModel: 'deepseek-chat' },
+    );
+    const merged = mergeLlmCfgWithTenantPref(
+      { routeMode: 'system', systemSkuId: 'old', ownProvider: 'x', ownModel: 'y' },
+      {
+        mode: 'own',
+        sku_id: 'sku-web',
+        page_advisor_agent_model: 'deepseek-chat',
+        page_advisor_agent_model_provider: 'deepseek',
+      },
+    );
+    assert.equal(merged.routeMode, 'saas');
+    assert.equal(merged.systemSkuId, '');
+    assert.equal(merged.ownProvider, 'deepseek');
+    assert.equal(merged.ownModel, 'deepseek-chat');
   });
 });

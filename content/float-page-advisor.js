@@ -361,6 +361,9 @@ function showPageAdvisorSuggestions(payload) {
   syncPageAdvisorFillButtons();
   layoutPageAdvisorCards();
   showPageAdvisorLayer();
+  if (typeof maybeAutoDeliverPageAdvisorResult === "function") {
+    void maybeAutoDeliverPageAdvisorResult(payload);
+  }
 }
 
 function showPageAdvisorResourceError(payload) {
@@ -421,80 +424,15 @@ function syncPageAdvisorFillButtons() {
     oneBtn.setAttribute("aria-busy", "false");
     oneBtn.textContent = A11y ? A11y.fillOneLabel : (typeof tx === "function" ? tx("paFillOne") : "拷贝并逐条填入");
   }
-}
-
-async function confirmPageAdvisorFill(opts = {}) {
-  const mode = opts.mode === "one" ? "one" : "all";
-  const allBtn = document.getElementById("taskplugin-page-advisor-fill-all");
-  const oneBtn = document.getElementById("taskplugin-page-advisor-fill-one");
-  const activeBtn = mode === "one" ? oneBtn : allBtn;
-
-  const runFill = async () => {
-    let selectedIds = collectSelectedSuggestionIds();
-    if (!selectedIds.length) {
-      setPageAdvisorError((typeof tx === "function" ? tx("paPickOne") : "请至少勾选一条建议"));
-      return { filled: false };
-    }
-    if (mode === "one") {
-      selectedIds = [selectedIds[0]];
-    }
-    const Fill =
-      typeof PageAdvisorFill !== "undefined" ? PageAdvisorFill : null;
-    if (!Fill) {
-      setPageAdvisorError((typeof tx === "function" ? tx("paFillModuleMissing") : "PageAdvisorFill 未加载"));
-      return { filled: false };
-    }
-    const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
-    const block = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
-    const clip = navigator.clipboard && navigator.clipboard.writeText;
-    const copied = await Fill.copySuggestionsBlock(block, clip ? (t) => clip.call(navigator.clipboard, t) : null);
-    const current = typeof readCreateDescription === "function"
-      ? await readCreateDescription()
-      : (descInput ? descInput.value : "");
-    const next = Fill.appendSuggestionsToDescription(
-      current,
-      pageAdvisorState.suggestions,
-      selectedIds,
-      pageAdvisorState.pageUrl,
-    );
-    if (typeof writeCreateDescription === "function") await writeCreateDescription(next);
-    else if (descInput) descInput.value = next;
-    openFloatPanelForAdvisor();
-
-    const session = getPageAdvisorPreviewSession();
-    if (mode === "all") {
-      session?.undoAll();
-      closePageAdvisorModal();
-    } else {
-      dismissPageAdvisorSuggestion(selectedIds[0]);
-    }
-    if (typeof showResult === "function") {
-      showResult(Fill.fillSuccessText(mode, copied, typeof tx === "function" ? tx : null), "success");
-    }
-    return { filled: true, createTaskCalled: false };
-  };
-
-  if (pageAdvisorConfirmGuard) {
-    if (activeBtn) {
-      activeBtn.disabled = true;
-      activeBtn.setAttribute("aria-busy", "true");
-      activeBtn.textContent = (typeof tx === "function" ? tx("paFilling") : "填入中…");
-    }
-    try {
-      const outcome = await pageAdvisorConfirmGuard.run(async () => runFill());
-      if (outcome.skipped) return;
-    } finally {
-      syncPageAdvisorFillButtons();
-    }
-    return;
+  if (typeof applyPageAdvisorDeliveryButtonLabels === "function") {
+    applyPageAdvisorDeliveryButtonLabels(allBtn, oneBtn);
   }
-
-  if (pageAdvisorBusy) return;
-  pageAdvisorBusy = true;
-  try {
-    await runFill();
-  } finally {
-    pageAdvisorBusy = false;
-    syncPageAdvisorFillButtons();
+  if (typeof loadPageAdvisorDeliveryTarget === "function") {
+    void loadPageAdvisorDeliveryTarget().then(() => {
+      if (typeof applyPageAdvisorDeliveryButtonLabels === "function") {
+        applyPageAdvisorDeliveryButtonLabels(allBtn, oneBtn);
+      }
+    });
   }
 }
+
