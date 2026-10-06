@@ -113,6 +113,18 @@ describe('Popup 面板布局', () => {
     );
   });
 
+  // OPT-20261006-020：平台后端下拉保持单条自有智能体，另加一行说明由平台按层解析。
+  it('智能体区说明自有智能体由平台按层解析，且随数据行一起显隐', () => {
+    const llm = popupHtml.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
+    const resolveRow = llm.match(/id="popupLlmSystemSkuRow"[\s\S]*?<\/div>/)[0];
+    assert.match(resolveRow, /id="popupLlmSystemSkuResolveHint"/);
+    assert.match(resolveRow, /data-i18n="paLlmOwnAgentResolvedHint"/);
+    // 说明必须落在数据行内，才能随登录门控（applyGatedRow 隐藏行）一起隐去
+    const hintIdx = resolveRow.indexOf('popupLlmSystemSkuResolveHint');
+    const selectIdx = resolveRow.indexOf('id="popupLlmSystemSku"');
+    assert.ok(hintIdx > selectIdx, '解析说明应排在下拉之后');
+  });
+
   it('已保存的 Skill 去掉 fieldset 线框，图例仍保留新建按钮', () => {
     assert.match(popupCss, /#popupSkillSavedField\s*\{[^}]*border:\s*0/);
     assert.match(popupCss, /#popupSkillSavedField\s*\{[^}]*min-inline-size:\s*0/);

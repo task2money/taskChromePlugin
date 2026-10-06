@@ -213,6 +213,12 @@ describe('Popup 平台后端智能体下拉', () => {
     }
     assert.equal(merged.zh.paLlmPlatformAgent, '智能体');
     assert.equal(merged.zh.paLlmOwnAgent, '自有智能体');
+    // OPT-20261006-020: 自有智能体单条展示，说明由平台按层解析（用户不点名某一层）
+    assert.equal(
+      merged.zh.paLlmOwnAgentResolvedHint,
+      '自有智能体由平台按「工作空间 → 公司 → 个人」解析后列出',
+    );
+    assert.match(merged.en.paLlmOwnAgentResolvedHint, /workspace → company → personal/);
     assert.equal(merged.zh.paLlmSystemAgentGroup, '系统智能体');
     assert.equal(merged.zh.paLlmSystemNeedLogin, '请先登录后再选择平台智能体');
     assert.equal(merged.en.paLlmSystemNeedLogin, 'Sign in first, then pick a platform agent');

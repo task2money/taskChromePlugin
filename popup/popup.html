@@ -77,6 +77,8 @@
           <p id="popupLlmSystemLoginHint" class="hint" hidden data-i18n="paLlmSystemNeedLogin">请先登录后再选择平台智能体</p>
           <label for="popupLlmSystemSku" data-i18n="paLlmPlatformAgent">智能体</label>
           <select id="popupLlmSystemSku" class="form-select" data-testid="popup-system-sku" hidden></select>
+          <!-- OPT-20261006-020：自有智能体仍单条展示，说明由平台按层解析，用户无需（也无法）点名某一层 -->
+          <p id="popupLlmSystemSkuResolveHint" class="hint" data-i18n="paLlmOwnAgentResolvedHint">自有智能体由平台按「工作空间 → 公司 → 个人」解析后列出</p>
           <p id="popupLlmSystemSkuStatus" class="hint" aria-live="polite"></p>
           <button type="button" id="popupLlmSystemSkuRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-system-sku-retry">重试</button>
         </div>
