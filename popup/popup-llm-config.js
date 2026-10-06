@@ -59,6 +59,12 @@
     }
   }
 
+  function syncSystemSkuRow() {
+    if (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.syncRoute === 'function') {
+      PopupSystemSku.syncRoute(selectedRouteMode());
+    }
+  }
+
   function profileErrorText(err) {
     const code = err && err.code;
     if (code === 'profile_limit') return tx('paLlmProfileLimit');
@@ -120,6 +126,7 @@
     if (del) del.hidden = draftNew || !cfg?.activeProfileId;
     syncProfileRow();
     syncSaasWorkspaceRow();
+    syncSystemSkuRow();
     refreshBuiltinRoute().catch(() => {});
   }
 
@@ -132,7 +139,9 @@
       baseUrl: $('#popupLlmBaseUrl')?.value || '',
       model: $('#popupLlmModel')?.value || '',
       routeMode: selectedRouteMode(),
-      systemSkuId: $('#popupLlmSystemSku')?.value || '',
+      systemSkuId: (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.currentSkuId === 'function')
+        ? PopupSystemSku.currentSkuId()
+        : ($('#popupLlmSystemSku')?.value || ''),
       profileLabel: $('#popupLlmProfileName')?.value || '',
       profileId: (opts && opts.profileId) || selected,
       profileAction: action,
@@ -358,6 +367,7 @@
       routeField.addEventListener('change', () => {
         syncProfileRow();
         syncSaasWorkspaceRow();
+        syncSystemSkuRow();
         refreshBuiltinRoute().catch(() => {});
         if (!routeUiReady) return;
         savePageAdvisorLlmConfig({ collapse: false, profileAction: 'route-only' }).catch(() => {});

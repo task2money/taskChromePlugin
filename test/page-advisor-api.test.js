@@ -29,6 +29,10 @@ describe('page-advisor-api endpoints', () => {
       PageAdvisorAPI.ENDPOINTS.systemPromptSkills,
       '/api/page-advisor/v1/system-prompt-skills/',
     );
+    assert.equal(
+      PageAdvisorAPI.ENDPOINTS.tenantSystemAgents,
+      '/api/page-advisor/v1/tenant_id/{tenantId}/system-agents/',
+    );
   });
 });
 
@@ -107,6 +111,26 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
       PageAdvisorAPI.pickJobTraceId(job, ''),
       '87a7e674-a207-4542-a41f-4b5a1eafbbd7',
     );
+  });
+
+  it('GET tenant system-agents uses v1 tenant path', async () => {
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return {
+        ok: true,
+        status: 200,
+        headers: {
+          get: (name) => (String(name).toLowerCase() === 'content-type' ? 'application/json' : ''),
+        },
+        json: async () => ({ items: [{ id: 'sku-1', name: '系统甲' }] }),
+        text: async () => '',
+      };
+    };
+    const data = await PageAdvisorAPI.listTenantSystemAgents('t1', session);
+    assert.equal(data.items[0].id, 'sku-1');
+    assert.match(seen.url, /\/api\/page-advisor\/v1\/tenant_id\/t1\/system-agents\//);
+    assert.equal(seen.opts.method, 'GET');
   });
 
   it('422 AGENT_RESOURCE_NOT_CONFIGURED surfaces errorCode', async () => {

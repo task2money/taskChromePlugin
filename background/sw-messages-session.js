@@ -302,6 +302,30 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
+    case 'getSystemAgents':
+      try {
+        await initApiFromMessage(message);
+        let tenantId = String(message.companyId || message.tenantId || '').trim();
+        if (!tenantId) {
+          const list = await API.getWorkspaces();
+          const rows = Array.isArray(list) ? list : [];
+          let lastId = '';
+          try {
+            lastId = String((await Storage.getLastWorkspace()) || '');
+          } catch (_) { /* 无上次工作空间 */ }
+          const hit = rows.find((ws) => String(ws?.id || ws?._id || '') === lastId) || rows[0];
+          tenantId = String(hit?.company_id || hit?.companyId || '').trim();
+        }
+        if (!tenantId || typeof PageAdvisorAPI === 'undefined'
+          || typeof PageAdvisorAPI.listTenantSystemAgents !== 'function') {
+          return { success: true, data: { items: [] } };
+        }
+        const data = await PageAdvisorAPI.listTenantSystemAgents(tenantId);
+        return { success: true, data };
+      } catch (e) {
+        return { success: false, error: e.message, traceId: e.traceId || '' };
+      }
+
     case 'getProjects':
       try {
         await initApiFromMessage(message);

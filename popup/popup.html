@@ -87,10 +87,13 @@
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteSystem" value="system">
           <span data-i18n="paLlmRouteSystem">调用系统智能体</span>
         </label>
-        <label class="form-row" id="popupLlmSystemSkuRow">
-          <span data-i18n="paLlmSystemSku">系统智能体</span>
-          <select id="popupLlmSystemSku"></select>
-        </label>
+        <div class="form-row" id="popupLlmSystemSkuRow" hidden style="display:none">
+          <p id="popupLlmSystemLoginHint" class="hint" hidden data-i18n="paLlmSystemNeedLogin">请先登录后再选择系统智能体</p>
+          <label for="popupLlmSystemSku" data-i18n="paLlmSystemSku">系统智能体</label>
+          <select id="popupLlmSystemSku" class="form-select" data-testid="popup-system-sku" hidden></select>
+          <p id="popupLlmSystemSkuStatus" class="hint" aria-live="polite"></p>
+          <button type="button" id="popupLlmSystemSkuRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-system-sku-retry">重试</button>
+        </div>
         <label class="llm-route-option" id="popupLlmRouteBuiltinWrap" hidden>
           <input type="radio" name="popupLlmRoute" id="popupLlmRouteBuiltin" value="builtin">
           <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型(不同机子速度不一样，我的机子耗费时间130s)</span>
@@ -368,6 +371,7 @@
   <script src="../lib/request-list-query.js"></script>
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/popup-saas-workspace.js"></script>
+  <script src="../lib/popup-system-sku.js"></script>
   <script src="../lib/page-advisor-locale-prompt.js"></script>
   <script src="../lib/page-advisor-builtin-runtime.js"></script>
   <script src="../lib/page-advisor-builtin-language.js"></script>
@@ -395,6 +399,7 @@
   <script src="popup-prompt-skill-cloud.js"></script>
   <script src="popup-prompt-skills.js"></script>
   <script src="popup-saas-workspace.js"></script>
+  <script src="popup-system-sku.js"></script>
   <script src="../lib/toolbar-pin.js"></script>
   <script src="popup-toolbar-pin.js"></script>
   <script src="popup-auth.js"></script>

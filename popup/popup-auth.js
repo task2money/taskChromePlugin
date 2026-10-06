@@ -210,9 +210,20 @@
     }
   }
 
+  /** 未登录却选择须登录的调用方式时，展开登录区并提示。 */
+  function promptLogin(opts) {
+    setLoginToggleVisible(true);
+    setLoginFormExpanded(true);
+    const loginHint = $('#loginHint');
+    if (loginHint && opts && opts.reason === 'system_agent') {
+      loginHint.textContent = tx('paLlmSystemNeedLogin');
+    }
+  }
+
   /** 通知依赖登录态的 Popup 模块（工作空间行等）。 */
   function setLoginGatedModules(loggedIn) {
     window.PopupSaasWorkspace?.setLoggedIn?.(loggedIn);
+    window.PopupSystemSku?.setLoggedIn?.(loggedIn);
   }
 
   async function retryInit() {
@@ -484,3 +495,5 @@
       console.warn('[TaskPlugin] loadTrackingConfig 失败:', e.message);
     }
   }
+
+  window.PopupAuth = { promptLogin, setLoginGatedModules };
