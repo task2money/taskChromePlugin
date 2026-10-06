@@ -76,6 +76,22 @@ function autoInnovateQuotaExceededMessage(baseUrl, tenantId) {
   };
 }
 
+// OPT-20261006-023: 系统智能体 SKU 次数用尽 —— 引导到设置页购买该系统智能体，而非自有转发次数。
+function sysAutoInnovateQuotaExceededMessage(baseUrl, tenantId) {
+  const origin = String(baseUrl || '').replace(/\/+$/, '');
+  const settingsPath = tenantId
+    ? `${origin}/tenant/${encodeURIComponent(tenantId)}/settings/feature-params/`
+    : `${origin}/tenant/settings/feature-params/`;
+  return {
+    errorCode: 'SYS_AUTO_INNOVATE_QUOTA_EXCEEDED',
+    message: tx('paSysQuotaExhausted'),
+    links: [
+      { label: tx('paBuySystemAgent'), href: settingsPath },
+      { label: tx('paViewPricing'), href: `${origin}/pricing/` },
+    ],
+  };
+}
+
 /**
  * Alt+Z 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
  * @param {number} tabId
@@ -360,6 +376,14 @@ async function runPageOptimizationSuggest(tabId) {
       await notifyContentPageAdvisor(tabId, {
         ok: false,
         ...agentResourceNotConfiguredMessage(cfg.baseUrl, tenantId),
+        traceId: e.traceId || '',
+      });
+      return;
+    }
+    if (e?.errorCode === 'SYS_AUTO_INNOVATE_QUOTA_EXCEEDED') {
+      await notifyContentPageAdvisor(tabId, {
+        ok: false,
+        ...sysAutoInnovateQuotaExceededMessage(cfg.baseUrl, tenantId),
         traceId: e.traceId || '',
       });
       return;
