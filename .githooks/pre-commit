@@ -63,10 +63,13 @@ while IFS= read -r f; do
             ;;
     esac
     case "$f" in
-        # 布局 e2e（OPT-20261008-002）：插件布局承载面变更时跑自包含几何断言。
+        # 自包含 e2e（OPT-20261008-002/003）：插件承载面变更时跑。
         # 该断言集曾在无人跑的状态下长期红（详见 e2e/run-layout-e2e.sh 头部）。
         popup/*|panel/*|content/*|lib/*|\
-        e2e/run-layout-e2e.sh|e2e/popup-layout*|e2e/float-close-collapse*|e2e/page-advisor-region-float*)
+        e2e/run-layout-e2e.sh|e2e/popup-layout*|e2e/float-close-collapse*|\
+        e2e/page-advisor-region-float*|e2e/float-out-of-stock-link*|\
+        e2e/page-advisor-fill-panel*|e2e/page-advisor-region-highlight*|\
+        e2e/popup-builtin-stuck-collecting*)
             should_run_layout_e2e=true
             ;;
     esac

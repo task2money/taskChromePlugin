@@ -52,9 +52,15 @@ async function installStub(page) {
         fire(obj, name);
       },
     });
+    // create 挂起：真实下载非瞬时完成，进度 25% 时状态行应停在「下载中」。
+    // 若 create 立即 resolve，onDownloadBuiltinModel 会随即 refreshBuiltinRoute
+    // ({forceAvailable:true}) 切到「已就绪」，/下载|download/ 断言只会看到
+    // 瞬时状态而恒红（该瞬时态由 c2523ba「完成后切到就绪」引入）。挂起以锁住
+    // 「点击后立即有下载反馈」这一本用例要守的行为（与
+    // popup-builtin-download-enabling.playwright.test.js 的挂起 create 同 SSOT）。
     window.LanguageModel = {
       availability: async () => 'downloadable',
-      async create(opts) {
+      create(opts) {
         if (opts && typeof opts.monitor === 'function') {
           opts.monitor({
             addEventListener(type, handler) {
@@ -62,7 +68,7 @@ async function installStub(page) {
             },
           });
         }
-        return { destroy() {}, inputQuota: 4096 };
+        return new Promise(() => {});
       },
     };
     window.chrome = {

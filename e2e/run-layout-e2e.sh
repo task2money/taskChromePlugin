@@ -7,10 +7,14 @@
 #   该字面量），却因该文件不在任何门禁、默认 `npm test` 只跑 test/*.test.js 而
 #   长期红而无人知。不跑的布局断言等于不存在，同类漂移会掩盖真实回归。
 #
-# 本脚本只跑**自包含**的布局/几何用例（file:// 或本地静态源 + chrome stub，
+# 本脚本只跑**自包含**用例（file:// 或本地静态源 + chrome stub，
 # 无登录 / 无真实扩展 / 无外网），退出码即判据：非 0 即失败。
 # 勿并入默认 `npm test`（会拉长每次提交），改由 pre-commit 在插件布局承载面
 # （popup/ panel/ content/ lib/）变更时调用，或手动执行。
+#
+# OPT-20261008-003：除布局/几何外，另纳入此前长期静默红、现已修复的自包含断言
+# （无库存链接、建议填入、锚点高亮、内置模型卡住反馈）；它们不在默认 npm test 内，
+# 唯有并入门禁才不会再漂移。
 #
 # 用法：bash e2e/run-layout-e2e.sh
 # 覆盖用例集：LAYOUT_E2E_FILES="e2e/x.playwright.test.js e2e/y.playwright.test.js" bash e2e/run-layout-e2e.sh
@@ -19,11 +23,15 @@ cd "$(dirname "$0")/.."
 
 PW_BIN="${PW_BIN:-npx playwright}"
 
-# 自包含布局/几何用例（均为绿色基准，新增用例请先确认可稳定跑绿再纳入）。
+# 自包含用例（均为绿色基准，新增用例请先确认可稳定跑绿再纳入）。
 FILES=(
   e2e/popup-layout.playwright.test.js
   e2e/float-close-collapse.playwright.test.js
   e2e/page-advisor-region-float.playwright.test.js
+  e2e/float-out-of-stock-link.playwright.test.js
+  e2e/page-advisor-fill-panel.playwright.test.js
+  e2e/page-advisor-region-highlight.playwright.test.js
+  e2e/popup-builtin-stuck-collecting.playwright.test.js
 )
 if [ -n "${LAYOUT_E2E_FILES:-}" ]; then
   # shellcheck disable=SC2206

@@ -19,58 +19,13 @@ function loadPlaywrightTest() {
 }
 
 const { test, expect } = loadPlaywrightTest();
+const { manifestContentScripts } = require('./helpers/manifest-content-scripts');
 const ROOT = path.resolve(__dirname, '..');
 
-/** 与 manifest content_scripts[0].js 对齐的最小可启动链（含 region advisor） */
-const LIB_FILES = [
-  'lib/content-boot-gate.js',
-  'lib/storage.js',
-  'lib/dom-trace.js',
-  'lib/create-task-git-identity.js',
-  'lib/branch-datalist.js',
-  'lib/create-task-payload.js',
-  'lib/element-picker.js',
-  'lib/pick-additive-modifier.js',
-  'lib/plugin-brand.js',
-  'lib/user-guide.js',
-  'lib/float-workspace-select.js',
-  'lib/workspace-list.js',
-  'lib/workspace-members.js',
-  'lib/float-members-ui.js',
-  'lib/project-auto-run-label.js',
-  'lib/workspace-auto-schedule.js',
-  'lib/float-panel-markup.js',
-  'lib/float-panel-after-create.js',
-  'lib/aidev-meta.js',
-  'lib/hot-path-guards.js',
-  'lib/visibility-interval.js',
-  'lib/auth-refresh-debounce.js',
-  'lib/page-advisor-anchor.js',
-  'lib/page-context-elements.js',
-  'lib/page-context.js',
-  'lib/page-advisor-region.js',
-  'lib/page-advisor-a11y.js',
-  'lib/page-advisor-fill.js',
-  'lib/page-advisor-preview.js',
-  'lib/page-advisor-defaults.js',
-  'lib/page-advisor-card-layout.js',
-  'lib/float-last-selection.js',
-  'lib/click-guard.js',
-  'lib/is-auth-route.js',
-  'lib/dialog-focus-trap.js',
-  'content/float-boot.js',
-  'content/float-pick-highlight.js',
-  'content/float-pick.js',
-  'content/float-drag-auth.js',
-  'content/float-aidev.js',
-  'content/float-form.js',
-  'content/float-snapshot.js',
-  'content/float-page-advisor-region.js',
-  'content/float-page-advisor-layer.js',
-  'content/float-page-advisor-drag.js',
-  'content/float-page-advisor.js',
-  'content/content.js',
-];
+// 注入面以 manifest content_scripts[0].js 为 SSOT（手抄数组曾漏抄
+// float-page-advisor-fill-ui.js / page-advisor-delivery.js 致点击抛
+// "confirmPageAdvisorFill is not defined"，见 OPT-20261008-003）。
+const LIB_FILES = manifestContentScripts();
 
 const SUGGESTIONS = [
   {
@@ -132,16 +87,23 @@ function installChromeStubs() {
             workspaceId: 'ws_test',
             tenantId: '1',
           },
-          async get(keys) {
+          async get(keys, cb) {
             const list = Array.isArray(keys) ? keys : [keys];
             const out = {};
             for (const k of list) out[k] = this._store[k];
+            // 真实 chrome.storage 支持回调与 Promise 两种形态；运行时
+            // loadPageAdvisorDeliveryTarget 走回调式 get(keys, cb)，
+            // 缺回调会令其 Promise 永不 resolve → 填入点击无任何消息。
+            if (typeof cb === 'function') cb(out);
             return out;
           },
-          async set(obj) {
+          async set(obj, cb) {
             Object.assign(this._store, obj);
+            if (typeof cb === 'function') cb();
           },
-          async remove() {},
+          async remove(keys, cb) {
+            if (typeof cb === 'function') cb();
+          },
         },
         session: {
           async get() { return {}; },

@@ -291,10 +291,12 @@ featureParamsSelect?.addEventListener('change', () => {
   }
 });
 
-workBranch.addEventListener('change', () => applyPresetIfNeeded(workBranch));
-mergeTarget.addEventListener('change', () => applyPresetIfNeeded(mergeTarget));
+// 可选链：页内模式（v1.8.181 起不再注入创建表单）下这些节点为 null，
+// 无守卫会在 content script 顶层抛错并中断本文件后续绑定。
+workBranch?.addEventListener('change', () => applyPresetIfNeeded(workBranch));
+mergeTarget?.addEventListener('change', () => applyPresetIfNeeded(mergeTarget));
 
-projectsDiv.addEventListener('change', async (e) => {
+projectsDiv?.addEventListener('change', async (e) => {
   if (e.target.type !== 'radio' || !e.target.classList.contains('project-radio')) return;
   const wsId = wsSelect.value;
   const pids = selectedFloatProjectIds();

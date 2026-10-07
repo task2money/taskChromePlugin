@@ -5,10 +5,14 @@
  * 纯函数单测（test/create-task-hardware-stock.test.js）只覆盖 URL 与文案切分，
  * 看不到「样式把链接点不中」或「6 秒定时器把链接清掉」这类 DOM 回归。
  *
- * 验证（加载真实 lib 链 + content 脚本，直接驱动浮窗失败渲染）：
+ * 验证（加载真实 lib 链 + content 脚本，直接驱动失败渲染）：
  * 1. 锚点 href = {origin}/tenant/{company}/projects/{id}/、target=_blank、rel=noopener
  * 2. 链接文字就是项目名，前后文案仍在（不是把整条错误替换成链接）
  * 3. 等 7 秒后错误区仍在、链接仍在（带链接的失败提示不挂 6 秒自动清除）
+ *
+ * 宿主：v1.8.181 起页内不再注入创建表单（浮窗只保留调整弹窗），无库存链接提示
+ * 由 Side Panel 承载，故以 `data-taskplugin-host=sidepanel` 加载（#taskplugin-result
+ * 仅存在于 form 面板）。
  */
 
 const path = require('path');
@@ -116,6 +120,10 @@ async function loadPluginIntoPage(page) {
   // 需先 goto 空白页（init script 会在该文档运行），再注入页面内容与脚本
   await page.addInitScript(installChromeStubs());
   await page.goto('about:blank');
+  // v1.8.181 起页内不再注入创建表单（浮窗只保留调整弹窗），无库存链接提示改由
+  // Side Panel 承载（`data-taskplugin-host=sidepanel` 时 FloatPanelMarkup 输出 form
+  // 面板，#taskplugin-result 才存在）。按运行时 SSOT 以 Side Panel 宿主加载。
+  await page.evaluate(`document.documentElement.setAttribute('data-taskplugin-host', 'sidepanel');`);
   await page.evaluate(`document.body.innerHTML = '<h1>Out Of Stock Link Test</h1><p>content</p>';`);
   for (const rel of LIB_FILES) {
     await page.addScriptTag({ path: path.join(ROOT, rel) });
