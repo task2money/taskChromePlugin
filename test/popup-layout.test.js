@@ -127,6 +127,11 @@ describe('Popup 面板布局', () => {
     const brand = popupHtml.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
     assert.match(brand, />转发目标</);
+    assert.doesNotMatch(brand, /data-i18n="extTitle"/);
+    assert.match(
+      popupCss,
+      /#pluginDeliverySection \.advisor-defaults-heading\s*\{[^}]*justify-content:\s*flex-end/,
+    );
   });
 
   // OPT-20261006-020：平台后端下拉保持单条自有智能体，另加一行说明由平台按层解析。

@@ -119,6 +119,11 @@ body {
 .advisor-defaults-heading {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 8px;
 }
+/* 转发目标不写品牌标题；说明「!」仍靠右，展开后的说明独占下一行。 */
+#pluginDeliverySection .advisor-defaults-heading {
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
 .advisor-defaults-heading h3 { margin-bottom: 0; }
 .region-help { display: contents; }
 .region-help-mark {

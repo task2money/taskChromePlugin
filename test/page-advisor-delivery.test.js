@@ -164,7 +164,7 @@ describe('page-advisor-delivery', () => {
     assert.doesNotMatch(brand.slice(detailsStart, detailsEnd), /\bopen\b/);
   });
 
-  it('转发目标在云端Coding品牌区，不在自动创新智能体内', () => {
+  it('转发目标区块不重复品牌标题，且不在自动创新智能体内', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
     const brand = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
@@ -172,7 +172,9 @@ describe('page-advisor-delivery', () => {
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
     assert.match(brand, />转发目标</);
     assert.doesNotMatch(brand, /建议送达/);
-    assert.match(brand, /data-i18n="extTitle"/);
+    assert.doesNotMatch(brand, /data-i18n="extTitle"/);
+    assert.doesNotMatch(brand, /云端Coding/);
+    assert.match(brand, /class="region-help"/);
     assert.doesNotMatch(llm, /id="popupDeliveryTargetField"/);
     assert.doesNotMatch(llm, /data-i18n="paDeliveryHint"/);
     const brandIdx = html.indexOf('id="pluginDeliverySection"');
