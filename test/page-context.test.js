@@ -1,17 +1,25 @@
 'use strict';
 
-const { describe, it } = require('node:test');
+const { describe, it, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
   MAX_PAGE_TEXT_RUNES,
+  MAX_DOM_OUTLINE_NODES,
+  MAX_OUTLINE_LABEL_CHARS,
+  MAX_OUTLINE_ARIA_CHARS,
+  MAX_OUTLINE_HTML_SNIPPET_CHARS,
   truncatePageText,
   isElementSkipped,
   extractVisibleReadableText,
   capturePageContext,
   capturePageContextInRect,
   capturePageContextForElements,
+  captureDomOutline,
 } = require('../lib/page-context.js');
+const { buildPageAdvisorPrompt } = require('../lib/page-advisor-llm-client.js');
+
+const NID_ATTR = 'data-taskplugin-nid';
 
 function textNode(value, parent) {
   return { nodeType: 3, nodeValue: value, parentElement: parent, childNodes: [] };
@@ -237,5 +245,90 @@ describe('page-context capturePageContextForElements', () => {
     assert.match(ctx.pageText, /KEEP/);
     assert.doesNotMatch(ctx.pageText, /DROP/);
     void drop;
+  });
+});
+
+/**
+ * OPT-20261007-006：DOM 大纲整段进 LLM 提示（buildPageAdvisorPrompt 直接
+ * JSON.stringify(page.domOutline)）。html_snippet / label 这类富信息有助于模型把建议
+ * 锚到正确节点，但逐节点长度必须封顶 —— class 密集页面能把 200 节点大纲撑到上百万
+ * 字符，token 成本随页面结构无界膨胀。
+ */
+describe('DOM 大纲进 LLM 提示的长度控制', () => {
+  const savedAnchor = globalThis.pageAdvisorDomAnchor;
+  afterEach(() => {
+    if (savedAnchor === undefined) delete globalThis.pageAdvisorDomAnchor;
+    else globalThis.pageAdvisorDomAnchor = savedAnchor;
+  });
+
+  function fakeNidEl(nid, text = '') {
+    return {
+      nodeType: 1,
+      tagName: 'BUTTON',
+      hidden: false,
+      parentElement: null,
+      textContent: text,
+      getAttribute(name) {
+        return name === NID_ATTR ? nid : null;
+      },
+    };
+  }
+
+  function fakeNidRoot(nodes) {
+    return { querySelectorAll: () => nodes };
+  }
+
+  it('逐节点字段按上限截断（label / aria-label / html_snippet / css_path）', () => {
+    globalThis.pageAdvisorDomAnchor = () => ({
+      label: 'b'.repeat(MAX_OUTLINE_LABEL_CHARS + 50),
+      aria_label: 'a'.repeat(MAX_OUTLINE_ARIA_CHARS + 50),
+      html_snippet: 'h'.repeat(MAX_OUTLINE_HTML_SNIPPET_CHARS + 50),
+      css_path: 'c'.repeat(MAX_OUTLINE_LABEL_CHARS + 50),
+      visible_text: 'v'.repeat(MAX_OUTLINE_LABEL_CHARS + 50),
+      landmark: 'l'.repeat(MAX_OUTLINE_ARIA_CHARS + 50),
+    });
+    const [node] = captureDomOutline(fakeNidRoot([fakeNidEl('n1')]), 1);
+    assert.equal(node.label.length, MAX_OUTLINE_LABEL_CHARS);
+    assert.equal(node.aria_label.length, MAX_OUTLINE_ARIA_CHARS);
+    assert.equal(node.html_snippet.length, MAX_OUTLINE_HTML_SNIPPET_CHARS);
+    assert.equal(node.css_path.length, MAX_OUTLINE_LABEL_CHARS);
+    assert.equal(node.visible_text.length, MAX_OUTLINE_LABEL_CHARS);
+    assert.equal(node.landmark.length, MAX_OUTLINE_ARIA_CHARS);
+  });
+
+  it('按 rune 截断，不切碎代理对', () => {
+    globalThis.pageAdvisorDomAnchor = () => ({ label: '🙂'.repeat(MAX_OUTLINE_LABEL_CHARS + 5) });
+    const [node] = captureDomOutline(fakeNidRoot([fakeNidEl('n1')]), 1);
+    assert.equal(node.label, '🙂'.repeat(MAX_OUTLINE_LABEL_CHARS));
+  });
+
+  it('满额 200 节点的提示长度有上界', () => {
+    globalThis.pageAdvisorDomAnchor = () => ({
+      label: 'b'.repeat(500),
+      aria_label: 'a'.repeat(500),
+      html_snippet: 'h'.repeat(5000),
+      css_path: 'c'.repeat(500),
+      visible_text: 'v'.repeat(500),
+      landmark: 'l'.repeat(500),
+    });
+    const nodes = [];
+    for (let i = 0; i < MAX_DOM_OUTLINE_NODES; i += 1) nodes.push(fakeNidEl('n' + i, 'x'.repeat(500)));
+    const outline = captureDomOutline(fakeNidRoot(nodes), MAX_DOM_OUTLINE_NODES);
+    assert.equal(outline.length, MAX_DOM_OUTLINE_NODES);
+
+    const prompt = buildPageAdvisorPrompt({
+      url: 'https://x',
+      title: 't',
+      pageText: 'p',
+      domOutline: outline,
+    });
+    // 每节点：5 个 label 级字段 + 2 个 aria 级字段 + html_snippet + text，另留 JSON 键名余量。
+    const perNodeBudget = 240
+      + MAX_OUTLINE_HTML_SNIPPET_CHARS
+      + MAX_OUTLINE_LABEL_CHARS * 5
+      + MAX_OUTLINE_ARIA_CHARS * 2
+      + 80;
+    const budget = MAX_DOM_OUTLINE_NODES * perNodeBudget;
+    assert.ok(prompt.length <= budget, `prompt=${prompt.length} budget=${budget}`);
   });
 });
