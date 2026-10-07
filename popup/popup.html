@@ -107,33 +107,6 @@
           <button type="button" id="popupSaasWorkspaceRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-saas-workspace-retry">重试</button>
         </div>
       </fieldset>
-      <fieldset class="form-row" id="popupDeliveryTargetField">
-        <legend data-i18n="paDeliveryLegend">建议送达</legend>
-        <label class="llm-route-option">
-          <input type="radio" name="pageAdvisorDeliveryTarget" value="task_description" checked>
-          <span data-i18n="paDeliveryTaskDesc">任务描述</span>
-        </label>
-        <label class="llm-route-option">
-          <input type="radio" name="pageAdvisorDeliveryTarget" value="cursor">
-          <span data-i18n="paDeliveryCursor">Cursor</span>
-        </label>
-        <label class="llm-route-option">
-          <input type="radio" name="pageAdvisorDeliveryTarget" value="claude">
-          <span data-i18n="paDeliveryClaude">Claude</span>
-        </label>
-        <label class="llm-route-option">
-          <input type="radio" name="pageAdvisorDeliveryTarget" value="codex">
-          <span data-i18n="paDeliveryCodex">Codex</span>
-        </label>
-        <label class="llm-route-option">
-          <input type="radio" name="pageAdvisorDeliveryTarget" value="trae">
-          <span data-i18n="paDeliveryTrae">Trae</span>
-        </label>
-        <label class="llm-route-option">
-          <input type="radio" name="pageAdvisorDeliveryTarget" value="workbuddy">
-          <span data-i18n="paDeliveryWorkBuddy">WorkBuddy</span>
-        </label>
-      </fieldset>
       <div class="form-row" id="popupLlmProfileRow">
         <label for="popupLlmProfileSelect" data-i18n="paLlmProfileLabel">已保存的 Key</label>
         <div class="llm-profile-select-with-settings">
@@ -166,6 +139,33 @@
         </div>
       </div>
       <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
+      <fieldset class="form-row" id="popupDeliveryTargetField">
+        <legend data-i18n="paDeliveryLegend">建议送达</legend>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="task_description" checked>
+          <span data-i18n="paDeliveryTaskDesc">任务描述</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="cursor">
+          <span data-i18n="paDeliveryCursor">Cursor</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="claude">
+          <span data-i18n="paDeliveryClaude">Claude</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="codex">
+          <span data-i18n="paDeliveryCodex">Codex</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="trae">
+          <span data-i18n="paDeliveryTrae">Trae</span>
+        </label>
+        <label class="llm-route-option">
+          <input type="radio" name="pageAdvisorDeliveryTarget" value="workbuddy">
+          <span data-i18n="paDeliveryWorkBuddy">WorkBuddy</span>
+        </label>
+      </fieldset>
       <!-- Anti-Replay-OK: ui-only timing chart; no write API -->
       <div id="pageAdvisorWaterfall" class="page-advisor-waterfall" hidden data-testid="page-advisor-waterfall"></div>
     </section>

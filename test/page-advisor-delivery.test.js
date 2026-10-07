@@ -102,6 +102,23 @@ describe('page-advisor-delivery', () => {
     assert.doesNotMatch(llm.slice(detailsStart, detailsEnd), /\bopen\b/);
   });
 
+  it('建议送达在自动创新智能体区域最底部（Key/状态之后、瀑布图之前）', () => {
+    const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
+    const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
+    const deliveryIdx = llm.indexOf('id="popupDeliveryTargetField"');
+    const routeIdx = llm.indexOf('id="popupLlmRouteField"');
+    const profileIdx = llm.indexOf('id="popupLlmProfileRow"');
+    const statusIdx = llm.indexOf('id="popupLlmStatus"');
+    const waterfallIdx = llm.indexOf('id="pageAdvisorWaterfall"');
+    assert.ok(deliveryIdx > routeIdx, '建议送达应在调用方式之后');
+    assert.ok(deliveryIdx > profileIdx, '建议送达应在已保存的 Key 之后');
+    assert.ok(deliveryIdx > statusIdx, '建议送达应在状态行之后');
+    assert.ok(
+      waterfallIdx > deliveryIdx,
+      '耗时瀑布图仍在区块最末；建议送达为其前最后一项配置',
+    );
+  });
+
   it('native host dry-run frames json without executing text', () => {
     const { spawnSync } = require('node:child_process');
     const py = path.join(__dirname, '../native-host/ide_bridge.py');
