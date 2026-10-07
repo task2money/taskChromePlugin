@@ -96,6 +96,37 @@ function loadContentScriptMessageTables() {
 }
 
 /**
+ * 扩展页（popup/panel/sidepanel）HTML 中的 `<script src>` 加载清单，
+ * 归一化为仓库相对路径（`../lib/x.js` → `lib/x.js`）。
+ */
+function pageScriptsFromHtml(htmlRel) {
+  const html = fs.readFileSync(path.join(ROOT, htmlRel), 'utf8');
+  const dir = path.dirname(htmlRel);
+  const out = [];
+  for (const m of html.matchAll(/<script src="([^"]+)"/g)) {
+    out.push(path.posix.normalize(path.posix.join(dir, m[1])));
+  }
+  return out;
+}
+
+/**
+ * 仅加载某个扩展页 HTML 实际注入的文案包（i18n* 但非 i18n-tx.js）。
+ * 与 loadContentScriptMessageTables 同理，但取词入口是页面 <script src> 而非 manifest：
+ * 防止「全表有键、本页未注入 → 页面显示裸 key」（如 panel.html 未加载 i18n-llm-route.js）。
+ */
+function loadPageInjectedMessageTables(htmlRel) {
+  const scripts = pageScriptsFromHtml(htmlRel);
+  if (!scripts.includes('lib/i18n-tx.js')) {
+    throw new Error(`${htmlRel} 缺少 lib/i18n-tx.js，无法校验扩展页文案注入`);
+  }
+  const packs = scripts.filter(
+    (rel) => /^lib\/i18n.*\.js$/.test(rel) && rel !== 'lib/i18n-tx.js',
+  );
+  const rels = ['lib/i18n.js', ...[...new Set(packs)].filter((rel) => rel !== 'lib/i18n.js')];
+  return clearAndLoadMessageRels(rels);
+}
+
+/**
  * 遍历源码的代码行（跳过注释与 console 日志行）。
  * console 日志是开发期诊断输出，不是用户可见文案，按 ADR-0089 不迁。
  * @param {string} src
@@ -180,6 +211,8 @@ module.exports = {
   BRAND_LITERALS,
   loadMessageTables,
   loadContentScriptMessageTables,
+  loadPageInjectedMessageTables,
+  pageScriptsFromHtml,
   forEachCodeLine,
   stripSeparators,
   collectTxKeys,

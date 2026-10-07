@@ -22,6 +22,8 @@ const path = require('node:path');
 const {
   ROOT,
   loadMessageTables,
+  loadPageInjectedMessageTables,
+  pageScriptsFromHtml,
   unpairedCjkLines,
   checkTxKeys,
 } = require('./helpers/i18nScan.js');
@@ -45,21 +47,12 @@ const MIGRATED = [
   // 该正文写入用户任务描述字段，属产品内容，待产品决策后再纳入本清单。
 ];
 
-/** 扩展页脚本的加载清单来源：HTML 中的 <script src>（lib/ 与本地脚本都算）。 */
-function pageScriptsFromHtml(htmlRel) {
-  const html = fs.readFileSync(path.join(ROOT, htmlRel), 'utf8');
-  const dir = path.dirname(htmlRel);
-  const out = [];
-  for (const m of html.matchAll(/<script src="([^"]+)"/g)) {
-    out.push(path.posix.normalize(path.posix.join(dir, m[1])));
-  }
-  return out;
-}
+/** 纳入门禁的扩展页 HTML（各自 <script src> 决定其实际注入的文案包）。 */
+const PAGE_HTMLS = ['popup/popup.html', 'panel/panel.html', 'sidepanel/sidepanel.html'];
 
-const PAGE_SCRIPTS = [...new Set([
-  ...pageScriptsFromHtml('popup/popup.html'),
-  ...pageScriptsFromHtml('panel/panel.html'),
-])].sort();
+const PAGE_SCRIPTS = [...new Set(
+  PAGE_HTMLS.flatMap((htmlRel) => pageScriptsFromHtml(htmlRel)),
+)].sort();
 
 describe('扩展页脚本 i18n 覆盖门禁', () => {
   it('MIGRATED 清单文件均真实存在于扩展页加载清单', () => {
@@ -90,6 +83,23 @@ describe('扩展页脚本 i18n 覆盖门禁', () => {
       problems.push(...checkTxKeys(rel, src, tables));
     }
     assert.deepEqual(problems, [], `tx() 键覆盖问题：\n${problems.join('\n')}`);
+  });
+
+  // OPT-20261007-009：上面用的是全量表，验不出「全表有键、本页未注入 → 裸 key」。
+  // 本用例按各页 HTML 实际注入的 <script src> 取表，逐脚本核对取词键，
+  // 与 content 层 loadContentScriptMessageTables 门禁同判据、异入口。
+  it('每个扩展页脚本的 tx() 键都在「本页实际注入」的文案包中齐备', () => {
+    const problems = [];
+    for (const htmlRel of PAGE_HTMLS) {
+      const tables = loadPageInjectedMessageTables(htmlRel);
+      for (const rel of pageScriptsFromHtml(htmlRel)) {
+        const abs = path.join(ROOT, rel);
+        if (!fs.existsSync(abs)) continue;
+        const src = fs.readFileSync(abs, 'utf8');
+        problems.push(...checkTxKeys(`${htmlRel} → ${rel}`, src, tables));
+      }
+    }
+    assert.deepEqual(problems, [], `扩展页按注入表取词覆盖问题：\n${problems.join('\n')}`);
   });
 
   it('扩展页脚本的 tx() 取词不得退化为运行时兜底', () => {
