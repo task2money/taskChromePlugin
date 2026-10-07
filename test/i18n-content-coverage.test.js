@@ -22,7 +22,7 @@ const path = require('node:path');
 
 const {
   ROOT,
-  loadMessageTables,
+  loadContentScriptMessageTables,
   unpairedCjkLines,
   checkTxKeys,
 } = require('./helpers/i18nScan.js');
@@ -68,14 +68,27 @@ describe('content/*.js i18n 覆盖门禁', () => {
     assert.deepEqual(broken, [], `content 脚本语法错误：\n${broken.join('\n')}`);
   });
 
-  it('content 脚本引用的 tx() 键在 zh-CN / en 两表均有独立译文', () => {
-    const tables = loadMessageTables();
+  it('content 脚本引用的 tx() 键在 cs0 实际注入的文案表中均有独立译文', () => {
+    // 必须用 content_scripts 注入清单，不能用全量 loadMessageTables（曾漏 i18n-llm-route）
+    const tables = loadContentScriptMessageTables();
     const problems = [];
     for (const rel of CONTENT_JS) {
       const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
       problems.push(...checkTxKeys(rel, src, tables));
     }
     assert.deepEqual(problems, [], `tx() 键覆盖问题：\n${problems.join('\n')}`);
+  });
+
+  it('content_scripts#0 注入 i18n-llm-route.js（IDE 送达底栏文案）', () => {
+    const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+    const cs0 = (manifest.content_scripts && manifest.content_scripts[0] && manifest.content_scripts[0].js) || [];
+    assert.ok(
+      cs0.includes('lib/i18n-llm-route.js'),
+      'content_scripts#0 须注入 lib/i18n-llm-route.js，否则 paDeliverAgain* 显示裸 key',
+    );
+    const llmIdx = cs0.indexOf('lib/i18n-llm-route.js');
+    const txIdx = cs0.indexOf('lib/i18n-tx.js');
+    assert.ok(llmIdx >= 0 && txIdx > llmIdx, 'i18n-llm-route.js 须排在 i18n-tx.js 之前');
   });
 
   for (const rel of MIGRATED) {

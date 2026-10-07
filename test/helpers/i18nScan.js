@@ -10,6 +10,7 @@
  * 本模块只提供共用的「代码行 / CJK / 键齐备」判据，入口差异由各自门禁断言。
  */
 
+const fs = require('node:fs');
 const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..', '..');
@@ -41,32 +42,57 @@ const MATCHER_LITERALS = [
   '/您不是该公司的成员/',
 ];
 
-/** 载入插件消息表（基础表 + panel/float 的 ui 表 + 语言选择器表）。 */
-function loadMessageTables() {
-  const rels = [
-    'lib/i18n.js',
-    'lib/i18n-messages.js',
-    'lib/i18n-ui-messages.js',
-    'lib/i18n-llm-route.js',
-    'lib/i18n-locale-messages.js',
-    'lib/i18n-skill-browse-messages.js',
-    'lib/i18n-hardware-stock-messages.js',
-    'lib/i18n-version-messages.js',
-    'lib/i18n-toolbar-pin.js',
-  ];
+/** 全量消息包（popup / 测试扫全表用）。 */
+const ALL_MESSAGE_RELS = [
+  'lib/i18n.js',
+  'lib/i18n-messages.js',
+  'lib/i18n-ui-messages.js',
+  'lib/i18n-llm-route.js',
+  'lib/i18n-locale-messages.js',
+  'lib/i18n-skill-browse-messages.js',
+  'lib/i18n-hardware-stock-messages.js',
+  'lib/i18n-version-messages.js',
+  'lib/i18n-toolbar-pin.js',
+];
+
+function clearAndLoadMessageRels(rels) {
   for (const rel of rels) {
-    delete require.cache[require.resolve(path.join(ROOT, rel))];
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) continue;
+    delete require.cache[require.resolve(abs)];
   }
   const i18n = require(path.join(ROOT, 'lib/i18n.js'));
-  require(path.join(ROOT, 'lib/i18n-messages.js'));
-  require(path.join(ROOT, 'lib/i18n-ui-messages.js'));
-  require(path.join(ROOT, 'lib/i18n-llm-route.js'));
-  require(path.join(ROOT, 'lib/i18n-locale-messages.js'));
-  require(path.join(ROOT, 'lib/i18n-skill-browse-messages.js'));
-  require(path.join(ROOT, 'lib/i18n-hardware-stock-messages.js'));
-  require(path.join(ROOT, 'lib/i18n-version-messages.js'));
-  require(path.join(ROOT, 'lib/i18n-toolbar-pin.js'));
+  for (const rel of rels) {
+    if (rel === 'lib/i18n.js') continue;
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) continue;
+    require(abs);
+  }
   return i18n.getMessageTables();
+}
+
+/** 载入插件消息表（基础表 + panel/float 的 ui 表 + 语言选择器表）。 */
+function loadMessageTables() {
+  return clearAndLoadMessageRels(ALL_MESSAGE_RELS);
+}
+
+/**
+ * 仅加载 content_scripts 主组（cs0）实际注入的文案包（不含 i18n-tx.js）。
+ * 防止「全表有键、content 未注入」导致底栏显示裸 key（如 paDeliverAgainAll）。
+ */
+function loadContentScriptMessageTables() {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
+  const cs0 = (manifest.content_scripts && manifest.content_scripts[0] && manifest.content_scripts[0].js) || [];
+  if (!cs0.includes('lib/i18n-tx.js')) {
+    throw new Error('content_scripts#0 缺少 lib/i18n-tx.js，无法校验 content 文案注入');
+  }
+  const packs = cs0.filter(
+    (rel) =>
+      rel === 'lib/i18n.js'
+      || (rel.startsWith('lib/i18n') && rel.endsWith('.js') && rel !== 'lib/i18n-tx.js'),
+  );
+  const rels = ['lib/i18n.js', ...packs.filter((rel) => rel !== 'lib/i18n.js')];
+  return clearAndLoadMessageRels(rels);
 }
 
 /**
@@ -153,6 +179,7 @@ module.exports = {
   MATCHER_LITERALS,
   BRAND_LITERALS,
   loadMessageTables,
+  loadContentScriptMessageTables,
   forEachCodeLine,
   stripSeparators,
   collectTxKeys,
