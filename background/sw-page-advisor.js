@@ -476,6 +476,12 @@ async function runPageOptimizationSuggest(tabId) {
     if (!Array.isArray(suggestions)) {
       suggestions = Array.isArray(job?.suggestions_json) ? job.suggestions_json : [];
     }
+    if (typeof attachSuggestionAnchors === 'function') {
+      suggestions = attachSuggestionAnchors(
+        suggestions,
+        Array.isArray(data.domOutline) ? data.domOutline : [],
+      );
+    }
   });
 
   await notifyPageAdvisorDone(tabId, {

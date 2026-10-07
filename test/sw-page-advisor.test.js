@@ -215,6 +215,61 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     assert.equal(render.status, 'skipped');
   });
 
+  it('successful job copies the Alt+X element label onto suggestions', async () => {
+    require('../lib/element-picker.js');
+    require('../lib/page-advisor-anchor.js');
+    const payloads = [];
+    const sandbox = loadSwPageAdvisorStack();
+    sandbox.attachSuggestionAnchors = global.attachSuggestionAnchors;
+    const outline = [{
+      nid: 'n1',
+      tag: 'button',
+      id: 'go',
+      label: 'button#go.primary.taskplugin-el-highlight',
+      css_path: 'button#go',
+      visible_text: '去结算',
+      html_snippet: '<button id="go">去结算</button>',
+      text: '去结算',
+      parent_nid: '',
+    }];
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            domOutline: outline,
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      if (msg.action === 'pageAdvisorResult') payloads.push(msg);
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({ job_id: 'job-ok', trace_id: 't' });
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({
+      status: 'succeeded',
+      suggestions: [{
+        id: 's1',
+        title: '对比度',
+        summary: '短',
+        detail: '提高对比度',
+        target_nid: 'n1',
+      }],
+    });
+    await sandbox.runPageOptimizationSuggest(1);
+    const done = payloads.find((p) => p && p.ok && p.phase === 'done');
+    assert.ok(done, `expected done payload, got: ${JSON.stringify(payloads)}`);
+    assert.equal(done.suggestions[0].label, outline[0].label);
+    const { formatSuggestionsBlock } = require('../lib/page-advisor-fill.js');
+    const block = formatSuggestionsBlock(done.suggestions, 'https://example.test/page');
+    assert.match(block, /- \*\*元素\*\*: `button#go\.primary\.taskplugin-el-highlight`/);
+    assert.doesNotMatch(block, /- \*\*元素\*\*: `element`/);
+  });
+
   it('region command marks alt-shift-z until consumed', () => {
     const sandbox = loadSwPageAdvisorStack();
     sandbox.markPageAdvisorSuggestCommand('alt-shift-z');

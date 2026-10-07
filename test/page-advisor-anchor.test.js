@@ -124,12 +124,33 @@ describe('page-advisor-anchor', () => {
     };
     button.parentElement = main;
     const anchor = pageAdvisorDomAnchor(button);
+    const { snapshotElement } = require('../lib/element-picker.js');
     assert.equal(anchor.id, 'go');
     assert.equal(anchor.testid, 'go');
-    assert.equal(anchor.label, 'button#go.primary');
-    assert.doesNotMatch(anchor.label, /taskplugin/);
+    assert.equal(anchor.label, snapshotElement(button).label);
+    assert.equal(anchor.label, 'button#go.primary.taskplugin-el-highlight');
     assert.match(anchor.css_path, /button#go/);
     assert.doesNotMatch(anchor.css_path, /taskplugin/);
+    const escaped = {
+      nodeType: 1,
+      tagName: 'DIV',
+      id: 'a.b',
+      className: 'x:y',
+      parentElement: null,
+      children: [],
+      textContent: 'z',
+      outerHTML: '<div id="a.b" class="x:y">z</div>',
+      previousElementSibling: null,
+      getAttribute(name) {
+        if (name === 'id') return 'a.b';
+        if (name === 'class') return 'x:y';
+        return null;
+      },
+      closest() { return null; },
+    };
+    const escapedAnchor = pageAdvisorDomAnchor(escaped);
+    assert.equal(escapedAnchor.label, snapshotElement(escaped).label);
+    assert.equal(escapedAnchor.label, 'div#a\\.b.x\\:y');
     assert.equal(anchor.visible_text, '去结算');
     assert.match(anchor.html_snippet, /去结算/);
     assert.doesNotMatch(anchor.html_snippet, /taskplugin-el-highlight/);
