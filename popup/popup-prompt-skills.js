@@ -449,6 +449,12 @@
       const el = $(sel);
       if (el) el.addEventListener('input', () => { persistSkillDraft(); });
     }
+    const bodyEl = $('#popupSkillBody');
+    if (bodyEl) {
+      bodyEl.addEventListener('input', () => {
+        PopupPromptSkillUi.renderSkillLinkNotice(bodyEl.value);
+      });
+    }
     const neu = $('#btnSkillNew');
     // Anti-Replay-OK: ui-only empty editor, no HTTP until save.
     if (neu) neu.addEventListener('click', () => fillEditor(null));

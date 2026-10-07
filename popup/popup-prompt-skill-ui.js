@@ -351,8 +351,38 @@
       if (el) el.disabled = Boolean(skill?.readonly) || ro;
     });
     setEditorVisible(true);
+    renderSkillLinkNotice(skill?.body || '');
     // OPT-20260926-010：Popup 失焦即卸载，把未保存的正文从本机草稿回填到编辑框。
     restoreSkillDraft(skill?.id || '');
+  }
+
+  /**
+   * 正文含外链时在编辑框下方标出（OPT-20261007-015）。
+   * 系统技能不外传；自定义正文里的 http(s) 会随直连请求离开本机，保存前先提示。
+   */
+  function renderSkillLinkNotice(bodyValue) {
+    const el = document.querySelector('#popupSkillLinkNotice');
+    if (!el) return;
+    const S = typeof PageAdvisorPromptSkills !== 'undefined' ? PageAdvisorPromptSkills : null;
+    const links = S && typeof S.externalLinksIn === 'function' ? S.externalLinksIn(bodyValue) : [];
+    if (!links.length) {
+      el.hidden = true;
+      el.textContent = '';
+      return;
+    }
+    const hosts = [];
+    const seen = new Set();
+    links.forEach((u) => {
+      let host = u;
+      try { host = new URL(u).hostname; } catch (_) { /* 保留原文 */ }
+      if (host && !seen.has(host)) {
+        seen.add(host);
+        hosts.push(host);
+      }
+    });
+    const list = hosts.join(', ');
+    el.textContent = tx('paSkillExternalLinkNotice', { hosts: list });
+    el.hidden = false;
   }
 
   /** 草稿只回填它所属的编辑目标；读取失败保持表单原样。 */
@@ -369,7 +399,10 @@
     const q = (id) => document.querySelector(id);
     if (q('#popupSkillTitle')) q('#popupSkillTitle').value = draft.title;
     if (q('#popupSkillTendency')) q('#popupSkillTendency').value = draft.tendency;
-    if (q('#popupSkillBody')) q('#popupSkillBody').value = draft.body;
+    if (q('#popupSkillBody')) {
+      q('#popupSkillBody').value = draft.body;
+      renderSkillLinkNotice(draft.body);
+    }
   }
 
   /**
@@ -399,6 +432,7 @@
     onSkillSettingsToggle,
     setEditorVisible,
     fillEditor,
+    renderSkillLinkNotice,
   };
 
   if (typeof module !== 'undefined' && module.exports) {

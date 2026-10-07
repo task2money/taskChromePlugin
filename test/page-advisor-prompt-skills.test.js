@@ -125,6 +125,7 @@ describe('PageAdvisorLLM skill messages', () => {
       { url: 'https://p', title: 'Hi', pageText: 'body' },
       {
         skill,
+        hostConfirmed: true,
         fetchImpl: async (_url, opts) => {
           seen = JSON.parse(opts.body);
           return {

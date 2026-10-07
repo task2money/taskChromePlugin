@@ -234,6 +234,37 @@
     else btn.removeAttribute('aria-busy');
   }
 
+  async function currentSiteHost() {
+    try {
+      if (typeof Storage !== 'undefined' && typeof Storage.getApiConfig === 'function'
+        && typeof PageAdvisorLLM !== 'undefined' && typeof PageAdvisorLLM.hostOf === 'function') {
+        const cfg = await Storage.getApiConfig();
+        const host = PageAdvisorLLM.hostOf(cfg && cfg.baseUrl);
+        if (host) return host;
+      }
+    } catch (_) { /* 平台地址读不到时按无站点主机处理，宁可多问一次 */ }
+    return '';
+  }
+
+  /**
+   * 直连 Base URL 主机非常见主机时，保存前弹窗要求本次确认（OPT-20261007-015）。
+   * 返回 false 表示用户取消，调用方放弃本次保存。
+   */
+  async function ensureDirectHostConfirmed(baseUrl) {
+    if (typeof PageAdvisorLLM === 'undefined' || typeof PageAdvisorLLM.hostNeedsConfirmation !== 'function') return true;
+    const host = PageAdvisorLLM.hostOf(baseUrl);
+    if (!host) return true;
+    if (!PageAdvisorLLM.hostNeedsConfirmation(host, { siteHost: await currentSiteHost() })) return true;
+    if (typeof PageAdvisorLlmConfig === 'undefined' || typeof PageAdvisorLlmConfig.isHostConfirmed !== 'function') return true;
+    const list = await PageAdvisorLlmConfig.loadConfirmedHosts();
+    if (PageAdvisorLlmConfig.isHostConfirmed(host, list)) return true;
+    const message = tx('paLlmHostConfirm', { host });
+    const ok = typeof window.confirm === 'function' ? window.confirm(message) : true;
+    if (!ok) return false;
+    await PageAdvisorLlmConfig.confirmHost(host);
+    return true;
+  }
+
   async function savePageAdvisorLlmConfig(opts) {
     const collapse = !opts || opts.collapse !== false;
     const status = $('#popupLlmStatus');
@@ -247,7 +278,12 @@
     setBusy(btn, true);
     let saved = false;
     try {
-      const next = await PageAdvisorLlmConfig.saveToStorage(currentLlmPayload(opts));
+      const payload = currentLlmPayload(opts);
+      if (!await ensureDirectHostConfirmed(payload.baseUrl)) {
+        if (status) status.textContent = tx('paLlmHostConfirmCancelled');
+        return;
+      }
+      const next = await PageAdvisorLlmConfig.saveToStorage(payload);
       lastCfg = next;
       if (!(opts && opts.profileAction === 'route-only')) await clearLlmDraft();
       applyLoadedConfig(next);

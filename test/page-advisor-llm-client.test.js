@@ -155,6 +155,7 @@ describe('PageAdvisorLLM URL and JSON', () => {
       { apiKey: 'sk-abc', baseUrl: 'https://llm.test/v1', model: 'm' },
       { url: 'https://p', title: 'Hi', pageText: 'body' },
       {
+        hostConfirmed: true,
         fetchImpl: async (url, opts) => {
           seen = { url, opts };
           return {
@@ -179,6 +180,7 @@ describe('PageAdvisorLLM URL and JSON', () => {
       { apiKey: 'sk-abc', baseUrl: 'https://llm.test/v1', model: 'm' },
       { url: 'https://p', title: 'Hi', pageText: 'body' },
       {
+        hostConfirmed: true,
         locale: 'en',
         fetchImpl: async (_url, opts) => {
           body = JSON.parse(opts.body);
@@ -207,6 +209,7 @@ describe('PageAdvisorLLM URL and JSON', () => {
           { apiKey: 'sk-secret-key', baseUrl: 'https://llm.test/v1', model: 'm' },
           { url: 'https://p', title: 'Hi', pageText: 'body' },
           {
+            hostConfirmed: true,
             fetchImpl: async () => ({
               ok: true,
               status: 200,
@@ -265,6 +268,7 @@ describe('PageAdvisorLLM locale system prompt', () => {
       { apiKey: 'sk-secret-onspan', baseUrl: 'https://llm.test/v1', model: 'm' },
       { url: 'https://p', title: 'Hi', pageText: 'body' },
       {
+        hostConfirmed: true,
         onSpan: (id, startAbs, endAbs, status) => {
           spans.push({ id, startAbs, endAbs, status });
         },
@@ -291,6 +295,7 @@ describe('PageAdvisorLLM locale system prompt', () => {
       { apiKey: 'sk-secret-sub', baseUrl: 'https://llm.test/v1', model: 'm' },
       { url: 'https://p', title: 'Hi', pageText: 'body' },
       {
+        hostConfirmed: true,
         onSpan: (id, startAbs, endAbs, status) => spans.push({ id, startAbs, endAbs, status }),
         fetchImpl: async () => ({
           ok: true,
