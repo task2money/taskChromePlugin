@@ -1,5 +1,6 @@
 /**
  * IDE 送达：剪贴板 + SW deeplink/native；生成成功后自动转发一次。
+ * 亦供 Alt+X 元素调整块按同一渠道发送。
  */
 
 "use strict";
@@ -48,28 +49,30 @@ function applyPageAdvisorDeliveryButtonLabels(allBtn, oneBtn) {
   return true;
 }
 
-async function deliverPageAdvisorSuggestions(opts) {
-  opts = opts || {};
-  const mode = opts.mode === "one" ? "one" : "all";
-  let selectedIds = Array.isArray(opts.selectedIds) ? opts.selectedIds.slice() : [];
-  if (!selectedIds.length) {
-    selectedIds = collectSelectedSuggestionIds();
-  }
-  if (mode === "one" && selectedIds.length) {
-    selectedIds = [selectedIds[0]];
-  }
-  const Fill = typeof PageAdvisorFill !== "undefined" ? PageAdvisorFill : null;
-  if (!Fill || !selectedIds.length) {
-    return { filled: false, createTaskCalled: false };
-  }
+/**
+ * 将纯文本按当前「建议送达」目标发出。
+ * 任务描述目标：delivered=false（调用方自行写描述）。
+ * IDE 目标：剪贴板 + SW deeplink/native，不写任务描述。
+ */
+async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
   const target = await loadPageAdvisorDeliveryTarget();
-  const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
-  const block = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
-  const clip = navigator.clipboard && navigator.clipboard.writeText;
-  const copied = await Fill.copySuggestionsBlock(
-    block,
-    clip ? (text) => clip.call(navigator.clipboard, text) : null,
-  );
+  if (
+    typeof PageAdvisorDelivery === "undefined"
+    || !PageAdvisorDelivery.shouldAutoDeliverOnResult(target)
+  ) {
+    return { delivered: false, target: target };
+  }
+  const block = String(text || "");
+  let copied = false;
+  try {
+    const clip = navigator.clipboard && navigator.clipboard.writeText;
+    if (clip && block) {
+      await clip.call(navigator.clipboard, block);
+      copied = true;
+    }
+  } catch (_) {
+    copied = false;
+  }
   let deeplinkOk = false;
   let nativeOk = false;
   let nativeError = "";
@@ -78,7 +81,7 @@ async function deliverPageAdvisorSuggestions(opts) {
       action: "deliverPageAdvisorToIde",
       target: target,
       text: block,
-      pageUrl: pageAdvisorState.pageUrl,
+      pageUrl: String(pageUrl || ""),
     });
     deeplinkOk = !!(resp && resp.deeplinkOk);
     nativeOk = !!(resp && resp.nativeOk);
@@ -99,10 +102,40 @@ async function deliverPageAdvisorSuggestions(opts) {
   );
   if (typeof showResult === "function") {
     showResult(status.text, status.ok ? "success" : "error");
-  } else if (!status.ok) {
+  } else if (!status.ok && typeof setPageAdvisorError === "function") {
     setPageAdvisorError(status.text);
   }
-  return { filled: status.ok, createTaskCalled: false, openedPanel: false };
+  return {
+    delivered: true,
+    target: target,
+    ok: status.ok,
+    text: status.text,
+    createTaskCalled: false,
+    openedPanel: false,
+  };
+}
+
+async function deliverPageAdvisorSuggestions(opts) {
+  opts = opts || {};
+  const mode = opts.mode === "one" ? "one" : "all";
+  let selectedIds = Array.isArray(opts.selectedIds) ? opts.selectedIds.slice() : [];
+  if (!selectedIds.length) {
+    selectedIds = collectSelectedSuggestionIds();
+  }
+  if (mode === "one" && selectedIds.length) {
+    selectedIds = [selectedIds[0]];
+  }
+  const Fill = typeof PageAdvisorFill !== "undefined" ? PageAdvisorFill : null;
+  if (!Fill || !selectedIds.length) {
+    return { filled: false, createTaskCalled: false };
+  }
+  const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
+  const block = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
+  const outcome = await deliverPlainTextViaDeliveryTarget(block, pageAdvisorState.pageUrl);
+  if (!outcome.delivered) {
+    return { filled: false, createTaskCalled: false };
+  }
+  return { filled: outcome.ok, createTaskCalled: false, openedPanel: false };
 }
 
 async function maybeAutoDeliverPageAdvisorResult(payload) {

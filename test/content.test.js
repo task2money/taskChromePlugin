@@ -159,6 +159,7 @@ describe('content 脚本行数门禁与注入顺序', () => {
       'content/float-boot.js',
       'content/float-toolbar-pin-hint.js',
       'content/float-pick-highlight.js',
+      'content/float-page-advisor-deliver.js',
       'content/float-pick.js',
       'content/float-drag-auth.js',
       'content/float-login-badge.js',
@@ -170,7 +171,6 @@ describe('content 脚本行数门禁与注入顺序', () => {
       'content/float-page-advisor-drag.js',
       'content/float-page-advisor.js',
       'content/float-page-advisor-fill-ui.js',
-      'content/float-page-advisor-deliver.js',
       'content/float-page-advisor-site-pending.js',
       'content/content.js',
     ]);

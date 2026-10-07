@@ -219,6 +219,11 @@
     window.PopupSystemSku?.setLoggedIn?.(loggedIn);
   }
 
+  function setPluginDeliverySectionVisible(visible) {
+    const sec = $('#pluginDeliverySection');
+    if (sec) sec.style.display = visible ? 'block' : 'none';
+  }
+
   async function retryInit() {
     const spinner = $('#loadingSpinner');
     const retryBtn = $('#btnRetryInit');
@@ -233,6 +238,7 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'none';
     if (reqSec) reqSec.style.display = 'none';
+    setPluginDeliverySectionVisible(false);
     setPopupGuideVisible(false);
 
     await init();
@@ -254,6 +260,7 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
+    setPluginDeliverySectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
     }
@@ -301,6 +308,7 @@
     if (devGuide) devGuide.style.display = 'none';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
+    setPluginDeliverySectionVisible(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
 
@@ -333,6 +341,7 @@
     if (devGuide) devGuide.style.display = 'block';
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
+    setPluginDeliverySectionVisible(true);
     if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
       window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
     }

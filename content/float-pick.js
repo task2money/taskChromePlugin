@@ -371,6 +371,22 @@ async function confirmAdjustModal() {
     };
     const block = ElementPicker.formatElementAdjustmentBlock(payload);
 
+    // 与弹窗「建议送达」共用：IDE 目标走深链，不写任务描述
+    const deliveryTarget =
+      typeof loadPageAdvisorDeliveryTarget === 'function'
+        ? await loadPageAdvisorDeliveryTarget()
+        : 'task_description';
+    if (
+      typeof PageAdvisorDelivery !== 'undefined'
+      && PageAdvisorDelivery.shouldAutoDeliverOnResult
+      && PageAdvisorDelivery.shouldAutoDeliverOnResult(deliveryTarget)
+      && typeof deliverPlainTextViaDeliveryTarget === 'function'
+    ) {
+      closeAdjustModal();
+      await deliverPlainTextViaDeliveryTarget(block, window.location.href);
+      return;
+    }
+
     let copied = false;
     try {
       await navigator.clipboard.writeText(block);
@@ -383,8 +399,14 @@ async function confirmAdjustModal() {
       ? await readCreateDescription()
       : (descInput ? descInput.value : '');
     const nextDesc = ElementPicker.appendElementAdjustmentToDescription(currentDesc, payload);
-    if (typeof writeCreateDescription === 'function') await writeCreateDescription(nextDesc);
-    else if (descInput) descInput.value = nextDesc;
+    if (
+      typeof PageAdvisorDelivery === 'undefined'
+      || !PageAdvisorDelivery.shouldOpenCreatePanel
+      || PageAdvisorDelivery.shouldOpenCreatePanel(deliveryTarget)
+    ) {
+      if (typeof writeCreateDescription === 'function') await writeCreateDescription(nextDesc);
+      else if (descInput) descInput.value = nextDesc;
+    }
     closeAdjustModal();
     const clipSuffix = copied ? (typeof tx === 'function' ? tx('floatPickCopiedSuffix') : '，并已复制到剪贴板') : '';
     showResult((typeof tx === 'function' ? tx('floatPickAdjustAdded', { suffix: clipSuffix }) : `已将元素调整期望加入任务描述${clipSuffix}`), 'success');

@@ -124,39 +124,43 @@ describe('page-advisor-delivery', () => {
 
   it('popup radios only list task_description and deeplink IDEs', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
-    const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
-    assert.match(llm, /id="popupDeliveryTargetField"/);
-    assert.match(llm, /name="pageAdvisorDeliveryTarget"/);
-    assert.match(llm, /value="task_description"/);
-    assert.match(llm, /value="cursor"/);
-    assert.match(llm, /value="claude"/);
-    assert.match(llm, /value="codex"/);
-    assert.doesNotMatch(llm, /value="trae"/);
-    assert.doesNotMatch(llm, /value="workbuddy"/);
-    assert.match(llm, /data-i18n="paDeliveryHint"/);
-    assert.match(llm, /data-region-help="1"/);
-    const hintIdx = llm.indexOf('data-i18n="paDeliveryHint"');
-    const detailsStart = llm.lastIndexOf('<details', hintIdx);
-    const detailsEnd = llm.indexOf('</details>', hintIdx);
+    const brand = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
+    assert.match(brand, /id="popupDeliveryTargetField"/);
+    assert.match(brand, /name="pageAdvisorDeliveryTarget"/);
+    assert.match(brand, /value="task_description"/);
+    assert.match(brand, /value="cursor"/);
+    assert.match(brand, /value="claude"/);
+    assert.match(brand, /value="codex"/);
+    assert.doesNotMatch(brand, /value="trae"/);
+    assert.doesNotMatch(brand, /value="workbuddy"/);
+    assert.match(brand, /data-i18n="paDeliveryHint"/);
+    assert.match(brand, /data-region-help="1"/);
+    const hintIdx = brand.indexOf('data-i18n="paDeliveryHint"');
+    const detailsStart = brand.lastIndexOf('<details', hintIdx);
+    const detailsEnd = brand.indexOf('</details>', hintIdx);
     assert.ok(detailsStart >= 0 && detailsEnd > hintIdx);
-    assert.doesNotMatch(llm.slice(detailsStart, detailsEnd), /\bopen\b/);
+    assert.doesNotMatch(brand.slice(detailsStart, detailsEnd), /\bopen\b/);
   });
 
-  it('建议送达在自动创新智能体区域最底部（Key/状态之后、瀑布图之前）', () => {
+  it('建议送达在云端Coding品牌区，不在自动创新智能体内', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
+    const brand = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
-    const deliveryIdx = llm.indexOf('id="popupDeliveryTargetField"');
-    const routeIdx = llm.indexOf('id="popupLlmRouteField"');
-    const profileIdx = llm.indexOf('id="popupLlmProfileRow"');
-    const statusIdx = llm.indexOf('id="popupLlmStatus"');
-    const waterfallIdx = llm.indexOf('id="pageAdvisorWaterfall"');
-    assert.ok(deliveryIdx > routeIdx, '建议送达应在调用方式之后');
-    assert.ok(deliveryIdx > profileIdx, '建议送达应在已保存的 Key 之后');
-    assert.ok(deliveryIdx > statusIdx, '建议送达应在状态行之后');
-    assert.ok(
-      waterfallIdx > deliveryIdx,
-      '耗时瀑布图仍在区块最末；建议送达为其前最后一项配置',
-    );
+    assert.match(brand, /id="popupDeliveryTargetField"/);
+    assert.match(brand, /data-i18n="extTitle"/);
+    assert.doesNotMatch(llm, /id="popupDeliveryTargetField"/);
+    assert.doesNotMatch(llm, /data-i18n="paDeliveryHint"/);
+    const brandIdx = html.indexOf('id="pluginDeliverySection"');
+    const llmIdx = html.indexOf('id="pageAdvisorLlmSection"');
+    assert.ok(brandIdx >= 0 && llmIdx > brandIdx, '品牌送达区应在智能体区之前');
+  });
+
+  it('Alt+X 确认路径按送达渠道转发（IDE 不写任务描述）', () => {
+    const pick = fs.readFileSync(path.join(__dirname, '../content/float-pick.js'), 'utf8');
+    assert.match(pick, /loadPageAdvisorDeliveryTarget/);
+    assert.match(pick, /shouldAutoDeliverOnResult/);
+    assert.match(pick, /deliverPageAdvisorToIde|deliverPlainTextViaDeliveryTarget/);
+    assert.match(pick, /shouldOpenCreatePanel|writeCreateDescription/);
   });
 
   it('native host dry-run frames json without executing text', () => {
