@@ -500,4 +500,65 @@ test.describe('Popup 面板布局', () => {
     await expect(page.locator('#popupLlmStatus')).toContainText(/已切换|switched/i);
     expect(await currentStoredApiKey(page)).toBe(keyA);
   });
+
+  // OPT-20261007-005：转发目标增至 6+ 个时的换行与 radio 对齐，改为几何断言
+  // （原「目视核对」不可机器复现，被 OPTIMIZATION_TODOS.ai.md「禁止人工验收」否决）。
+  // 用合成目标补齐到 7 个（>6），使断言与生产实际目标数解耦——每新增一个 IDE 目标都受此护栏。
+  test('转发目标增至 6+ 时换行、同行 radio 对齐且不溢出字段宽度', async ({ page }) => {
+    await installChromeStub(page, { token: 'at_e2e_ws', username: 'ada' });
+    await page.goto(POPUP_URL);
+    const field = page.locator('#popupDeliveryTargetField');
+    await expect(field).toBeVisible({ timeout: 10000 });
+
+    const geo = await field.evaluate((el) => {
+      // 合成 3 个后续 IDE 目标（value/文案仅用于几何验证，不写存储）
+      for (const v of ['windsurf', 'trae', 'vscode']) {
+        const label = document.createElement('label');
+        label.className = 'llm-route-option';
+        const input = document.createElement('input');
+        input.type = 'radio';
+        input.name = 'pageAdvisorDeliveryTarget';
+        input.value = v;
+        const span = document.createElement('span');
+        span.textContent = v.charAt(0).toUpperCase() + v.slice(1);
+        label.append(input, span);
+        el.append(label);
+      }
+      const fieldRect = el.getBoundingClientRect();
+      const items = [...el.querySelectorAll('.llm-route-option')].map((o) => {
+        const r = o.getBoundingClientRect();
+        const i = o.querySelector('input').getBoundingClientRect();
+        return {
+          text: o.textContent.trim(),
+          top: Math.round(r.top),
+          right: Math.round(r.right),
+          width: Math.round(r.width),
+          midY: Math.round(i.top + i.height / 2),
+        };
+      });
+      return { fieldRight: Math.round(fieldRect.right), count: items.length, items };
+    });
+
+    // 至少 6 个目标参与几何校验
+    expect(geo.count).toBeGreaterThanOrEqual(6);
+
+    // 已换行：≥2 个不同的行 top（7 个真实文案在 300px 下无法单行容纳）
+    const rowTops = [...new Set(geo.items.map((it) => it.top))];
+    expect(rowTops.length).toBeGreaterThanOrEqual(2);
+
+    // 无横向溢出：每个选项右缘都在字段右边界内（flex-wrap 生效；nowrap 时必然失败）
+    for (const it of geo.items) {
+      expect(it.width).toBeGreaterThan(0);
+      expect(
+        it.right,
+        `「${it.text}」右缘 ${it.right} 越过字段右界 ${geo.fieldRight}`,
+      ).toBeLessThanOrEqual(geo.fieldRight + 1);
+    }
+
+    // 同行 radio 垂直中点一致（align-items 未被破坏）
+    for (const top of rowTops) {
+      const mids = geo.items.filter((it) => it.top === top).map((it) => it.midY);
+      expect(Math.max(...mids) - Math.min(...mids)).toBeLessThanOrEqual(1);
+    }
+  });
 });
