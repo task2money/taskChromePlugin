@@ -124,7 +124,10 @@ describe('side panel light surface layer', () => {
   const popupDir = path.join(__dirname, '..', 'popup');
   const settingsCss = fs.readFileSync(path.join(popupDir, 'popup-sidepanel.css'), 'utf8');
   const popupCss = fs.readFileSync(path.join(popupDir, 'popup.css'), 'utf8');
+  const requestDetailCss = fs.readFileSync(path.join(popupDir, 'popup-request-detail.css'), 'utf8');
   const guideCss = fs.readFileSync(path.join(popupDir, 'popup-guide.css'), 'utf8');
+  // 请求详情深色块已从 popup.css 拆出（行数门禁）；扫表面色时须一并纳入
+  const popupSurfaceCss = `${popupCss}\n${requestDetailCss}`;
 
   it('用一层 body *:not(:where(控件)) 铺白底', () => {
     const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)[\s\S]*?\{([\s\S]*?)\}/.exec(settingsCss);
@@ -165,7 +168,7 @@ describe('side panel light surface layer', () => {
     }
 
     const seen = [];
-    for (const rule of cssRules(`${popupCss}\n${guideCss}`)) {
+    for (const rule of cssRules(`${popupSurfaceCss}\n${guideCss}`)) {
       const dark = DARK_SURFACE_TOKENS.some((token) => rule.decls.includes(token))
         || /linear-gradient\(/.test(rule.decls);
       if (!dark) continue;

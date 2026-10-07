@@ -63,4 +63,12 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.match(src, /paWfCapture:\s*'采集'/);
     assert.match(src, /paWfCapture:\s*'Capture'/);
   });
+
+  it('IDE 送达文案写明须点底栏，底栏为发送到而非再次发送', () => {
+    assert.match(src, /生成后不自动转发，须点底栏/);
+    assert.match(src, /generation does not auto-send/);
+    assert.match(src, /paDeliverAgainAll:\s*'发送到 \{name\}'/);
+    assert.match(src, /paDeliverAgainAll:\s*'Send to \{name\}'/);
+    assert.doesNotMatch(src, /paDeliverAgainAll:\s*'再次发送到/);
+  });
 });

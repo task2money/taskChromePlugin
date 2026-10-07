@@ -361,9 +361,7 @@ function showPageAdvisorSuggestions(payload) {
   syncPageAdvisorFillButtons();
   layoutPageAdvisorCards();
   showPageAdvisorLayer();
-  if (typeof maybeAutoDeliverPageAdvisorResult === "function") {
-    void maybeAutoDeliverPageAdvisorResult(payload);
-  }
+  // IDE 送达须等用户点建议底栏按钮（confirmPageAdvisorFill），生成成功不自动转发
 }
 
 function showPageAdvisorResourceError(payload) {

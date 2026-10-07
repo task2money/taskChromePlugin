@@ -20,15 +20,33 @@ describe('page-advisor-delivery', () => {
     assert.equal(Delivery.normalizeTarget(null), 'task_description');
   });
 
-  it('auto-delivers only IDE targets and opens create panel only for task_description', () => {
-    assert.equal(Delivery.shouldAutoDeliverOnResult('cursor'), true);
-    assert.equal(Delivery.shouldAutoDeliverOnResult('claude'), true);
-    assert.equal(Delivery.shouldAutoDeliverOnResult('codex'), true);
-    assert.equal(Delivery.shouldAutoDeliverOnResult('trae'), false);
-    assert.equal(Delivery.shouldAutoDeliverOnResult('workbuddy'), false);
+  it('IDE 目标不自动送达；须点底栏；create panel 仅任务描述', () => {
+    assert.equal(Delivery.isIdeDeliveryTarget('cursor'), true);
+    assert.equal(Delivery.isIdeDeliveryTarget('claude'), true);
+    assert.equal(Delivery.isIdeDeliveryTarget('codex'), true);
+    assert.equal(Delivery.isIdeDeliveryTarget('trae'), false);
+    assert.equal(Delivery.isIdeDeliveryTarget('task_description'), false);
+    // Alt+Z 生成成功后不得自动深链；仅按钮/Alt+X 确认触发
+    assert.equal(Delivery.shouldAutoDeliverOnResult('cursor'), false);
+    assert.equal(Delivery.shouldAutoDeliverOnResult('claude'), false);
+    assert.equal(Delivery.shouldAutoDeliverOnResult('codex'), false);
     assert.equal(Delivery.shouldAutoDeliverOnResult('task_description'), false);
     assert.equal(Delivery.shouldOpenCreatePanel('task_description'), true);
     assert.equal(Delivery.shouldOpenCreatePanel('claude'), false);
+  });
+
+  it('建议结果展示路径不再调用 maybeAutoDeliver', () => {
+    const src = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor.js'),
+      'utf8',
+    );
+    assert.doesNotMatch(src, /maybeAutoDeliverPageAdvisorResult/);
+    const deliver = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-deliver.js'),
+      'utf8',
+    );
+    assert.doesNotMatch(deliver, /function maybeAutoDeliverPageAdvisorResult/);
+    assert.match(deliver, /isIdeDeliveryTarget/);
   });
 
   it('formatUserStatus prefers deeplink then native then clipboard', () => {
@@ -146,23 +164,26 @@ describe('page-advisor-delivery', () => {
     assert.doesNotMatch(brand.slice(detailsStart, detailsEnd), /\bopen\b/);
   });
 
-  it('建议送达在云端Coding品牌区，不在自动创新智能体内', () => {
+  it('转发目标在云端Coding品牌区，不在自动创新智能体内', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
     const brand = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(brand, /id="popupDeliveryTargetField"/);
+    assert.match(brand, /data-i18n="paDeliveryLegend"/);
+    assert.match(brand, />转发目标</);
+    assert.doesNotMatch(brand, /建议送达/);
     assert.match(brand, /data-i18n="extTitle"/);
     assert.doesNotMatch(llm, /id="popupDeliveryTargetField"/);
     assert.doesNotMatch(llm, /data-i18n="paDeliveryHint"/);
     const brandIdx = html.indexOf('id="pluginDeliverySection"');
     const llmIdx = html.indexOf('id="pageAdvisorLlmSection"');
-    assert.ok(brandIdx >= 0 && llmIdx > brandIdx, '品牌送达区应在智能体区之前');
+    assert.ok(brandIdx >= 0 && llmIdx > brandIdx, '品牌转发目标区应在智能体区之前');
   });
 
   it('Alt+X 确认路径按送达渠道转发（IDE 不写任务描述）', () => {
     const pick = fs.readFileSync(path.join(__dirname, '../content/float-pick.js'), 'utf8');
     assert.match(pick, /loadPageAdvisorDeliveryTarget/);
-    assert.match(pick, /shouldAutoDeliverOnResult/);
+    assert.match(pick, /isIdeDeliveryTarget/);
     assert.match(pick, /deliverPageAdvisorToIde|deliverPlainTextViaDeliveryTarget/);
     assert.match(pick, /shouldOpenCreatePanel|writeCreateDescription/);
   });

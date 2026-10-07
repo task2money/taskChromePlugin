@@ -371,15 +371,15 @@ async function confirmAdjustModal() {
     };
     const block = ElementPicker.formatElementAdjustmentBlock(payload);
 
-    // 与弹窗「建议送达」共用：IDE 目标走深链，不写任务描述
+    // 与弹窗「转发目标」共用：IDE 目标走深链，不写任务描述
     const deliveryTarget =
       typeof loadPageAdvisorDeliveryTarget === 'function'
         ? await loadPageAdvisorDeliveryTarget()
         : 'task_description';
     if (
       typeof PageAdvisorDelivery !== 'undefined'
-      && PageAdvisorDelivery.shouldAutoDeliverOnResult
-      && PageAdvisorDelivery.shouldAutoDeliverOnResult(deliveryTarget)
+      && PageAdvisorDelivery.isIdeDeliveryTarget
+      && PageAdvisorDelivery.isIdeDeliveryTarget(deliveryTarget)
       && typeof deliverPlainTextViaDeliveryTarget === 'function'
     ) {
       closeAdjustModal();

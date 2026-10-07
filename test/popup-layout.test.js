@@ -102,7 +102,7 @@ describe('Popup 面板布局', () => {
     const sideCss = read('popup/popup-sidepanel.css');
     assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,120}border:\s*0/);
     assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,160}min-inline-size:\s*0/);
-    assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,280}\.llm-route-option[\s\S]{0,80}display:\s*flex/);
+    assert.match(popupCss, /#popupLlmRouteField \.llm-route-option[\s\S]{0,80}display:\s*flex/);
     const llm = popupHtml.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(llm, /<fieldset[^>]*id="popupLlmRouteField"/);
     assert.match(llm, /直连我的 Key（不上传，换浏览器需要重新设置）/);
@@ -111,6 +111,22 @@ describe('Popup 面板布局', () => {
       sideCss,
       /html\[data-taskplugin-host="sidepanel"\] #popupLlmRouteField \.llm-route-option/,
     );
+  });
+
+  it('转发目标选项 flex-wrap 水平平铺', () => {
+    assert.match(popupCss, /#popupDeliveryTargetField\s*\{[^}]*flex-wrap:\s*wrap/);
+    assert.match(popupCss, /#popupDeliveryTargetField\s*\{[^}]*display:\s*flex/);
+    assert.match(
+      popupCss,
+      /#popupDeliveryTargetField > legend[\s\S]{0,80}flex:\s*0\s+0\s+100%/,
+    );
+    assert.match(
+      popupCss,
+      /#popupDeliveryTargetField \.llm-route-option[\s\S]{0,80}display:\s*inline-flex/,
+    );
+    const brand = popupHtml.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
+    assert.match(brand, /data-i18n="paDeliveryLegend"/);
+    assert.match(brand, />转发目标</);
   });
 
   // OPT-20261006-020：平台后端下拉保持单条自有智能体，另加一行说明由平台按层解析。

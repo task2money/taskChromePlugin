@@ -1,4 +1,4 @@
-/** 建议送达目标单选（本机 storage，无 HTTP）。 */
+/** 转发目标单选（本机 storage，无 HTTP）。 */
 (function bindPageAdvisorDeliveryRadios() {
   'use strict';
   const field = document.getElementById('popupDeliveryTargetField');

@@ -204,6 +204,15 @@ describe('UserGuide sections', () => {
     assert.match(md, /仅在.*点击上述任一填入按钮后/);
   });
 
+  it('page-optimization-suggest: IDE 送达须点底栏，生成后不自动转发', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
+    const steps = (section.steps || []).join('\n');
+    assert.match(steps, /生成成功不自动转发/);
+    assert.match(steps, /发送到 …/);
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /生成成功不自动转发/);
+  });
+
   it('page-optimization-suggest documents card copy follows plugin language', () => {
     const section = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
     const steps = (section.steps || []).join('\n');

@@ -3,6 +3,9 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
+// ElementPicker 在 content_scripts 中先于本模块加载；单测显式 require 以复用标签/路径/HTML 片段。
+require('../lib/element-picker.js');
+
 const {
   pageAdvisorCssPath,
   pageAdvisorDomAnchor,
@@ -71,7 +74,10 @@ describe('page-advisor-anchor', () => {
           testid: 'go',
           aria_label: '',
           landmark: 'main',
-          css_path: 'main > button:nth-child(1)',
+          css_path: 'main > button#go.primary',
+          label: 'button#go.primary',
+          visible_text: '去结算',
+          html_snippet: '<button id="go" class="primary">去结算</button>',
         },
       ],
     );
@@ -79,6 +85,53 @@ describe('page-advisor-anchor', () => {
     assert.equal(items[0].dom_id, 'go');
     assert.equal(items[0].testid, 'go');
     assert.deepEqual(items[0].ancestor_nids, ['n1']);
-    assert.equal(items[0].css_path, 'main > button:nth-child(1)');
+    assert.equal(items[0].css_path, 'main > button#go.primary');
+    assert.equal(items[0].label, 'button#go.primary');
+    assert.equal(items[0].visible_text, '去结算');
+    assert.match(items[0].html_snippet, /button id="go"/);
+  });
+
+  it('captures picker-style label, css path, visible text and HTML snippet', () => {
+    const button = {
+      nodeType: 1,
+      tagName: 'BUTTON',
+      id: 'go',
+      className: 'primary taskplugin-el-highlight',
+      parentElement: null,
+      children: [],
+      textContent: '去结算',
+      outerHTML: '<button id="go" class="primary taskplugin-el-highlight" data-testid="go">去结算</button>',
+      previousElementSibling: null,
+      getAttribute(name) {
+        if (name === 'id') return 'go';
+        if (name === 'class') return this.className;
+        if (name === 'data-testid') return 'go';
+        return null;
+      },
+      closest() { return null; },
+    };
+    const main = {
+      nodeType: 1,
+      tagName: 'MAIN',
+      id: '',
+      className: '',
+      parentElement: null,
+      children: [button],
+      textContent: '去结算',
+      previousElementSibling: null,
+      getAttribute() { return null; },
+      closest() { return null; },
+    };
+    button.parentElement = main;
+    const anchor = pageAdvisorDomAnchor(button);
+    assert.equal(anchor.id, 'go');
+    assert.equal(anchor.testid, 'go');
+    assert.equal(anchor.label, 'button#go.primary');
+    assert.doesNotMatch(anchor.label, /taskplugin/);
+    assert.match(anchor.css_path, /button#go/);
+    assert.doesNotMatch(anchor.css_path, /taskplugin/);
+    assert.equal(anchor.visible_text, '去结算');
+    assert.match(anchor.html_snippet, /去结算/);
+    assert.doesNotMatch(anchor.html_snippet, /taskplugin-el-highlight/);
   });
 });
