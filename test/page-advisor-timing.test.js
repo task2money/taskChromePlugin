@@ -82,6 +82,40 @@ describe('PageAdvisorTiming', () => {
   });
 });
 
+describe('PageAdvisorTiming saas forward split', () => {
+  it('replaces saas_poll with queue, send, wait, and receive', () => {
+    const run = Timing.createRun({ runId: 'r-fwd', command: 'alt-z', route: 'saas', now: () => 0 });
+    Timing.addClosedSpan(run, 'saas_poll', 100, 24100, 'ok');
+    Timing.applySaasForward(run, {
+      send_ms: 12,
+      wait_ms: 23000,
+      recv_ms: 40,
+      request_bytes: 8421,
+      response_bytes: 3102,
+    });
+    const ids = run.spans.map((s) => s.id);
+    assert.deepEqual(ids, ['saas_fwd_queue', 'saas_fwd_send', 'saas_fwd_wait', 'saas_fwd_recv']);
+    const wait = run.spans.find((s) => s.id === 'saas_fwd_wait');
+    assert.equal(wait.labelMs, 23000);
+    const send = run.spans.find((s) => s.id === 'saas_fwd_send');
+    assert.equal(send.detail, '8.2KB');
+    const recv = run.spans.find((s) => s.id === 'saas_fwd_recv');
+    assert.equal(recv.detail, '3.0KB');
+    const bars = Timing.layoutBars(run, () => 24100);
+    assert.equal(bars.find((b) => b.id === 'saas_fwd_wait').durationMs, 23000);
+    const blob = JSON.stringify(Timing.serialize(run));
+    assert.match(blob, /saas_fwd_wait/);
+    assert.doesNotMatch(blob, /api_key|page_text/);
+  });
+
+  it('leaves saas_poll in place when the job has no forward sample', () => {
+    const run = Timing.createRun({ runId: 'r-empty', command: 'alt-z', route: 'saas', now: () => 0 });
+    Timing.addClosedSpan(run, 'saas_poll', 0, 100, 'ok');
+    Timing.applySaasForward(run, { send_ms: 0, wait_ms: 0, recv_ms: 0, request_bytes: 0, response_bytes: 0 });
+    assert.equal(run.spans[0].id, 'saas_poll');
+  });
+});
+
 describe('PageAdvisorTiming network subspans (OPT-20261004-011)', () => {
   const ENTRY = { requestStart: 120, responseStart: 300, responseEnd: 460 };
 

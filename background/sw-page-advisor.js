@@ -446,6 +446,10 @@ async function runPageOptimizationSuggest(tabId) {
     return;
   }
 
+  if (job && globalThis.PageAdvisorTiming && PageAdvisorTiming.applySaasForward) {
+    PageAdvisorTiming.applySaasForward(timingRun, job.llm_forward);
+  }
+
   const status = String(job?.status || '').toLowerCase();
   if (status === 'failed' || status === 'expired') {
     // LLM 402 Insufficient Balance 等失败也须带 data-traceId（约束 24）。

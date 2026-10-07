@@ -60,4 +60,24 @@ describe('PageAdvisorWaterfallView', () => {
     assert.match(html, /pa-wf-bar-error/);
     assert.match(html, /paWfStatusError/);
   });
+
+  it('shows backend forward sizes next to send and receive', () => {
+    const run = Timing.createRun({ runId: 'fwd', command: 'alt-z', route: 'saas', now: () => 0 });
+    Timing.addClosedSpan(run, 'saas_poll', 0, 24000, 'ok');
+    Timing.applySaasForward(run, {
+      send_ms: 12, wait_ms: 23000, recv_ms: 40, request_bytes: 8421, response_bytes: 3102,
+    });
+    const html = View.renderRun(run, (k) => ({
+      paWfSaasFwdSend: '发送请求',
+      paWfSaasFwdWait: '上游等待',
+      paWfSaasFwdRecv: '接收响应',
+      paWfSaasFwdQueue: '平台排队',
+    }[k] || k), (r) => Timing.layoutBars(r, () => 24000));
+    assert.match(html, /发送请求/);
+    assert.match(html, /12ms · 8\.2KB/);
+    assert.match(html, /上游等待/);
+    assert.match(html, /23\.00s/);
+    assert.match(html, /40ms · 3\.0KB/);
+    assert.doesNotMatch(html, /data-span="saas_poll"/);
+  });
 });

@@ -173,6 +173,10 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-bar-prompt { background: color-mix
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network_wait,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_poll { background: #7241F2 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_queue { background: color-mix(in srgb, #7241F2 40%, #F1F2F6) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_send { background: color-mix(in srgb, #7241F2 70%, #fff) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_wait { background: #5C2DC7 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_recv { background: color-mix(in srgb, #7241F2 55%, #fff) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network_download {
   background: color-mix(in srgb, #7241F2 70%, #fff) !important;
 }

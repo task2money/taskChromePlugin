@@ -215,6 +215,50 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     assert.equal(render.status, 'skipped');
   });
 
+  it('successful saas poll splits platform poll using llm_forward', async () => {
+    const wf = [];
+    const sandbox = loadSwPageAdvisorStack();
+    sandbox.chrome.runtime = { sendMessage: (msg) => { wf.push(msg); } };
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            domOutline: [],
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async () => ({ job_id: 'job-fwd', trace_id: 't' });
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({
+      status: 'succeeded',
+      suggestions: [],
+      llm_forward: {
+        send_ms: 12,
+        wait_ms: 23000,
+        recv_ms: 40,
+        request_bytes: 8421,
+        response_bytes: 3102,
+      },
+    });
+    await sandbox.runPageOptimizationSuggest(1);
+    const last = [...wf].reverse().find((m) => m && m.action === 'pageAdvisorWaterfall');
+    assert.ok(last && last.run);
+    const ids = (last.run.spans || []).map((s) => s.id);
+    assert.equal(ids.includes('saas_poll'), false);
+    assert.ok(ids.includes('saas_fwd_send'));
+    assert.ok(ids.includes('saas_fwd_wait'));
+    assert.ok(ids.includes('saas_fwd_recv'));
+    const wait = last.run.spans.find((s) => s.id === 'saas_fwd_wait');
+    assert.equal(wait.labelMs, 23000);
+  });
+
   it('successful job copies the Alt+X element label onto suggestions', async () => {
     require('../lib/element-picker.js');
     require('../lib/page-advisor-anchor.js');
