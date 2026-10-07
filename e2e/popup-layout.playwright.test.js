@@ -346,7 +346,9 @@ test.describe('Popup 面板布局', () => {
     await page.locator('#popupLlmRouteSaas').check();
     await expect(row).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#popupLlmSystemSkuRow')).toBeVisible();
-    await expect(page.locator('#popupLlmSystemSku')).toContainText('自有智能体');
+    // 分组名以 <optgroup label> 呈现，原生 select 的 textContent 不含该属性 → 按 optgroup 断言。
+    await expect(page.locator('#popupLlmSystemSku optgroup[label="自有智能体"]')).toHaveCount(1);
+    await expect(page.locator('#popupLlmSystemSku optgroup[label="系统智能体"]')).toHaveCount(1);
     await expect(page.locator('#popupLlmSystemSku')).toContainText('公司主账号*deepseek-chat');
     await expect(page.locator('#popupLlmSystemSku')).toContainText('系统甲');
     await expect(row).toContainText('工作空间');
