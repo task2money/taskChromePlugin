@@ -1,5 +1,5 @@
 /**
- * IDE 送达：剪贴板 + SW native host；生成成功后自动转发一次。
+ * IDE 送达：剪贴板 + SW deeplink/native；生成成功后自动转发一次。
  */
 
 "use strict";
@@ -70,6 +70,7 @@ async function deliverPageAdvisorSuggestions(opts) {
     block,
     clip ? (text) => clip.call(navigator.clipboard, text) : null,
   );
+  let deeplinkOk = false;
   let nativeOk = false;
   let nativeError = "";
   try {
@@ -79,14 +80,21 @@ async function deliverPageAdvisorSuggestions(opts) {
       text: block,
       pageUrl: pageAdvisorState.pageUrl,
     });
+    deeplinkOk = !!(resp && resp.deeplinkOk);
     nativeOk = !!(resp && resp.nativeOk);
     nativeError = String((resp && (resp.nativeError || resp.error)) || "");
   } catch (_) {
+    deeplinkOk = false;
     nativeOk = false;
   }
   const status = PageAdvisorDelivery.formatUserStatus(
     target,
-    { clipboardOk: copied, nativeOk: nativeOk, nativeError: nativeError },
+    {
+      clipboardOk: copied,
+      deeplinkOk: deeplinkOk,
+      nativeOk: nativeOk,
+      nativeError: nativeError,
+    },
     typeof tx === "function" ? tx : null,
   );
   if (typeof showResult === "function") {

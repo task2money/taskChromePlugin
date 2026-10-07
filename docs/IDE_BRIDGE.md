@@ -3,9 +3,10 @@
 Alt+Z 把建议发到 Cursor / Claude / Codex / Trae / WorkBuddy 时，扩展会：
 
 1. 把 Markdown 写入剪贴板（必做）
-2. 若已安装本机 Native Host `com.aidevpush.ide_bridge`，尝试聚焦对应窗口并粘贴
+2. **深链打开编辑器（主路径）** — Cursor：`cursor://anysphere.cursor-deeplink/prompt?text=`（预填 `/new` + 建议正文）；Claude：`claude://code/new?q=`；Codex：`codex://new?prompt=`；Trae：`trae://`（仅唤起，无官方 prompt 预填）；WorkBuddy：无登记深链，仅剪贴板
+3. 若已安装本机 Native Host `com.aidevpush.ide_bridge`，再尝试聚焦窗口并粘贴（辅助）
 
-未安装 host 时，在目标编辑器按 Ctrl+V / ⌘V 即可。Host **不会**把建议正文当命令执行。
+深链由 Service Worker `chrome.tabs.create` 触发，依赖本机已安装对应应用并注册协议。未装应用或协议失败时，请在目标编辑器按 Ctrl+V / ⌘V。Host **不会**把建议正文当命令执行。
 
 ## 安装（Linux）
 

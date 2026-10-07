@@ -29,7 +29,7 @@ describe('page-advisor-delivery', () => {
     assert.equal(Delivery.shouldOpenCreatePanel('claude'), false);
   });
 
-  it('formatUserStatus prefers native paste then clipboard', () => {
+  it('formatUserStatus prefers deeplink then native then clipboard', () => {
     const labels = {
       paDeliveryCursor: 'Cursor',
       paDeliveryClaude: 'Claude',
@@ -42,6 +42,14 @@ describe('page-advisor-delivery', () => {
       if (p && p.name) return `${k}:${p.name}`;
       return labels[k] || k;
     };
+    assert.equal(
+      Delivery.formatUserStatus(
+        'cursor',
+        { deeplinkOk: true, nativeOk: true, clipboardOk: true },
+        tx,
+      ).text,
+      'paDeliverDeeplinkOk:Cursor',
+    );
     assert.equal(
       Delivery.formatUserStatus('cursor', { nativeOk: true, clipboardOk: true }, tx).text,
       'paDeliverNativeOk:Cursor',
@@ -70,6 +78,46 @@ describe('page-advisor-delivery', () => {
       Delivery.formatUserStatus('cursor', { nativeOk: false, clipboardOk: false }, tx).ok,
       false,
     );
+  });
+
+  it('buildIdeDeeplink uses Cursor/Claude/Codex official schemes', () => {
+    const cursor = Delivery.buildIdeDeeplink('cursor', 'fix login');
+    assert.ok(cursor.startsWith('cursor://anysphere.cursor-deeplink/prompt?text='));
+    const decoded = decodeURIComponent(cursor.split('text=')[1]);
+    assert.equal(decoded, '/new\nfix login');
+
+    const claude = Delivery.buildIdeDeeplink('claude', 'hello');
+    assert.equal(claude, 'claude://code/new?q=' + encodeURIComponent('hello'));
+
+    const codex = Delivery.buildIdeDeeplink('codex', 'ship it');
+    assert.equal(codex, 'codex://new?prompt=' + encodeURIComponent('ship it'));
+
+    assert.equal(Delivery.buildIdeDeeplink('trae', 'x'), 'trae://');
+    assert.equal(Delivery.buildIdeDeeplink('workbuddy', 'x'), '');
+    assert.equal(Delivery.buildIdeDeeplink('task_description', 'x'), '');
+    assert.equal(Delivery.buildIdeDeeplink('cursor', ''), '');
+  });
+
+  it('buildIdeDeeplink truncates overlong Cursor URLs', () => {
+    const huge = 'a'.repeat(20000);
+    const url = Delivery.buildIdeDeeplink('cursor', huge);
+    assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
+    assert.ok(url.startsWith('cursor://anysphere.cursor-deeplink/prompt?text='));
+  });
+
+  it('SW opens IDE via tabs.create deeplink', () => {
+    const sw = fs.readFileSync(
+      path.join(__dirname, '../background/sw-page-advisor-delivery.js'),
+      'utf8',
+    );
+    assert.match(sw, /buildIdeDeeplink/);
+    assert.match(sw, /chrome\.tabs\.create/);
+    assert.match(sw, /deeplinkOk/);
+    const deliver = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-deliver.js'),
+      'utf8',
+    );
+    assert.match(deliver, /deeplinkOk/);
   });
 
   it('fill-ui gates create panel on shouldOpenCreatePanel', () => {
