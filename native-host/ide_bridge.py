@@ -12,15 +12,12 @@ import struct
 import subprocess
 import sys
 
-ALLOWED = frozenset({"cursor", "claude", "codex", "trae", "workbuddy"})
-# OPT-20261006-037: 部分发行版窗口标题带变体后缀/空格（如「Trae CN」
-# 「ByteDance Trae」「Work Buddy」），只匹配基名会让已装桥静默降级到剪贴板。
+ALLOWED = frozenset({"cursor", "claude", "codex"})
+# 仅保留有官方 prompt 深链的 IDE；窗口标题大小写不敏感子串匹配。
 TITLES = {
     "cursor": ("Cursor",),
     "claude": ("Claude",),
     "codex": ("Codex",),
-    "trae": ("Trae", "Trae CN", "ByteDance Trae"),
-    "workbuddy": ("WorkBuddy", "Workbuddy", "Work Buddy", "ByteDance WorkBuddy"),
 }
 
 

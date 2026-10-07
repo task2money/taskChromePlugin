@@ -8,12 +8,12 @@ const path = require('node:path');
 const Delivery = require('../lib/page-advisor-delivery.js');
 
 describe('page-advisor-delivery', () => {
-  it('normalizeTarget falls back to task_description', () => {
+  it('normalizeTarget keeps deeplink IDEs; legacy trae/workbuddy fall back', () => {
     assert.equal(Delivery.normalizeTarget('cursor'), 'cursor');
     assert.equal(Delivery.normalizeTarget('claude'), 'claude');
     assert.equal(Delivery.normalizeTarget('codex'), 'codex');
-    assert.equal(Delivery.normalizeTarget('trae'), 'trae');
-    assert.equal(Delivery.normalizeTarget('workbuddy'), 'workbuddy');
+    assert.equal(Delivery.normalizeTarget('trae'), 'task_description');
+    assert.equal(Delivery.normalizeTarget('workbuddy'), 'task_description');
     assert.equal(Delivery.normalizeTarget('task_description'), 'task_description');
     assert.equal(Delivery.normalizeTarget(''), 'task_description');
     assert.equal(Delivery.normalizeTarget('nope'), 'task_description');
@@ -22,8 +22,10 @@ describe('page-advisor-delivery', () => {
 
   it('auto-delivers only IDE targets and opens create panel only for task_description', () => {
     assert.equal(Delivery.shouldAutoDeliverOnResult('cursor'), true);
-    assert.equal(Delivery.shouldAutoDeliverOnResult('trae'), true);
-    assert.equal(Delivery.shouldAutoDeliverOnResult('workbuddy'), true);
+    assert.equal(Delivery.shouldAutoDeliverOnResult('claude'), true);
+    assert.equal(Delivery.shouldAutoDeliverOnResult('codex'), true);
+    assert.equal(Delivery.shouldAutoDeliverOnResult('trae'), false);
+    assert.equal(Delivery.shouldAutoDeliverOnResult('workbuddy'), false);
     assert.equal(Delivery.shouldAutoDeliverOnResult('task_description'), false);
     assert.equal(Delivery.shouldOpenCreatePanel('task_description'), true);
     assert.equal(Delivery.shouldOpenCreatePanel('claude'), false);
@@ -34,8 +36,6 @@ describe('page-advisor-delivery', () => {
       paDeliveryCursor: 'Cursor',
       paDeliveryClaude: 'Claude',
       paDeliveryCodex: 'Codex',
-      paDeliveryTrae: 'Trae',
-      paDeliveryWorkBuddy: 'WorkBuddy',
       paDeliveryTaskDesc: '任务描述',
     };
     const tx = (k, p) => {
@@ -67,14 +67,6 @@ describe('page-advisor-delivery', () => {
       'paDeliverClipboardOnly:Codex',
     );
     assert.equal(
-      Delivery.formatUserStatus('trae', { nativeOk: false, clipboardOk: true }, tx).text,
-      'paDeliverClipboardOnly:Trae',
-    );
-    assert.equal(
-      Delivery.formatUserStatus('workbuddy', { nativeOk: true, clipboardOk: true }, tx).text,
-      'paDeliverNativeOk:WorkBuddy',
-    );
-    assert.equal(
       Delivery.formatUserStatus('cursor', { nativeOk: false, clipboardOk: false }, tx).ok,
       false,
     );
@@ -92,7 +84,7 @@ describe('page-advisor-delivery', () => {
     const codex = Delivery.buildIdeDeeplink('codex', 'ship it');
     assert.equal(codex, 'codex://new?prompt=' + encodeURIComponent('ship it'));
 
-    assert.equal(Delivery.buildIdeDeeplink('trae', 'x'), 'trae://');
+    assert.equal(Delivery.buildIdeDeeplink('trae', 'x'), '');
     assert.equal(Delivery.buildIdeDeeplink('workbuddy', 'x'), '');
     assert.equal(Delivery.buildIdeDeeplink('task_description', 'x'), '');
     assert.equal(Delivery.buildIdeDeeplink('cursor', ''), '');
@@ -130,7 +122,7 @@ describe('page-advisor-delivery', () => {
     assert.match(src, /deliverPageAdvisorSuggestions/);
   });
 
-  it('popup radios persist pageAdvisorDeliveryTarget', () => {
+  it('popup radios only list task_description and deeplink IDEs', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(llm, /id="popupDeliveryTargetField"/);
@@ -139,8 +131,8 @@ describe('page-advisor-delivery', () => {
     assert.match(llm, /value="cursor"/);
     assert.match(llm, /value="claude"/);
     assert.match(llm, /value="codex"/);
-    assert.match(llm, /value="trae"/);
-    assert.match(llm, /value="workbuddy"/);
+    assert.doesNotMatch(llm, /value="trae"/);
+    assert.doesNotMatch(llm, /value="workbuddy"/);
     assert.match(llm, /data-i18n="paDeliveryHint"/);
     assert.match(llm, /data-region-help="1"/);
     const hintIdx = llm.indexOf('data-i18n="paDeliveryHint"');
@@ -189,7 +181,7 @@ describe('page-advisor-delivery', () => {
     assert.equal(obj.method, 'clipboard');
   });
 
-  it('native host accepts trae and workbuddy in dry-run', () => {
+  it('native host rejects non-deeplink targets in dry-run', () => {
     const { spawnSync } = require('node:child_process');
     const py = path.join(__dirname, '../native-host/ide_bridge.py');
     for (const target of ['trae', 'workbuddy']) {
@@ -208,8 +200,7 @@ describe('page-advisor-delivery', () => {
       assert.equal(r.status, 0, String(r.stderr || ''));
       const n = r.stdout.readUInt32LE(0);
       const obj = JSON.parse(r.stdout.slice(4, 4 + n).toString('utf8'));
-      assert.equal(obj.ok, true, target);
-      assert.equal(obj.method, 'clipboard', target);
+      assert.equal(obj.ok, false, target);
     }
   });
 
@@ -224,7 +215,7 @@ describe('page-advisor-delivery', () => {
     assert.ok(js.includes('content/float-page-advisor-deliver.js'));
   });
 
-  it('native host 标题匹配覆盖 Trae/WorkBuddy 变体（OPT-20261006-037）', () => {
+  it('native host 标题匹配覆盖 Cursor/Claude/Codex', () => {
     const { spawnSync } = require('node:child_process');
     const py = path.join(__dirname, '../native-host/ide_bridge.py');
     const script = [
@@ -233,22 +224,22 @@ describe('page-advisor-delivery', () => {
       'm = importlib.util.module_from_spec(spec)',
       'spec.loader.exec_module(m)',
       'print(json.dumps({',
-      '  "trae_cn": m.match_title(m.TITLES["trae"], ["x", "Trae CN — f.py"]),',
-      '  "byte_trae": m.match_title(m.TITLES["trae"], ["ByteDance Trae"]),',
-      '  "work_buddy": m.match_title(m.TITLES["workbuddy"], ["Work Buddy"]),',
-      '  "byte_wb": m.match_title(m.TITLES["workbuddy"], ["ByteDance WorkBuddy"]),',
-      '  "case_insensitive": m.match_title(m.TITLES["workbuddy"], ["workbuddy v2"]),',
-      '  "none": m.match_title(m.TITLES["trae"], ["gedit notes.txt"]),',
+      '  "cursor": m.match_title(m.TITLES["cursor"], ["x", "Cursor — f.py"]),',
+      '  "claude": m.match_title(m.TITLES["claude"], ["Claude"]),',
+      '  "codex": m.match_title(m.TITLES["codex"], ["Codex"]),',
+      '  "case_insensitive": m.match_title(m.TITLES["cursor"], ["cursor v2"]),',
+      '  "none": m.match_title(m.TITLES["cursor"], ["gedit notes.txt"]),',
+      '  "allowed": sorted(m.ALLOWED),',
       '}))',
     ].join('\n');
     const r = spawnSync('python3', ['-c', script], { encoding: 'utf8' });
     assert.equal(r.status, 0, String(r.stderr || ''));
     const out = JSON.parse(r.stdout.trim());
-    assert.equal(out.trae_cn, 'Trae');
-    assert.equal(out.byte_trae, 'Trae');
-    assert.equal(out.work_buddy, 'Work Buddy');
-    assert.equal(out.byte_wb, 'WorkBuddy');
-    assert.equal(out.case_insensitive, 'WorkBuddy');
+    assert.equal(out.cursor, 'Cursor');
+    assert.equal(out.claude, 'Claude');
+    assert.equal(out.codex, 'Codex');
+    assert.equal(out.case_insensitive, 'Cursor');
     assert.equal(out.none, null);
+    assert.deepEqual(out.allowed, ['claude', 'codex', 'cursor']);
   });
 });
