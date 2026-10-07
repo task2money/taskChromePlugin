@@ -228,16 +228,18 @@ test.describe('Alt+Z 页面优化建议 a11y 播报', () => {
 
     const fillOne = toolbar.getByRole('button', { name: '拷贝并逐条填入' });
     await expect(fillOne).toHaveCount(1);
+    // title 以 lib/i18n-ui-messages.js 的 paFillOneTitle 为 SSOT（填入时会拷贝到
+    // 剪切板并带采集锚点）；断言曾停留在旧文案，随 v1.8.210 送达/文案重构后漂移。
     await expect(fillOne).toHaveAttribute(
       'title',
-      '逐条把建议文案写入任务描述输入框，需手动提交',
+      '拷贝当前第一条已勾选建议到剪切板，并追加写入任务描述。正文含元素/选择器/可见文本/HTML 片段与调整期望。',
     );
 
     const fillAll = toolbar.getByRole('button', { name: '拷贝并全部填入' });
     await expect(fillAll).toHaveCount(1);
     await expect(fillAll).toHaveAttribute(
       'title',
-      '将全部建议追加写入任务描述输入框，保留已有内容',
+      '拷贝全部已勾选建议到剪切板，并追加写入任务描述。含元素/选择器/可见文本/HTML 片段与调整期望；锚点相对于生成建议时的页面，请一次性应用。',
     );
 
     await expect(toolbar.getByRole('button', { name: '关闭预览并撤销改动' }))

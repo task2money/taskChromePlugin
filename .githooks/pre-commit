@@ -1,9 +1,10 @@
 #!/bin/bash
-# taskChromePlugin pre-commit（task2app 随机单测模式 + 登录 E2E）：
+# taskChromePlugin pre-commit（task2app 随机单测模式 + 登录 E2E + 布局 E2E）：
 # 1) 暂存的 test/*.test.js 优先跑
 # 2) 其余 unit 测例按比例随机抽测（每次提交至少 1 个）
 # 3) 暂存插件源码时跑 npm test
 # 4) 涉及登录链路时跑 Playwright E2E
+# 5) 涉及插件布局承载面（popup/ panel/ content/ lib/）时跑布局 E2E（OPT-20261008-002）
 
 set -u
 # Session Hub 提交锁校验（v1.1.0，可选 — 二进制缺失时放行）
@@ -53,11 +54,20 @@ STAGED_FILES="$(git diff --cached --name-only 2>/dev/null || true)"
 
 should_run_all=false
 should_run_login_e2e=false
+should_run_layout_e2e=false
 while IFS= read -r f; do
     [ -z "$f" ] && continue
     case "$f" in
         lib/*|devtools/*|background/*|panel/*|popup/*|test/*|e2e/*|package.json)
             should_run_all=true
+            ;;
+    esac
+    case "$f" in
+        # 布局 e2e（OPT-20261008-002）：插件布局承载面变更时跑自包含几何断言。
+        # 该断言集曾在无人跑的状态下长期红（详见 e2e/run-layout-e2e.sh 头部）。
+        popup/*|panel/*|content/*|lib/*|\
+        e2e/run-layout-e2e.sh|e2e/popup-layout*|e2e/float-close-collapse*|e2e/page-advisor-region-float*)
+            should_run_layout_e2e=true
             ;;
     esac
     case "$f" in
@@ -158,6 +168,12 @@ if [ "$should_run_login_e2e" = true ]; then
         E2E_SCRIPT="e2e/real-extension-messaging.playwright.test.js.sh"
     fi
     bash "$E2E_SCRIPT" || exit 1
+fi
+
+if [ "$should_run_layout_e2e" = true ]; then
+    echo "Staged layout-bearing files; running layout Playwright E2E..."
+    # 自包含（无登录/扩展/外网）几何断言，退出码即判据
+    bash e2e/run-layout-e2e.sh || exit 1
 fi
 
 echo "taskChromePlugin pre-commit checks passed."

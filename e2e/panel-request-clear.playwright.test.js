@@ -154,6 +154,11 @@ function installChromeStubs() {
 test.describe('DevTools 面板请求列表清空链路', () => {
   test('清空列表按钮清空 UI 且刷新不再拉回', async ({ page }) => {
     await page.addInitScript(installChromeStubs());
+    // 面板 i18n 无存储值时回退 navigator.language（lib/i18n.js），headless chromium
+    // 报 en-US 会把占位文案渲染成英文；同源 localStorage 钉死 zh-CN 以稳定断言。
+    await page.addInitScript(() => {
+      try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
+    });
     await page.goto(server.baseURL + '/devtools/devtools.html');
 
     await page.waitForSelector('#tcp-panel-frame');
