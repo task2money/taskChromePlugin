@@ -26,6 +26,7 @@ const {
   snapshotDisjointSelection,
   unionClientRects,
   snapshotElement,
+  withoutPickHighlight,
   prefixCssPathWithFrames,
   applyFramePrefixesToSnapshot,
   DEFAULT_ADJUST_PROMPT,
@@ -481,5 +482,39 @@ describe('prefixCssPathWithFrames / applyFramePrefixesToSnapshot', () => {
     const snap = { cssPath: 'button.save', elements: [{ cssPath: 'a' }] };
     assert.equal(applyFramePrefixesToSnapshot(snap, []), snap);
     assert.equal(applyFramePrefixesToSnapshot(snap, null), snap);
+  });
+
+  // OPT-20261007-010: 指针选择在悬停高亮 class 仍在节点上时快照，
+  // withoutPickHighlight 在快照期间摘掉它，标签才与 pageAdvisorDomAnchor 一致。
+  it('withoutPickHighlight strips the hover class for the snapshot and restores it', () => {
+    const classes = new Set(['primary', 'taskplugin-el-highlight']);
+    const el = {
+      nodeType: 1,
+      tagName: 'BUTTON',
+      id: 'go',
+      className: 'primary taskplugin-el-highlight',
+      getAttribute(name) {
+        if (name === 'id') return 'go';
+        if (name === 'class') return this.className;
+        return null;
+      },
+      classList: {
+        contains: (c) => classes.has(c),
+        add: (c) => { classes.add(c); el.className = [...classes].join(' '); },
+        remove: (c) => { classes.delete(c); el.className = [...classes].join(' '); },
+      },
+    };
+
+    assert.equal(snapshotElement(el).label, 'button#go.primary.taskplugin-el-highlight');
+
+    const snapped = withoutPickHighlight([el], () => snapshotElement(el));
+    assert.equal(snapped.label, 'button#go.primary');
+    assert.equal(el.className, 'primary taskplugin-el-highlight');
+    assert.ok(classes.has('taskplugin-el-highlight'));
+
+    // 与「本就没有高亮 class」的同一节点标签逐字相同。
+    classes.delete('taskplugin-el-highlight');
+    el.className = 'primary';
+    assert.equal(snapped.label, snapshotElement(el).label);
   });
 });

@@ -134,4 +134,48 @@ describe('onPickSelectEvent accumulates Ctrl multi-select', () => {
     assert.deepEqual(sandbox.finished, []);
     assert.deepEqual(sandbox.pickSelection.map((el) => el.id), ['a', 'b']);
   });
+
+  it('确认快照时先摘掉悬停高亮 class，用完还原（OPT-20261007-010）', () => {
+    const { withoutPickHighlight } = require('../lib/element-picker.js');
+    const snapshotCalls = [];
+    const sandbox = {
+      setPickMode() {},
+      openAdjustModal() {},
+      viewportRectForElements() { return null; },
+      ElementPicker: {
+        withoutPickHighlight,
+        snapshotElement(el) {
+          snapshotCalls.push([el.id, String(el.className)]);
+          return { label: String(el.className) };
+        },
+        snapshotDisjointSelection(els) { return { elements: els }; },
+      },
+    };
+    const code = [
+      'var pickSelection = [];',
+      'var pickSelectionFrame = null;',
+      extractNamedFunction(src, 'clearPickSelection'),
+      extractNamedFunction(src, 'finishPickWithElements'),
+      'finishPickWithElements;',
+    ].join('\n');
+    vm.createContext(sandbox);
+    vm.runInContext(code, sandbox);
+
+    const classes = new Set(['primary', 'taskplugin-el-highlight']);
+    const el = {
+      nodeType: 1,
+      id: 'go',
+      className: 'primary taskplugin-el-highlight',
+      classList: {
+        contains: (c) => classes.has(c),
+        add: (c) => { classes.add(c); el.className = [...classes].join(' '); },
+        remove: (c) => { classes.delete(c); el.className = [...classes].join(' '); },
+      },
+    };
+    vm.runInContext('finishPickWithElements(_el, null, false)', Object.assign(sandbox, { _el: el }));
+
+    assert.deepEqual(snapshotCalls, [['go', 'primary']]);
+    assert.ok(classes.has('taskplugin-el-highlight'), '高亮 class 用完应还原');
+    assert.equal(sandbox.pendingElementSnapshot.label, 'primary');
+  });
 });

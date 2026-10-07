@@ -147,9 +147,10 @@ function finishPickWithElements(els, frameElement, closedShadow) {
   const list = (Array.isArray(els) ? els : [els]).filter((el) => el && el.nodeType === 1);
   if (list.length === 0) return;
   pendingFrameElement = frameElement;
-  pendingElementSnapshot = list.length === 1
+  // 悬停高亮 class 还在节点上，快照前摘掉，否则 label 带上它（OPT-20261007-010）。
+  pendingElementSnapshot = ElementPicker.withoutPickHighlight(list, () => (list.length === 1
     ? ElementPicker.snapshotElement(list[0], { frameElement, closedShadow })
-    : ElementPicker.snapshotDisjointSelection(list, { frameElement, closedShadow });
+    : ElementPicker.snapshotDisjointSelection(list, { frameElement, closedShadow })));
   pendingElementSnapshot._viewportRect = viewportRectForElements(list, frameElement);
   clearPickSelection();
   setPickMode(false);
