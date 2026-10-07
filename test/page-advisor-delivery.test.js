@@ -74,9 +74,13 @@ describe('page-advisor-delivery', () => {
 
   it('buildIdeDeeplink uses Cursor/Claude/Codex official schemes', () => {
     const cursor = Delivery.buildIdeDeeplink('cursor', 'fix login');
-    assert.ok(cursor.startsWith('cursor://anysphere.cursor-deeplink/prompt?text='));
+    assert.equal(
+      cursor,
+      'cursor://anysphere.cursor-deeplink/prompt?text=' + encodeURIComponent('fix login'),
+    );
     const decoded = decodeURIComponent(cursor.split('text=')[1]);
-    assert.equal(decoded, '/new\nfix login');
+    assert.equal(decoded, 'fix login');
+    assert.doesNotMatch(decoded, /^\/new/);
 
     const claude = Delivery.buildIdeDeeplink('claude', 'hello');
     assert.equal(claude, 'claude://code/new?q=' + encodeURIComponent('hello'));
