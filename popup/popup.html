@@ -50,14 +50,14 @@
 
     <!-- 送达渠道：Alt+X 拾取与 Alt+Z 建议共用。不重复弹窗顶栏品牌名。 -->
     <section id="pluginDeliverySection" class="section" style="display:none">
-      <div class="advisor-defaults-heading llm-section-heading">
-        <details class="region-help">
-          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paDeliveryHint">「转发目标」一次只选一个，同时作用于 Alt+X 元素调整与 Alt+Z 优化建议。任务描述：Alt+X 确认后写入任务描述；Alt+Z 生成后须点底栏填入才会打开创建浮窗。选 Cursor / Claude / Codex：生成后不自动转发，须点底栏「发送到 …」才会经官方深链打开编辑器并预填（同时复制剪贴板）；可选本机桥辅助粘贴。不打开创建任务。</p>
-        </details>
-      </div>
       <fieldset class="form-row" id="popupDeliveryTargetField">
-        <legend data-i18n="paDeliveryLegend">转发目标</legend>
+        <div class="delivery-target-caption">
+          <legend data-i18n="paDeliveryLegend">转发目标</legend>
+          <details class="region-help">
+            <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+            <p class="float-ball-hint" data-region-help="1" data-i18n="paDeliveryHint">「转发目标」一次只选一个，同时作用于 Alt+X 元素调整与 Alt+Z 优化建议。任务描述：Alt+X 确认后写入任务描述；Alt+Z 生成后须点底栏填入才会打开创建浮窗。选 Cursor / Claude / Codex：生成后不自动转发，须点底栏「发送到 …」才会经官方深链打开编辑器并预填（同时复制剪贴板）；可选本机桥辅助粘贴。不打开创建任务。</p>
+          </details>
+        </div>
         <label class="llm-route-option">
           <input type="radio" name="pageAdvisorDeliveryTarget" value="task_description" checked>
           <span data-i18n="paDeliveryTaskDesc">任务描述</span>

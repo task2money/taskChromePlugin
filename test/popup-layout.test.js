@@ -113,25 +113,30 @@ describe('Popup 面板布局', () => {
     );
   });
 
-  it('转发目标选项 flex-wrap 水平平铺', () => {
+  it('转发目标选项 flex-wrap 水平平铺，! 紧跟图例且不另占空行', () => {
     assert.match(popupCss, /#popupDeliveryTargetField\s*\{[^}]*flex-wrap:\s*wrap/);
     assert.match(popupCss, /#popupDeliveryTargetField\s*\{[^}]*display:\s*flex/);
     assert.match(
       popupCss,
-      /#popupDeliveryTargetField > legend[\s\S]{0,80}flex:\s*0\s+0\s+100%/,
+      /#popupDeliveryTargetField > \.delivery-target-caption\s*\{[^}]*flex:\s*0\s+0\s+100%/,
     );
+    assert.match(
+      popupCss,
+      /#popupDeliveryTargetField > \.delivery-target-caption > legend\s*\{[^}]*flex:\s*0\s+0\s+auto/,
+    );
+    assert.doesNotMatch(popupCss, /#pluginDeliverySection \.advisor-defaults-heading/);
     assert.match(
       popupCss,
       /#popupDeliveryTargetField \.llm-route-option[\s\S]{0,80}display:\s*inline-flex/,
     );
     const brand = popupHtml.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
+    assert.doesNotMatch(brand, /advisor-defaults-heading/);
+    const caption = brand.match(/class="delivery-target-caption"[\s\S]*?<\/div>/)[0];
+    const legendIdx = caption.indexOf('>转发目标<');
+    const bangIdx = caption.indexOf('class="region-help-mark"');
+    assert.ok(legendIdx >= 0 && bangIdx > legendIdx, '! 须紧跟在「转发目标」文案之后');
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
-    assert.match(brand, />转发目标</);
     assert.doesNotMatch(brand, /data-i18n="extTitle"/);
-    assert.match(
-      popupCss,
-      /#pluginDeliverySection \.advisor-defaults-heading\s*\{[^}]*justify-content:\s*flex-end/,
-    );
   });
 
   // OPT-20261006-020：平台后端下拉保持单条自有智能体，另加一行说明由平台按层解析。
