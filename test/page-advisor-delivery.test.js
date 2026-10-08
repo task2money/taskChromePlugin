@@ -20,6 +20,33 @@ describe('page-advisor-delivery', () => {
     assert.equal(Delivery.normalizeTarget(null), 'task_description');
   });
 
+
+  it('本机偏好：较新的本地记录胜过尚未写完的 chrome.storage', () => {
+    const newer = Delivery.chooseDeliveryPreference({
+      localTarget: 'codex',
+      localAt: 50,
+      remoteTarget: 'task_description',
+      remoteAt: 1,
+    });
+    assert.equal(newer.target, 'codex');
+    assert.equal(newer.at, 50);
+    assert.equal(newer.source, 'local');
+    const legacy = Delivery.chooseDeliveryPreference({
+      localTarget: '',
+      localAt: 0,
+      remoteTarget: 'claude',
+      remoteAt: 0,
+    });
+    assert.equal(legacy.target, 'claude');
+    assert.equal(legacy.source, 'remote');
+    const none = Delivery.chooseDeliveryPreference({});
+    assert.equal(none.target, 'task_description');
+    assert.equal(none.source, 'default');
+    const payload = Delivery.preferencePayload('trae', 80);
+    assert.equal(payload.pageAdvisorDeliveryTarget, 'task_description');
+    assert.equal(payload.pageAdvisorDeliveryTargetAt, 80);
+  });
+
   it('IDE 目标不自动送达；须点底栏；create panel 仅任务描述', () => {
     assert.equal(Delivery.isIdeDeliveryTarget('cursor'), true);
     assert.equal(Delivery.isIdeDeliveryTarget('claude'), true);
@@ -230,6 +257,12 @@ describe('page-advisor-delivery', () => {
     assert.match(sw, /buildIdeDeeplink/);
     assert.match(sw, /chrome\.tabs\.create/);
     assert.match(sw, /deeplinkOk/);
+    assert.match(sw, /persistPageAdvisorDeliveryTarget/);
+    const rest = fs.readFileSync(
+      path.join(__dirname, '../background/sw-messages-task.js'),
+      'utf8',
+    );
+    assert.match(rest, /case 'persistPageAdvisorDeliveryTarget'/);
     const deliver = fs.readFileSync(
       path.join(__dirname, '../content/float-page-advisor-deliver.js'),
       'utf8',
@@ -297,7 +330,7 @@ describe('page-advisor-delivery', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
     assert.equal(man.permissions.includes('nativeMessaging'), false);
-    assert.equal(man.version, '1.8.222');
+    assert.equal(man.version, '1.8.223');
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));

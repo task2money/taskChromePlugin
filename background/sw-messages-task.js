@@ -1,6 +1,10 @@
 /** Task / capture / account runtime messages (OPT-20260821-004 split). */
 async function handleMessageRest(message, sender) {
   switch (message.action) {
+    case 'persistPageAdvisorDeliveryTarget':
+      // 侧栏关掉时页面里的 storage.set 可能被取消；SW 把同一次选择写完。
+      return persistPageAdvisorDeliveryTarget(message);
+
     case 'createTask':
       try {
         await initApiFromMessage(message);

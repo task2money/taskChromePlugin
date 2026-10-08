@@ -2,6 +2,20 @@
 
 'use strict';
 
+async function persistPageAdvisorDeliveryTarget(message) {
+  const Delivery = globalThis.PageAdvisorDelivery;
+  if (!Delivery || typeof Delivery.preferencePayload !== 'function') {
+    return { success: false, error: 'delivery_unavailable' };
+  }
+  const payload = Delivery.preferencePayload(message && message.target, message && message.at);
+  await chrome.storage.local.set(payload);
+  console.info('[taskChromePlugin] delivery preference saved', {
+    target: payload.pageAdvisorDeliveryTarget,
+    at: payload.pageAdvisorDeliveryTargetAt,
+  });
+  return { success: true };
+}
+
 /** 同一轮点击连续打开多条协议链接的间隔，避免系统只收下最后一条。不是轮询。 */
 var PAGE_ADVISOR_BATCH_OPEN_GAP_MS = 200;
 
