@@ -417,6 +417,15 @@ describe('float surface does not mount UserGuide', () => {
     assert.ok(!(entry.css || []).includes('content/content-guide.css'));
   });
 
+  it('采集面板说明与侧栏耗时同源', () => {
+    const js = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    const en = fs.readFileSync(path.join(__dirname, '../lib/user-guide-en-sections.js'), 'utf8');
+    assert.match(js, /正在采集页面并生成优化建议…」面板同步显示同一组环节耗时/);
+    assert.match(md, /正在采集页面并生成优化建议…」面板同步显示同一组环节耗时/);
+    assert.match(en, /in-page panel that says it is collecting the page/);
+  });
+
   it('popup 仍挂载使用说明', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
     assert.match(html, /id="popup-user-guide"/);

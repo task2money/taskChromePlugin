@@ -115,7 +115,9 @@
   position: fixed !important;
   right: 16px !important;
   bottom: 88px !important;
-  width: min(320px, calc(100vw - 32px)) !important;
+  width: min(380px, calc(100vw - 32px)) !important;
+  max-height: min(70vh, 440px) !important;
+  overflow: auto !important;
   padding: 12px !important;
   background: #1e1e2e !important;
   border: 1px solid #45475a !important;
@@ -290,3 +292,75 @@
   box-shadow: 0 0 0 4px rgba(249, 226, 175, 0.4) !important;
 }
 
+
+.taskplugin-page-advisor-status-text {
+  color: #a6adc8 !important;
+  font-size: 12px !important;
+  line-height: 1.4 !important;
+}
+/* 耗时条颜色对齐 DESIGN.md：ink-muted / primary / primary-dark / accent */
+.taskplugin-page-advisor-waterfall {
+  margin-top: 10px !important;
+  font-size: 11px !important;
+  color: #cdd6f4 !important;
+}
+.taskplugin-page-advisor-waterfall[hidden] {
+  display: none !important;
+}
+.taskplugin-page-advisor-waterfall .pa-wf-head {
+  display: flex !important;
+  justify-content: space-between !important;
+  gap: 8px !important;
+  margin: 0 0 6px !important;
+  color: #cdd6f4 !important;
+}
+.taskplugin-page-advisor-waterfall .pa-wf-row {
+  display: grid !important;
+  grid-template-columns: 72px 1fr auto !important;
+  align-items: center !important;
+  gap: 6px !important;
+  margin: 3px 0 !important;
+}
+.taskplugin-page-advisor-waterfall .pa-wf-label,
+.taskplugin-page-advisor-waterfall .pa-wf-ms {
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  color: #cdd6f4 !important;
+}
+.taskplugin-page-advisor-waterfall .pa-wf-track {
+  height: 6px !important;
+  background: #313244 !important;
+  border-radius: 999px !important;
+  position: relative !important;
+}
+.taskplugin-page-advisor-waterfall .pa-wf-bar {
+  position: absolute !important;
+  top: 0 !important;
+  height: 6px !important;
+  border-radius: 999px !important;
+}
+.taskplugin-page-advisor-waterfall .pa-wf-bar-capture { background: #4B5563 !important; }
+.taskplugin-page-advisor-waterfall .pa-wf-bar-prompt { background: #6c7086 !important; }
+.taskplugin-page-advisor-waterfall .pa-wf-bar-network,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-network_wait,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-saas_poll,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-saas_fwd_queue,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-builtin,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-builtin_probe,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-builtin_create { background: #7241F2 !important; }
+.taskplugin-page-advisor-waterfall .pa-wf-bar-llm_wait,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-builtin_infer,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-builtin_fit,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-saas_fwd_wait { background: #5C2DC7 !important; }
+.taskplugin-page-advisor-waterfall .pa-wf-bar-parse,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-builtin_parse,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-render,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-network_download,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-saas_fwd_send,
+.taskplugin-page-advisor-waterfall .pa-wf-bar-saas_fwd_recv { background: #89b4fa !important; }
+.taskplugin-page-advisor-waterfall .pa-wf-bar-error { background: #FF324D !important; }
+.taskplugin-page-advisor-waterfall .pa-wf-row[data-span-status="pending"] .pa-wf-label,
+.taskplugin-page-advisor-waterfall .pa-wf-row[data-span-status="pending"] .pa-wf-ms {
+  color: #6c7086 !important;
+}

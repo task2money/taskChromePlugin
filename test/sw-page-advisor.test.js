@@ -320,4 +320,19 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     assert.equal(sandbox.consumePageAdvisorSuggestCommand(), 'alt-shift-z');
     assert.equal(sandbox.consumePageAdvisorSuggestCommand(), 'alt-z');
   });
+
+  it('broadcasts waterfall to the collecting tab so the in-page panel can paint it', async () => {
+    const tabMessages = [];
+    const sandbox = loadSwPageAdvisorStack();
+    sandbox.chrome.tabs.sendMessage = async (tabId, msg) => {
+      tabMessages.push({ tabId, msg });
+      return { success: true, data: {} };
+    };
+    await sandbox.runPageOptimizationSuggest(7);
+    const wf = tabMessages.filter((m) => m.msg && m.msg.action === 'pageAdvisorWaterfall');
+    assert.ok(wf.length >= 1, 'expected pageAdvisorWaterfall on the tab channel');
+    assert.equal(wf[0].tabId, 7);
+    assert.equal(wf[0].msg.run.status, 'running');
+    assert.ok((wf[0].msg.run.spans || []).some((s) => s.id === 'capture'));
+  });
 });

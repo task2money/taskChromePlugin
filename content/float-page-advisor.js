@@ -94,6 +94,9 @@ function schedulePageAdvisorLayout() {
 }
 
 function closePageAdvisorModal() {
+  if (typeof PageAdvisorFloatWaterfall !== "undefined" && PageAdvisorFloatWaterfall.pause) {
+    PageAdvisorFloatWaterfall.pause();
+  }
   if (typeof clearPageAdvisorRegionHighlight === "function") {
     clearPageAdvisorRegionHighlight();
   }
@@ -179,10 +182,16 @@ function showPageAdvisorLoading(message) {
   const text =
     message || (A11y ? A11y.loadingDefault : (typeof tx === "function" ? tx("paLoading") : "正在采集页面并生成优化建议…"));
   const cards = document.getElementById("taskplugin-page-advisor-cards");
+  const FloatWf = typeof PageAdvisorFloatWaterfall !== "undefined" ? PageAdvisorFloatWaterfall : null;
   if (cards) {
-    cards.innerHTML = `<div class="taskplugin-page-advisor-status-card" role="status" aria-live="polite" aria-atomic="true">${esc(text)}</div>`;
+    if (FloatWf && typeof FloatWf.statusCardHtml === "function") {
+      cards.innerHTML = FloatWf.statusCardHtml(text, esc);
+    } else {
+      cards.innerHTML = `<div class="taskplugin-page-advisor-status-card" role="status" aria-live="polite" aria-atomic="true">${esc(text)}</div>`;
+    }
   }
   setPageAdvisorLiveStatus(text);
+  if (FloatWf && typeof FloatWf.resume === "function") FloatWf.resume(document);
   syncPageAdvisorFillButtons();
   const links = document.getElementById("taskplugin-page-advisor-links");
   if (links) {

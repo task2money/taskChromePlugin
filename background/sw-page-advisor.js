@@ -158,7 +158,7 @@ async function loadDirectLlmSkill(sessionOk) {
 }
 
 async function runPageOptimizationSuggest(tabId) {
-  await Storage.migrateStaleTokenExpiryOnce();
+  if (typeof setPageAdvisorWaterfallTab === 'function') setPageAdvisorWaterfallTab(tabId); await Storage.migrateStaleTokenExpiryOnce();
   const cfg = await Storage.getApiConfig();
   const mapping = await Storage.getEndpointMapping();
   const cred = await Storage.getCredentials();

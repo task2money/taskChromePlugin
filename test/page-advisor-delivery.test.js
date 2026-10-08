@@ -396,7 +396,7 @@ describe('page-advisor-delivery', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
     assert.equal(man.permissions.includes('nativeMessaging'), false);
-    assert.equal(man.version, '1.8.226');
+    assert.equal(man.version, '1.8.228');
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));

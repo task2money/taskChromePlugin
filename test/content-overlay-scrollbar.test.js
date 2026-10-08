@@ -26,6 +26,7 @@ const CSS_FILES = [
 /** 允许的页内滚动容器。新增滚动容器须显式改这里，并同步 content.css 的 overlay 选择器。 */
 const SCROLL_CONTAINERS = [
   '.taskplugin-checkbox-list',
+  '.taskplugin-page-advisor-status-card',
   '.taskplugin-panel-body',
   '.taskplugin-user-guide-host .tcp-guide-body',
 ];

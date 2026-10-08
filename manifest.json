@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.226",
+  "version": "1.8.228",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -123,6 +123,9 @@
         "content/float-page-advisor-region.js",
         "content/float-page-advisor-layer.js",
         "content/float-page-advisor-drag.js",
+        "lib/page-advisor-timing.js",
+        "lib/page-advisor-waterfall-view.js",
+        "lib/page-advisor-float-waterfall.js",
         "content/float-page-advisor.js",
         "content/float-page-advisor-fill-ui.js",
         "content/float-page-advisor-site-pending.js",

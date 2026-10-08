@@ -3,6 +3,12 @@
 'use strict';
 
 let pageAdvisorSuggestCommand = 'alt-z';
+let pageAdvisorWaterfallTabId = 0;
+
+function setPageAdvisorWaterfallTab(tabId) {
+  const n = Number(tabId);
+  pageAdvisorWaterfallTabId = Number.isFinite(n) && n > 0 ? n : 0;
+}
 
 function markPageAdvisorSuggestCommand(command) {
   pageAdvisorSuggestCommand = command === 'alt-shift-z' ? 'alt-shift-z' : 'alt-z';
@@ -57,6 +63,13 @@ function broadcastPageAdvisorWaterfall(run) {
       chrome.storage.session.set({ pageAdvisorWaterfallCurrent: payload });
     }
   } catch (_) { /* ignore */ }
+  const tabId = pageAdvisorWaterfallTabId;
+  if (tabId && chrome.tabs && typeof chrome.tabs.sendMessage === 'function') {
+    try {
+      const sentTab = chrome.tabs.sendMessage(tabId, { action: 'pageAdvisorWaterfall', run: payload });
+      if (sentTab && typeof sentTab.catch === 'function') sentTab.catch(() => {});
+    } catch (_) { /* content script may be gone */ }
+  }
 }
 
   function bindPageAdvisorWithSpan(run) {

@@ -7,23 +7,23 @@
    minimum_chrome_version，故此处写等价的 rgba 而非 color-mix 函数。
    滚动容器不得相互嵌套（会出现双滚动条），清单 SSOT 见
    test/content-overlay-scrollbar.test.js。 */
-:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body) {
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body) {
   scrollbar-width: thin !important;
   scrollbar-color: rgba(108, 112, 134, 0.4) transparent !important;
 }
-:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar {
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar {
   width: 6px !important;
   height: 6px !important;
 }
-:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-track {
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-track {
   background: transparent !important;
 }
-:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-thumb {
+:is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-thumb {
   background-color: rgba(108, 112, 134, 0.35) !important;
   border-radius: 999px !important;
 }
 @media (hover: hover) and (pointer: fine) {
-  :is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-user-guide-host .tcp-guide-body):not(:hover):not(:focus-within)::-webkit-scrollbar-thumb {
+  :is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body):not(:hover):not(:focus-within)::-webkit-scrollbar-thumb {
     background-color: transparent !important;
   }
 }
