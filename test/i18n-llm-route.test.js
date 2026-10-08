@@ -71,4 +71,13 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.match(src, /paDeliverAgainAll:\s*'Send to \{name\}'/);
     assert.doesNotMatch(src, /paDeliverAgainAll:\s*'再次发送到/);
   });
+
+  it('超长深链不截断的中英文案成对存在', () => {
+    assert.match(src, /正文超过深链 URL 上限时不截断/);
+    assert.match(src, /Text over the deeplink URL limit is not truncated/);
+    assert.match(src, /paDeliverFileHandoff:\s*'建议超过 \{name\} 深链长度上限/);
+    assert.match(src, /paDeliverFileHandoff:\s*'Suggestion exceeds the \{name\} link limit/);
+    assert.match(src, /paDeliverUrlTooLong:\s*'建议超过 \{name\} 深链长度上限，未截断/);
+    assert.match(src, /paDeliverUrlTooLong:\s*'Suggestion exceeds the \{name\} link limit and was not truncated/);
+  });
 });

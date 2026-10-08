@@ -22,6 +22,7 @@ function sendPageAdvisorNativeMessage(payload) {
           nativeOk: !!(resp && resp.ok),
           method: resp && resp.method,
           nativeError: resp && resp.error,
+          promptPath: resp && resp.promptPath ? String(resp.promptPath) : '',
         });
       });
     } catch (e) {
@@ -57,39 +58,107 @@ function openPageAdvisorIdeDeeplink(url) {
   });
 }
 
-async function handleDeliverPageAdvisorToIde(message) {
-  const target =
-    typeof PageAdvisorDelivery !== 'undefined'
-      ? PageAdvisorDelivery.normalizeTarget(message && message.target)
-      : 'task_description';
-  if (target === 'task_description') {
-    return { success: true, nativeOk: false, deeplinkOk: false };
+function logPageAdvisorIdeDeliver(fields) {
+  try {
+    console.info(JSON.stringify(Object.assign({
+      level: 'info',
+      msg: 'page_advisor_ide_deliver',
+    }, fields)));
+  } catch (_) {
+    /* 日志失败不影响送达 */
   }
-  const text = String((message && message.text) || '');
-  const pageUrl = String((message && message.pageUrl) || '');
-  const deeplink =
-    typeof PageAdvisorDelivery !== 'undefined'
-    && typeof PageAdvisorDelivery.buildIdeDeeplink === 'function'
-      ? PageAdvisorDelivery.buildIdeDeeplink(target, text)
-      : '';
+}
 
-  // L4 优先：用官方/登记深链真正打开编辑器并预填（Cursor/Claude/Codex）
-  const open = await openPageAdvisorIdeDeeplink(deeplink);
-
-  // L3 可选：本机桥聚焦并粘贴（未装 host 时静默失败）
-  const native = await sendPageAdvisorNativeMessage({
-    target: target,
-    text: text,
-    pageUrl: pageUrl,
-  });
-
+function ideDeliverResult(open, native, extra) {
+  const deeplink = extra.deeplink || '';
   return {
     success: true,
+    overflow: !!extra.overflow,
+    promptPath: extra.promptPath || '',
+    handoff: extra.handoff || '',
     deeplinkOk: !!open.deeplinkOk,
-    deeplinkError: open.error || '',
+    deeplinkError: open.error || extra.deeplinkError || '',
     deeplinkUrl: deeplink ? deeplink.slice(0, 120) : '',
     nativeOk: !!native.nativeOk,
     method: native.method || (open.deeplinkOk ? 'deeplink' : ''),
     nativeError: native.nativeError || native.error || '',
   };
+}
+
+async function handleDeliverPageAdvisorToIde(message) {
+  const Delivery = typeof PageAdvisorDelivery !== 'undefined' ? PageAdvisorDelivery : null;
+  const target = Delivery
+    ? Delivery.normalizeTarget(message && message.target)
+    : 'task_description';
+  if (target === 'task_description') {
+    return { success: true, nativeOk: false, deeplinkOk: false };
+  }
+  const text = String((message && message.text) || '');
+  const pageUrl = String((message && message.pageUrl) || '');
+  const inline = Delivery && typeof Delivery.buildIdeDeeplink === 'function'
+    ? Delivery.buildIdeDeeplink(target, text)
+    : '';
+
+  if (inline) {
+    // L4：全文放得进官方深链时直接预填（Cursor/Claude/Codex）
+    const open = await openPageAdvisorIdeDeeplink(inline);
+    // L3 可选：本机桥聚焦并粘贴（未装 host 时静默失败）
+    const native = await sendPageAdvisorNativeMessage({
+      target: target,
+      text: text,
+      pageUrl: pageUrl,
+    });
+    logPageAdvisorIdeDeliver({
+      target: target,
+      handoff: 'inline',
+      overflow: false,
+      textChars: text.length,
+      deeplinkChars: inline.length,
+      deeplinkOk: !!open.deeplinkOk,
+    });
+    return ideDeliverResult(open, native, {
+      deeplink: inline,
+      overflow: false,
+      handoff: 'inline',
+    });
+  }
+
+  if (!text) {
+    const open = { deeplinkOk: false, error: 'no_deeplink' };
+    const native = await sendPageAdvisorNativeMessage({
+      target: target,
+      text: text,
+      pageUrl: pageUrl,
+    });
+    return ideDeliverResult(open, native, { handoff: 'empty', deeplinkError: 'no_deeplink' });
+  }
+
+  // 超限：先把全文写入本机文件，深链只带路径。禁止打开被截断的正文。
+  const native = await sendPageAdvisorNativeMessage({
+    target: target,
+    text: text,
+    pageUrl: pageUrl,
+    materialize: true,
+    paste: false,
+  });
+  const promptPath = String(native.promptPath || '');
+  const handoffUrl = promptPath && Delivery && typeof Delivery.buildFileHandoffDeeplink === 'function'
+    ? Delivery.buildFileHandoffDeeplink(target, promptPath, pageUrl)
+    : '';
+  const open = await openPageAdvisorIdeDeeplink(handoffUrl);
+  logPageAdvisorIdeDeliver({
+    target: target,
+    handoff: promptPath && open.deeplinkOk ? 'file' : 'clipboard',
+    overflow: true,
+    textChars: text.length,
+    deeplinkChars: handoffUrl.length,
+    deeplinkOk: !!open.deeplinkOk,
+  });
+  return ideDeliverResult(open, native, {
+    deeplink: handoffUrl,
+    overflow: true,
+    promptPath: promptPath,
+    handoff: promptPath && open.deeplinkOk ? 'file' : 'clipboard',
+    deeplinkError: handoffUrl ? '' : 'url_too_long',
+  });
 }

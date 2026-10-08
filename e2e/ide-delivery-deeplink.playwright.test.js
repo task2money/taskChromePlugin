@@ -63,6 +63,8 @@ function installStubs() {
         paDeliverClipboardOnly: '已复制，请在 {name} 粘贴',
         paDeliverClipboardFail: '未能复制建议，请检查剪贴板权限后重试',
         paDeliverAppNotRunning: '未检测到 {name} 在运行，建议已复制',
+        paDeliverFileHandoff: '建议超过 {name} 深链长度上限，已打开 {name} 并请它读取本地全文',
+        paDeliverUrlTooLong: '建议超过 {name} 深链长度上限，未截断。完整正文已复制，请在 {name} 粘贴',
         paDeliverAgainAll: '发送到 {name}',
         paDeliverAgainOne: '发送一条到 {name}',
       };
@@ -94,10 +96,16 @@ function installStubs() {
         },
         sendNativeMessage: function (host, payload, cb) {
           var cfg = window.__nativeConfig || {};
+          window.__nativePayloads = window.__nativePayloads || [];
+          window.__nativePayloads.push(payload || {});
           if (cfg.action === 'lastError') {
             window.chrome.runtime.lastError = { message: cfg.message || 'host_missing' };
             cb(undefined);
             window.chrome.runtime.lastError = null;
+            return;
+          }
+          if (payload && payload.materialize && cfg.promptPath) {
+            cb({ ok: true, method: 'file', promptPath: cfg.promptPath });
             return;
           }
           cb(cfg.resp || { ok: false, error: 'host_missing' });
@@ -264,6 +272,52 @@ test.describe('IDE 送达深链（content → SW → tabs.create）', () => {
     expect(tabs.length).toBe(1);
     expect(tabs[0]).toContain('cursor://anysphere.cursor-deeplink/prompt?text=');
     expect(decodeURIComponent(tabs[0].split('text=')[1])).toContain('页面优化建议');
+  });
+
+  test('超长建议不把截断正文放进 cursor://，本机桥返回路径时深链只指向文件', async ({ page }) => {
+    await loadDeliveryChain(page);
+    await setTarget(page, 'cursor');
+    const promptPath = '/tmp/aidevpush/ide-prompts/full.md';
+    await page.evaluate((p) => {
+      window.__nativeConfig = { action: 'resp', promptPath: p };
+    }, promptPath);
+    const huge = `${'调整期望：'.repeat(800)}TAIL_建议未被截断`;
+    const outcome = await page.evaluate(
+      (text) => deliverPlainTextViaDeliveryTarget(text, 'https://example.test/page'),
+      huge,
+    );
+    expect(outcome.ok).toBe(true);
+    const tabs = await page.evaluate('window.__tabsCreated');
+    expect(tabs.length).toBe(1);
+    expect(tabs[0].length).toBeLessThanOrEqual(7500);
+    const decoded = decodeURIComponent(tabs[0].split('text=')[1]);
+    expect(decoded).toContain(promptPath);
+    expect(decoded).not.toContain('TAIL_建议未被截断');
+    expect(decoded).not.toContain('调整期望：调整期望：');
+    const clip = await page.evaluate('window.__clipboardWrites');
+    expect(clip[0]).toBe(huge);
+    const native = await page.evaluate('window.__nativePayloads');
+    expect(native.some((p) => p && p.materialize === true && p.paste === false)).toBe(true);
+    const toast = await page.evaluate('window.__toasts[window.__toasts.length - 1]');
+    expect(toast.text).toContain('深链长度上限');
+    expect(toast.text).toContain('本地全文');
+  });
+
+  test('超长建议且没有本机桥时不打开截断深链，状态要求粘贴全文', async ({ page }) => {
+    await loadDeliveryChain(page);
+    await setTarget(page, 'cursor');
+    await page.evaluate(`window.__nativeConfig = { action: 'lastError', message: 'host_missing' };`);
+    const huge = `${'调整期望：'.repeat(800)}TAIL_建议未被截断`;
+    const outcome = await page.evaluate(
+      (text) => deliverPlainTextViaDeliveryTarget(text, 'https://example.test/page'),
+      huge,
+    );
+    expect(outcome.ok).toBe(true);
+    expect(await page.evaluate('window.__tabsCreated')).toEqual([]);
+    expect(await page.evaluate('window.__clipboardWrites')).toEqual([huge]);
+    const toast = await page.evaluate('window.__toasts[window.__toasts.length - 1]');
+    expect(toast.text).toContain('未截断');
+    expect(toast.text).toContain('粘贴');
   });
 
   test('shouldAutoDeliverOnResult 对全部 IDE 目标恒 false（真浏览器契约）', async ({ page }) => {

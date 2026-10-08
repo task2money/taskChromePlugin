@@ -11,6 +11,8 @@ import shutil
 import struct
 import subprocess
 import sys
+import time
+import uuid
 
 ALLOWED = frozenset({"cursor", "claude", "codex"})
 # 仅保留有官方 prompt 深链的 IDE；窗口标题大小写不敏感子串匹配。
@@ -68,6 +70,55 @@ def write_msg(obj: dict) -> None:
     sys.stdout.buffer.flush()
 
 
+def prompt_dir() -> str:
+    override = os.environ.get("AIDEVPUSH_IDE_PROMPT_DIR", "").strip()
+    if override:
+        return override
+    cache = os.environ.get("XDG_CACHE_HOME", "").strip()
+    if not cache:
+        cache = os.path.join(os.path.expanduser("~"), ".cache")
+    return os.path.join(cache, "aidevpush", "ide-prompts")
+
+
+def prune_old_prompts(directory: str, keep: int = 20) -> None:
+    entries: list[tuple[float, str]] = []
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return
+    for name in names:
+        if not name.endswith(".md"):
+            continue
+        path = os.path.join(directory, name)
+        try:
+            entries.append((os.stat(path).st_mtime, path))
+        except OSError:
+            continue
+    entries.sort()
+    for _, path in entries[:-keep]:
+        try:
+            os.remove(path)
+        except OSError:
+            continue
+
+
+def materialize_prompt(text: str) -> str:
+    """把完整建议写成仅本机可读的文件。不执行正文。"""
+    if os.environ.get("AIDEVPUSH_IDE_BRIDGE_DRY") == "1" and not os.environ.get("AIDEVPUSH_IDE_PROMPT_DIR", "").strip():
+        raise OSError("dry_without_prompt_dir")
+    directory = prompt_dir()
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    os.chmod(directory, 0o700)
+    name = time.strftime("%Y%m%dT%H%M%S") + "-" + uuid.uuid4().hex[:8] + ".md"
+    path = os.path.join(directory, name)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(text)
+    os.chmod(path, 0o600)
+    prune_old_prompts(directory)
+    return path
+
+
 def copy_text(text: str) -> bool:
     if os.environ.get("AIDEVPUSH_IDE_BRIDGE_DRY") == "1":
         return True
@@ -114,8 +165,21 @@ def main() -> int:
         write_msg({"ok": False, "error": "bad_target"})
         return 0
     text = str(msg.get("text") or "")
+    materialize = bool(msg.get("materialize"))
+    paste = msg.get("paste")
+    if paste is None:
+        paste = not materialize
+    prompt_path = ""
+    if materialize:
+        try:
+            prompt_path = materialize_prompt(text)
+        except OSError:
+            prompt_path = ""
     copied = copy_text(text)
-    pasted = focus_and_paste(target) if copied else False
+    pasted = focus_and_paste(target) if copied and paste else False
+    if prompt_path:
+        write_msg({"ok": True, "method": "file", "promptPath": prompt_path, "copied": copied})
+        return 0
     if pasted:
         write_msg({"ok": True, "method": "paste"})
         return 0

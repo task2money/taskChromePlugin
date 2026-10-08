@@ -209,8 +209,10 @@ describe('UserGuide sections', () => {
     const steps = (section.steps || []).join('\n');
     assert.match(steps, /生成成功不自动转发/);
     assert.match(steps, /发送到 …/);
+    assert.match(steps, /正文超过深链 URL 上限时不截断/);
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     assert.match(md, /生成成功不自动转发/);
+    assert.match(md, /正文超过深链 URL 上限时不截断/);
   });
 
   it('page-optimization-suggest documents card copy follows plugin language', () => {

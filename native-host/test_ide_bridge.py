@@ -40,6 +40,24 @@ def test_allowed_only_deeplink_ides():
     assert ide_bridge.ALLOWED == frozenset({"cursor", "claude", "codex"})
 
 
+def test_materialize_prompt_writes_full_text():
+    import os
+    import tempfile
+
+    tail = "TAIL_建议未被截断"
+    text = "调整期望：" * 40 + tail
+    with tempfile.TemporaryDirectory() as directory:
+        os.environ["AIDEVPUSH_IDE_PROMPT_DIR"] = directory
+        os.environ.pop("AIDEVPUSH_IDE_BRIDGE_DRY", None)
+        try:
+            path = ide_bridge.materialize_prompt(text)
+            assert path.startswith(directory)
+            assert open(path, encoding="utf-8").read() == text
+            assert (os.stat(path).st_mode & 0o777) == 0o600
+        finally:
+            os.environ.pop("AIDEVPUSH_IDE_PROMPT_DIR", None)
+
+
 def _main() -> int:
     failed = 0
     for name, fn in sorted(globals().items()):

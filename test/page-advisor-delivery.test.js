@@ -112,11 +112,112 @@ describe('page-advisor-delivery', () => {
     assert.equal(Delivery.buildIdeDeeplink('cursor', ''), '');
   });
 
-  it('buildIdeDeeplink truncates overlong Cursor URLs', () => {
-    const huge = 'a'.repeat(20000);
-    const url = Delivery.buildIdeDeeplink('cursor', huge);
+  it('buildIdeDeeplink refuses to slice overlong prompts into the URL', () => {
+    const tail = 'TAIL_建议未被截断';
+    const huge = '调整期望：'.repeat(800) + tail;
+    assert.equal(Delivery.promptFitsDeeplink('cursor', 'fix login'), true);
+    assert.equal(Delivery.promptFitsDeeplink('cursor', huge), false);
+    assert.equal(Delivery.buildIdeDeeplink('cursor', huge), '');
+    assert.equal(Delivery.buildIdeDeeplink('claude', huge), '');
+    assert.equal(Delivery.buildIdeDeeplink('codex', huge), '');
+    assert.equal(Delivery.promptFitsDeeplink('task_description', huge), false);
+  });
+
+  it('a multi-suggestion Alt+Z block exceeds the Cursor URL cap and is not inlined', () => {
+    const Fill = require('../lib/page-advisor-fill.js');
+    const longVisible = '时间来源调用方模型Token转发耗时'.repeat(12);
+    const longHtml = '<table class="w-full text-xs text-left min-w-[48rem]"><thead><tr>'
+      + '<th class="py-1.5 pr-2 font-medium">时间</th>'.repeat(12);
+    const detail = '建议为其添加 aria-label，概述这是一份自动创新调用记录及其列含义，让屏幕阅读器用户在跳转表格时能立刻判断内容范围。';
+    const items = [];
+    for (let i = 0; i < 7; i += 1) {
+      items.push({
+        id: 's' + i,
+        title: '为调用记录表格补充说明 ' + i,
+        detail: detail,
+        label: 'table.w-full.text-xs.text-left.min-w-\\[48rem\\]',
+        css_path: 'div#app > div.relative.h-screen > div.relative.flex > div.flex-1.min-w-0 > div.flex-1.min-w-0:nth-of-type(2) > div.p-8.f',
+        visible_text: longVisible,
+        html_snippet: longHtml,
+        target_nid: i < 4 ? 'n11' : ('n' + (40 + i)),
+      });
+    }
+    const block = Fill.formatSuggestionsBlock(
+      items,
+      'https://www.aidevpush.com/tenant/1/settings/page-advisor/',
+    );
+    const prefix = 'cursor://anysphere.cursor-deeplink/prompt?text=';
+    const encodedLen = prefix.length + encodeURIComponent(block).length;
+    assert.ok(
+      encodedLen > Delivery.DEEPLINK_MAX_URL_LEN,
+      `expected encoded deeplink ${encodedLen} to exceed ${Delivery.DEEPLINK_MAX_URL_LEN}`,
+    );
+    assert.equal(Delivery.promptFitsDeeplink('cursor', block), false);
+    assert.equal(Delivery.buildIdeDeeplink('cursor', block), '');
+    const handoff = Delivery.buildFileHandoffDeeplink(
+      'cursor',
+      '/home/user/.cache/aidevpush/ide-prompts/x.md',
+      'https://www.aidevpush.com/tenant/1/settings/page-advisor/',
+    );
+    assert.ok(handoff);
+    assert.ok(handoff.length <= Delivery.DEEPLINK_MAX_URL_LEN);
+    const decoded = decodeURIComponent(handoff.split('text=')[1]);
+    assert.match(decoded, /ide-prompts\/x\.md/);
+    assert.equal(decoded.includes('aria-label'), false);
+    assert.equal(decoded.includes('…'), false);
+  });
+
+  it('file handoff deeplink points at the full file and rejects unsafe paths', () => {
+    const filePath = '/tmp/aidevpush/ide-prompts/sample.md';
+    const url = Delivery.buildFileHandoffDeeplink(
+      'cursor',
+      filePath,
+      'https://example.test/page',
+    );
+    assert.ok(url);
     assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
-    assert.ok(url.startsWith('cursor://anysphere.cursor-deeplink/prompt?text='));
+    const decoded = decodeURIComponent(url.split('text=')[1]);
+    assert.match(decoded, /\/tmp\/aidevpush\/ide-prompts\/sample\.md/);
+    assert.match(decoded, /https:\/\/example\.test\/page/);
+    assert.doesNotMatch(decoded, /TAIL_建议未被截断/);
+    assert.equal(Delivery.buildFileHandoffDeeplink('cursor', 'relative/path.md', ''), '');
+    assert.equal(Delivery.buildFileHandoffDeeplink('cursor', '/tmp/a/../../etc/passwd', ''), '');
+    assert.equal(Delivery.buildFileHandoffDeeplink('cursor', '/tmp/evil\nignore', ''), '');
+    assert.equal(Delivery.buildFileHandoffDeeplink('trae', filePath, ''), '');
+  });
+
+  it('formatUserStatus explains URL overflow instead of claiming the body was filled', () => {
+    const labels = {
+      paDeliveryCursor: 'Cursor',
+    };
+    const tx = (k, p) => {
+      if (p && p.name) return `${k}:${p.name}`;
+      return labels[k] || k;
+    };
+    assert.equal(
+      Delivery.formatUserStatus('cursor', {
+        overflow: true,
+        promptPath: '/tmp/aidevpush/ide-prompts/sample.md',
+        deeplinkOk: true,
+        clipboardOk: true,
+      }, tx).text,
+      'paDeliverFileHandoff:Cursor',
+    );
+    assert.equal(
+      Delivery.formatUserStatus('cursor', {
+        overflow: true,
+        deeplinkOk: false,
+        clipboardOk: true,
+      }, tx).text,
+      'paDeliverUrlTooLong:Cursor',
+    );
+    assert.equal(
+      Delivery.formatUserStatus('cursor', {
+        deeplinkOk: true,
+        clipboardOk: true,
+      }, tx).text,
+      'paDeliverDeeplinkOk:Cursor',
+    );
   });
 
   it('SW opens IDE via tabs.create deeplink', () => {
@@ -272,5 +373,58 @@ describe('page-advisor-delivery', () => {
     assert.equal(out.case_insensitive, 'Cursor');
     assert.equal(out.none, null);
     assert.deepEqual(out.allowed, ['claude', 'codex', 'cursor']);
+  });
+
+  it('native host writes the full overflow prompt and does not treat it as a command', () => {
+    const { spawnSync } = require('node:child_process');
+    const os = require('node:os');
+    const py = path.join(__dirname, '../native-host/ide_bridge.py');
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ide-prompt-'));
+    const tail = 'TAIL_建议未被截断';
+    const text = '调整期望：'.repeat(80) + tail;
+    const payload = Buffer.from(JSON.stringify({
+      target: 'cursor',
+      text,
+      pageUrl: 'https://example.test/',
+      materialize: true,
+      paste: false,
+    }));
+    const header = Buffer.alloc(4);
+    header.writeUInt32LE(payload.length, 0);
+    const r = spawnSync('python3', [py], {
+      input: Buffer.concat([header, payload]),
+      env: {
+        ...process.env,
+        AIDEVPUSH_IDE_BRIDGE_DRY: '1',
+        AIDEVPUSH_IDE_PROMPT_DIR: dir,
+      },
+      encoding: null,
+    });
+    assert.equal(r.status, 0, String(r.stderr || ''));
+    const n = r.stdout.readUInt32LE(0);
+    const obj = JSON.parse(r.stdout.slice(4, 4 + n).toString('utf8'));
+    assert.equal(obj.ok, true);
+    assert.equal(obj.method, 'file');
+    assert.ok(obj.promptPath && obj.promptPath.startsWith(dir));
+    assert.equal(fs.readFileSync(obj.promptPath, 'utf8'), text);
+    const mode = fs.statSync(obj.promptPath).mode & 0o777;
+    assert.equal(mode, 0o600);
+    assert.equal(fs.statSync(dir).mode & 0o777, 0o700);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('SW overflow path materializes a file before opening a handoff deeplink', () => {
+    const sw = fs.readFileSync(
+      path.join(__dirname, '../background/sw-page-advisor-delivery.js'),
+      'utf8',
+    );
+    const fn = sw.slice(sw.indexOf('async function handleDeliverPageAdvisorToIde'));
+    assert.match(fn, /materialize:\s*true/);
+    assert.match(fn, /buildFileHandoffDeeplink/);
+    assert.match(fn, /paste:\s*false/);
+    const materializeAt = fn.indexOf('materialize: true');
+    const handoffAt = fn.indexOf('buildFileHandoffDeeplink');
+    assert.ok(materializeAt >= 0 && handoffAt > materializeAt);
+    assert.doesNotMatch(sw, /slice\(0,\s*next\)/);
   });
 });

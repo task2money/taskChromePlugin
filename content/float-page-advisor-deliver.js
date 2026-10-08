@@ -77,6 +77,8 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
   let deeplinkOk = false;
   let nativeOk = false;
   let nativeError = "";
+  let overflow = false;
+  let promptPath = "";
   try {
     const resp = await chrome.runtime.sendMessage({
       action: "deliverPageAdvisorToIde",
@@ -87,6 +89,8 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
     deeplinkOk = !!(resp && resp.deeplinkOk);
     nativeOk = !!(resp && resp.nativeOk);
     nativeError = String((resp && (resp.nativeError || resp.error)) || "");
+    overflow = !!(resp && resp.overflow);
+    promptPath = String((resp && resp.promptPath) || "");
   } catch (_) {
     deeplinkOk = false;
     nativeOk = false;
@@ -98,6 +102,8 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
       deeplinkOk: deeplinkOk,
       nativeOk: nativeOk,
       nativeError: nativeError,
+      overflow: overflow,
+      promptPath: promptPath,
     },
     typeof tx === "function" ? tx : null,
   );
