@@ -137,7 +137,17 @@ describe('localNotes', () => {
   it('比较链接指向 Gitee', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gitee-notes-'));
     try {
-      const git = (args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8' });
+      const git = (args) => {
+        const env = { ...process.env };
+        // 本测会在 pre-commit 里跑。父进程的 GIT_INDEX_FILE 指向插件暂存区，
+        // 临时仓库提交时会去解析并不存在的对象。
+        delete env.GIT_INDEX_FILE;
+        delete env.GIT_DIR;
+        delete env.GIT_PREFIX;
+        delete env.GIT_OBJECT_DIRECTORY;
+        delete env.GIT_ALTERNATE_OBJECT_DIRECTORIES;
+        return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', env });
+      };
       git(['init', '-b', 'main']);
       git(['config', 'user.email', 't@example.com']);
       git(['config', 'user.name', 't']);

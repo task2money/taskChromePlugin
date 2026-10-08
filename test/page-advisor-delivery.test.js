@@ -179,6 +179,9 @@ describe('page-advisor-delivery', () => {
         assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
         const body = decodeURIComponent(url.slice(url.indexOf('=') + 1));
         assert.match(body, new RegExp(`批次 ${i + 1}/${batches.length}`));
+        assert.match(body, /本批可单独应用/);
+        assert.doesNotMatch(body, /请与同一轮其它批次一起应用/);
+        assert.doesNotMatch(body, /不要只做本批/);
         assert.match(body, /来源页:/);
         assert.equal(body.includes('…'), false);
         decoded.push(body);
@@ -189,6 +192,69 @@ describe('page-advisor-delivery', () => {
       }
       assert.equal((joined.match(/- \*\*元素\*\*:/g) || []).length, 7);
     }
+  });
+
+  it('同目标跨批时，本批不再要求改完只出现在其它批的建议', () => {
+    const pad = '可见文本锚点'.repeat(180);
+    const contrast = [
+      '- **元素**: `button.contrast`',
+      '- **选择器**: `main > button.contrast`',
+      `- **可见文本**: "${pad}"`,
+      '- **调整期望**: 对比度：加深按钮文字与背景的对比',
+      '  同目标: 与「文案」指向同一元素或父子节点，请一次改完',
+    ].join('\n');
+    const copy = [
+      '- **元素**: `span.copy`',
+      '- **选择器**: `main > span.copy`',
+      `- **可见文本**: "${pad}"`,
+      '- **调整期望**: 文案：缩短按钮上的说明',
+      '  同目标: 与「对比度」指向同一元素或父子节点，请一次改完',
+    ].join('\n');
+    const text = [
+      '## 页面优化建议（Alt+Z）',
+      '锚点全部相对于生成建议时的页面。',
+      '',
+      contrast,
+      '',
+      copy,
+    ].join('\n');
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', text, 'https://example.test/peers');
+    assert.ok(batches.length > 1, `expected split, got ${batches.length}`);
+    for (const body of batches) {
+      assert.ok(Delivery.buildIdeDeeplink('cursor', body));
+      assert.match(body, /本批可单独应用/);
+      assert.doesNotMatch(body, /请与同一轮其它批次一起应用/);
+      assert.doesNotMatch(body, /不要只做本批/);
+      const present = new Set();
+      for (const m of body.matchAll(/- \*\*调整期望\*\*: ([^：:\n]+)/g)) {
+        present.add(m[1].trim());
+      }
+      for (const peer of body.matchAll(/同目标: 与「([^」]*)」/g)) {
+        for (const name of peer[1].split('、')) {
+          assert.ok(present.has(name.trim()), `本批要求改「${name.trim()}」但该建议不在本批`);
+        }
+      }
+    }
+  });
+
+  it('同一批里的同目标说明仍然保留', () => {
+    const text = [
+      '## 页面优化建议（Alt+Z）',
+      '说明',
+      '',
+      '- **元素**: `button.contrast`',
+      '- **调整期望**: 对比度：加深',
+      '  同目标: 与「文案」指向同一元素或父子节点，请一次改完',
+      '',
+      '- **元素**: `span.copy`',
+      '- **调整期望**: 文案：缩短',
+      '  同目标: 与「对比度」指向同一元素或父子节点，请一次改完',
+    ].join('\n');
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', text, 'https://example.test/together');
+    assert.equal(batches.length, 1);
+    assert.match(batches[0], /同目标: 与「文案」/);
+    assert.match(batches[0], /同目标: 与「对比度」/);
+    assert.doesNotMatch(batches[0], /不要只做本批/);
   });
 
   it('短文本仍是一条深链且正文不改写', () => {
@@ -330,7 +396,7 @@ describe('page-advisor-delivery', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
     assert.equal(man.permissions.includes('nativeMessaging'), false);
-    assert.equal(man.version, '1.8.225');
+    assert.equal(man.version, '1.8.226');
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));

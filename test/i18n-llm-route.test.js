@@ -77,6 +77,10 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.match(src, /Text over the deeplink URL limit is not truncated; suggestions are forwarded in batches/);
     assert.match(src, /paDeliverBatched:\s*'已把建议分成 \{count\} 批打开 \{name\}/);
     assert.match(src, /paDeliverBatched:\s*'Opened \{name\} in \{count\} batches/);
+    assert.match(src, /且每批可单独应用/);
+    assert.match(src, /applicable on its own/);
+    assert.doesNotMatch(src, /请按批次一起应用/);
+    assert.doesNotMatch(src, /Apply them together/);
     assert.equal(src.includes('本机桥'), false);
     assert.equal(src.includes('native bridge'), false);
   });
