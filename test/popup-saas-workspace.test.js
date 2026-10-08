@@ -33,8 +33,13 @@ describe('Popup 平台后端工作空间下拉', () => {
     const saas = llm.indexOf('id="popupLlmRouteSaas"');
     const row = llm.indexOf('id="popupSaasWorkspaceRow"');
     const profile = llm.indexOf('id="popupLlmProfileRow"');
+    const sku = llm.indexOf('id="popupLlmSystemSkuRow"');
+    const builtin = llm.indexOf('id="popupLlmRouteBuiltin"');
     assert.ok(saas >= 0, '缺少调用平台后端单选');
     assert.ok(row > saas, '工作空间下拉应在调用平台后端之后');
+    assert.ok(sku > row, '工作空间下拉应在智能体下拉之前，避免落到区块底部');
+    assert.ok(builtin > row, '工作空间下拉应在内置模型选项之前');
+    assert.match(llm, /class="llm-route-saas-line"[\s\S]*id="popupLlmRouteSaas"[\s\S]*id="popupSaasWorkspaceRow"/);
     assert.ok(profile > row, '工作空间下拉应在已保存 Key 之前');
     assert.match(llm, /id="popupSaasWorkspace"/);
     assert.match(llm, /data-i18n="paSaasWorkspaceLabel"/);

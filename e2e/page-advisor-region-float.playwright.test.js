@@ -1,5 +1,5 @@
 /**
- * Alt+Shift+E：元素选择不被浮窗挡住（OPT-20260915-021）
+ * Alt+Shift+Z：元素选择不被浮窗挡住（OPT-20260915-021）
  *
  * 当前 UX 为元素点选（非拖拽矩形）。验收：
  * 1. 打开浮窗后进入区域选择 → 面板收起
@@ -158,7 +158,7 @@ async function loadPluginIntoPage(page) {
   await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 15000 });
 }
 
-test.describe('Alt+Shift+E region pick not blocked by float', () => {
+test.describe('Alt+Shift+Z region pick not blocked by float', () => {
   test('opens float then region select: panel closes, hint under body', async ({ page }) => {
     await loadPluginIntoPage(page);
 

@@ -107,6 +107,10 @@ describe('Popup 面板布局', () => {
     assert.match(llm, /<fieldset[^>]*id="popupLlmRouteField"/);
     assert.match(llm, /直连我的 Key（不上传，换浏览器需要重新设置）/);
     assert.match(llm, /调用平台后端/);
+    const saasCss = read('popup/popup-saas-workspace.css');
+    assert.match(saasCss, /\.llm-route-saas-line\s*\{[^}]*display:\s*flex/);
+    assert.match(saasCss, /#popupSaasWorkspaceRow\[hidden\]\s*\{[^}]*display:\s*none\s*!important/);
+    assert.match(popupHtml, /popup-saas-workspace\.css/);
     assert.match(
       sideCss,
       /html\[data-taskplugin-host="sidepanel"\] #popupLlmRouteField \.llm-route-option/,

@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Alt+Shift+E：元素点选后创新（非拖拽矩形）。
+ * Alt+Shift+Z：元素点选后创新（非拖拽矩形）。
  */
 
 const { describe, it } = require('node:test');

@@ -1,5 +1,5 @@
 /**
- * Alt+E 建议卡拖拽：把手拖动 → pinned；双击把手复位。
+ * Alt+Z 建议卡拖拽：把手拖动 → pinned；双击把手复位。
  * 须在 float-page-advisor.js 之前注入；复用 float-boot 的 DRAG_THRESHOLD。
  */
 

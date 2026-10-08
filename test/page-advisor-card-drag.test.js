@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Pin-state helpers for Alt+E advisor card drag (content script globals via vm).
+ * Pin-state helpers for Alt+Z advisor card drag (content script globals via vm).
  */
 
 const { describe, it, beforeEach } = require('node:test');

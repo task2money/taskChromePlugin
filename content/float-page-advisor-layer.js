@@ -1,5 +1,5 @@
 /**
- * Alt+E 建议层：焦点陷阱、DOM 预览 watcher（从 float-page-advisor.js 抽出以满足行数门禁）。
+ * Alt+Z 建议层：焦点陷阱、DOM 预览 watcher（从 float-page-advisor.js 抽出以满足行数门禁）。
  */
 
 "use strict";

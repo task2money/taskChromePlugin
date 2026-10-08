@@ -318,9 +318,6 @@ body {
   font-size: 12px; font-family: inherit; cursor: pointer;
 }
 .form-select:focus { outline: none; border-color: #89b4fa; }
-#popupSaasWorkspaceRow { margin-left: 18px; margin-top: 4px; }
-#popupSaasWorkspaceStatus { text-align: left; min-height: 0; }
-
 /* Alt+E 默认项目列表 */
 .popup-project-list {
   max-height: 140px;

@@ -1,5 +1,5 @@
 /**
- * Alt+E 页面优化建议 UI：锚定悬浮卡 + 可逆 DOM 预览 + 全部/逐条填入。
+ * Alt+Z 页面优化建议 UI：锚定悬浮卡 + 可逆 DOM 预览 + 全部/逐条填入。
  * 须在 float-boot / float-form 之后、content.js 之前注入。
  */
 
@@ -72,7 +72,7 @@ function ensurePageAdvisorLayer() {
   document
     .getElementById("taskplugin-page-advisor-retry")
     ?.addEventListener("click", () => {
-      // Anti-Replay-OK: re-triggers Alt+E flow via runtime message
+      // Anti-Replay-OK: re-triggers Alt+Z flow via runtime message
       if (typeof retryPageAdvisorSuggestFromToolbar === "function") {
         retryPageAdvisorSuggestFromToolbar();
       }

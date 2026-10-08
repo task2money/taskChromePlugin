@@ -220,7 +220,7 @@ describe('page-context capturePageContextInRect', () => {
 });
 
 describe('page-context extractVisibleReadableText skips plugin chrome', () => {
-  it('skips float-root subtree for full-page Alt+E capture', () => {
+  it('skips float-root subtree for full-page Alt+Z capture', () => {
     const page = el('p', { children: [textNode('PAGE_OK')] });
     const floatInner = el('span', { children: [textNode('FLOAT_NO')] });
     const floatRoot = el('div', { id: 'taskplugin-float-root', children: [floatInner] });

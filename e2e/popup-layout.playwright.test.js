@@ -363,6 +363,23 @@ test.describe('Popup 面板布局', () => {
       return raw.lastWorkspaceId;
     });
     expect(saved).toBe('ws-a');
+
+    // 侧栏宽度下，工作空间下拉与「调用平台后端」同一行，且在智能体下拉之上。
+    await page.setViewportSize({ width: 720, height: 900 });
+    await page.evaluate(() => {
+      document.documentElement.setAttribute('data-taskplugin-host', 'sidepanel');
+    });
+    const radioBox = await page.locator('#popupLlmRouteSaas').boundingBox();
+    const wsBox = await page.locator('#popupSaasWorkspace').boundingBox();
+    const skuBox = await page.locator('#popupLlmSystemSku').boundingBox();
+    expect(radioBox, '调用平台后端单选应有几何框').toBeTruthy();
+    expect(wsBox, '工作空间下拉应有几何框').toBeTruthy();
+    expect(skuBox, '智能体下拉应有几何框').toBeTruthy();
+    expect(wsBox.x).toBeGreaterThan(radioBox.x + radioBox.width - 2);
+    const radioMid = radioBox.y + radioBox.height / 2;
+    expect(radioMid).toBeGreaterThanOrEqual(wsBox.y - 2);
+    expect(radioMid).toBeLessThanOrEqual(wsBox.y + wsBox.height + 2);
+    expect(skuBox.y).toBeGreaterThan(wsBox.y);
   });
 
   test('提示词 Skill 设置按钮展开管理区，再点收起', async ({ page }) => {

@@ -1,5 +1,5 @@
 /**
- * Alt+Shift+E：元素点选后自动创新（交互对齐 Alt+X，非拖拽矩形）。
+ * Alt+Shift+Z：元素点选后自动创新（交互对齐 Alt+X，非拖拽矩形）。
  * 须在 float-pick / float-page-advisor 附近注入；顶层绑定挂 globalThis。
  */
 

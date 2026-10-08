@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Alt+E / Alt+Shift+E：悬浮优化卡悬停时高亮对应页面锚点区域。
+ * Alt+Z / Alt+Shift+Z：悬浮优化卡悬停时高亮对应页面锚点区域。
  */
 
 const { describe, it, beforeEach } = require('node:test');
