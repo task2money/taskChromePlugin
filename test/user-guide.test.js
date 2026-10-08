@@ -163,6 +163,7 @@ describe('UserGuide sections', () => {
     assert.match(blob, /请谨慎修改其中参数，搞错后可能无法再使用本机模型/);
     assert.match(blob, /点「设置」/);
     assert.match(blob, /不上传，换浏览器需要重新设置/);
+    assert.match(blob, /未手动选择时默认调用平台后端/);
     assert.match(blob, /调用平台后端（须登录）/);
     assert.match(blob, /工作空间下拉紧挨在该选项后面同一行/);
     assert.match(blob, /请先登录.*占位/);
@@ -180,6 +181,9 @@ describe('UserGuide sections', () => {
     assert.match(md, /自动创新智能体/);
     assert.match(md, /点 \*\*「设置」\*\*/);
     assert.match(md, /不上传，换浏览器需要重新设置/);
+    assert.match(md, /未手动选择时默认调用平台后端/);
+    const enGuide = fs.readFileSync(path.join(__dirname, '../lib/user-guide-en-sections.js'), 'utf8');
+    assert.match(enGuide, /If you have not chosen, Platform backend is the default/);
     assert.match(md, /调用平台后端\*\*（须登录）/);
     assert.match(md, /\*\*工作空间\*\* 下拉紧挨在该选项后面同一行/);
     assert.match(md, /请先登录.*占位/);

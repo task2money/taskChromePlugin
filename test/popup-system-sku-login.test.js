@@ -145,6 +145,16 @@ describe('Popup 系统智能体：登录后再拉下拉', () => {
     assert.equal(prompts.length, 1);
   });
 
+  it('套用默认调用平台后端时不展开登录表单', async () => {
+    const { sandbox, nodes, prompts } = setup();
+    sandbox.window.PopupSystemSku.setLoggedIn(false);
+    sandbox.window.PopupSystemSku.syncRoute('saas', { promptLogin: false });
+    await Promise.resolve();
+    assert.equal(nodes['#popupLlmSystemSkuRow'].hidden, false);
+    assert.equal(nodes['#popupLlmSystemLoginHint'].hidden, false);
+    assert.equal(prompts.length, 0);
+  });
+
   it('saas 已登录：显示自有+系统 SKU 并发 getSystemAgents', async () => {
     const { sandbox, nodes, sent } = setup();
     sandbox.window.PopupSystemSku.setLoggedIn(true);

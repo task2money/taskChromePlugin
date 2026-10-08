@@ -97,6 +97,7 @@ describe('sw-page-advisor direct LLM', () => {
       apiKey: 'sk-local',
       baseUrl: 'https://llm.test',
       model: 'm1',
+      routeMode: 'direct',
     });
     sandbox.PageAdvisorLLM.suggest = async () => ([
       { id: 's1', title: 'Direct', summary: 'from plugin' },
@@ -133,6 +134,7 @@ describe('sw-page-advisor direct LLM', () => {
       apiKey: 'sk-local',
       baseUrl: 'https://llm.test',
       model: 'm1',
+      routeMode: 'direct',
     });
     sandbox.PageAdvisorPromptSkills.loadFromStorage = async () => ({
       skills: [{ id: 'a', title: 'A11y', body: '优先无障碍' }],
@@ -169,7 +171,7 @@ describe('sw-page-advisor direct LLM', () => {
       return undefined;
     };
     sandbox.PageAdvisorAPI.createSuggestJob = async () => { created += 1; return { job_id: 'no' }; };
-    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: 'sk-local', baseUrl: 'https://llm.test', model: 'm1' });
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: 'sk-local', baseUrl: 'https://llm.test', model: 'm1', routeMode: 'direct' });
     sandbox.PageAdvisorLLM.suggest = async () => ([{ id: 's1', title: 'Guest' }]);
     await sandbox.runPageOptimizationSuggest(1);
     assert.equal(created, 0);
@@ -197,7 +199,7 @@ describe('sw-page-advisor direct LLM', () => {
       return { success: true, data: {} };
     };
     sandbox.PageAdvisorAPI.createSuggestJob = async () => { created += 1; return { job_id: 'no' }; };
-    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: '', baseUrl: '', model: '' });
+    sandbox.PageAdvisorLlmConfig.loadFromStorage = async () => ({ apiKey: '', baseUrl: '', model: '', routeMode: 'direct' });
     await sandbox.runPageOptimizationSuggest(1);
     assert.equal(created, 0);
     const fail = payloads.find((p) => p.ok === false);
@@ -223,6 +225,7 @@ describe('sw-page-advisor direct LLM', () => {
       apiKey: 'sk-local',
       baseUrl: 'https://llm.test',
       model: 'm1',
+      routeMode: 'direct',
     });
     sandbox.PageAdvisorLLM.suggest = async (_creds, _page, opts) => {
       seen = opts;
@@ -399,6 +402,7 @@ describe('sw-page-advisor 直连补拉系统目录默认 Skill（OPT-20260922-03
       apiKey: 'sk-local',
       baseUrl: 'https://llm.test',
       model: 'm1',
+      routeMode: 'direct',
     });
     return { sandbox, payloads };
   }

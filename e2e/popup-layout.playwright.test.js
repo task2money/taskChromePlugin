@@ -248,6 +248,8 @@ test.describe('Popup 面板布局', () => {
     await page.goto(POPUP_URL);
     await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#pageAdvisorDefaultsSection')).toHaveCount(0);
+    await expect(page.locator('#popupLlmRouteSaas')).toBeChecked();
+    await page.locator('#popupLlmRouteDirect').check();
     await expect(page.locator('#popupSaasWorkspaceRow')).toBeHidden();
     await expect(page.locator('#pageAdvisorLlmSection kbd.llm-shortcut')).toHaveText('Alt+Shift+Z');
     const toggle = page.locator('#btnToggleLlmSettings');
@@ -265,6 +267,7 @@ test.describe('Popup 面板布局', () => {
   test('LLM 设置按钮在已保存 Key 下拉右侧且同属 profile 行', async ({ page }) => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
+    await page.locator('#popupLlmRouteDirect').check();
     const row = page.locator('#popupLlmProfileRow');
     const select = page.locator('#popupLlmProfileSelect');
     const settings = page.locator('#btnToggleLlmSettings');
@@ -290,16 +293,17 @@ test.describe('Popup 面板布局', () => {
   test('非 direct 路由时已保存 Key 行（含设置）隐藏', async ({ page }) => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
-    await expect(page.locator('#popupLlmProfileRow')).toBeVisible({ timeout: 10000 });
-    await expect(page.locator('#btnToggleLlmSettings')).toBeVisible();
-
-    await page.locator('#popupLlmRouteSaas').check();
+    await expect(page.locator('#popupLlmRouteSaas')).toBeChecked();
     await expect(page.locator('#popupLlmProfileRow')).toBeHidden();
     await expect(page.locator('#btnToggleLlmSettings')).toBeHidden();
 
     await page.locator('#popupLlmRouteDirect').check();
     await expect(page.locator('#popupLlmProfileRow')).toBeVisible();
     await expect(page.locator('#btnToggleLlmSettings')).toBeVisible();
+
+    await page.locator('#popupLlmRouteSaas').check();
+    await expect(page.locator('#popupLlmProfileRow')).toBeHidden();
+    await expect(page.locator('#btnToggleLlmSettings')).toBeHidden();
   });
 
   // OPT-20261002-020：调用方式切换端到端（未登录 + builtin stub）。
@@ -310,12 +314,8 @@ test.describe('Popup 面板布局', () => {
     const workspaceRow = page.locator('#popupSaasWorkspaceRow');
     const workspaceSelect = page.locator('#popupSaasWorkspace');
 
-    // 默认 direct：工作空间行隐藏
-    await expect(page.locator('#popupLlmRouteDirect')).toBeChecked();
-    await expect(workspaceRow).toBeHidden();
-
-    // saas 未登录：行可见，占位「请先登录」，禁用，不靠真实网络
-    await page.locator('#popupLlmRouteSaas').check();
+    // 默认调用平台后端：未登录行可见，占位「请先登录」
+    await expect(page.locator('#popupLlmRouteSaas')).toBeChecked();
     await expect(page.locator('#popupLlmRouteSystem')).toHaveCount(0);
     await expect(page.locator('#popupLlmSystemSkuRow')).toBeVisible();
     await expect(workspaceRow).toBeVisible();
@@ -340,10 +340,8 @@ test.describe('Popup 面板布局', () => {
     await page.goto(POPUP_URL);
     await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
     const row = page.locator('#popupSaasWorkspaceRow');
-    // 已登录默认仍是 direct，工作空间行须隐藏
-    await expect(row).toBeHidden();
-
-    await page.locator('#popupLlmRouteSaas').check();
+    // 已登录默认调用平台后端，工作空间行直接可见
+    await expect(page.locator('#popupLlmRouteSaas')).toBeChecked();
     await expect(row).toBeVisible({ timeout: 10000 });
     await expect(page.locator('#popupLlmSystemSkuRow')).toBeVisible();
     // 分组名以 <optgroup label> 呈现，原生 select 的 textContent 不含该属性 → 按 optgroup 断言。
@@ -448,6 +446,7 @@ test.describe('Popup 面板布局', () => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
     await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    await page.locator('#popupLlmRouteDirect').check();
     await page.locator('#btnToggleLlmSettings').click();
     await expect(page.locator('#pageAdvisorLlmFields')).toBeVisible();
     await page.locator('#popupLlmBaseUrl').fill('https://api.deepseek.com/v1');
@@ -478,6 +477,7 @@ test.describe('Popup 面板布局', () => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
     await expect(page.locator('#pageAdvisorLlmSection')).toBeVisible({ timeout: 10000 });
+    await page.locator('#popupLlmRouteDirect').check();
 
     const toggle = page.locator('#btnToggleLlmSettings');
     const fields = page.locator('#pageAdvisorLlmFields');

@@ -40,7 +40,7 @@ function loadSwPageAdvisorStack(extraSandbox = {}) {
     PageAdvisorDefaults: {
       resolvePageAdvisorWorkspace: () => ({ workspaceId: 'ws1', companyId: 'ten1', source: 'test' }),
     },
-    // 未保存调用方式时产品默认直连；本套测的是平台失败 job 的 traceId，须显式走 saas。
+    // 未保存调用方式时产品默认调用平台后端；本套测的是平台失败 job 的 traceId，须显式走 saas。
     PageAdvisorLlmConfig: {
       loadFromStorage: async () => ({ apiKey: '', baseUrl: '', model: '', routeMode: 'saas' }),
       resolveRoute: (cfg) => (cfg && cfg.routeMode === 'direct' ? 'direct' : 'saas'),

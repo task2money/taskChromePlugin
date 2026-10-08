@@ -220,7 +220,7 @@
       : { options: [], selectedId: '', persist: false });
   }
 
-  function refreshUi() {
+  function refreshUi(opts) {
     const mode = resolveMode();
     applyVisibility(mode);
     if (mode === 'hidden') {
@@ -231,6 +231,8 @@
     if (mode === 'login_required') {
       loadGen += 1;
       clearStatus();
+      // 打开弹窗套用默认「调用平台后端」时不展开登录表单；用户改选该方式时才展开。
+      if (opts && opts.promptLogin === false) return;
       if (typeof window.PopupAuth?.promptLogin === 'function') {
         window.PopupAuth.promptLogin({ reason: 'system_agent' });
       }
@@ -244,17 +246,17 @@
     refreshUi();
   }
 
-  function syncRoute(nextRoute) {
+  function syncRoute(nextRoute, opts) {
     const value = String(nextRoute || '');
     if (value === 'saas' || value === 'system') {
       if (routeMode !== 'saas' && routeMode !== 'system') {
         routeMode = value;
       }
-      refreshUi();
+      refreshUi(opts);
       return;
     }
     routeMode = 'direct';
-    refreshUi();
+    refreshUi(opts);
   }
 
   function parsedSelection() {

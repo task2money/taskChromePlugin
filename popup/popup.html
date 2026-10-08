@@ -84,7 +84,7 @@
         <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span> <kbd class="llm-shortcut" data-i18n="altZDefaults">Alt+Shift+Z</kbd></h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 不上传，换浏览器需要重新设置。未选择时默认直连。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。「已保存的 Key」下拉旁点「设置」新增或修改一组。点「测试连通性」用当前填写的 Base URL、模型和 API Key 发一次最短请求，不改已保存的 Key。</p>
+          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 不上传，换浏览器需要重新设置。未选择时默认调用平台后端。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。「已保存的 Key」下拉旁点「设置」新增或修改一组。点「测试连通性」用当前填写的 Base URL、模型和 API Key 发一次最短请求，不改已保存的 Key。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」后面同一行选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="paWfHelp">按 Alt+Z 或区域确认后，本区块底部显示各环节耗时条（仅侧栏设置页）。点选区域等待不计入。测试连通性不画这条。</p>
         </details>
@@ -94,12 +94,12 @@
       <fieldset class="form-row" id="popupLlmRouteField">
         <legend data-i18n="paLlmRouteLegend">调用方式</legend>
         <label class="llm-route-option">
-          <input type="radio" name="popupLlmRoute" id="popupLlmRouteDirect" value="direct" checked>
+          <input type="radio" name="popupLlmRoute" id="popupLlmRouteDirect" value="direct">
           <span data-i18n="paLlmRouteDirect">直连我的 Key（不上传，换浏览器需要重新设置）</span>
         </label>
         <div class="llm-route-saas-line">
           <label class="llm-route-option">
-            <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas">
+            <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas" checked>
             <span data-i18n="paLlmRouteSaas">调用平台后端</span>
             <!-- Anti-Replay-OK: real href to tenant page-advisor settings -->
             <a id="lnkPageAdvisorSettings" class="saas-settings-link" hidden href="" target="_blank" rel="noopener noreferrer" data-testid="popup-page-advisor-settings" data-i18n="paLlmSaasSettingsLink">网页设置</a>

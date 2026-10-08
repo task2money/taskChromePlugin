@@ -65,9 +65,9 @@
     }
   }
 
-  function syncSystemSkuRow() {
+  function syncSystemSkuRow(opts) {
     if (typeof PopupSystemSku !== 'undefined' && typeof PopupSystemSku.syncRoute === 'function') {
-      PopupSystemSku.syncRoute(selectedRouteMode());
+      PopupSystemSku.syncRoute(selectedRouteMode(), opts);
     }
   }
 
@@ -118,7 +118,7 @@
     if (nameEl) nameEl.value = draftNew ? '' : (cfg?.profileLabel || '');
     const route = (typeof PageAdvisorLlmConfig !== 'undefined' && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
       ? PageAdvisorLlmConfig.resolveRoute(cfg || {})
-      : 'direct';
+      : 'saas';
     const direct = $('#popupLlmRouteDirect');
     const saas = $('#popupLlmRouteSaas');
     const builtin = $('#popupLlmRouteBuiltin');
@@ -130,7 +130,7 @@
     if (del) del.hidden = draftNew || !cfg?.activeProfileId;
     syncProfileRow();
     syncSaasWorkspaceRow();
-    syncSystemSkuRow();
+    syncSystemSkuRow({ promptLogin: false });
     refreshBuiltinRoute().catch(() => {});
   }
 
