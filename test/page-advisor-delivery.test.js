@@ -49,7 +49,7 @@ describe('page-advisor-delivery', () => {
     assert.match(deliver, /isIdeDeliveryTarget/);
   });
 
-  it('formatUserStatus prefers deeplink then native then clipboard', () => {
+  it('formatUserStatus prefers deeplink then clipboard', () => {
     const labels = {
       paDeliveryCursor: 'Cursor',
       paDeliveryClaude: 'Claude',
@@ -63,25 +63,13 @@ describe('page-advisor-delivery', () => {
     assert.equal(
       Delivery.formatUserStatus(
         'cursor',
-        { deeplinkOk: true, nativeOk: true, clipboardOk: true },
+        { deeplinkOk: true, clipboardOk: true, batchCount: 1 },
         tx,
       ).text,
       'paDeliverDeeplinkOk:Cursor',
     );
     assert.equal(
-      Delivery.formatUserStatus('cursor', { nativeOk: true, clipboardOk: true }, tx).text,
-      'paDeliverNativeOk:Cursor',
-    );
-    assert.equal(
-      Delivery.formatUserStatus(
-        'claude',
-        { nativeOk: false, clipboardOk: true, nativeError: 'app_not_running' },
-        tx,
-      ).text,
-      'paDeliverAppNotRunning:Claude',
-    );
-    assert.equal(
-      Delivery.formatUserStatus('codex', { nativeOk: false, clipboardOk: true }, tx).text,
+      Delivery.formatUserStatus('codex', { deeplinkOk: false, clipboardOk: true }, tx).text,
       'paDeliverClipboardOnly:Codex',
     );
     assert.equal(
@@ -154,69 +142,83 @@ describe('page-advisor-delivery', () => {
     );
     assert.equal(Delivery.promptFitsDeeplink('cursor', block), false);
     assert.equal(Delivery.buildIdeDeeplink('cursor', block), '');
-    const handoff = Delivery.buildFileHandoffDeeplink(
-      'cursor',
-      '/home/user/.cache/aidevpush/ide-prompts/x.md',
-      'https://www.aidevpush.com/tenant/1/settings/page-advisor/',
-    );
-    assert.ok(handoff);
-    assert.ok(handoff.length <= Delivery.DEEPLINK_MAX_URL_LEN);
-    const decoded = decodeURIComponent(handoff.split('text=')[1]);
-    assert.match(decoded, /ide-prompts\/x\.md/);
-    assert.equal(decoded.includes('aria-label'), false);
-    assert.equal(decoded.includes('…'), false);
+    for (const target of ['cursor', 'claude', 'codex']) {
+      const batches = Delivery.buildIdeDeeplinkBatches(target, block, '');
+      assert.ok(batches.length > 1, `${target} batches=${batches.length}`);
+      const decoded = [];
+      for (let i = 0; i < batches.length; i += 1) {
+        const url = Delivery.buildIdeDeeplink(target, batches[i]);
+        assert.ok(url, `${target} batch ${i} must fit`);
+        assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
+        const body = decodeURIComponent(url.slice(url.indexOf('=') + 1));
+        assert.match(body, new RegExp(`批次 ${i + 1}/${batches.length}`));
+        assert.match(body, /来源页:/);
+        assert.equal(body.includes('…'), false);
+        decoded.push(body);
+      }
+      const joined = decoded.join('\n');
+      for (let i = 0; i < 7; i += 1) {
+        assert.match(joined, new RegExp(`为调用记录表格补充说明 ${i}`));
+      }
+      assert.equal((joined.match(/- \*\*元素\*\*:/g) || []).length, 7);
+    }
   });
 
-  it('file handoff deeplink points at the full file and rejects unsafe paths', () => {
-    const filePath = '/tmp/aidevpush/ide-prompts/sample.md';
-    const url = Delivery.buildFileHandoffDeeplink(
-      'cursor',
-      filePath,
-      'https://example.test/page',
-    );
-    assert.ok(url);
-    assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
-    const decoded = decodeURIComponent(url.split('text=')[1]);
-    assert.match(decoded, /\/tmp\/aidevpush\/ide-prompts\/sample\.md/);
-    assert.match(decoded, /https:\/\/example\.test\/page/);
-    assert.doesNotMatch(decoded, /TAIL_建议未被截断/);
-    assert.equal(Delivery.buildFileHandoffDeeplink('cursor', 'relative/path.md', ''), '');
-    assert.equal(Delivery.buildFileHandoffDeeplink('cursor', '/tmp/a/../../etc/passwd', ''), '');
-    assert.equal(Delivery.buildFileHandoffDeeplink('cursor', '/tmp/evil\nignore', ''), '');
-    assert.equal(Delivery.buildFileHandoffDeeplink('trae', filePath, ''), '');
+  it('短文本仍是一条深链且正文不改写', () => {
+    const text = 'fix login header';
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', text, 'https://example.test/page');
+    assert.deepEqual(batches, [text]);
+    const url = Delivery.buildIdeDeeplink('cursor', batches[0]);
+    assert.equal(url, 'cursor://anysphere.cursor-deeplink/prompt?text=' + encodeURIComponent(text));
   });
 
-  it('formatUserStatus explains URL overflow instead of claiming the body was filled', () => {
-    const labels = {
-      paDeliveryCursor: 'Cursor',
-    };
+  it('单条建议自身超限时切开且不丢尾部', () => {
+    const tail = 'TAIL_建议未被截断';
+    const part = `- **元素**: only\n${'调整期望：'.repeat(800)}${tail}`;
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', part, 'https://example.test/page');
+    assert.ok(batches.length > 1);
+    const pieces = [];
+    for (const body of batches) {
+      const url = Delivery.buildIdeDeeplink('cursor', body);
+      assert.ok(url);
+      assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
+      pieces.push(decodeURIComponent(url.split('text=')[1]));
+    }
+    const joined = pieces.join('\n');
+    assert.match(joined, new RegExp(tail));
+    assert.match(joined, /调整期望：/);
+    assert.equal(joined.includes('…'), false);
+  });
+
+  it('formatUserStatus 多批用分批文案，单批仍说已填入', () => {
     const tx = (k, p) => {
+      if (k === 'paDeliveryCursor') return 'Cursor';
+      if (p && p.count) return `${k}:${p.count}:${p.name}`;
       if (p && p.name) return `${k}:${p.name}`;
-      return labels[k] || k;
+      return k;
     };
     assert.equal(
       Delivery.formatUserStatus('cursor', {
-        overflow: true,
-        promptPath: '/tmp/aidevpush/ide-prompts/sample.md',
         deeplinkOk: true,
+        batchCount: 3,
         clipboardOk: true,
       }, tx).text,
-      'paDeliverFileHandoff:Cursor',
-    );
-    assert.equal(
-      Delivery.formatUserStatus('cursor', {
-        overflow: true,
-        deeplinkOk: false,
-        clipboardOk: true,
-      }, tx).text,
-      'paDeliverUrlTooLong:Cursor',
+      'paDeliverBatched:3:Cursor',
     );
     assert.equal(
       Delivery.formatUserStatus('cursor', {
         deeplinkOk: true,
+        batchCount: 1,
         clipboardOk: true,
       }, tx).text,
       'paDeliverDeeplinkOk:Cursor',
+    );
+    assert.equal(
+      Delivery.formatUserStatus('cursor', {
+        deeplinkOk: false,
+        clipboardOk: true,
+      }, tx).text,
+      'paDeliverClipboardOnly:Cursor',
     );
   });
 
@@ -291,140 +293,15 @@ describe('page-advisor-delivery', () => {
     assert.match(pick, /shouldOpenCreatePanel|writeCreateDescription/);
   });
 
-  it('native host dry-run frames json without executing text', () => {
-    const { spawnSync } = require('node:child_process');
-    const py = path.join(__dirname, '../native-host/ide_bridge.py');
-    const payload = Buffer.from(JSON.stringify({
-      target: 'cursor',
-      text: 'rm -rf /',
-      pageUrl: 'https://example.test/',
-    }));
-    const header = Buffer.alloc(4);
-    header.writeUInt32LE(payload.length, 0);
-    const r = spawnSync('python3', [py], {
-      input: Buffer.concat([header, payload]),
-      env: { ...process.env, AIDEVPUSH_IDE_BRIDGE_DRY: '1' },
-      encoding: null,
-    });
-    assert.equal(r.status, 0, String(r.stderr || ''));
-    const n = r.stdout.readUInt32LE(0);
-    const obj = JSON.parse(r.stdout.slice(4, 4 + n).toString('utf8'));
-    assert.equal(obj.ok, true);
-    assert.equal(obj.method, 'clipboard');
-  });
-
-  it('native host rejects non-deeplink targets in dry-run', () => {
-    const { spawnSync } = require('node:child_process');
-    const py = path.join(__dirname, '../native-host/ide_bridge.py');
-    for (const target of ['trae', 'workbuddy']) {
-      const payload = Buffer.from(JSON.stringify({
-        target,
-        text: 'hello',
-        pageUrl: 'https://example.test/',
-      }));
-      const header = Buffer.alloc(4);
-      header.writeUInt32LE(payload.length, 0);
-      const r = spawnSync('python3', [py], {
-        input: Buffer.concat([header, payload]),
-        env: { ...process.env, AIDEVPUSH_IDE_BRIDGE_DRY: '1' },
-        encoding: null,
-      });
-      assert.equal(r.status, 0, String(r.stderr || ''));
-      const n = r.stdout.readUInt32LE(0);
-      const obj = JSON.parse(r.stdout.slice(4, 4 + n).toString('utf8'));
-      assert.equal(obj.ok, false, target);
-    }
-  });
-
-  it('manifest declares clipboardWrite and nativeMessaging', () => {
+  it('manifest declares clipboardWrite and not nativeMessaging', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
-    assert.ok(man.permissions.includes('nativeMessaging'));
-    assert.ok(man.version.startsWith('1.8.'));
+    assert.equal(man.permissions.includes('nativeMessaging'), false);
+    assert.equal(man.version, '1.8.222');
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));
     assert.ok(js.includes('content/float-page-advisor-deliver.js'));
-  });
-
-  it('native host 标题匹配覆盖 Cursor/Claude/Codex', () => {
-    const { spawnSync } = require('node:child_process');
-    const py = path.join(__dirname, '../native-host/ide_bridge.py');
-    const script = [
-      'import importlib.util, json',
-      `spec = importlib.util.spec_from_file_location("ide_bridge", ${JSON.stringify(py)})`,
-      'm = importlib.util.module_from_spec(spec)',
-      'spec.loader.exec_module(m)',
-      'print(json.dumps({',
-      '  "cursor": m.match_title(m.TITLES["cursor"], ["x", "Cursor — f.py"]),',
-      '  "claude": m.match_title(m.TITLES["claude"], ["Claude"]),',
-      '  "codex": m.match_title(m.TITLES["codex"], ["Codex"]),',
-      '  "case_insensitive": m.match_title(m.TITLES["cursor"], ["cursor v2"]),',
-      '  "none": m.match_title(m.TITLES["cursor"], ["gedit notes.txt"]),',
-      '  "allowed": sorted(m.ALLOWED),',
-      '}))',
-    ].join('\n');
-    const r = spawnSync('python3', ['-c', script], { encoding: 'utf8' });
-    assert.equal(r.status, 0, String(r.stderr || ''));
-    const out = JSON.parse(r.stdout.trim());
-    assert.equal(out.cursor, 'Cursor');
-    assert.equal(out.claude, 'Claude');
-    assert.equal(out.codex, 'Codex');
-    assert.equal(out.case_insensitive, 'Cursor');
-    assert.equal(out.none, null);
-    assert.deepEqual(out.allowed, ['claude', 'codex', 'cursor']);
-  });
-
-  it('native host writes the full overflow prompt and does not treat it as a command', () => {
-    const { spawnSync } = require('node:child_process');
-    const os = require('node:os');
-    const py = path.join(__dirname, '../native-host/ide_bridge.py');
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ide-prompt-'));
-    const tail = 'TAIL_建议未被截断';
-    const text = '调整期望：'.repeat(80) + tail;
-    const payload = Buffer.from(JSON.stringify({
-      target: 'cursor',
-      text,
-      pageUrl: 'https://example.test/',
-      materialize: true,
-      paste: false,
-    }));
-    const header = Buffer.alloc(4);
-    header.writeUInt32LE(payload.length, 0);
-    const r = spawnSync('python3', [py], {
-      input: Buffer.concat([header, payload]),
-      env: {
-        ...process.env,
-        AIDEVPUSH_IDE_BRIDGE_DRY: '1',
-        AIDEVPUSH_IDE_PROMPT_DIR: dir,
-      },
-      encoding: null,
-    });
-    assert.equal(r.status, 0, String(r.stderr || ''));
-    const n = r.stdout.readUInt32LE(0);
-    const obj = JSON.parse(r.stdout.slice(4, 4 + n).toString('utf8'));
-    assert.equal(obj.ok, true);
-    assert.equal(obj.method, 'file');
-    assert.ok(obj.promptPath && obj.promptPath.startsWith(dir));
-    assert.equal(fs.readFileSync(obj.promptPath, 'utf8'), text);
-    const mode = fs.statSync(obj.promptPath).mode & 0o777;
-    assert.equal(mode, 0o600);
-    assert.equal(fs.statSync(dir).mode & 0o777, 0o700);
-    fs.rmSync(dir, { recursive: true, force: true });
-  });
-
-  it('SW overflow path materializes a file before opening a handoff deeplink', () => {
-    const sw = fs.readFileSync(
-      path.join(__dirname, '../background/sw-page-advisor-delivery.js'),
-      'utf8',
-    );
-    const fn = sw.slice(sw.indexOf('async function handleDeliverPageAdvisorToIde'));
-    assert.match(fn, /materialize:\s*true/);
-    assert.match(fn, /buildFileHandoffDeeplink/);
-    assert.match(fn, /paste:\s*false/);
-    const materializeAt = fn.indexOf('materialize: true');
-    const handoffAt = fn.indexOf('buildFileHandoffDeeplink');
-    assert.ok(materializeAt >= 0 && handoffAt > materializeAt);
-    assert.doesNotMatch(sw, /slice\(0,\s*next\)/);
+    assert.equal(fs.existsSync(path.join(__dirname, '../native-host/ide_bridge.py')), false);
   });
 });

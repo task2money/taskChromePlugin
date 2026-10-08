@@ -11,7 +11,7 @@ describe('user-guide-en-sections', () => {
       path.join(__dirname, '../lib/user-guide-en-sections.js'),
       'utf8',
     );
-    assert.match(src, /Text over the deeplink URL limit is not truncated/);
-    assert.match(src, /full text stays on the clipboard/);
+    assert.match(src, /Text over the deeplink URL limit is not truncated; suggestions are forwarded in batches/);
+    assert.equal(src.includes('native bridge'), false);
   });
 });

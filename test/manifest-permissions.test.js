@@ -25,9 +25,8 @@ const REQUIRED_PERMISSIONS = [
   'sidePanel',
   // Beta 新版本 zip 下载完成后打开 chrome://extensions/ 依赖 downloads.onChanged
   'downloads',
-  // Alt+Z 转发目标 IDE：剪贴板 + 可选 Native Messaging host（ADR-0142）
+  // Alt+Z 转发目标 IDE：剪贴板 + 官方深链（ADR-0144 已去掉 nativeMessaging）
   'clipboardWrite',
-  'nativeMessaging',
 ];
 
 const FORBIDDEN_PERMISSIONS = [

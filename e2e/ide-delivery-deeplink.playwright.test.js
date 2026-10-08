@@ -45,7 +45,6 @@ function installStubs() {
   return `
     window.__tabsCreated = [];
     window.__tabsConfig = { fail: false };
-    window.__nativeConfig = { action: 'lastError', message: 'host_missing' };
     window.__clipboardWrites = [];
     window.__toasts = [];
     window.__deliveryTarget = 'task_description';
@@ -59,17 +58,18 @@ function installStubs() {
         paDeliveryCodex: 'Codex',
         paDeliveryTaskDesc: '任务描述',
         paDeliverDeeplinkOk: '已打开 {name} 并填入建议',
-        paDeliverNativeOk: '已发送到 {name}',
+        paDeliverBatched: '已把建议分成 {count} 批打开 {name}',
         paDeliverClipboardOnly: '已复制，请在 {name} 粘贴',
         paDeliverClipboardFail: '未能复制建议，请检查剪贴板权限后重试',
-        paDeliverAppNotRunning: '未检测到 {name} 在运行，建议已复制',
-        paDeliverFileHandoff: '建议超过 {name} 深链长度上限，已打开 {name} 并请它读取本地全文',
-        paDeliverUrlTooLong: '建议超过 {name} 深链长度上限，未截断。完整正文已复制，请在 {name} 粘贴',
         paDeliverAgainAll: '发送到 {name}',
         paDeliverAgainOne: '发送一条到 {name}',
       };
       var s = table[key] || key;
-      if (params && params.name) s = s.replace('{name}', params.name);
+      if (params) {
+        Object.keys(params).forEach(function (k) {
+          s = s.split('{' + k + '}').join(String(params[k]));
+        });
+      }
       return s;
     };
 
@@ -93,22 +93,6 @@ function installStubs() {
             return await handleDeliverPageAdvisorToIde(msg);
           }
           return { success: true };
-        },
-        sendNativeMessage: function (host, payload, cb) {
-          var cfg = window.__nativeConfig || {};
-          window.__nativePayloads = window.__nativePayloads || [];
-          window.__nativePayloads.push(payload || {});
-          if (cfg.action === 'lastError') {
-            window.chrome.runtime.lastError = { message: cfg.message || 'host_missing' };
-            cb(undefined);
-            window.chrome.runtime.lastError = null;
-            return;
-          }
-          if (payload && payload.materialize && cfg.promptPath) {
-            cb({ ok: true, method: 'file', promptPath: cfg.promptPath });
-            return;
-          }
-          cb(cfg.resp || { ok: false, error: 'host_missing' });
         },
       },
       storage: {
@@ -157,9 +141,6 @@ test.describe('IDE 送达深链（content → SW → tabs.create）', () => {
   test('Alt+X 确认路径：Cursor 目标经整链发起 cursor:// 深链并回显状态', async ({ page }) => {
     await loadDeliveryChain(page);
     await setTarget(page, 'cursor');
-    // native host 缺失（未装 IDE bridge）——纵深链仍应靠 deeplink 成功
-    await page.evaluate(`window.__nativeConfig = { action: 'lastError', message: 'host_missing' };`);
-
     const outcome = await page.evaluate(
       `deliverPlainTextViaDeliveryTarget('fix login header', 'https://example.test/page')`,
     );
@@ -194,12 +175,10 @@ test.describe('IDE 送达深链（content → SW → tabs.create）', () => {
     expect(await page.evaluate('window.__toasts')).toEqual([]);
   });
 
-  test('失败路径：IDE 未运行（native app_not_running）toast 含 IDE 名', async ({ page }) => {
+  test('失败路径：深链打不开时 toast 要求在 IDE 粘贴', async ({ page }) => {
     await loadDeliveryChain(page);
     await setTarget(page, 'cursor');
-    // deeplink 打开失败 + native 报 app_not_running，但剪贴板成功
     await page.evaluate(`window.__tabsConfig = { fail: true };`);
-    await page.evaluate(`window.__nativeConfig = { action: 'resp', resp: { ok: false, error: 'app_not_running' } };`);
 
     const outcome = await page.evaluate(
       `deliverPlainTextViaDeliveryTarget('x', 'https://example.test/page')`,
@@ -209,14 +188,13 @@ test.describe('IDE 送达深链（content → SW → tabs.create）', () => {
     expect(await page.evaluate('window.__tabsCreated')).toEqual([]);
     const toast = await page.evaluate('window.__toasts[window.__toasts.length - 1]');
     expect(toast.text).toContain('Cursor');
-    expect(toast.text).toContain('未检测到');
+    expect(toast.text).toContain('已复制');
   });
 
   test('Alt+X 全失败（剪贴板不可用）→ 错误 toast，不误报成功', async ({ page }) => {
     await loadDeliveryChain(page);
     await setTarget(page, 'codex');
     await page.evaluate(`window.__tabsConfig = { fail: true };`);
-    await page.evaluate(`window.__nativeConfig = { action: 'lastError', message: 'host_missing' };`);
     // 剪贴板写入抛错 → clipboardOk=false
     await page.evaluate(`
       Object.defineProperty(navigator, 'clipboard', {
@@ -274,50 +252,42 @@ test.describe('IDE 送达深链（content → SW → tabs.create）', () => {
     expect(decodeURIComponent(tabs[0].split('text=')[1])).toContain('页面优化建议');
   });
 
-  test('超长建议不把截断正文放进 cursor://，本机桥返回路径时深链只指向文件', async ({ page }) => {
+  test('超长建议按批打开多条 cursor://，每条不超过上限且不丢尾部', async ({ page }) => {
     await loadDeliveryChain(page);
     await setTarget(page, 'cursor');
-    const promptPath = '/tmp/aidevpush/ide-prompts/full.md';
-    await page.evaluate((p) => {
-      window.__nativeConfig = { action: 'resp', promptPath: p };
-    }, promptPath);
-    const huge = `${'调整期望：'.repeat(800)}TAIL_建议未被截断`;
+    const huge = [
+      '## 页面优化建议（Alt+Z）',
+      '',
+      '请按锚点改一次。',
+      '',
+      `- **元素**: alpha\n${'调整期望：'.repeat(400)}TAIL_alpha`,
+      '',
+      `- **元素**: beta\n${'调整期望：'.repeat(400)}TAIL_beta`,
+      '',
+      '来源页: https://example.test/page',
+    ].join('\n');
     const outcome = await page.evaluate(
       (text) => deliverPlainTextViaDeliveryTarget(text, 'https://example.test/page'),
       huge,
     );
     expect(outcome.ok).toBe(true);
     const tabs = await page.evaluate('window.__tabsCreated');
-    expect(tabs.length).toBe(1);
-    expect(tabs[0].length).toBeLessThanOrEqual(7500);
-    const decoded = decodeURIComponent(tabs[0].split('text=')[1]);
-    expect(decoded).toContain(promptPath);
-    expect(decoded).not.toContain('TAIL_建议未被截断');
-    expect(decoded).not.toContain('调整期望：调整期望：');
-    const clip = await page.evaluate('window.__clipboardWrites');
-    expect(clip[0]).toBe(huge);
-    const native = await page.evaluate('window.__nativePayloads');
-    expect(native.some((p) => p && p.materialize === true && p.paste === false)).toBe(true);
-    const toast = await page.evaluate('window.__toasts[window.__toasts.length - 1]');
-    expect(toast.text).toContain('深链长度上限');
-    expect(toast.text).toContain('本地全文');
-  });
-
-  test('超长建议且没有本机桥时不打开截断深链，状态要求粘贴全文', async ({ page }) => {
-    await loadDeliveryChain(page);
-    await setTarget(page, 'cursor');
-    await page.evaluate(`window.__nativeConfig = { action: 'lastError', message: 'host_missing' };`);
-    const huge = `${'调整期望：'.repeat(800)}TAIL_建议未被截断`;
-    const outcome = await page.evaluate(
-      (text) => deliverPlainTextViaDeliveryTarget(text, 'https://example.test/page'),
-      huge,
-    );
-    expect(outcome.ok).toBe(true);
-    expect(await page.evaluate('window.__tabsCreated')).toEqual([]);
+    expect(tabs.length).toBeGreaterThan(1);
+    const decoded = tabs.map((url) => {
+      expect(url.length).toBeLessThanOrEqual(7500);
+      expect(url.startsWith('cursor://anysphere.cursor-deeplink/prompt?text=')).toBe(true);
+      return decodeURIComponent(url.split('text=')[1]);
+    });
+    const joined = decoded.join('\n');
+    expect(joined).toContain('TAIL_alpha');
+    expect(joined).toContain('TAIL_beta');
+    expect(joined).toContain('批次 1/');
+    expect(joined).not.toContain('…');
+    expect(joined).not.toContain(huge);
     expect(await page.evaluate('window.__clipboardWrites')).toEqual([huge]);
     const toast = await page.evaluate('window.__toasts[window.__toasts.length - 1]');
-    expect(toast.text).toContain('未截断');
-    expect(toast.text).toContain('粘贴');
+    expect(toast.text).toContain('批');
+    expect(toast.text).toContain(String(tabs.length));
   });
 
   test('shouldAutoDeliverOnResult 对全部 IDE 目标恒 false（真浏览器契约）', async ({ page }) => {

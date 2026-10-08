@@ -1,5 +1,5 @@
 /**
- * IDE 送达：剪贴板 + SW deeplink/native。
+ * IDE 送达：剪贴板 + SW 深链。超限时由 SW 按建议分批打开。
  * Alt+Z 须点建议底栏按钮触发；Alt+X 确认调整也可按同一渠道发送。
  */
 
@@ -52,7 +52,7 @@ function applyPageAdvisorDeliveryButtonLabels(allBtn, oneBtn) {
 /**
  * 将纯文本按当前「转发目标」发出。
  * 任务描述目标：delivered=false（调用方自行写描述）。
- * IDE 目标：剪贴板 + SW deeplink/native，不写任务描述。
+ * IDE 目标：剪贴板 + SW 深链（超限按建议分批），不写任务描述。
  */
 async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
   const target = await loadPageAdvisorDeliveryTarget();
@@ -75,10 +75,7 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
     copied = false;
   }
   let deeplinkOk = false;
-  let nativeOk = false;
-  let nativeError = "";
-  let overflow = false;
-  let promptPath = "";
+  let batchCount = 0;
   try {
     const resp = await chrome.runtime.sendMessage({
       action: "deliverPageAdvisorToIde",
@@ -87,23 +84,17 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
       pageUrl: String(pageUrl || ""),
     });
     deeplinkOk = !!(resp && resp.deeplinkOk);
-    nativeOk = !!(resp && resp.nativeOk);
-    nativeError = String((resp && (resp.nativeError || resp.error)) || "");
-    overflow = !!(resp && resp.overflow);
-    promptPath = String((resp && resp.promptPath) || "");
+    batchCount = Number((resp && resp.batchCount) || 0);
   } catch (_) {
     deeplinkOk = false;
-    nativeOk = false;
+    batchCount = 0;
   }
   const status = PageAdvisorDelivery.formatUserStatus(
     target,
     {
       clipboardOk: copied,
       deeplinkOk: deeplinkOk,
-      nativeOk: nativeOk,
-      nativeError: nativeError,
-      overflow: overflow,
-      promptPath: promptPath,
+      batchCount: batchCount,
     },
     typeof tx === "function" ? tx : null,
   );

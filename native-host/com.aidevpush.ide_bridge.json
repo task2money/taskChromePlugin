@@ -1,9 +1,0 @@
-{
-  "name": "com.aidevpush.ide_bridge",
-  "description": "Aidevpush page-advisor paste bridge",
-  "path": "REPLACE_WITH_ABS_PATH_TO_ide_bridge.py",
-  "type": "stdio",
-  "allowed_origins": [
-    "chrome-extension://REPLACE_WITH_EXTENSION_ID/"
-  ]
-}
