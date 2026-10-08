@@ -281,6 +281,24 @@ describe('page-advisor-delivery', () => {
     assert.match(joined, new RegExp(tail));
     assert.match(joined, /调整期望：/);
     assert.equal(joined.includes('…'), false);
+  })
+
+  it('超长单条建议的每一段都补上元素与选择器（续段可单独定位）', () => {
+    const part = [
+      '- **元素**: `button.contrast`',
+      '- **选择器**: `main > button.contrast`',
+      `- **调整期望**: ${'提高前景与背景对比度，满足 WCAG 2.1 AA。'.repeat(400)}`,
+    ].join('\n')
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', part, 'https://example.test/page')
+    assert.ok(batches.length > 1)
+    for (const body of batches) {
+      const url = Delivery.buildIdeDeeplink('cursor', body)
+      assert.ok(url, '每批都要能编成深链')
+      assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN)
+      const decoded = decodeURIComponent(url.split('text=')[1])
+      assert.match(decoded, /- \*\*元素\*\*: `button\.contrast`/)
+      assert.match(decoded, /- \*\*选择器\*\*: `main > button\.contrast`/)
+    }
   });
 
   it('formatUserStatus 多批用分批文案，单批仍说已填入', () => {
@@ -396,7 +414,7 @@ describe('page-advisor-delivery', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
     assert.equal(man.permissions.includes('nativeMessaging'), false);
-    assert.equal(man.version, '1.8.228');
+    assert.equal(man.version, '1.8.229');
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));

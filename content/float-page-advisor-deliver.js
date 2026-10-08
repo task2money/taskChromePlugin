@@ -50,6 +50,24 @@ function applyPageAdvisorDeliveryButtonLabels(allBtn, oneBtn) {
 }
 
 /**
+ * 建议卡还开着时用户去插件里改了转发目标：storage 变更立即刷新底栏按钮文案，
+ * 不必等下一次生成或点击发送（点击发送本身会重读 storage）。
+ */
+function applyPageAdvisorDeliveryTargetChange(newValue) {
+  pageAdvisorDeliveryTargetCache =
+    typeof PageAdvisorDelivery !== "undefined"
+      ? PageAdvisorDelivery.normalizeTarget(newValue)
+      : "task_description";
+  if (typeof document === "undefined") {
+    return;
+  }
+  applyPageAdvisorDeliveryButtonLabels(
+    document.getElementById("taskplugin-page-advisor-fill-all"),
+    document.getElementById("taskplugin-page-advisor-fill-one"),
+  );
+}
+
+/**
  * 将纯文本按当前「转发目标」发出。
  * 任务描述目标：delivered=false（调用方自行写描述）。
  * IDE 目标：剪贴板 + SW 深链（超限按建议分批），不写任务描述。

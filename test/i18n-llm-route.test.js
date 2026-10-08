@@ -8,6 +8,11 @@ const path = require('node:path');
 const src = fs.readFileSync(path.join(__dirname, '../lib/i18n-llm-route.js'), 'utf8');
 
 describe('i18n-llm-route builtin refresh copy', () => {
+  it('中英都有 paWfAnnounce，且带 {stage}/{seconds} 占位（OPT-20261008-017）', () => {
+    assert.match(src, /paWfAnnounce:\s*'当前环节：\{stage\}，已用 \{seconds\} 秒'/);
+    assert.match(src, /paWfAnnounce:\s*'Current step: \{stage\}, \{seconds\}s elapsed'/);
+  });
+
   it('paLlmRouteBuiltin 标明机子速度差异与约 130s 耗时', () => {
     assert.match(
       src,

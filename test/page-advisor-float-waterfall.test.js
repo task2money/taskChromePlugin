@@ -132,6 +132,54 @@ describe('page advisor collecting panel waterfall', () => {
     }
   });
 
+  it('采集进行中按环节低频播报当前环节与已用秒数', () => {
+    const sandbox = loadLibs();
+    const t0 = 1700000000000;
+    const orig = Date.now;
+    Date.now = () => t0 + 9500;
+    try {
+      sandbox.tx = (k, p) => {
+        if (k === 'paWfAnnounce') return `当前环节：${p.stage}，已用 ${p.seconds} 秒`;
+        return ({ paWfCapture: '采集', paWfPrompt: '提示', paWfParse: '解析' }[k] || k);
+      };
+      const run = runningRun(sandbox);
+      const host = { hidden: true, innerHTML: '' };
+      const announce = { textContent: '' };
+      const doc = {
+        getElementById: (id) => {
+          if (id === 'taskplugin-page-advisor-waterfall-announce') return announce;
+          if (id === 'taskplugin-page-advisor-waterfall') return host;
+          return null;
+        },
+      };
+      sandbox.PageAdvisorFloatWaterfall.applyRun(run, doc);
+      assert.equal(announce.textContent, '当前环节：提示，已用 10 秒');
+
+      // 同一环节 5 秒内不重复播报（避免 250ms 重绘刷屏）
+      announce.textContent = '';
+      sandbox.PageAdvisorFloatWaterfall.maybeAnnounce(doc);
+      assert.equal(announce.textContent, '');
+
+      // 环节切换立刻播报，不等满 5 秒
+      sandbox.PageAdvisorTiming.startSpan(run, 'parse', () => t0 + 9500);
+      Date.now = () => t0 + 9600;
+      sandbox.PageAdvisorFloatWaterfall.maybeAnnounce(doc);
+      assert.equal(announce.textContent, '当前环节：解析，已用 10 秒');
+    } finally {
+      Date.now = orig;
+    }
+  });
+
+  it('播报节点在 aria-hidden 图表之外', () => {
+    const sandbox = loadLibs();
+    const html = sandbox.PageAdvisorFloatWaterfall.statusCardHtml('正在采集页面并生成优化建议…', (s) => s);
+    const announceIdx = html.indexOf('taskplugin-page-advisor-waterfall-announce');
+    const hiddenIdx = html.indexOf('aria-hidden="true"');
+    assert.ok(announceIdx >= 0, html);
+    assert.ok(hiddenIdx > announceIdx, '播报节点必须在 aria-hidden 图表之前/之外');
+    assert.match(html, /id="taskplugin-page-advisor-waterfall-announce"[^>]*role="status"/);
+  });
+
   it('content script list loads timing before the collecting panel', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
     const js = manifest.content_scripts[0].js;

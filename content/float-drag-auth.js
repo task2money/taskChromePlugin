@@ -370,6 +370,11 @@ function bindStorageListeners() {
           renderShortcutHints();
         }
       }
+      // OPT-20261008-010：建议卡还开着时改转发目标，即刻刷新底栏按钮文案。
+      if (changes.pageAdvisorDeliveryTarget
+        && typeof applyPageAdvisorDeliveryTargetChange === 'function') {
+        applyPageAdvisorDeliveryTargetChange(changes.pageAdvisorDeliveryTarget.newValue);
+      }
       if (!changes.token && !changes.tokenExpiresAt && !changes.baseUrl && !changes.userId && !changes.memberId) {
         return;
       }
