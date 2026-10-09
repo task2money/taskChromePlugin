@@ -39,8 +39,14 @@ async function confirmPageAdvisorFill(opts) {
       setPageAdvisorError((typeof tx === "function" ? tx("paFillModuleMissing") : "PageAdvisorFill 未加载"));
       return { filled: false };
     }
+    const prefix = typeof loadPageAdvisorContentPrefix === "function"
+      ? await loadPageAdvisorContentPrefix()
+      : "";
     const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
-    const block = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
+    const rawBlock = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
+    const block = typeof PageAdvisorDelivery !== "undefined" && PageAdvisorDelivery.prependContentPrefix
+      ? PageAdvisorDelivery.prependContentPrefix(rawBlock, prefix)
+      : rawBlock;
     const clip = navigator.clipboard && navigator.clipboard.writeText;
     const copied = await Fill.copySuggestionsBlock(block, clip ? (t) => clip.call(navigator.clipboard, t) : null);
     const current = typeof readCreateDescription === "function"
@@ -51,6 +57,7 @@ async function confirmPageAdvisorFill(opts) {
       pageAdvisorState.suggestions,
       selectedIds,
       pageAdvisorState.pageUrl,
+      prefix,
     );
     if (typeof writeCreateDescription === "function") await writeCreateDescription(next);
     else if (descInput) descInput.value = next;

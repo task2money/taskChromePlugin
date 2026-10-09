@@ -28,10 +28,16 @@ html[data-taskplugin-host="sidepanel"] .llm-route-option,
 html[data-taskplugin-host="sidepanel"] #popupLlmRouteField > legend,
 html[data-taskplugin-host="sidepanel"] #popupLlmRouteField .llm-route-option,
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField legend,
+html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix,
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .llm-route-option,
 html[data-taskplugin-host="sidepanel"] .status-row .value,
 html[data-taskplugin-host="sidepanel"] .hint {
   color: #1e1e2e;
+}
+html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix-input {
+  background: #fff !important;
+  color: #1e1e2e;
+  border-color: #d1d5db;
 }
 html[data-taskplugin-host="sidepanel"] .form-input,
 html[data-taskplugin-host="sidepanel"] .form-select,

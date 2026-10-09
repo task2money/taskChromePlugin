@@ -34,6 +34,19 @@ describe('page-advisor-fill', () => {
     assert.match(block, /来源页: https:\/\/ex\.com/);
   });
 
+  it('内容前缀加在追加块最前，不盖住已有描述', () => {
+    require('../lib/page-advisor-delivery.js');
+    const next = appendSuggestionsToDescription(
+      '已有描述',
+      SUGGESTIONS,
+      ['s2'],
+      'https://ex.com/p',
+      '请用中文',
+    );
+    assert.ok(next.startsWith('已有描述\n\n请用中文\n## 页面优化建议（Alt+Z）'));
+    assert.match(next, /- \*\*调整期望\*\*: 加载：减少首屏 JS/);
+  });
+
   it('appends to existing description without wiping it', () => {
     const next = appendSuggestionsToDescription(
       '已有描述',

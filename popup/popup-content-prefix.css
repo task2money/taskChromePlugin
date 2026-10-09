@@ -1,0 +1,28 @@
+/* 内容前缀与「转发目标」同一行；选项在下一行换行。 */
+#popupDeliveryTargetField .delivery-content-prefix {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 8em;
+  min-width: 0;
+  margin: 0;
+  font-size: 10px;
+  color: #a6adc8;
+}
+#popupDeliveryTargetField .delivery-content-prefix-input {
+  flex: 1 1 auto;
+  width: 8em;
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid #45475a;
+  border-radius: 5px;
+  background: #313244;
+  color: #cdd6f4;
+  font-size: 12px;
+  font-family: inherit;
+}
+#popupDeliveryTargetField .delivery-content-prefix-input:focus {
+  outline: none;
+  border-color: #89b4fa;
+}

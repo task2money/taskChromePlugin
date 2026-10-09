@@ -13,6 +13,9 @@ describe('sw-page-advisor-delivery', () => {
     );
     const fn = sw.slice(sw.indexOf('async function handleDeliverPageAdvisorToIde'));
     assert.match(fn, /buildIdeDeeplinkBatches/);
+    assert.match(fn, /contentPrefix/);
+    assert.match(fn, /prefixChars/);
+    assert.doesNotMatch(fn, /prefix:\s*contentPrefix/);
     assert.match(fn, /openPageAdvisorIdeDeeplink/);
     assert.match(fn, /waitPageAdvisorBatchGap/);
     assert.match(sw, /page_advisor_ide_deliver/);

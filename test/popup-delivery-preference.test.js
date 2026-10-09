@@ -158,3 +158,56 @@ describe('popup delivery preference', () => {
     assert.equal(setCalls, 0);
   });
 });
+
+describe('popup content prefix', () => {
+  function fakeInput(value) {
+    const listeners = [];
+    return {
+      value: value || '',
+      addEventListener(type, fn) { listeners.push({ type, fn }); },
+      emit(type) {
+        listeners.filter((l) => l.type === type).forEach((l) => l.fn());
+      },
+    };
+  }
+
+  it('输入时把前缀写入本机与 chrome.storage，不记录正文', async () => {
+    const notes = [];
+    const logs = [];
+    const storage = {
+      async get() { return {}; },
+      async set(obj) { notes.push(obj); },
+    };
+    const local = memoryLocal();
+    const input = fakeInput('');
+    const bound = Pref.bindContentPrefixInput({
+      input,
+      storage,
+      localStore: local,
+      log(msg, detail) { logs.push({ msg, detail }); },
+    });
+    await bound.ready;
+    input.value = '  请用中文  ';
+    input.emit('input');
+    assert.equal(local.getItem('pageAdvisorContentPrefix'), '请用中文');
+    assert.equal(notes.at(-1).pageAdvisorContentPrefix, '请用中文');
+    assert.ok(logs.some((row) => row.detail && row.detail.prefixChars === 4));
+    assert.equal(JSON.stringify(logs).includes('请用中文'), false);
+  });
+
+  it('下次打开恢复已保存的前缀', async () => {
+    const storage = {
+      async get() { return { pageAdvisorContentPrefix: '先看这里' }; },
+      async set() { throw new Error('should not write'); },
+    };
+    const input = fakeInput('');
+    const bound = Pref.bindContentPrefixInput({
+      input,
+      storage,
+      localStore: memoryLocal(),
+      log() {},
+    });
+    await bound.ready;
+    assert.equal(input.value, '先看这里');
+  });
+});

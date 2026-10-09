@@ -169,6 +169,72 @@
     return { ready: ready, persist: persist };
   }
 
+  function bindContentPrefixInput(opts) {
+    var input = opts && opts.input;
+    var storage = opts && opts.storage;
+    var local = opts && opts.localStore;
+    var log = (opts && opts.log) || function () {};
+    if (!input || !storage || !local) return { ready: Promise.resolve() };
+
+    var api = deliveryApi();
+    var key = (api && api.CONTENT_PREFIX_KEY) || 'pageAdvisorContentPrefix';
+
+    function normalize(raw) {
+      return api && api.normalizeContentPrefix
+        ? api.normalizeContentPrefix(raw)
+        : String(raw || '').trim();
+    }
+
+    function write(raw) {
+      var value = normalize(raw);
+      try {
+        local.setItem(key, value);
+      } catch (e) {
+        log('content prefix local write failed', {
+          message: e && e.message ? e.message : String(e),
+        });
+      }
+      log('content prefix saved', { prefixChars: value.length });
+      var payload = {};
+      payload[key] = value;
+      return invokeStorage(storage, 'set', payload).catch(function (e) {
+        log('content prefix storage write failed', {
+          message: e && e.message ? e.message : String(e),
+        });
+      });
+    }
+
+    var ready = invokeStorage(storage, 'get', [key]).then(function (bag) {
+      var remote = bag && Object.prototype.hasOwnProperty.call(bag, key) ? bag[key] : null;
+      var localVal = '';
+      try { localVal = local.getItem(key) || ''; } catch (_) { localVal = ''; }
+      if (remote == null) {
+        input.value = normalize(localVal);
+        if (input.value) return write(input.value);
+        return undefined;
+      }
+      input.value = normalize(remote);
+      return undefined;
+    }, function (e) {
+      log('content prefix storage read failed', {
+        message: e && e.message ? e.message : String(e),
+      });
+      try { input.value = normalize(local.getItem(key) || ''); } catch (_) { input.value = ''; }
+    });
+
+    input.addEventListener('input', function () {
+      // Anti-Replay-OK: ui-only — 覆盖本机内容前缀，无写接口
+      write(input.value);
+    });
+    input.addEventListener('blur', function () {
+      var next = normalize(input.value);
+      if (input.value !== next) input.value = next;
+      write(next);
+    });
+
+    return { ready: ready, write: write };
+  }
+
   function bindFromDocument(doc) {
     var field = doc.getElementById('popupDeliveryTargetField');
     var area = (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) || null;
@@ -193,10 +259,22 @@
         } catch (_) { /* 面板卸载时忽略 */ }
       },
     });
+    var prefixInput = doc.getElementById('pageAdvisorContentPrefix');
+    if (prefixInput) {
+      bindContentPrefixInput({
+        input: prefixInput,
+        storage: area,
+        localStore: local,
+        log: function (msg, detail) {
+          console.info('[taskChromePlugin] ' + msg, detail || '');
+        },
+      });
+    }
   }
 
   var api = {
     bindPageAdvisorDeliveryRadios: bindPageAdvisorDeliveryRadios,
+    bindContentPrefixInput: bindContentPrefixInput,
   };
   global.PopupDeliveryPreference = api;
   if (typeof document !== 'undefined' && document.getElementById) {

@@ -139,6 +139,13 @@ describe('Popup 面板布局', () => {
     const legendIdx = caption.indexOf('>转发目标<');
     const bangIdx = caption.indexOf('class="region-help-mark"');
     assert.ok(legendIdx >= 0 && bangIdx > legendIdx, '! 须紧跟在「转发目标」文案之后');
+    const prefixIdx = caption.indexOf('id="pageAdvisorContentPrefix"');
+    assert.ok(prefixIdx > bangIdx, '内容前缀输入框须排在 ! 之后、选项换行之前');
+    assert.match(
+      read('popup/popup-content-prefix.css'),
+      /#popupDeliveryTargetField \.delivery-content-prefix\s*\{[^}]*display:\s*inline-flex/,
+    );
+    assert.match(popupHtml, /popup-content-prefix\.css/);
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
     assert.doesNotMatch(brand, /data-i18n="extTitle"/);
   });

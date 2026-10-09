@@ -388,18 +388,9 @@ async function confirmAdjustModal() {
       return;
     }
 
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(block);
-      copied = true;
-    } catch (clipErr) {
-      console.warn('[taskChromePlugin] clipboard copy failed:', clipErr.message || clipErr);
-    }
-
-    const currentDesc = typeof readCreateDescription === 'function'
-      ? await readCreateDescription()
-      : (descInput ? descInput.value : '');
-    const nextDesc = ElementPicker.appendElementAdjustmentToDescription(currentDesc, payload);
+    const written = await writePrefixedTaskDescription(block);
+    const copied = written.copied;
+    const nextDesc = written.nextDesc;
     if (
       typeof PageAdvisorDelivery === 'undefined'
       || !PageAdvisorDelivery.shouldOpenCreatePanel

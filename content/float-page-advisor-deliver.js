@@ -7,6 +7,27 @@
 
 var pageAdvisorDeliveryTargetCache = "task_description";
 
+function loadPageAdvisorContentPrefix() {
+  return new Promise((resolve) => {
+    try {
+      if (!chrome.storage || !chrome.storage.local) {
+        resolve("");
+        return;
+      }
+      chrome.storage.local.get(["pageAdvisorContentPrefix"], (r) => {
+        const raw = r && r.pageAdvisorContentPrefix;
+        const prefix =
+          typeof PageAdvisorDelivery !== "undefined" && PageAdvisorDelivery.normalizeContentPrefix
+            ? PageAdvisorDelivery.normalizeContentPrefix(raw)
+            : "";
+        resolve(prefix);
+      });
+    } catch (_) {
+      resolve("");
+    }
+  });
+}
+
 function loadPageAdvisorDeliveryTarget() {
   return new Promise((resolve) => {
     try {
@@ -82,11 +103,16 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
     return { delivered: false, target: target };
   }
   const block = String(text || "");
+  const prefix = await loadPageAdvisorContentPrefix();
+  const clipText =
+    typeof PageAdvisorDelivery !== "undefined" && PageAdvisorDelivery.prependContentPrefix
+      ? PageAdvisorDelivery.prependContentPrefix(block, prefix)
+      : block;
   let copied = false;
   try {
     const clip = navigator.clipboard && navigator.clipboard.writeText;
-    if (clip && block) {
-      await clip.call(navigator.clipboard, block);
+    if (clip && clipText) {
+      await clip.call(navigator.clipboard, clipText);
       copied = true;
     }
   } catch (_) {
@@ -100,6 +126,7 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
       target: target,
       text: block,
       pageUrl: String(pageUrl || ""),
+      contentPrefix: prefix,
     });
     deeplinkOk = !!(resp && resp.deeplinkOk);
     batchCount = Number((resp && resp.batchCount) || 0);
@@ -129,6 +156,28 @@ async function deliverPlainTextViaDeliveryTarget(text, pageUrl) {
     createTaskCalled: false,
     openedPanel: false,
   };
+}
+
+/** 任务描述路径：前缀加在本次写入块最前，再追加到已有描述。 */
+async function writePrefixedTaskDescription(block) {
+  const prefix = await loadPageAdvisorContentPrefix();
+  const outgoing =
+    typeof PageAdvisorDelivery !== "undefined" && PageAdvisorDelivery.prependContentPrefix
+      ? PageAdvisorDelivery.prependContentPrefix(block, prefix)
+      : String(block || "");
+  let copied = false;
+  try {
+    await navigator.clipboard.writeText(outgoing);
+    copied = true;
+  } catch (clipErr) {
+    console.warn("[taskChromePlugin] clipboard copy failed:", clipErr.message || clipErr);
+  }
+  const currentDesc = typeof readCreateDescription === "function"
+    ? await readCreateDescription()
+    : (typeof descInput !== "undefined" && descInput ? descInput.value : "");
+  const base = String(currentDesc || "").trimEnd();
+  const nextDesc = base ? `${base}\n\n${outgoing}` : outgoing;
+  return { copied: copied, nextDesc: nextDesc };
 }
 
 async function deliverPageAdvisorSuggestions(opts) {

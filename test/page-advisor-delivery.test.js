@@ -265,6 +265,52 @@ describe('page-advisor-delivery', () => {
     assert.equal(url, 'cursor://anysphere.cursor-deeplink/prompt?text=' + encodeURIComponent(text));
   });
 
+  it('内容前缀加在每一批最前，空前缀不改写，超长截断', () => {
+    assert.equal(Delivery.normalizeContentPrefix('  \n hi \n '), 'hi');
+    assert.equal(Delivery.normalizeContentPrefix(''), '');
+    assert.equal(Delivery.normalizeContentPrefix('a'.repeat(500)).length, Delivery.CONTENT_PREFIX_MAX_LEN);
+    assert.equal(Delivery.prependContentPrefix('body', '  请用中文  '), '请用中文\nbody');
+    assert.equal(Delivery.prependContentPrefix('body', '   '), 'body');
+
+    const text = 'fix login header';
+    const one = Delivery.buildIdeDeeplinkBatches('cursor', text, '', '请用中文');
+    assert.deepEqual(one, ['请用中文\n' + text]);
+    const url = Delivery.buildIdeDeeplink('cursor', one[0]);
+    assert.ok(url);
+    assert.ok(url.length <= Delivery.DEEPLINK_MAX_URL_LEN);
+
+    const pad = '可见文本锚点'.repeat(400);
+    const part = (name) => [
+      `- **元素**: \`${name}\``,
+      `- **选择器**: \`main > ${name}\``,
+      `- **可见文本**: "${pad}"`,
+      `- **调整期望**: ${name}：改一下`,
+    ].join('\n');
+    const block = [
+      '## 页面优化建议（Alt+Z）',
+      '锚点全部相对于生成建议时的页面。',
+      '',
+      part('对比度'),
+      '',
+      part('文案'),
+    ].join('\n');
+    const prefix = '【前缀】先读这句';
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', block, 'https://example.test/prefix', prefix);
+    assert.ok(batches.length > 1, `expected multiple batches, got ${batches.length}`);
+    const decoded = [];
+    for (const body of batches) {
+      assert.ok(body.startsWith(prefix + '\n'), body.slice(0, 40));
+      assert.equal(body.indexOf(prefix, prefix.length), -1);
+      const link = Delivery.buildIdeDeeplink('cursor', body);
+      assert.ok(link, 'prefixed batch must fit');
+      assert.ok(link.length <= Delivery.DEEPLINK_MAX_URL_LEN);
+      decoded.push(decodeURIComponent(link.split('text=')[1]));
+    }
+    const joined = decoded.join('\n');
+    assert.match(joined, /对比度：改一下/);
+    assert.match(joined, /文案：改一下/);
+  });
+
   it('单条建议自身超限时切开且不丢尾部', () => {
     const tail = 'TAIL_建议未被截断';
     const part = `- **元素**: only\n${'调整期望：'.repeat(800)}${tail}`;
@@ -354,6 +400,24 @@ describe('page-advisor-delivery', () => {
     assert.match(deliver, /deeplinkOk/);
   });
 
+  it('送达路径把内容前缀交给每一批，任务描述只加在本次块前', () => {
+    const deliver = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-deliver.js'),
+      'utf8',
+    );
+    assert.match(deliver, /loadPageAdvisorContentPrefix/);
+    assert.match(deliver, /contentPrefix:\s*prefix/);
+    assert.match(deliver, /function writePrefixedTaskDescription/);
+    const pick = fs.readFileSync(path.join(__dirname, '../content/float-pick.js'), 'utf8');
+    assert.match(pick, /writePrefixedTaskDescription\(block\)/);
+    const fillUi = fs.readFileSync(
+      path.join(__dirname, '../content/float-page-advisor-fill-ui.js'),
+      'utf8',
+    );
+    assert.match(fillUi, /loadPageAdvisorContentPrefix/);
+    assert.match(fillUi, /prependContentPrefix/);
+  });
+
   it('fill-ui gates create panel on shouldOpenCreatePanel', () => {
     const src = fs.readFileSync(
       path.join(__dirname, '../content/float-page-advisor-fill-ui.js'),
@@ -391,6 +455,11 @@ describe('page-advisor-delivery', () => {
     assert.match(brand, /id="popupDeliveryTargetField"/);
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
     assert.match(brand, />转发目标</);
+    assert.match(brand, /id="pageAdvisorContentPrefix"/);
+    assert.match(brand, /data-i18n="paContentPrefixLabel"/);
+    const bangAt = brand.indexOf('class="region-help-mark"');
+    const prefixAt = brand.indexOf('id="pageAdvisorContentPrefix"');
+    assert.ok(bangAt >= 0 && prefixAt > bangAt, '内容前缀输入框须排在转发目标说明标记之后');
     assert.doesNotMatch(brand, /建议送达/);
     assert.doesNotMatch(brand, /data-i18n="extTitle"/);
     assert.doesNotMatch(brand, /云端Coding/);
@@ -414,7 +483,7 @@ describe('page-advisor-delivery', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
     assert.equal(man.permissions.includes('nativeMessaging'), false);
-    assert.equal(man.version, '1.8.229');
+    assert.equal(man.version, '1.8.230');
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));

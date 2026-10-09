@@ -63,6 +63,29 @@ function logPageAdvisorIdeDeliver(fields) {
   }
 }
 
+async function readStoredContentPrefix() {
+  try {
+    if (!chrome.storage || !chrome.storage.local || typeof chrome.storage.local.get !== 'function') {
+      return '';
+    }
+    const bag = await chrome.storage.local.get(['pageAdvisorContentPrefix']);
+    return bag && bag.pageAdvisorContentPrefix;
+  } catch (_) {
+    return '';
+  }
+}
+
+function resolveContentPrefix(message, stored) {
+  const Delivery = typeof PageAdvisorDelivery !== 'undefined' ? PageAdvisorDelivery : null;
+  const raw = message && Object.prototype.hasOwnProperty.call(message, 'contentPrefix')
+    ? message.contentPrefix
+    : stored;
+  if (Delivery && typeof Delivery.normalizeContentPrefix === 'function') {
+    return Delivery.normalizeContentPrefix(raw);
+  }
+  return '';
+}
+
 async function handleDeliverPageAdvisorToIde(message) {
   const Delivery = typeof PageAdvisorDelivery !== 'undefined' ? PageAdvisorDelivery : null;
   const target = Delivery
@@ -76,7 +99,11 @@ async function handleDeliverPageAdvisorToIde(message) {
   if (!text || !Delivery || typeof Delivery.buildIdeDeeplinkBatches !== 'function') {
     return { success: true, deeplinkOk: false, deeplinkError: 'no_deeplink', batchCount: 0 };
   }
-  const batches = Delivery.buildIdeDeeplinkBatches(target, text, pageUrl);
+  const contentPrefix = resolveContentPrefix(
+    message,
+    await readStoredContentPrefix(),
+  );
+  const batches = Delivery.buildIdeDeeplinkBatches(target, text, pageUrl, contentPrefix);
   const opened = [];
   for (let i = 0; i < batches.length; i++) {
     const url = Delivery.buildIdeDeeplink(target, batches[i]);
@@ -86,6 +113,7 @@ async function handleDeliverPageAdvisorToIde(message) {
         handoff: 'batch',
         overflow: true,
         textChars: text.length,
+        prefixChars: contentPrefix.length,
         batchCount: opened.length,
         deeplinkOk: false,
       });
@@ -104,6 +132,7 @@ async function handleDeliverPageAdvisorToIde(message) {
         handoff: 'batch',
         overflow: batches.length > 1,
         textChars: text.length,
+        prefixChars: contentPrefix.length,
         batchCount: opened.length,
         deeplinkOk: false,
       });
@@ -123,6 +152,7 @@ async function handleDeliverPageAdvisorToIde(message) {
     handoff: opened.length > 1 ? 'batch' : 'inline',
     overflow: opened.length > 1,
     textChars: text.length,
+    prefixChars: contentPrefix.length,
     batchCount: opened.length,
     deeplinkChars: opened.length ? Math.max.apply(null, opened) : 0,
     deeplinkOk: opened.length > 0,
