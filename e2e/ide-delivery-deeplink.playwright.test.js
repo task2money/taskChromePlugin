@@ -48,6 +48,7 @@ function installStubs() {
     window.__clipboardWrites = [];
     window.__toasts = [];
     window.__deliveryTarget = 'task_description';
+    window.__contentPrefix = '';
     window.pageAdvisorState = { suggestions: [], pageUrl: '', jobId: '' };
 
     // i18n：IDE 显示名（ideDisplayName 用它把键翻成名称）+ 状态文案插值
@@ -98,7 +99,10 @@ function installStubs() {
       storage: {
         local: {
           async get(keys, cb) {
-            var out = { pageAdvisorDeliveryTarget: window.__deliveryTarget };
+            var out = {
+              pageAdvisorDeliveryTarget: window.__deliveryTarget,
+              pageAdvisorContentPrefix: window.__contentPrefix,
+            };
             if (typeof cb === 'function') { cb(out); return; }
             return out;
           },
@@ -288,6 +292,41 @@ test.describe('IDE 送达深链（content → SW → tabs.create）', () => {
     const toast = await page.evaluate('window.__toasts[window.__toasts.length - 1]');
     expect(toast.text).toContain('批');
     expect(toast.text).toContain(String(tabs.length));
+  });
+
+  test('内容前缀加在剪贴板正文前一次，且进入每一条深链正文', async ({ page }) => {
+    await loadDeliveryChain(page);
+    await setTarget(page, 'cursor');
+    await page.evaluate(`window.__contentPrefix = '前缀-ABC';`);
+    const huge = [
+      '## 页面优化建议（Alt+Z）',
+      '',
+      `- **元素**: alpha\n${'调整期望：'.repeat(400)}TAIL_alpha`,
+      '',
+      `- **元素**: beta\n${'调整期望：'.repeat(400)}TAIL_beta`,
+      '',
+      '来源页: https://example.test/page',
+    ].join('\n');
+    const outcome = await page.evaluate(
+      (text) => deliverPlainTextViaDeliveryTarget(text, 'https://example.test/page'),
+      huge,
+    );
+    expect(outcome.ok).toBe(true);
+
+    // 剪贴板完整正文前恰好一次前缀，正文原样跟在后面
+    const clips = await page.evaluate('window.__clipboardWrites');
+    expect(clips.length).toBe(1);
+    expect(clips[0]).toBe('前缀-ABC\n' + huge);
+    expect(clips[0].split('前缀-ABC').length - 1).toBe(1);
+
+    // 每一条深链正文都以该前缀开头，且前缀只出现一次
+    const tabs = await page.evaluate('window.__tabsCreated');
+    expect(tabs.length).toBeGreaterThan(1);
+    const decoded = tabs.map((url) => decodeURIComponent(url.split('text=')[1]));
+    for (const body of decoded) {
+      expect(body.startsWith('前缀-ABC')).toBe(true);
+      expect(body.split('前缀-ABC').length - 1).toBe(1);
+    }
   });
 
   test('shouldAutoDeliverOnResult 对全部 IDE 目标恒 false（真浏览器契约）', async ({ page }) => {
