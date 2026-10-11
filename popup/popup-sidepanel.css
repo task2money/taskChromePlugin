@@ -1,10 +1,12 @@
-/* 设置页嵌在侧边栏 iframe 时铺满宽度，背景为白。独立打开 popup.html 不带 host 参数，保持 300px。 */
+/* 设置页嵌在侧边栏 iframe 时铺满宽度。画布用 DESIGN.md primary-light → canvas 渐变，
+   分区是无描边白卡片。独立打开 popup.html 不带 host 参数，保持 300px 深色弹窗。 */
 html[data-taskplugin-host="sidepanel"],
 html[data-taskplugin-host="sidepanel"] body {
   width: 100%;
   max-width: none;
   min-width: 0;
-  background: #fff !important;
+  background-color: #F7F9FC !important;
+  background-image: linear-gradient(165deg, #E6E0FF 0%, #F7F9FC 240px) !important;
   color: #1e1e2e;
   color-scheme: light;
 }
@@ -12,12 +14,14 @@ html[data-taskplugin-host="sidepanel"] .popup-container {
   width: 100%;
   max-width: none;
   box-sizing: border-box;
-  background: #fff !important;
+  background: transparent !important;
 }
 html[data-taskplugin-host="sidepanel"] .section {
   background: #fff !important;
   color: #1e1e2e;
-  border: 1px solid #e5e7eb;
+  border: 0;
+  border-radius: 16px;
+  box-shadow: 0 1px 1px rgba(26, 26, 26, 0.04), 0 14px 36px rgba(114, 65, 242, 0.10);
 }
 html[data-taskplugin-host="sidepanel"] .popup-header h1,
 html[data-taskplugin-host="sidepanel"] .section h3,
@@ -35,17 +39,21 @@ html[data-taskplugin-host="sidepanel"] .hint {
   color: #1e1e2e;
 }
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix-input {
-  background: #fff !important;
+  background: #F7F9FC !important;
   color: #1e1e2e;
-  border-color: #d1d5db;
+  border-color: transparent;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7241F2 16%, #E5E7EB);
 }
 html[data-taskplugin-host="sidepanel"] .form-input,
 html[data-taskplugin-host="sidepanel"] .form-select,
 html[data-taskplugin-host="sidepanel"] .form-textarea {
   width: 100%;
-  background: #fff !important;
+  background: #F7F9FC !important;
   color: #1e1e2e;
-  border-color: #d0d0d8;
+  border-color: transparent;
+  border-radius: 10px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7241F2 16%, #E5E7EB);
 }
 /* OPT-20260929-014 / 设置 Tab 白底：一层覆盖。除下方控件外一律白底。
    !important：压过 popup-guide.css 的 #popup-user-guide … ID 规则，以及内联 style 深色底。
@@ -71,7 +79,6 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   progress.builtin-progress
 )) {
   background: #fff !important;
-  border-color: #e5e7eb;
 }
 
 /* 深色主题里靠描边出效果的控件（转圈动画）不铺白底，边界色要还原成强调色。 */
@@ -136,7 +143,7 @@ html[data-taskplugin-host="sidepanel"] .popup-req-detail,
 html[data-taskplugin-host="sidepanel"] .body-pre,
 html[data-taskplugin-host="sidepanel"] .dt-hint {
   background: #fff !important;
-  border-color: #e5e7eb;
+  border-color: transparent;
 }
 
 /* DESIGN.md tokens: capture ink-muted, network primary, llm primary-dark, parse secondary, fail accent */
@@ -212,3 +219,62 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="skipped"] .p
   color: #9CA3AF;
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-idle { color: #4B5563; margin: 0; }
+
+/* 柔和层：顶栏与控件不再靠灰线框分层，选中项用 primary-light 托底。 */
+html[data-taskplugin-host="sidepanel"] .popup-header,
+html[data-taskplugin-host="sidepanel"] .popup-header-title,
+html[data-taskplugin-host="sidepanel"] .header-auth-status,
+html[data-taskplugin-host="sidepanel"] #headerUserArea {
+  background: transparent !important;
+  border-bottom-color: transparent !important;
+}
+html[data-taskplugin-host="sidepanel"] .section h3 {
+  color: #5C2DC7;
+  font-size: 13px;
+  font-weight: 600;
+}
+html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
+  background: #F1F2F6 !important;
+  border-color: transparent !important;
+  border-radius: 10px;
+}
+html[data-taskplugin-host="sidepanel"] .btn-primary {
+  background: #7241F2 !important;
+  border-color: transparent !important;
+  color: #fff !important;
+  border-radius: 10px;
+  box-shadow: 0 6px 16px rgba(114, 65, 242, 0.24);
+}
+html[data-taskplugin-host="sidepanel"] .btn-primary:hover {
+  background: #5C2DC7 !important;
+}
+html[data-taskplugin-host="sidepanel"] .llm-shortcut {
+  background: #E6E0FF !important;
+  color: #5C2DC7 !important;
+  border-color: transparent !important;
+  border-radius: 999px;
+}
+html[data-taskplugin-host="sidepanel"] .region-help-mark {
+  border-color: transparent;
+  background: #E6E0FF !important;
+  color: #5C2DC7;
+}
+html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .llm-route-option:has(input:checked),
+html[data-taskplugin-host="sidepanel"] #popupLlmRouteField .llm-route-option:has(input:checked) {
+  background: #E6E0FF !important;
+  color: #5C2DC7 !important;
+  border-radius: 999px;
+  padding: 2px 10px 2px 6px;
+}
+html[data-taskplugin-host="sidepanel"] .form-input:focus,
+html[data-taskplugin-host="sidepanel"] .form-select:focus,
+html[data-taskplugin-host="sidepanel"] .form-textarea:focus,
+html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix-input:focus {
+  outline: none;
+  border-color: transparent !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #7241F2 28%, transparent) !important;
+}
+html[data-taskplugin-host="sidepanel"] input[type="radio"],
+html[data-taskplugin-host="sidepanel"] input[type="checkbox"] {
+  accent-color: #7241F2;
+}

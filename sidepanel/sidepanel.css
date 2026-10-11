@@ -1,7 +1,8 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #fff;
+  background-color: #F7F9FC;
+  background-image: linear-gradient(165deg, #E6E0FF 0%, #F7F9FC 200px);
   color: #1e1e2e;
 }
 .sp-shell {
@@ -12,30 +13,37 @@ html, body {
 .sp-tabs {
   display: flex;
   flex-shrink: 0;
-  gap: 0;
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
+  gap: 6px;
+  padding: 10px 12px 4px;
+  background: transparent;
+  border-bottom: 0;
 }
 .sp-tab {
   flex: 1;
   min-height: 44px;
   border: 0;
-  background: #fff;
-  color: #1e1e2e;
+  background: transparent;
+  color: #4B5563;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
+  border-radius: 999px;
 }
 .sp-tab[aria-selected="true"] {
   background: #fff;
-  color: #1e1e2e;
-  box-shadow: inset 0 -2px 0 #89b4fa;
+  color: #7241F2;
+  box-shadow: 0 6px 18px rgba(114, 65, 242, 0.14);
 }
 .sp-pane {
   flex: 1;
   min-height: 0;
   min-width: 0;
   overflow: auto;
-  background: #fff;
+  background: transparent;
+}
+#sp-pane-builtin {
+  padding: 8px 12px 16px;
+  box-sizing: border-box;
 }
 .sp-pane[hidden] {
   display: none !important;
@@ -53,7 +61,7 @@ html, body {
   width: 100%;
   height: 100%;
   border: 0;
-  background: #fff;
+  background: transparent;
 }
 /* 创建表单占满当前页签，不再用页内固定浮层尺寸 */
 html[data-taskplugin-host="sidepanel"] #taskplugin-float-root {
@@ -61,7 +69,7 @@ html[data-taskplugin-host="sidepanel"] #taskplugin-float-root {
   width: 100% !important;
   height: 100% !important;
   color: #1e1e2e !important;
-  background: #fff !important;
+  background: transparent !important;
 }
 html[data-taskplugin-host="sidepanel"] #taskplugin-float-panel {
   position: static !important;
@@ -72,7 +80,8 @@ html[data-taskplugin-host="sidepanel"] #taskplugin-float-panel {
   border: 0 !important;
   border-radius: 0 !important;
   box-shadow: none !important;
-  background: #fff !important;
+  background-color: #F7F9FC !important;
+  background-image: linear-gradient(165deg, #E6E0FF 0%, #F7F9FC 220px) !important;
   color: #1e1e2e !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-panel-header,
@@ -84,9 +93,9 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-label,
 html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-title,
 html[data-taskplugin-host="sidepanel"] .taskplugin-fieldset legend,
 html[data-taskplugin-host="sidepanel"] legend {
-  background: #fff !important;
+  background: transparent !important;
   color: #1e1e2e !important;
-  border-color: #e5e7eb !important;
+  border-color: transparent !important;
 }
 html[data-taskplugin-host="sidepanel"] #taskplugin-float-close {
   color: #1e1e2e !important;
@@ -103,7 +112,15 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-select,
 html[data-taskplugin-host="sidepanel"] .taskplugin-textarea {
   background: #fff !important;
   color: #1e1e2e !important;
-  border-color: #d0d0d8 !important;
+  border-color: transparent !important;
+  border-radius: 10px !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7241F2 16%, #E5E7EB) !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-toggle-label {
+  background: #fff !important;
+  border-color: transparent !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 24px rgba(114, 65, 242, 0.08) !important;
 }
 /* 深色浮窗基线字色落在白底侧栏会对比度不足（重置约 1.3:1） */
 html[data-taskplugin-host="sidepanel"] .taskplugin-checkbox-list label,
@@ -117,14 +134,34 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-project-auto-run {
 html[data-taskplugin-host="sidepanel"] .taskplugin-project-auto-run[data-auto-run="true"] {
   color: #166534 !important;
 }
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn {
+  background: #F1F2F6 !important;
+  color: #1e1e2e !important;
+  border-color: transparent !important;
+  border-radius: 10px !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn:hover {
+  background: #E5E7EB !important;
+  color: #1e1e2e !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary,
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary:hover {
+  background: #7241F2 !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary:hover {
+  background: #5C2DC7 !important;
+}
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset {
   color: #1e1e2e !important;
   background: #f1f2f6 !important;
-  border-color: #d0d0d8 !important;
+  border-color: transparent !important;
+  border-radius: 10px !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:hover:not(:disabled) {
   background: #e5e7eb !important;
-  border-color: #4b5563 !important;
+  border-color: transparent !important;
   color: #1e1e2e !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:disabled {

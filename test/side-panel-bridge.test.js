@@ -67,15 +67,17 @@ describe('side panel manifest', () => {
     assert.doesNotMatch(src, /action\.onClicked/);
   });
 
-  it('创建任务与设置页签背景为白色，设置 iframe 铺满宽度', () => {
+  it('创建任务与设置页签是浅色渐变画布，设置 iframe 铺满宽度', () => {
     const css = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'), 'utf8');
     const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
     const settingsCss = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup-sidepanel.css'), 'utf8');
-    assert.match(css, /\.sp-tab[\s\S]*background:\s*#fff/);
-    assert.match(css, /\.sp-pane[\s\S]*background:\s*#fff/);
-    assert.match(css, /#taskplugin-float-panel[\s\S]*background:\s*#fff/);
+    assert.match(css, /linear-gradient\(165deg,\s*#E6E0FF/);
+    assert.match(css, /\.sp-tab\[aria-selected="true"\]\s*\{[^}]*background:\s*#fff/);
+    assert.match(css, /#taskplugin-float-panel[\s\S]*?background-image:\s*linear-gradient/);
+    assert.doesNotMatch(css, /background:\s*#1e1e2e/);
     assert.match(html, /popup\.html\?host=sidepanel/);
     assert.match(settingsCss, /width:\s*100%/);
+    assert.match(settingsCss, /linear-gradient\(165deg,\s*#E6E0FF/);
     assert.match(settingsCss, /background:\s*#fff/);
   });
 
@@ -287,7 +289,7 @@ describe('sidepanel create-form contrast overrides', () => {
     const decls = declsFor('\\.taskplugin-btn-reset');
     assert.match(decls, /color:\s*#1e1e2e\s*!important/);
     assert.match(decls, /background:\s*#f1f2f6\s*!important/);
-    assert.match(decls, /border-color:\s*#d0d0d8\s*!important/);
+    assert.match(decls, /border-color:\s*transparent\s*!important/);
   });
 
   it('重置按钮 hover 保持深色字（不回退粉红浅字）', () => {

@@ -91,13 +91,18 @@ test.describe('侧栏本机模型浅色层', () => {
     await expect(pane).toBeVisible({ timeout: 15000 });
 
     const paneBg = await pane.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(paneBg, '#sp-pane-builtin 应为白底').toBe(WHITE);
+    expect(paneBg, '#sp-pane-builtin 不得是深色底').not.toBe(DARK_BASE);
+    expect(paneBg, '#sp-pane-builtin 不得是深色分区').not.toBe(DARK_SECTION);
+    const shellImage = await page.evaluate(() => getComputedStyle(document.body).backgroundImage);
+    expect(shellImage, '侧栏壳层应为浅色渐变').toContain('linear-gradient');
 
     const panel = page.locator('#spBuiltinPanel');
     const panelBg = await panel.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(panelBg, '#spBuiltinPanel 不得继承 popup.css 深色 .section 底').not.toBe(DARK_SECTION);
     expect(panelBg, '#spBuiltinPanel 不得继承深色基线').not.toBe(DARK_BASE);
-    expect(panelBg, '#spBuiltinPanel 应为白底').toBe(WHITE);
+    expect(panelBg, '#spBuiltinPanel 卡片仍为白底').toBe(WHITE);
+    const panelBorder = await panel.evaluate((el) => getComputedStyle(el).borderTopWidth);
+    expect(panelBorder, '#spBuiltinPanel 不再描线框').toBe('0px');
 
     // 白底上的标题/hint 应为深字（对比度抽检）。
     const h3Color = await page.locator('#spBuiltinPanel h3').evaluate((el) => getComputedStyle(el).color);
