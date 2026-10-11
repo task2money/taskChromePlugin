@@ -13,15 +13,14 @@ describe('i18n-llm-route builtin refresh copy', () => {
     assert.match(src, /paWfAnnounce:\s*'Current step: \{stage\}, \{seconds\}s elapsed'/);
   });
 
-  it('paLlmRouteBuiltin 标明机子速度差异与约 130s 耗时', () => {
-    assert.match(
-      src,
-      /paLlmRouteBuiltin:\s*'使用浏览器内置模型\(不同机子速度不一样，我的机子耗费时间130s\)'/,
-    );
-    assert.match(
-      src,
-      /paLlmRouteBuiltin:\s*'Use the browser’s built-in model \(speed varies by machine; ~130s on mine\)'/,
-    );
+  it('paLlmRouteBuiltin 文案为使用浏览器内置模型，不含机子耗时说明', () => {
+    assert.match(src, /paLlmRouteBuiltin:\s*'使用浏览器内置模型',/);
+    assert.match(src, /paLlmRouteBuiltin:\s*'Use the browser’s built-in model',/);
+    assert.equal(src.includes('耗费时间130s'), false);
+    assert.equal(src.includes('~130s on mine'), false);
+    const popup = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
+    assert.match(popup, /data-i18n="paLlmRouteBuiltin">使用浏览器内置模型</);
+    assert.equal(popup.includes('耗费时间130s'), false);
     assert.equal(src.includes('留在本机，不必填写 API Key'), false);
     assert.equal(src.includes('stays on this device, no API key'), false);
   });
