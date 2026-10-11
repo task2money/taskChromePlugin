@@ -45,6 +45,7 @@ body {
   flex: 1 1 auto; min-width: 72px; padding: 8px 8px; border: none; background: transparent;
   color: var(--taskplugin-muted-foreground); font-size: 11px; cursor: pointer; transition: all .15s;
   border-bottom: 2px solid transparent;
+  appearance: none; -webkit-appearance: none;
 }
 .tab:hover { color: var(--taskplugin-foreground); }
 .tab.active { color: var(--taskplugin-accent-ink); border-bottom-color: var(--taskplugin-accent); }
@@ -167,15 +168,16 @@ label { display: block; font-size: 11px; color: var(--taskplugin-muted-foregroun
 /* === Buttons === */
 .btn {
   padding: 7px 14px; border: 1px solid var(--taskplugin-border); border-radius: 6px;
-  background: var(--taskplugin-muted); color: var(--taskplugin-foreground); font-size: 12px;
+  background: transparent; color: var(--taskplugin-foreground); font-size: 12px;
   cursor: pointer; transition: all .15s;
+  appearance: none; -webkit-appearance: none;
 }
 .btn:hover { background: var(--taskplugin-track); }
 .btn-primary { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); border-color: var(--taskplugin-accent); }
 .btn-primary:hover { background: var(--taskplugin-accent-secondary); }
-.btn *,
-button * { background-color: transparent; }
-.btn-danger { color: var(--taskplugin-danger); border-color: var(--taskplugin-danger); }
+.btn *:not(kbd):not(.tcp-guide-kbd),
+button *:not(kbd):not(.tcp-guide-kbd) { background: transparent !important; }
+.btn-danger { background: transparent; color: var(--taskplugin-danger); border-color: var(--taskplugin-danger); }
 .btn-danger:hover { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); }
 .btn-sm { padding: 4px 10px; font-size: 11px; }
 .btn-row { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
@@ -269,7 +271,8 @@ button * { background-color: transparent; }
 }
 .type-chip {
   font-size: 10px; padding: 2px 8px; border-radius: 999px;
-  border: 1px solid var(--taskplugin-border); background: var(--taskplugin-muted); color: var(--taskplugin-muted-foreground); cursor: pointer;
+  border: 1px solid var(--taskplugin-border); background: transparent; color: var(--taskplugin-muted-foreground); cursor: pointer;
+  appearance: none; -webkit-appearance: none;
 }
 .type-chip:hover { border-color: var(--taskplugin-accent); color: var(--taskplugin-foreground); }
 .type-chip.active {
@@ -285,6 +288,7 @@ button * { background-color: transparent; }
 .req-sort {
   font-size: 10px; color: var(--taskplugin-muted-foreground); background: transparent; border: 0;
   cursor: pointer; padding: 2px 0; min-width: 36px; text-align: left;
+  appearance: none; -webkit-appearance: none;
 }
 .req-sort-url { flex: 1; text-align: left; }
 .req-sort[data-sort="time"],

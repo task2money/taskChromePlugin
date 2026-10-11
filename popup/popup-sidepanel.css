@@ -81,10 +81,14 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   background: var(--taskplugin-background) !important;
 }
 /* 通配层会给按钮里的 span 铺上画布色。文字改回透明，透出按钮自己的填充。 */
-html[data-taskplugin-host="sidepanel"] .btn *,
-html[data-taskplugin-host="sidepanel"] button *,
-html[data-taskplugin-host="sidepanel"] .tcp-guide-root-summary * {
-  background-color: transparent !important;
+html[data-taskplugin-host="sidepanel"] .btn *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] button *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] .taskplugin-btn *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] .tcp-guide-root-summary *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] .tcp-guide-close *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] .sp-tab *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] summary.region-help-mark * {
+  background: transparent !important;
 }
 
 /* 深色主题里靠描边出效果的控件（转圈动画）不铺白底，边界色要还原成强调色。 */
@@ -240,7 +244,7 @@ html[data-taskplugin-host="sidepanel"] .section h3 {
   font-weight: 600;
 }
 html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
-  background: var(--taskplugin-background) !important;
+  background: transparent !important;
   border-color: transparent !important;
   border-radius: 10px;
 }
@@ -261,8 +265,8 @@ html[data-taskplugin-host="sidepanel"] .llm-shortcut {
   border-radius: 999px;
 }
 html[data-taskplugin-host="sidepanel"] .region-help-mark {
-  border-color: transparent;
-  background: var(--taskplugin-accent-muted) !important;
+  border-color: var(--taskplugin-accent);
+  background: transparent !important;
   color: var(--taskplugin-accent-ink);
 }
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .llm-route-option:has(input:checked),
@@ -283,4 +287,19 @@ html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-conte
 html[data-taskplugin-host="sidepanel"] input[type="radio"],
 html[data-taskplugin-host="sidepanel"] input[type="checkbox"] {
   accent-color: var(--taskplugin-accent);
+}
+/* 放在通配白底和关闭按钮白底之后：文字层必须透出按钮自己的填充。 */
+html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-close {
+  background: transparent !important;
+}
+html[data-taskplugin-host="sidepanel"] :is(
+  button,
+  .btn,
+  .taskplugin-btn,
+  .sp-tab,
+  .tcp-guide-root-summary,
+  .tcp-guide-close,
+  summary.region-help-mark
+) *:not(kbd):not(.tcp-guide-kbd) {
+  background: transparent !important;
 }

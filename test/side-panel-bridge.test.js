@@ -251,10 +251,10 @@ describe('sidepanel create-form contrast overrides', () => {
     return false;
   }
 
-  it('重置按钮在浅色宿主用深色字 + 浅底', () => {
+  it('重置按钮在浅色宿主用深色字，文字下不另铺底色', () => {
     const decls = declsFor('\\.taskplugin-btn-reset');
     assert.match(decls, /color:\s*var\(--taskplugin-foreground\)\s*!important/);
-    assert.match(decls, /background:\s*var\(--taskplugin-background\)\s*!important/);
+    assert.match(decls, /background:\s*transparent\s*!important/);
     assert.match(decls, /border-color:\s*transparent\s*!important/);
   });
 

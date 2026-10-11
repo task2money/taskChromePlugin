@@ -7,7 +7,7 @@
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
-  background: var(--taskplugin-muted) !important;
+  background: transparent !important;
   color: var(--taskplugin-foreground) !important;
   border: 1px solid var(--taskplugin-border) !important;
   border-radius: 6px !important;

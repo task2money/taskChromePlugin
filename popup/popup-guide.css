@@ -120,7 +120,7 @@
   border-color: var(--taskplugin-accent);
 }
 #popup-user-guide .tcp-guide-close {
-  background: var(--taskplugin-muted);
+  background: transparent;
   color: var(--taskplugin-foreground);
 }
 #popup-user-guide .tcp-guide-root-summary:focus,

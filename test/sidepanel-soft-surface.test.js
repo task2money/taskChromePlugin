@@ -47,13 +47,13 @@ describe('侧栏柔和表面', () => {
     assert.doesNotMatch(blanket[2], /border-color/);
   });
 
-  it('次按钮与选中单选不靠描边，而靠浅紫底', () => {
+  it('次按钮文字下不另铺底色，选中单选仍用浅金底', () => {
     const btn = ruleBodies(
       settingsCss,
       'html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link))',
     );
     assert.match(btn, /border-color:\s*transparent\s*!important/);
-    assert.match(btn, /background:\s*var\(--taskplugin-background\)\s*!important/);
+    assert.match(btn, /background:\s*transparent\s*!important/);
     assert.match(settingsCss, /:has\(input:checked\)[\s\S]*background:\s*var\(--taskplugin-accent-muted\)\s*!important/);
   });
 
@@ -62,15 +62,19 @@ describe('侧栏柔和表面', () => {
     assert.match(tokens, /--taskplugin-background:\s*#FFFFFF\b/);
     assert.match(
       settingsCss,
-      /\.btn \*,[\s\S]*?button \*[\s\S]*?\{[^}]*background-color:\s*transparent\s*!important/,
+      /button \*[\s\S]*?\{[^}]*background:\s*transparent\s*!important/,
     );
     const popupCss = read('popup/popup.css');
     const panelCss = read('panel/panel.css');
     const formCss = read('content/content-form.css');
-    for (const css of [popupCss, panelCss, formCss]) {
-      assert.match(css, /\.btn \*|button \*|\.taskplugin-btn \*/);
-      assert.match(css, /background-color:\s*transparent/);
+    for (const css of [popupCss, panelCss]) {
+      assert.match(css, /\.btn \{[^}]*background:\s*transparent/);
+      assert.match(css, /button \*:not\(kbd\)[\s\S]*?background:\s*transparent\s*!important/);
     }
+    assert.match(formCss, /\.taskplugin-btn \{[^}]*background:\s*transparent\s*!important/);
+    assert.match(formCss, /\.taskplugin-btn \*:not\(kbd\)[\s\S]*?background:\s*transparent\s*!important/);
+    assert.match(panelCss, /\.type-chip \{[^}]*background:\s*transparent/);
+    assert.match(panelCss, /\.btn-danger \{[^}]*background:\s*transparent/);
   });
 
   it('页签选中态与壳层都是白底，字色是暗金', () => {

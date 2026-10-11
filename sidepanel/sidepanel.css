@@ -28,6 +28,8 @@ html, body {
   font-weight: 500;
   cursor: pointer;
   border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
 }
 .sp-tab[aria-selected="true"] {
   background: var(--taskplugin-background);
@@ -135,7 +137,7 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-project-auto-run[data-auto-ru
   color: var(--taskplugin-success) !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn {
-  background: var(--taskplugin-background) !important;
+  background: transparent !important;
   color: var(--taskplugin-foreground) !important;
   border-color: transparent !important;
   border-radius: 10px !important;
@@ -155,7 +157,7 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary:hover {
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset {
   color: var(--taskplugin-foreground) !important;
-  background: var(--taskplugin-background) !important;
+  background: transparent !important;
   border-color: transparent !important;
   border-radius: 10px !important;
 }
@@ -183,4 +185,7 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-captured-url {
   color: var(--taskplugin-muted-foreground) !important;
   background: var(--taskplugin-muted) !important;
   border-color: var(--taskplugin-border) !important;
+}
+html[data-taskplugin-host="sidepanel"] :is(.taskplugin-btn, .sp-tab, button) *:not(kbd):not(.tcp-guide-kbd) {
+  background: transparent !important;
 }

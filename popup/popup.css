@@ -228,15 +228,16 @@ body {
 /* === Buttons === */
 .btn {
   padding: 7px 12px; border: 1px solid var(--taskplugin-border); border-radius: 5px;
-  background: var(--taskplugin-muted); color: var(--taskplugin-foreground); font-size: 12px;
+  background: transparent; color: var(--taskplugin-foreground); font-size: 12px;
   cursor: pointer; transition: all .15s; text-align: center;
+  appearance: none; -webkit-appearance: none;
 }
 .btn:hover { background: var(--taskplugin-track); }
 .btn-primary { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); border-color: var(--taskplugin-accent); }
 .btn-primary:hover { background: var(--taskplugin-accent-secondary); }
 .btn-full { display: block; width: 100%; }
-.btn *,
-button * { background-color: transparent; }
+.btn *:not(kbd):not(.tcp-guide-kbd),
+button *:not(kbd):not(.tcp-guide-kbd) { background: transparent !important; }
 
 /* === Status Rows === */
 .status-row {
@@ -418,8 +419,8 @@ button * { background-color: transparent; }
 .form-textarea:focus { outline: none; border-color: var(--taskplugin-accent); }
 
 /* === Danger Button === */
-.btn-danger { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); border-color: var(--taskplugin-danger); }
-.btn-danger:hover { background: var(--taskplugin-danger); }
+.btn-danger { background: transparent; color: var(--taskplugin-danger); border-color: var(--taskplugin-danger); }
+.btn-danger:hover { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); }
 
 /* === Checkbox Group === */
 .checkbox-group { max-height: 120px; overflow-y: auto; }
