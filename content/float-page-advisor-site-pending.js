@@ -257,6 +257,23 @@ function showPageAdvisorSitePending(payload) {
 
 function handlePageAdvisorSitePendingMessage(msg) {
   if (!msg?.ok) return;
+  const Anchor = typeof PageAdvisorAnchor !== "undefined" ? PageAdvisorAnchor : null;
+  const rebound = Anchor && typeof Anchor.rebindOfflineSuggestions === "function"
+    ? Anchor.rebindOfflineSuggestions(msg.items)
+    : { hadAnchors: false, suggestions: [] };
+  if (rebound.hadAnchors) {
+    pageAdvisorSitePendingMode = false;
+    if (typeof syncSitePendingToolbar === "function") syncSitePendingToolbar();
+    if (rebound.suggestions.length && typeof showPageAdvisorSuggestions === "function") {
+      showPageAdvisorSuggestions({
+        suggestions: rebound.suggestions,
+        pageUrl: String(msg.pageUrl || ""),
+      });
+    } else if (typeof hidePageAdvisorSitePendingLayer === "function") {
+      hidePageAdvisorSitePendingLayer();
+    }
+    return;
+  }
   showPageAdvisorSitePending(msg);
 }
 

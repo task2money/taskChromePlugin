@@ -135,6 +135,7 @@
   if (chrome.sidePanel && chrome.sidePanel.onOpened && chrome.sidePanel.onOpened.addListener) {
     chrome.sidePanel.onOpened.addListener(() => {
       applyVisibleTab().catch(() => {});
+      chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
     });
   }
 
@@ -149,6 +150,7 @@
       }
       await applyVisibleTab();
       await rememberTab();
+      chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
       await loadFormScripts();
       const desc = document.getElementById('taskplugin-desc');
       if (desc) {

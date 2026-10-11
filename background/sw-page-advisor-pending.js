@@ -110,6 +110,18 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
   return { ok: true, count: items.length };
 }
 
+async function refreshSitePendingForActiveTab() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs && tabs[0];
+  if (!tab?.id || !tab.url) return { ok: true, skipped: true };
+  return refreshSitePendingForTab(tab.id, tab.url, { force: true });
+}
+
+async function handleRefreshSitePendingForActiveTab() {
+  const result = await refreshSitePendingForActiveTab();
+  return { success: true, ...result };
+}
+
 async function handleFetchSitePendingForPage(message, sender) {
   const tabId = sender?.tab?.id;
   if (!tabId) return { success: false, error: tx('swMissingTabId') };

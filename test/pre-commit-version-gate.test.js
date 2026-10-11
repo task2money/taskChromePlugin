@@ -76,7 +76,7 @@ describe('version_bump_gate', () => {
       git(dir, ['add', 'popup/popup.js']);
       const result = runGate(dir);
       assert.notEqual(result.status, 0, '必须非 0 退出');
-      assert.match(result.stderr, /version 未变/);
+      assert.match(result.stderr, /version 未升高/);
       assert.match(result.stderr, /1\.8\.90/);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });

@@ -10,6 +10,7 @@ const {
   pageAdvisorCssPath,
   pageAdvisorDomAnchor,
   attachSuggestionAnchors,
+  rebindOfflineSuggestions,
 } = require('../lib/page-advisor-anchor.js');
 
 function el(tag, { id = '', attrs = {}, children = [] } = {}) {
@@ -154,5 +155,56 @@ describe('page-advisor-anchor', () => {
     assert.equal(anchor.visible_text, '去结算');
     assert.match(anchor.html_snippet, /去结算/);
     assert.doesNotMatch(anchor.html_snippet, /taskplugin-el-highlight/);
+  });
+
+  it('rebinds a saved id onto the live nid and hides an unmatched card', () => {
+    const hero = {
+      getAttribute(name) {
+        return name === 'data-taskplugin-nid' ? 'n9' : null;
+      },
+      textContent: 'Hello',
+    };
+    const doc = {
+      getElementById(id) { return id === 'hero' ? hero : null; },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+    };
+    const placed = rebindOfflineSuggestions([
+      { id: 'row', suggestions: [{ id: 's1', title: '改标题', dom_id: 'hero', summary: '短' }] },
+      { id: 'old', title: '无锚点', suggestions: [] },
+    ], doc);
+    assert.equal(placed.hadAnchors, true);
+    assert.equal(placed.suggestions.length, 1);
+    assert.equal(placed.suggestions[0].target_nid, 'n9');
+    const latestOnly = rebindOfflineSuggestions([
+      { id: 'old', suggestions: [{ id: 's-old', dom_id: 'hero', title: '旧' }] },
+      { id: 'new', suggestions: [{ id: 's-new', dom_id: 'missing', title: '新' }] },
+    ], doc);
+    assert.equal(latestOnly.hadAnchors, true);
+    assert.equal(latestOnly.suggestions.length, 0);
+    const missed = rebindOfflineSuggestions([
+      { suggestions: [{ id: 's2', css_path: 'main > h1', title: '找不到' }] },
+    ], doc);
+    assert.equal(missed.hadAnchors, true);
+    assert.equal(missed.suggestions.length, 0);
+  });
+
+  it('stamps a nid when the matched element has none yet', () => {
+    const hero = {
+      attrs: {},
+      getAttribute(name) { return this.attrs[name] || null; },
+      setAttribute(name, value) { this.attrs[name] = value; },
+    };
+    const doc = {
+      getElementById() { return hero; },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+    };
+    const placed = rebindOfflineSuggestions([
+      { suggestions: [{ id: 's1', dom_id: 'hero', title: '标题' }] },
+    ], doc);
+    assert.equal(placed.suggestions.length, 1);
+    assert.equal(placed.suggestions[0].target_nid, hero.attrs['data-taskplugin-nid']);
+    assert.match(placed.suggestions[0].target_nid, /^off/);
   });
 });

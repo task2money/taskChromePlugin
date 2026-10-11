@@ -379,6 +379,9 @@ function bindStorageListeners() {
         return;
       }
       scheduleAuthRefresh();
+      if (changes.token && changes.token.newValue && typeof requestSitePendingRefresh === "function") {
+        requestSitePendingRefresh(true);
+      }
     });
   } catch (e) {
     console.warn('[taskChromePlugin] bindStorageListeners 失败:', e.message);

@@ -43,7 +43,7 @@
 - **区域功能说明收在「!」内（硬）**：Popup / Panel 区块 `float-ball-hint` 不得默认展开占空间；须标题旁 `<details class="region-help"><summary>!</summary>` 且禁止 `open`（约束 65 / ADR-0100）。验收：`python3 db/scripts/ci/check_chrome_plugin_region_help.py`
 - content script 改动注意 `manifest.json` `content_scripts` 注入顺序
 - **热重载幂等**：`lib/content-boot-gate.js` 须为 `content_scripts` 首文件；各脚本用 `if (!globalThis.__taskpluginContentBoot?.skip) { … }` 包裹，扩展 Reload 且不刷新页面时避免顶层 `const`/`let` 重复声明
-- 版本号：用户可见行为变更时 bump `manifest.json` `version`
+- **版本号（硬）**：运行时代码每次变更都必须把 `manifest.json` `version` 升到高于当前 `HEAD`（约束 71 / ADR-0161）。只改文档或测试不升。验收：`python3 db/scripts/ci/check_chrome_plugin_version_bump.py`
 - **dist zip 自动 publish（硬）**：运行时路径 commit 后须生成 `dist/task-chrome-plugin-v*.zip` **并**上传 GitHub Release（`.githooks/post-commit` + meta SessionEnd；约束 68 / ADR-0097）。有 remote `gitee` 时同时上传 Gitee Release（ADR-0117）。入口 `bash scripts/publish-dist-zip.sh`（内含 `publish-github-release.sh` 与 `publish-gitee-release.sh`）；验收 `bash scripts/verify-dist-zip-reload.sh` + `gh release view v…`
 - 不新增未批准的敏感权限；网络与截图路径保持既有脱敏与直连约定
 
