@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 侧栏视觉：#FAFAF8 统一底色 + 无描边卡片。
+ * 侧栏视觉：白色统一底色 + 无描边卡片。
  * 回归点是「每块一条灰线框」——设置分区不得再写 border: 1px，
  * 页签选中态用 Professional 暗金，而不是 Catppuccin 底边。
  */
@@ -29,7 +29,7 @@ describe('侧栏柔和表面', () => {
   const settingsCss = read('popup/popup-sidepanel.css');
   const shellCss = read('sidepanel/sidepanel.css');
 
-  it('设置画布与分区都是 #FAFAF8，且无灰线框', () => {
+  it('设置画布与分区都是白色，且无灰线框', () => {
     assert.match(settingsCss, /background-color:\s*var\(--taskplugin-background\)\s*!important/);
     assert.match(settingsCss, /background-image:\s*none\s*!important/);
     const section = ruleBodies(settingsCss, 'html[data-taskplugin-host="sidepanel"] .section');
@@ -57,7 +57,23 @@ describe('侧栏柔和表面', () => {
     assert.match(settingsCss, /:has\(input:checked\)[\s\S]*background:\s*var\(--taskplugin-accent-muted\)\s*!important/);
   });
 
-  it('页签选中态与壳层都是象牙底，字色是暗金', () => {
+  it('主背景是白色，按钮内文字不另铺底色', () => {
+    const tokens = read('lib/design-tokens.css');
+    assert.match(tokens, /--taskplugin-background:\s*#FFFFFF\b/);
+    assert.match(
+      settingsCss,
+      /\.btn \*,[\s\S]*?button \*[\s\S]*?\{[^}]*background-color:\s*transparent\s*!important/,
+    );
+    const popupCss = read('popup/popup.css');
+    const panelCss = read('panel/panel.css');
+    const formCss = read('content/content-form.css');
+    for (const css of [popupCss, panelCss, formCss]) {
+      assert.match(css, /\.btn \*|button \*|\.taskplugin-btn \*/);
+      assert.match(css, /background-color:\s*transparent/);
+    }
+  });
+
+  it('页签选中态与壳层都是白底，字色是暗金', () => {
     const tab = ruleBodies(shellCss, '.sp-tab[aria-selected="true"]');
     assert.match(tab, /color:\s*var\(--taskplugin-accent-ink\)/);
     assert.match(tab, /background:\s*var\(--taskplugin-background\)/);

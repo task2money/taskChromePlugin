@@ -1,9 +1,9 @@
 /* Professional 配色。色值来自 design-style prompts/Professional.md。
-   11–13px 文字用 --taskplugin-accent-ink：#B8860B 铺在 #FAFAF8 上约 3.3:1，达不到 AA。
+   主背景用白色。11–13px 文字用 --taskplugin-accent-ink：#B8860B 铺在白色上约 3.1:1，达不到 AA。
    金色按钮上的字用 --taskplugin-foreground：白字铺在 #B8860B 上同样不够。 */
 :root,
 #taskplugin-float-root {
-  --taskplugin-background: #FAFAF8;
+  --taskplugin-background: #FFFFFF;
   --taskplugin-foreground: #1A1A1A;
   --taskplugin-muted: #F5F3F0;
   --taskplugin-muted-foreground: #6B6B6B;

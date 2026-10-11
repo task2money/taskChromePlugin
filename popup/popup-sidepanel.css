@@ -80,6 +80,12 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
 )) {
   background: var(--taskplugin-background) !important;
 }
+/* 通配层会给按钮里的 span 铺上画布色。文字改回透明，透出按钮自己的填充。 */
+html[data-taskplugin-host="sidepanel"] .btn *,
+html[data-taskplugin-host="sidepanel"] button *,
+html[data-taskplugin-host="sidepanel"] .tcp-guide-root-summary * {
+  background-color: transparent !important;
+}
 
 /* 深色主题里靠描边出效果的控件（转圈动画）不铺白底，边界色要还原成强调色。 */
 html[data-taskplugin-host="sidepanel"] .spinner {

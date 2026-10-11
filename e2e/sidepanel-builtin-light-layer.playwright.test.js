@@ -20,7 +20,7 @@ const SIDEPANEL_URL = pathToFileURL(path.join(__dirname, '..', 'sidepanel', 'sid
 
 const DARK_SECTION = 'rgb(37, 37, 54)'; // popup.css .section { background: #252536 }
 const DARK_BASE = 'rgb(30, 30, 46)'; // popup.css body { background: #1e1e2e }
-const SURFACE = 'rgb(250, 250, 248)'; // #FAFAF8
+const SURFACE = 'rgb(255, 255, 255)'; // #FFFFFF
 
 // 白底上的可读前景：三通道都不过半亮度。
 function isDarkInk(cssColor) {
@@ -94,13 +94,13 @@ test.describe('侧栏本机模型浅色层', () => {
     expect(paneBg, '#sp-pane-builtin 不得是深色底').not.toBe(DARK_BASE);
     expect(paneBg, '#sp-pane-builtin 不得是深色分区').not.toBe(DARK_SECTION);
     const shellBg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-    expect(shellBg, '侧栏壳层应为 #FAFAF8').toBe(SURFACE);
+    expect(shellBg, '侧栏壳层应为 #FFFFFF').toBe(SURFACE);
 
     const panel = page.locator('#spBuiltinPanel');
     const panelBg = await panel.evaluate((el) => getComputedStyle(el).backgroundColor);
     expect(panelBg, '#spBuiltinPanel 不得继承 popup.css 深色 .section 底').not.toBe(DARK_SECTION);
     expect(panelBg, '#spBuiltinPanel 不得继承深色基线').not.toBe(DARK_BASE);
-    expect(panelBg, '#spBuiltinPanel 卡片应为 #FAFAF8').toBe(SURFACE);
+    expect(panelBg, '#spBuiltinPanel 卡片应为 #FFFFFF').toBe(SURFACE);
     const panelBorder = await panel.evaluate((el) => getComputedStyle(el).borderTopWidth);
     expect(panelBorder, '#spBuiltinPanel 不再描线框').toBe('0px');
 

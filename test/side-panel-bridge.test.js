@@ -67,7 +67,7 @@ describe('side panel manifest', () => {
     assert.doesNotMatch(src, /action\.onClicked/);
   });
 
-  it('创建任务与设置页签底色为 #FAFAF8，设置 iframe 铺满宽度', () => {
+  it('创建任务与设置页签底色为白色，设置 iframe 铺满宽度', () => {
     const css = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'), 'utf8');
     const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
     const settingsCss = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup-sidepanel.css'), 'utf8');

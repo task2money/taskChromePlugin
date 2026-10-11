@@ -173,6 +173,8 @@ label { display: block; font-size: 11px; color: var(--taskplugin-muted-foregroun
 .btn:hover { background: var(--taskplugin-track); }
 .btn-primary { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); border-color: var(--taskplugin-accent); }
 .btn-primary:hover { background: var(--taskplugin-accent-secondary); }
+.btn *,
+button * { background-color: transparent; }
 .btn-danger { color: var(--taskplugin-danger); border-color: var(--taskplugin-danger); }
 .btn-danger:hover { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); }
 .btn-sm { padding: 4px 10px; font-size: 11px; }

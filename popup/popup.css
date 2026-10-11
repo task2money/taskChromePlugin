@@ -235,6 +235,8 @@ body {
 .btn-primary { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); border-color: var(--taskplugin-accent); }
 .btn-primary:hover { background: var(--taskplugin-accent-secondary); }
 .btn-full { display: block; width: 100%; }
+.btn *,
+button * { background-color: transparent; }
 
 /* === Status Rows === */
 .status-row {

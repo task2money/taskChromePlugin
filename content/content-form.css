@@ -149,6 +149,9 @@
   color: var(--taskplugin-foreground) !important;
   border-color: var(--taskplugin-accent) !important;
 }
+.taskplugin-btn * {
+  background-color: transparent !important;
+}
 #taskplugin-submit.taskplugin-btn-primary {
   width: 100% !important;
 }
