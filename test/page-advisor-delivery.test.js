@@ -483,7 +483,13 @@ describe('page-advisor-delivery', () => {
     const man = JSON.parse(fs.readFileSync(path.join(__dirname, '../manifest.json'), 'utf8'));
     assert.ok(man.permissions.includes('clipboardWrite'));
     assert.equal(man.permissions.includes('nativeMessaging'), false);
-    assert.equal(man.version, '1.8.235');
+    // Delivery invariant: manifest.json is the single source of truth for the
+    // shipped version (the extension reports runtime.getManifest().version at
+    // runtime), and it must be well-formed semver. Do NOT pin the current value
+    // here — every runtime bump (hard constraint 71) would turn this test red
+    // and force a manual edit. The version just needs to be valid, not a literal.
+    assert.equal(typeof man.version, 'string');
+    assert.match(man.version, /^\d+\.\d+\.\d+$/, `manifest.version must be semver, got ${man.version}`);
     const js = man.content_scripts[0].js;
     assert.ok(js.includes('lib/page-advisor-delivery.js'));
     assert.ok(js.includes('content/float-page-advisor-fill-ui.js'));
