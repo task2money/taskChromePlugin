@@ -3,21 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="trae-service" content="taskChromePlugin" />
+  <link rel="stylesheet" href="lib/design-tokens.css">
   <title data-i18n="oauthCallbackPageTitle">云端Coding: 自动创新助手 — 登录回调</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
       display: flex; align-items: center; justify-content: center; min-height: 100vh;
-      margin: 0; background: #f5f6fa; color: #333;
+      margin: 0; background: var(--taskplugin-muted); color: var(--taskplugin-foreground);
     }
     .card {
-      background: #fff; border-radius: 12px; padding: 32px 40px; max-width: 420px;
+      background: var(--taskplugin-card); border-radius: 12px; padding: 32px 40px; max-width: 420px;
       box-shadow: 0 4px 20px rgba(0,0,0,.08); text-align: center;
     }
     .card h1 { font-size: 18px; margin: 0 0 12px; }
-    .card p { font-size: 14px; color: #555; margin: 0; word-break: break-all; }
-    .status-ok { color: #16a34a; }
-    .status-error { color: #dc2626; }
+    .card p { font-size: 14px; color: var(--taskplugin-muted-foreground); margin: 0; word-break: break-all; }
+    .status-ok { color: var(--taskplugin-success); }
+    .status-error { color: var(--taskplugin-danger); }
   </style>
 </head>
 <body>

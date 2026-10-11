@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.233",
+  "version": "1.8.234",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -132,6 +132,7 @@
         "content/content.js"
       ],
       "css": [
+        "lib/design-tokens.css",
         "content/content.css",
         "content/content-form.css",
         "content/page-advisor.css",
@@ -149,6 +150,9 @@
         "lib/element-picker.js",
         "lib/pick-additive-modifier.js",
         "content/pick-frame.js"
+      ],
+      "css": [
+        "lib/design-tokens.css"
       ],
       "run_at": "document_end",
       "all_frames": true

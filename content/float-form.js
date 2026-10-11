@@ -132,7 +132,7 @@ async function refreshWorkspaceScheduleEnabled(wsId, companyId) {
 }
 
 async function loadProjects(wsId) {
-  projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;" data-i18n="commonLoading">${typeof tx === 'function' ? tx('commonLoading') : '加载中...'}</span>`;
+  projectsDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;" data-i18n="commonLoading">${typeof tx === 'function' ? tx('commonLoading') : '加载中...'}</span>`;
   try {
     const ws = workspacesData.find((w) => String(w.id || w._id) === String(wsId));
     const companyId = ws?.company_id || ws?.companyId;
@@ -140,7 +140,7 @@ async function loadProjects(wsId) {
 
     projectsData = Array.isArray(data) ? data : (data?.items || data?.data || []);
     if (!projectsData.length) {
-      projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;" data-i18n="commonNoProjectsShort">${typeof tx === 'function' ? tx('commonNoProjectsShort') : '无项目'}</span>`;
+      projectsDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;" data-i18n="commonNoProjectsShort">${typeof tx === 'function' ? tx('commonNoProjectsShort') : '无项目'}</span>`;
       syncFloatAutoRun(false);
       return;
     }
@@ -171,7 +171,7 @@ async function loadProjects(wsId) {
     syncFloatAutoRun(false);
     if (handleApiAuthFailure(e)) return;
     const failMsg = typeof tx === 'function' ? tx('commonLoadFailed', { msg: e.message }) : ('加载失败: ' + e.message);
-    projectsDiv.innerHTML = `<span style="color:#f38ba8;font-size:11px;">${esc(failMsg)}</span>`;
+    projectsDiv.innerHTML = `<span style="color:var(--taskplugin-danger);font-size:11px;">${esc(failMsg)}</span>`;
     if (typeof setDataTraceId === 'function') setDataTraceId(projectsDiv, e);
   }
 }
@@ -214,7 +214,7 @@ function renderAssignees() {
   const Ui = typeof FloatMembersUi !== 'undefined' ? FloatMembersUi : null;
   const WM = typeof WorkspaceMembers !== 'undefined' ? WorkspaceMembers : null;
   if (!Ui) {
-    assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;" data-i18n="commonNoMembers">${typeof tx === 'function' ? tx('commonNoMembers') : '暂无成员'}</span>`;
+    assigneesDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;" data-i18n="commonNoMembers">${typeof tx === 'function' ? tx('commonNoMembers') : '暂无成员'}</span>`;
     return;
   }
   assigneesDiv.innerHTML = Ui.buildAssigneesCheckboxHtml(membersData, { WorkspaceMembers: WM });
@@ -261,14 +261,14 @@ function getSelectedAssigneeIds() {
 if (wsSelect) wsSelect.addEventListener('change', async () => {
   const wsId = wsSelect.value;
   if (!wsId) {
-    projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;" data-i18n="floatPickWsFirst">${typeof tx === 'function' ? tx('floatPickWsFirst') : '请先选择工作空间'}</span>`;
+    projectsDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;" data-i18n="floatPickWsFirst">${typeof tx === 'function' ? tx('floatPickWsFirst') : '请先选择工作空间'}</span>`;
     if (progressSelect) progressSelect.innerHTML = `<option value="" data-i18n="commonPickWsFirstOption">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     if (deliverableSelect) deliverableSelect.innerHTML = `<option value="" data-i18n="commonPickWsFirstOption">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     if (repoBasesDiv) {
-      repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">'
+      repoBasesDiv.innerHTML = '<span style="color:var(--taskplugin-muted-foreground);font-size:11px;">'
         + CreateTaskPayload.repoBaseEmptyHint() + '</span>';
     }
-    if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;" data-i18n="floatLoadMembersAfterWs">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载'}</span>`;
+    if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;" data-i18n="floatLoadMembersAfterWs">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载'}</span>`;
     if (ownerSelect) ownerSelect.innerHTML = `<option value="" data-i18n="commonPickWsFirstOption">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     membersData = [];
     projectsData = [];

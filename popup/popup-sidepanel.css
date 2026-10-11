@@ -1,13 +1,13 @@
-/* 设置页嵌在侧边栏 iframe 时铺满宽度。画布、卡片和次按钮统一为 #FAFAF8。
-   独立打开 popup.html 不带 host 参数，保持 300px 深色弹窗。 */
+/* 设置页嵌在侧边栏 iframe 时铺满宽度。画布、卡片和次按钮统一为 var(--taskplugin-background)。
+   独立打开 popup.html 不带 host 参数，保持 300px 宽的 Professional 浅色弹窗。 */
 html[data-taskplugin-host="sidepanel"],
 html[data-taskplugin-host="sidepanel"] body {
   width: 100%;
   max-width: none;
   min-width: 0;
-  background-color: #FAFAF8 !important;
+  background-color: var(--taskplugin-background) !important;
   background-image: none !important;
-  color: #1e1e2e;
+  color: var(--taskplugin-foreground);
   color-scheme: light;
 }
 html[data-taskplugin-host="sidepanel"] .popup-container {
@@ -17,11 +17,11 @@ html[data-taskplugin-host="sidepanel"] .popup-container {
   background: transparent !important;
 }
 html[data-taskplugin-host="sidepanel"] .section {
-  background: #FAFAF8 !important;
-  color: #1e1e2e;
+  background: var(--taskplugin-background) !important;
+  color: var(--taskplugin-foreground);
   border: 0;
   border-radius: 16px;
-  box-shadow: 0 1px 1px rgba(26, 26, 26, 0.04), 0 14px 36px rgba(114, 65, 242, 0.10);
+  box-shadow: 0 1px 1px rgba(26, 26, 26, 0.04), 0 14px 36px rgba(184, 134, 11, 0.10);
 }
 html[data-taskplugin-host="sidepanel"] .popup-header h1,
 html[data-taskplugin-host="sidepanel"] .section h3,
@@ -36,26 +36,26 @@ html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-conte
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .llm-route-option,
 html[data-taskplugin-host="sidepanel"] .status-row .value,
 html[data-taskplugin-host="sidepanel"] .hint {
-  color: #1e1e2e;
+  color: var(--taskplugin-foreground);
 }
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix-input {
-  background: #FAFAF8 !important;
-  color: #1e1e2e;
+  background: var(--taskplugin-background) !important;
+  color: var(--taskplugin-foreground);
   border-color: transparent;
   border-radius: 10px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7241F2 16%, #E5E7EB);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--taskplugin-accent) 16%, var(--taskplugin-border));
 }
 html[data-taskplugin-host="sidepanel"] .form-input,
 html[data-taskplugin-host="sidepanel"] .form-select,
 html[data-taskplugin-host="sidepanel"] .form-textarea {
   width: 100%;
-  background: #FAFAF8 !important;
-  color: #1e1e2e;
+  background: var(--taskplugin-background) !important;
+  color: var(--taskplugin-foreground);
   border-color: transparent;
   border-radius: 10px;
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, #7241F2 16%, #E5E7EB);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--taskplugin-accent) 16%, var(--taskplugin-border));
 }
-/* OPT-20260929-014 / 设置 Tab 浅底：一层覆盖。除下方控件外一律 #FAFAF8。
+/* OPT-20260929-014 / 设置 Tab 浅底：一层覆盖。除下方控件外一律 var(--taskplugin-background)。
    !important：压过 popup-guide.css 的 #popup-user-guide … ID 规则，以及内联 style 深色底。
    排除的控件色（主/危险/链接按钮、徽章、请求方法、状态色块、结果横幅、开关滑块、
    kbd 芯片、使用说明主 CTA）在深色主题里前景与背景成对定义，抹掉底色会坏对比度。
@@ -78,21 +78,21 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   .pa-wf-track,
   progress.builtin-progress
 )) {
-  background: #FAFAF8 !important;
+  background: var(--taskplugin-background) !important;
 }
 
 /* 深色主题里靠描边出效果的控件（转圈动画）不铺白底，边界色要还原成强调色。 */
 html[data-taskplugin-host="sidepanel"] .spinner {
-  border-color: #e5e7eb;
-  border-top-color: #89b4fa;
+  border-color: var(--taskplugin-border);
+  border-top-color: var(--taskplugin-accent);
 }
 
 /* 被抹成白底的交互态：深色主题的 hover 底色要换成浅灰，否则悬停没有反馈。 */
 html[data-taskplugin-host="sidepanel"] .btn:hover,
 html[data-taskplugin-host="sidepanel"] .popup-req-item:hover,
 html[data-taskplugin-host="sidepanel"] .popup-req-item.selected {
-  background: #f3f4f6 !important;
-  color: #1e1e2e;
+  background: var(--taskplugin-muted) !important;
+  color: var(--taskplugin-foreground);
 }
 /* 上面被铺白的元素若在深色主题里自带浅色前景，这里统一改深色，
    否则白底白字。新加浅色前景的深色块时同步补进这份清单。 */
@@ -123,13 +123,13 @@ html[data-taskplugin-host="sidepanel"] .body-pre,
 html[data-taskplugin-host="sidepanel"] .dt-hint,
 html[data-taskplugin-host="sidepanel"] .dt-hint-text,
 html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
-  color: #1e1e2e !important;
+  color: var(--taskplugin-foreground) !important;
 }
 /* 浅色侧栏：技能设置按钮透明底上改回深字，避免沿用弹窗浅字。 */
 html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings {
   background: transparent !important;
   border-color: transparent !important;
-  color: #1e1e2e !important;
+  color: var(--taskplugin-foreground) !important;
 }
 /* 使用说明展开区：ID 选择器曾压过通配白底，这里显式钉死。 */
 html[data-taskplugin-host="sidepanel"] #popup-user-guide .tcp-guide-body,
@@ -142,7 +142,7 @@ html[data-taskplugin-host="sidepanel"] .devtools-guide,
 html[data-taskplugin-host="sidepanel"] .popup-req-detail,
 html[data-taskplugin-host="sidepanel"] .body-pre,
 html[data-taskplugin-host="sidepanel"] .dt-hint {
-  background: #FAFAF8 !important;
+  background: var(--taskplugin-background) !important;
   border-color: transparent;
 }
 
@@ -160,7 +160,7 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-head {
   justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
-  color: #4B5563;
+  color: var(--taskplugin-muted-foreground);
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-row {
   display: grid;
@@ -173,7 +173,7 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-track {
   position: relative;
   height: 8px;
   border-radius: 4px;
-  background: #F1F2F6 !important;
+  background: var(--taskplugin-muted) !important;
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar {
   position: absolute;
@@ -181,44 +181,44 @@ html[data-taskplugin-host="sidepanel"] .pa-wf-bar {
   height: 100%;
   border-radius: 4px;
 }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-capture { background: #4B5563 !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-prompt { background: color-mix(in srgb, #F1F2F6 35%, #4B5563) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-capture { background: var(--taskplugin-muted-foreground) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-prompt { background: color-mix(in srgb, var(--taskplugin-muted) 35%, var(--taskplugin-muted-foreground)) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network_wait,
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_poll { background: #7241F2 !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_queue { background: color-mix(in srgb, #7241F2 40%, #F1F2F6) !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_send { background: color-mix(in srgb, #7241F2 70%, #fff) !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_wait { background: #5C2DC7 !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_recv { background: color-mix(in srgb, #7241F2 55%, #fff) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_poll { background: var(--taskplugin-accent) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_queue { background: color-mix(in srgb, var(--taskplugin-accent) 40%, var(--taskplugin-muted)) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_send { background: color-mix(in srgb, var(--taskplugin-accent) 70%, var(--taskplugin-card)) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_wait { background: var(--taskplugin-accent-secondary) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-saas_fwd_recv { background: color-mix(in srgb, var(--taskplugin-accent) 55%, var(--taskplugin-card)) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-network_download {
-  background: color-mix(in srgb, #7241F2 70%, #fff) !important;
+  background: color-mix(in srgb, var(--taskplugin-accent) 70%, var(--taskplugin-card)) !important;
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-llm_wait,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin,
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_infer { background: #5C2DC7 !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_infer { background: var(--taskplugin-accent-secondary) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_probe,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_create {
-  background: color-mix(in srgb, #5C2DC7 55%, #F1F2F6) !important;
+  background: color-mix(in srgb, var(--taskplugin-accent-secondary) 55%, var(--taskplugin-muted)) !important;
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_fit {
-  background: color-mix(in srgb, #5C2DC7 75%, #F1F2F6) !important;
+  background: color-mix(in srgb, var(--taskplugin-accent-secondary) 75%, var(--taskplugin-muted)) !important;
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-builtin_parse,
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-parse { background: color-mix(in srgb, #F1F2F6 20%, #7241F2) !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-render { background: color-mix(in srgb, #7241F2 55%, #fff) !important; }
-html[data-taskplugin-host="sidepanel"] .pa-wf-bar-error { background: #FF324D !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-parse { background: color-mix(in srgb, var(--taskplugin-muted) 20%, var(--taskplugin-accent)) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-render { background: color-mix(in srgb, var(--taskplugin-accent) 55%, var(--taskplugin-card)) !important; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-bar-error { background: var(--taskplugin-danger) !important; }
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-pending,
 html[data-taskplugin-host="sidepanel"] .pa-wf-bar-skipped {
-  background: #D1D5DB !important;
+  background: var(--taskplugin-track) !important;
   opacity: 0.55;
 }
 html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="pending"] .pa-wf-label,
 html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="skipped"] .pa-wf-label,
 html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="pending"] .pa-wf-ms,
 html[data-taskplugin-host="sidepanel"] .pa-wf-row[data-span-status="skipped"] .pa-wf-ms {
-  color: #9CA3AF;
+  color: var(--taskplugin-muted-foreground);
 }
-html[data-taskplugin-host="sidepanel"] .pa-wf-idle { color: #4B5563; margin: 0; }
+html[data-taskplugin-host="sidepanel"] .pa-wf-idle { color: var(--taskplugin-muted-foreground); margin: 0; }
 
 /* 柔和层：顶栏与控件不再靠灰线框分层，选中项用 primary-light 托底。 */
 html[data-taskplugin-host="sidepanel"] .popup-header,
@@ -229,40 +229,40 @@ html[data-taskplugin-host="sidepanel"] #headerUserArea {
   border-bottom-color: transparent !important;
 }
 html[data-taskplugin-host="sidepanel"] .section h3 {
-  color: #5C2DC7;
+  color: var(--taskplugin-accent-ink);
   font-size: 13px;
   font-weight: 600;
 }
 html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
-  background: #FAFAF8 !important;
+  background: var(--taskplugin-background) !important;
   border-color: transparent !important;
   border-radius: 10px;
 }
 html[data-taskplugin-host="sidepanel"] .btn-primary {
-  background: #7241F2 !important;
+  background: var(--taskplugin-accent) !important;
   border-color: transparent !important;
-  color: #fff !important;
+  color: var(--taskplugin-foreground) !important;
   border-radius: 10px;
-  box-shadow: 0 6px 16px rgba(114, 65, 242, 0.24);
+  box-shadow: 0 6px 16px rgba(184, 134, 11, 0.24);
 }
 html[data-taskplugin-host="sidepanel"] .btn-primary:hover {
-  background: #5C2DC7 !important;
+  background: var(--taskplugin-accent-secondary) !important;
 }
 html[data-taskplugin-host="sidepanel"] .llm-shortcut {
-  background: #E6E0FF !important;
-  color: #5C2DC7 !important;
+  background: var(--taskplugin-accent-muted) !important;
+  color: var(--taskplugin-accent-ink) !important;
   border-color: transparent !important;
   border-radius: 999px;
 }
 html[data-taskplugin-host="sidepanel"] .region-help-mark {
   border-color: transparent;
-  background: #E6E0FF !important;
-  color: #5C2DC7;
+  background: var(--taskplugin-accent-muted) !important;
+  color: var(--taskplugin-accent-ink);
 }
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .llm-route-option:has(input:checked),
 html[data-taskplugin-host="sidepanel"] #popupLlmRouteField .llm-route-option:has(input:checked) {
-  background: #E6E0FF !important;
-  color: #5C2DC7 !important;
+  background: var(--taskplugin-accent-muted) !important;
+  color: var(--taskplugin-accent-ink) !important;
   border-radius: 999px;
   padding: 2px 10px 2px 6px;
 }
@@ -272,9 +272,9 @@ html[data-taskplugin-host="sidepanel"] .form-textarea:focus,
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix-input:focus {
   outline: none;
   border-color: transparent !important;
-  box-shadow: 0 0 0 3px color-mix(in srgb, #7241F2 28%, transparent) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--taskplugin-accent) 28%, transparent) !important;
 }
 html[data-taskplugin-host="sidepanel"] input[type="radio"],
 html[data-taskplugin-host="sidepanel"] input[type="checkbox"] {
-  accent-color: #7241F2;
+  accent-color: var(--taskplugin-accent);
 }

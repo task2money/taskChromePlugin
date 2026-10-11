@@ -72,27 +72,27 @@ describe('CreateTaskGitIdentity HTML / DOM', () => {
     assert.match(on, /去账号中心管理 Git 提交身份/);
   });
 
-  it('settings link uses panel accent color so it is readable on dark UI', () => {
+  it('settings link uses Professional accent ink so it is readable on ivory', () => {
     const html = GitId.buildSelectHtml({
       repoUrl: 'https://git.example/a.git',
       identities: [{ id: 'gid-1', git_user_name: 'Ann', git_user_email: 'a@x.com' }],
       settingsHref: '/tenant/t1/profile/git-identities/',
     });
     assert.match(html, /data-git-identity-settings="1"/);
-    assert.match(html, /color:#89b4fa/);
+    assert.match(html, /color:var\(--taskplugin-accent-ink\)/);
     assert.doesNotMatch(html, /color:#0000EE/i);
   });
 
-  it('dark UI stylesheets set readable link color (not UA blue)', () => {
+  it('stylesheets set readable link color (not UA blue)', () => {
     const root = path.join(__dirname, '..');
     const panelCss = fs.readFileSync(path.join(root, 'panel/panel.css'), 'utf8');
     const popupCss = fs.readFileSync(path.join(root, 'popup/popup.css'), 'utf8');
     const contentFormCss = fs.readFileSync(path.join(root, 'content/content-form.css'), 'utf8');
     const manifest = fs.readFileSync(path.join(root, 'manifest.json'), 'utf8');
-    assert.match(panelCss, /a \{ color: #89b4fa; \}/);
-    assert.match(popupCss, /a \{ color: #89b4fa; \}/);
+    assert.match(panelCss, /a \{ color: var\(--taskplugin-accent-ink\); \}/);
+    assert.match(popupCss, /a \{ color: var\(--taskplugin-accent-ink\); \}/);
     assert.match(contentFormCss, /#taskplugin-float-panel a \{/);
-    assert.match(contentFormCss, /color: #89b4fa !important;/);
+    assert.match(contentFormCss, /color: var\(--taskplugin-accent-ink\) !important;/);
     assert.match(manifest, /content\/content-form\.css/);
   });
 

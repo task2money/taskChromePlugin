@@ -67,7 +67,7 @@ describe('插件页内滚动条对齐工作台 overlay 风格（OPT-20260922-007
     assert.match(block, /::-webkit-scrollbar\s*\{[^}]*width:\s*6px/);
     assert.match(block, /::-webkit-scrollbar\s*\{[^}]*height:\s*6px/);
     assert.match(block, /::-webkit-scrollbar-track\s*\{[^}]*background:\s*transparent/);
-    assert.match(block, /::-webkit-scrollbar-thumb\s*\{[^}]*rgba\(108,\s*112,\s*134/);
+    assert.match(block, /::-webkit-scrollbar-thumb\s*\{[^}]*rgba\(107,\s*107,\s*107/);
     assert.match(block, /border-radius:\s*999px/);
     assert.match(block, /@media\s*\(hover:\s*hover\)/);
   });

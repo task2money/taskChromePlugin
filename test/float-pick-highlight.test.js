@@ -15,7 +15,7 @@ describe('float-pick-highlight', () => {
 
   it('悬停高亮使用 taskplugin-el-highlight 描边', () => {
     assert.match(src, /taskplugin-el-highlight/);
-    assert.match(src, /outline:2px solid #89b4fa/);
+    assert.match(src, /outline:2px solid var\(--taskplugin-accent\)/);
     assert.match(src, /function applyHighlightMany/);
   });
 

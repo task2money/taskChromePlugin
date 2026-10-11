@@ -134,6 +134,7 @@ async function loadPluginIntoPage(page) {
   // 与 manifest content_scripts[0].css 对齐 —— 缺样式时面板/建议卡尺寸为 0，
   // 点击与可见性断言都会失真。
   for (const rel of [
+    'lib/design-tokens.css',
     'content/content.css',
     'content/content-form.css',
     'content/page-advisor.css',

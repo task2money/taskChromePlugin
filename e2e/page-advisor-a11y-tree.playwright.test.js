@@ -79,6 +79,7 @@ const LIB_FILES = [
 
 /** 与 manifest content_scripts[0].css 对齐 */
 const CSS_FILES = [
+  'lib/design-tokens.css',
   'content/content.css',
   'content/content-form.css',
   'content/page-advisor.css',

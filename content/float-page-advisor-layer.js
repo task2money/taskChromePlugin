@@ -220,9 +220,9 @@ function ensurePageAdvisorRegionHighlightStyle(doc) {
   const s = doc.createElement("style");
   s.id = "taskplugin-advisor-region-hl-style";
   s.textContent =
-    ".taskplugin-advisor-region-highlight{outline:2px solid #f9e2af!important;"
+    ".taskplugin-advisor-region-highlight{outline:2px solid var(--taskplugin-accent)!important;"
     + "outline-offset:2px!important;"
-    + "box-shadow:0 0 0 4px rgba(249,226,175,.4)!important;}";
+    + "box-shadow:0 0 0 4px rgba(184,134,11,.35)!important;}";
   (doc.head || doc.documentElement).appendChild(s);
 }
 

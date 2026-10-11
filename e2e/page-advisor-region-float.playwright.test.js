@@ -153,6 +153,7 @@ async function loadPluginIntoPage(page) {
   for (const rel of LIB_FILES) {
     await page.addScriptTag({ path: path.join(ROOT, rel) });
   }
+  await page.addStyleTag({ path: path.join(ROOT, 'lib/design-tokens.css') });
   await page.addStyleTag({ path: path.join(ROOT, 'content/content.css') });
   await page.addStyleTag({ path: path.join(ROOT, 'content/content-region.css') });
   await page.waitForSelector('#taskplugin-float-root', { state: 'attached', timeout: 15000 });

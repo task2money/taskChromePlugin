@@ -147,7 +147,7 @@ describe('侧边栏创建页不显示空白页面地址条', () => {
     const urlRule = css.slice(css.indexOf('#taskplugin-page-url'), css.indexOf('#taskplugin-page-url') + 80);
     assert.match(urlRule, /display: none !important/);
     const headerRule = css.slice(css.indexOf('.taskplugin-panel-header,'), css.indexOf('#taskplugin-page-url'));
-    assert.match(headerRule, /color: #1e1e2e/);
+    assert.match(headerRule, /color: var\(--taskplugin-foreground\)/);
     assert.doesNotMatch(headerRule, /display:\s*none/);
   });
 });

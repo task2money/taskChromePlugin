@@ -159,6 +159,7 @@ async function loadPluginIntoPage(page) {
   // 与 manifest content_scripts[0].css 对齐 —— 建议卡尺寸来自 page-advisor.css，
   // 缺样式时卡宽为 0，Playwright 判定不可见，悬停/布局类用例无法成立。
   for (const rel of [
+    'lib/design-tokens.css',
     'content/content.css',
     'content/content-form.css',
     'content/page-advisor.css',

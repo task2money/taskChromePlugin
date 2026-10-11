@@ -5,6 +5,7 @@
   <meta name="trae-service" content="taskChromePlugin" />
   <script src="popup-host.js"></script>
   <title data-i18n="extTitle">云端Coding: 自动创新助手</title>
+  <link rel="stylesheet" href="../lib/design-tokens.css">
   <link rel="stylesheet" href="popup.css">
   <link rel="stylesheet" href="popup-saas-workspace.css">
   <link rel="stylesheet" href="popup-request-detail.css">
@@ -339,7 +340,7 @@
           <input type="checkbox" id="trackingToggle">
           <span class="toggle-slider"></span>
         </label>
-        <span style="font-size:10px;color:#6c7086" data-i18n="trackRequests">跟踪请求（保留刷新前的记录）</span>
+        <span style="font-size:10px;color:var(--taskplugin-muted-foreground)" data-i18n="trackRequests">跟踪请求（保留刷新前的记录）</span>
       </div>
       <div id="requestsBody" style="display:none">
         <div class="search-bar">

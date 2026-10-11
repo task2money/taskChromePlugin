@@ -320,14 +320,14 @@ async function restoreOpenSnapshot(snap) {
   const wsId = normalized.workspaceId || '';
   if (!wsId) {
     wsSelect.value = '';
-    projectsDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('commonPickWsFirst') : '请先选择工作空间'}</span>`;
+    projectsDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;">${typeof tx === 'function' ? tx('commonPickWsFirst') : '请先选择工作空间'}</span>`;
     if (progressSelect) progressSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     if (deliverableSelect) deliverableSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     if (repoBasesDiv) {
-      repoBasesDiv.innerHTML = '<span style="color:#6c7086;font-size:11px;">'
+      repoBasesDiv.innerHTML = '<span style="color:var(--taskplugin-muted-foreground);font-size:11px;">'
         + CreateTaskPayload.repoBaseEmptyHint() + '</span>';
     }
-    if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:#6c7086;font-size:11px;">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载'}</span>`;
+    if (assigneesDiv) assigneesDiv.innerHTML = `<span style="color:var(--taskplugin-muted-foreground);font-size:11px;">${typeof tx === 'function' ? tx('floatLoadMembersAfterWs') : '选择工作空间后加载'}</span>`;
     if (ownerSelect) ownerSelect.innerHTML = `<option value="">${typeof tx === 'function' ? tx('commonPickWsFirstOption') : '-- 请先选择工作空间 --'}</option>`;
     membersData = [];
     projectsData = [];

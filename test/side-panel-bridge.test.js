@@ -71,14 +71,14 @@ describe('side panel manifest', () => {
     const css = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'), 'utf8');
     const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
     const settingsCss = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup-sidepanel.css'), 'utf8');
-    assert.match(css, /background-color:\s*#FAFAF8/);
-    assert.match(css, /\.sp-tab\[aria-selected="true"\]\s*\{[^}]*background:\s*#FAFAF8/);
-    assert.match(css, /#taskplugin-float-panel[\s\S]*?background-color:\s*#FAFAF8/);
+    assert.match(css, /background-color:\s*var\(--taskplugin-background\)/);
+    assert.match(css, /\.sp-tab\[aria-selected="true"\]\s*\{[^}]*background:\s*var\(--taskplugin-background\)/);
+    assert.match(css, /#taskplugin-float-panel[\s\S]*?background-color:\s*var\(--taskplugin-background\)/);
     assert.doesNotMatch(css, /background:\s*#1e1e2e/);
     assert.match(html, /popup\.html\?host=sidepanel/);
     assert.match(settingsCss, /width:\s*100%/);
-    assert.match(settingsCss, /background-color:\s*#FAFAF8\s*!important/);
-    assert.match(settingsCss, /background:\s*#FAFAF8/);
+    assert.match(settingsCss, /background-color:\s*var\(--taskplugin-background\)\s*!important/);
+    assert.match(settingsCss, /background:\s*var\(--taskplugin-background\)/);
   });
 
   // 本机模型页签在侧栏宿主直接渲染（非设置 iframe），若只引 popup.css 会吃到 #1e1e2e。
@@ -135,7 +135,7 @@ describe('side panel light surface layer', () => {
     const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)[\s\S]*?\{([\s\S]*?)\}/.exec(settingsCss);
     assert.ok(blanket, '设置页应有 body *:not(:where(...)) 通配覆盖');
     const exclusions = blanket[1].split(',').map((item) => item.trim()).filter(Boolean);
-    assert.match(blanket[2], /background:\s*#FAFAF8\s*!important/);
+    assert.match(blanket[2], /background:\s*var\(--taskplugin-background\)\s*!important/);
     assert.ok(exclusions.includes('kbd'), 'kbd 芯片保留深色主题配色');
     assert.ok(exclusions.includes('.btn-primary'), '主按钮保留强调色');
     assert.ok(exclusions.includes('.badge-connected') && exclusions.includes('.req-method'));
@@ -152,54 +152,20 @@ describe('side panel light surface layer', () => {
     assert.ok(guideAt >= 0 && lightAt > guideAt, '浅色层须在 guide 之后，否则 #popup-user-guide 深色底会漏网');
     assert.match(
       settingsCss,
-      /#popup-user-guide\s+\.tcp-guide-body[\s\S]*?background:\s*#FAFAF8\s*!important/,
+      /#popup-user-guide\s+\.tcp-guide-body[\s\S]*?background:\s*var\(--taskplugin-background\)\s*!important/,
     );
-    assert.match(settingsCss, /\.popup-req-detail[\s\S]*?background:\s*#FAFAF8\s*!important/);
+    assert.match(settingsCss, /\.popup-req-detail[\s\S]*?background:\s*var\(--taskplugin-background\)\s*!important/);
   });
 
-  it('深色底选择器要么是控件色，要么被覆盖并且有深色前景', () => {
-    const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)/.exec(settingsCss);
-    const exclusions = blanket[1].split(',').map((item) => item.trim()).filter(Boolean);
-
-    const darkTextClasses = new Set();
-    let darkTextSelectors = '';
-    for (const rule of cssRules(settingsCss)) {
-      if (!/color:\s*#1e1e2e/.test(rule.decls)) continue;
-      darkTextSelectors += ` ${rule.selector} `;
-      for (const cls of classTokens(rule.selector)) darkTextClasses.add(cls);
+  it('popup 与 guide 使用 Professional 表面色，不再夹带 Catppuccin', () => {
+    const banned = ['#1e1e2e', '#181825', '#11111b', '#252536', '#313244', '#45475a', '#cdd6f4', '#89b4fa', '#a6adc8', '#7241f2'];
+    const blob = `${popupSurfaceCss}\n${guideCss}`.toLowerCase();
+    for (const token of banned) {
+      assert.equal(blob.includes(token), false, token);
     }
-
-    const seen = [];
-    for (const rule of cssRules(`${popupSurfaceCss}\n${guideCss}`)) {
-      const dark = DARK_SURFACE_TOKENS.some((token) => rule.decls.includes(token))
-        || /linear-gradient\(/.test(rule.decls);
-      if (!dark) continue;
-      for (const part of rule.selector.split(',').map((item) => item.trim()).filter(Boolean)) {
-        seen.push(part);
-        const control = CONTROL_SELECTORS.find((token) => part.includes(token));
-        if (control) {
-          assert.ok(
-            exclusions.some((item) => part.includes(item)),
-            `控件色 ${part} 应出现在侧边栏排除表`,
-          );
-          continue;
-        }
-        for (const item of exclusions) {
-          assert.ok(
-            !part.includes(item),
-            `表面元素 ${part} 不该被排除（${item}），否则深色块会漏进设置页`,
-          );
-        }
-        if (LIGHT_TEXT_TOKENS.some((token) => rule.decls.includes(token))) {
-          const classes = classTokens(part);
-          const covered = classes.length
-            ? classes.some((cls) => darkTextClasses.has(cls))
-            : darkTextSelectors.includes(part);
-          assert.ok(covered, `白底元素 ${part} 需要深色前景规则，否则白底白字`);
-        }
-      }
-    }
-    assert.ok(seen.includes('.section') && seen.includes('.popup-req-detail'), '样例选择器应被扫到');
+    assert.match(popupCss, /background:\s*var\(--taskplugin-background\)/);
+    assert.match(popupCss, /\.section\s*\{[^}]*background:\s*var\(--taskplugin-card\)/);
+    assert.match(guideCss, /background:\s*var\(--taskplugin-accent\)/);
   });
 });
 
@@ -287,47 +253,39 @@ describe('sidepanel create-form contrast overrides', () => {
 
   it('重置按钮在浅色宿主用深色字 + 浅底', () => {
     const decls = declsFor('\\.taskplugin-btn-reset');
-    assert.match(decls, /color:\s*#1e1e2e\s*!important/);
-    assert.match(decls, /background:\s*#FAFAF8\s*!important/);
+    assert.match(decls, /color:\s*var\(--taskplugin-foreground\)\s*!important/);
+    assert.match(decls, /background:\s*var\(--taskplugin-background\)\s*!important/);
     assert.match(decls, /border-color:\s*transparent\s*!important/);
   });
 
   it('重置按钮 hover 保持深色字（不回退粉红浅字）', () => {
     const decls = declsFor('\\.taskplugin-btn-reset:hover:not\\(:disabled\\)');
-    assert.match(decls, /color:\s*#1e1e2e\s*!important/);
+    assert.match(decls, /color:\s*var\(--taskplugin-foreground\)\s*!important/);
     assert.doesNotMatch(decls, /#f38ba8/);
   });
 
   it('重置按钮 disabled 仍用可读灰字', () => {
     const decls = declsFor('\\.taskplugin-btn-reset:disabled');
-    assert.match(decls, /color:\s*#4b5563\s*!important/);
+    assert.match(decls, /color:\s*var\(--taskplugin-muted-foreground\)\s*!important/);
     assert.match(decls, /opacity:\s*0\.55\s*!important/);
   });
 
   it('项目单选列表 label 覆盖深色浮窗浅字', () => {
     const decls = declsFor('\\.taskplugin-checkbox-list\\s+label');
-    assert.match(decls, /color:\s*#1e1e2e\s*!important/);
+    assert.match(decls, /color:\s*var\(--taskplugin-foreground\)\s*!important/);
   });
 
   it('fieldset legend / hint / 结果条有侧栏深色字覆盖', () => {
-    assert.match(declsFor('legend'), /color:\s*#1e1e2e\s*!important/);
-    assert.match(declsFor('\\.taskplugin-toggle-hint'), /color:\s*#4b5563\s*!important/);
-    assert.match(declsFor('\\.taskplugin-result-success'), /color:\s*#166534\s*!important/);
-    assert.match(declsFor('\\.taskplugin-result-error'), /color:\s*#b91c1c\s*!important/);
+    assert.match(declsFor('legend'), /color:\s*var\(--taskplugin-foreground\)\s*!important/);
+    assert.match(declsFor('\\.taskplugin-toggle-hint'), /color:\s*var\(--taskplugin-muted-foreground\)\s*!important/);
+    assert.match(declsFor('\\.taskplugin-result-success'), /color:\s*var\(--taskplugin-success\)\s*!important/);
+    assert.match(declsFor('\\.taskplugin-result-error'), /color:\s*var\(--taskplugin-danger\)\s*!important/);
   });
 
-  it('content-form.css 浅字选择器相对侧栏覆盖差集为空', () => {
-    const gaps = [];
-    for (const rule of cssRules(formCss)) {
-      if (!FORM_LIGHT_TOKENS.some((token) => rule.decls.toLowerCase().includes(token))) continue;
-      for (const part of rule.selector.split(',').map((s) => s.trim()).filter(Boolean)) {
-        if (FORM_EXCLUDE.test(part)) continue;
-        // 深色底控件若侧栏未铺白，浅字仍可读，不算缺口
-        if (keepsDarkSurface(rule.decls) && !sidepanelFlattensSurface(part)) continue;
-        if (sidepanelCovers(part)) continue;
-        gaps.push(part);
-      }
+  it('content-form.css 不再使用深色底上的浅字', () => {
+    const lower = formCss.toLowerCase();
+    for (const token of FORM_LIGHT_TOKENS) {
+      assert.equal(lower.includes(token), false, token);
     }
-    assert.deepEqual(gaps, [], `uncovered light-text selectors: ${gaps.join(' | ')}`);
   });
 });

@@ -7,16 +7,16 @@
 .taskplugin-form-group label {
   display: block !important;
   font-size: 11px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   margin-bottom: 3px !important;
 }
 
-/* Dark float: host page UA link color is unreadable on #1e1e2e */
+/* 浮窗链接用金色墨色，避免宿主页面的默认蓝链。 */
 #taskplugin-float-panel a {
-  color: #89b4fa !important;
+  color: var(--taskplugin-accent-ink) !important;
 }
 #taskplugin-float-panel a:hover {
-  color: #74c7ec !important;
+  color: var(--taskplugin-foreground) !important;
 }
 
 /* 自动运行等开关行 */
@@ -26,11 +26,11 @@
   gap: 8px !important;
   margin-bottom: 0 !important;
   padding: 6px 8px !important;
-  border: 1px solid #313244 !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 6px !important;
-  background: #252536 !important;
+  background: var(--taskplugin-card) !important;
   cursor: pointer !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
   font-size: 12px !important;
   line-height: 1.4 !important;
   box-sizing: border-box !important;
@@ -44,7 +44,7 @@
   height: 16px !important;
   margin: 2px 0 0 0 !important;
   flex-shrink: 0 !important;
-  accent-color: #a6e3a1 !important;
+  accent-color: var(--taskplugin-success-soft) !important;
   opacity: 1 !important;
   cursor: pointer !important;
 }
@@ -62,14 +62,14 @@
   display: block !important;
   font-size: 12px !important;
   font-weight: 500 !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
   line-height: 1.35 !important;
 }
 .taskplugin-toggle-hint {
   display: block !important;
   font-size: 10px !important;
   font-weight: 400 !important;
-  color: #6c7086 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   line-height: 1.35 !important;
 }
 .taskplugin-input,
@@ -77,10 +77,10 @@
 .taskplugin-textarea {
   width: 100% !important;
   padding: 6px 8px !important;
-  border: 1px solid #45475a !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 5px !important;
-  background: #313244 !important;
-  color: #cdd6f4 !important;
+  background: var(--taskplugin-muted) !important;
+  color: var(--taskplugin-foreground) !important;
   font-size: 12px !important;
   font-family: inherit !important;
   box-sizing: border-box !important;
@@ -89,7 +89,7 @@
 .taskplugin-select:focus,
 .taskplugin-textarea:focus {
   outline: none !important;
-  border-color: #89b4fa !important;
+  border-color: var(--taskplugin-accent) !important;
 }
 .taskplugin-branch-input-secondary {
   margin-top: 4px !important;
@@ -112,48 +112,48 @@
   padding: 2px 0 !important;
   font-size: 11px !important;
   cursor: pointer !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
 }
 .taskplugin-checkbox-list label input[type="radio"] {
   width: 14px !important;
   height: 14px !important;
   flex-shrink: 0 !important;
-  accent-color: #89b4fa !important;
+  accent-color: var(--taskplugin-accent) !important;
   margin: 0 !important;
 }
 .taskplugin-project-auto-run {
   font-size: 10px !important;
-  color: #6c7086 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   flex-shrink: 0 !important;
 }
 .taskplugin-project-auto-run[data-auto-run="true"] {
-  color: #a6e3a1 !important;
+  color: var(--taskplugin-success) !important;
 }
 
 /* 按钮 */
 .taskplugin-btn {
   padding: 7px 12px !important;
-  border: 1px solid #45475a !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 5px !important;
-  background: #313244 !important;
-  color: #cdd6f4 !important;
+  background: var(--taskplugin-muted) !important;
+  color: var(--taskplugin-foreground) !important;
   font-size: 12px !important;
   cursor: pointer !important;
   transition: background 0.15s !important;
 }
 .taskplugin-btn:hover {
-  background: #45475a !important;
+  background: var(--taskplugin-track) !important;
 }
 .taskplugin-btn-primary {
-  background: #89b4fa !important;
-  color: #1e1e2e !important;
-  border-color: #89b4fa !important;
+  background: var(--taskplugin-accent) !important;
+  color: var(--taskplugin-foreground) !important;
+  border-color: var(--taskplugin-accent) !important;
 }
 #taskplugin-submit.taskplugin-btn-primary {
   width: 100% !important;
 }
 .taskplugin-btn-primary:hover {
-  background: #74c7ec !important;
+  background: var(--taskplugin-accent-secondary) !important;
 }
 .taskplugin-btn-primary:disabled {
   opacity: 0.5 !important;
@@ -194,23 +194,23 @@
 }
 .taskplugin-result-dismiss:hover,
 .taskplugin-result-dismiss:focus-visible {
-  background: rgba(243, 139, 168, 0.2) !important;
+  background: var(--taskplugin-danger-soft) !important;
 }
 .taskplugin-result-success {
-  background: rgba(166, 227, 161, 0.15) !important;
-  color: #a6e3a1 !important;
-  border: 1px solid #a6e3a1 !important;
+  background: var(--taskplugin-success-soft) !important;
+  color: var(--taskplugin-success) !important;
+  border: 1px solid var(--taskplugin-success) !important;
 }
 .taskplugin-result-error {
-  background: rgba(243, 139, 168, 0.15) !important;
-  color: #f38ba8 !important;
-  border: 1px solid #f38ba8 !important;
+  background: var(--taskplugin-danger-soft) !important;
+  color: var(--taskplugin-danger) !important;
+  border: 1px solid var(--taskplugin-danger) !important;
 }
 .taskplugin-result {
   white-space: pre-wrap !important;
 }
 .taskplugin-result a {
-  color: #89b4fa !important;
+  color: var(--taskplugin-accent-ink) !important;
   text-decoration: underline !important;
   cursor: pointer !important;
   pointer-events: auto !important;
@@ -227,9 +227,9 @@
   border-radius: 8px !important;
   font-size: 12px !important;
   line-height: 1.4 !important;
-  color: #a6e3a1 !important;
-  background: rgba(30, 30, 46, 0.94) !important;
-  border: 1px solid #a6e3a1 !important;
+  color: var(--taskplugin-success) !important;
+  background: var(--taskplugin-card) !important;
+  border: 1px solid var(--taskplugin-success) !important;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35) !important;
   pointer-events: none !important;
   opacity: 0 !important;
@@ -246,7 +246,7 @@
   pointer-events: auto !important;
 }
 #taskplugin-page-toast a.taskplugin-page-toast-link {
-  color: #89b4fa !important;
+  color: var(--taskplugin-accent-ink) !important;
   text-decoration: underline !important;
   cursor: pointer !important;
   pointer-events: auto !important;
@@ -262,7 +262,7 @@
 }
 .taskplugin-label-row > span:first-child {
   font-size: 11px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
 }
 .taskplugin-label-actions {
   display: inline-flex !important;
@@ -275,14 +275,14 @@
   padding: 3px 8px !important;
   font-size: 11px !important;
   flex-shrink: 0 !important;
-  border-color: #585b70 !important;
-  color: #bac2de !important;
-  background: rgba(69, 71, 90, 0.45) !important;
+  border-color: var(--taskplugin-border) !important;
+  color: var(--taskplugin-foreground) !important;
+  background: var(--taskplugin-muted) !important;
 }
 .taskplugin-btn-reset:hover:not(:disabled) {
-  background: rgba(243, 139, 168, 0.18) !important;
-  border-color: #f38ba8 !important;
-  color: #f38ba8 !important;
+  background: var(--taskplugin-danger-soft) !important;
+  border-color: var(--taskplugin-danger) !important;
+  color: var(--taskplugin-danger) !important;
 }
 .taskplugin-btn-reset:disabled {
   opacity: 0.45 !important;
@@ -300,9 +300,9 @@ html.taskplugin-picking #taskplugin-float-root * {
 
 /* hover 高亮（由 JS 添加 class；仅在 pick 模式下生效，防止组件静态类名误触发） */
 html.taskplugin-picking .taskplugin-el-highlight {
-  outline: 2px solid #89b4fa !important;
+  outline: 2px solid var(--taskplugin-accent) !important;
   outline-offset: 2px !important;
-  box-shadow: 0 0 0 4px rgba(137, 180, 250, 0.35) !important;
+  box-shadow: 0 0 0 4px rgba(184, 134, 11, 0.35) !important;
 }
 
 /* 调整期望弹窗 */
@@ -313,7 +313,7 @@ html.taskplugin-picking .taskplugin-el-highlight {
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  background: rgba(17, 17, 27, 0.55) !important;
+  background: rgba(26, 26, 26, 0.45) !important;
   pointer-events: auto !important;
   padding: 16px !important;
   box-sizing: border-box !important;
@@ -323,8 +323,8 @@ html.taskplugin-picking .taskplugin-el-highlight {
 }
 .taskplugin-modal-card {
   width: min(420px, 100%) !important;
-  background: #1e1e2e !important;
-  border: 1px solid #45475a !important;
+  background: var(--taskplugin-background) !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 12px !important;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55) !important;
   padding: 14px 16px !important;
@@ -335,16 +335,16 @@ html.taskplugin-picking .taskplugin-el-highlight {
 .taskplugin-modal-card h4 {
   margin: 0 0 8px !important;
   font-size: 14px !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
   font-weight: 600 !important;
 }
 .taskplugin-modal-el {
   margin: 0 0 10px !important;
   font-size: 11px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   word-break: break-all !important;
-  background: #252536 !important;
-  border: 1px solid #313244 !important;
+  background: var(--taskplugin-card) !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 6px !important;
   padding: 8px 10px !important;
 }
@@ -354,13 +354,13 @@ html.taskplugin-picking .taskplugin-el-highlight {
   gap: 8px !important;
   margin-top: 8px !important;
   font-size: 11px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   cursor: pointer !important;
 }
 .taskplugin-shot-label input {
   width: 14px !important;
   height: 14px !important;
-  accent-color: #89b4fa !important;
+  accent-color: var(--taskplugin-accent) !important;
   cursor: pointer !important;
 }
 .taskplugin-modal-actions {

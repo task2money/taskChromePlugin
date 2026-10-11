@@ -25,17 +25,17 @@ function ruleBlock(css, selector) {
 describe('Popup heading chrome colors', () => {
   it('Alt+Shift+Z 芯片为白底深字', () => {
     const block = ruleBlock(read('popup/popup.css'), '.llm-shortcut');
-    assert.match(block, /background:\s*#fff\b/);
-    assert.match(block, /color:\s*#1e1e2e\b/);
+    assert.match(block, /background:\s*var\(--taskplugin-card\)/);
+    assert.match(block, /color:\s*var\(--taskplugin-foreground\)/);
   });
 
-  it('使用说明按钮为青色底深字，关闭按钮不跟色', () => {
+  it('使用说明按钮为暗金底深字，关闭按钮不跟色', () => {
     const css = read('popup/popup-guide.css');
     const block = ruleBlock(css, '#popup-user-guide .tcp-guide-root-summary');
-    assert.match(block, /background:\s*#00bcd4\b/);
-    assert.match(block, /color:\s*#1e1e2e\b/);
+    assert.match(block, /background:\s*var\(--taskplugin-accent\)/);
+    assert.match(block, /color:\s*var\(--taskplugin-foreground\)/);
     const close = ruleBlock(css, '#popup-user-guide .tcp-guide-close');
-    assert.doesNotMatch(close, /#00bcd4/);
+    assert.doesNotMatch(close, /var\(--taskplugin-accent\)/);
   });
 
   it('提示词标题行设置按钮背景透明；LLM 设置在下拉旁用普通按钮', () => {
@@ -57,7 +57,7 @@ describe('Popup heading chrome colors', () => {
       'html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings',
     );
     assert.match(block, /background:\s*transparent\b/);
-    assert.match(block, /color:\s*#1e1e2e\b/);
+    assert.match(block, /color:\s*var\(--taskplugin-foreground\)/);
     assert.doesNotMatch(
       css,
       /#pageAdvisorLlmSection #btnToggleLlmSettings/,

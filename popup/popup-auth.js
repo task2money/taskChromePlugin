@@ -281,7 +281,7 @@
     if (loginHint) {
       if (errorMessage) {
         loginHint.textContent = errorMessage;
-        loginHint.style.color = '#f38ba8';
+        loginHint.style.color = 'var(--taskplugin-danger)';
       } else {
         loginHint.textContent = tx('loginHint');
         loginHint.style.color = '';
@@ -315,7 +315,7 @@
     const loginHint = $('#loginHint');
     if (loginHint) {
       loginHint.textContent = tx('popupSessionExpiredHint');
-      loginHint.style.color = '#fab387';
+      loginHint.style.color = 'var(--taskplugin-warning)';
     }
 
     const btn = $('#btnLogin');

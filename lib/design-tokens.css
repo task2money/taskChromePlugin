@@ -1,0 +1,26 @@
+/* Professional 配色。色值来自 design-style prompts/Professional.md。
+   11–13px 文字用 --taskplugin-accent-ink：#B8860B 铺在 #FAFAF8 上约 3.3:1，达不到 AA。
+   金色按钮上的字用 --taskplugin-foreground：白字铺在 #B8860B 上同样不够。 */
+:root,
+#taskplugin-float-root {
+  --taskplugin-background: #FAFAF8;
+  --taskplugin-foreground: #1A1A1A;
+  --taskplugin-muted: #F5F3F0;
+  --taskplugin-muted-foreground: #6B6B6B;
+  --taskplugin-accent: #B8860B;
+  --taskplugin-accent-secondary: #D4A84B;
+  --taskplugin-accent-ink: #7A5A08;
+  --taskplugin-accent-muted: #F3E6C4;
+  --taskplugin-border: #E8E4DF;
+  --taskplugin-border-strong: #C9C2B8;
+  --taskplugin-card: #FFFFFF;
+  --taskplugin-ring: #B8860B;
+  --taskplugin-track: #D4CFC8;
+  --taskplugin-chart-neutral: #8A8178;
+  --taskplugin-success: #166534;
+  --taskplugin-success-soft: #E4EFE4;
+  --taskplugin-danger: #B91C1C;
+  --taskplugin-danger-soft: #F8E4E2;
+  --taskplugin-warning: #7A5A08;
+  --taskplugin-warning-soft: #F6EBD0;
+}

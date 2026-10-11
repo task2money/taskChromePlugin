@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="trae-service" content="taskChromePlugin" />
   <title data-i18n="extTitle">云端Coding: 自动创新助手</title>
+  <link rel="stylesheet" href="../lib/design-tokens.css">
   <link rel="stylesheet" href="panel.css">
   <link rel="stylesheet" href="../lib/plugin-version.css">
   <!--
@@ -158,7 +159,7 @@
             </select>
           </div>
           <div style="flex:1">
-            <label><span data-i18n="panelInstalledImage">已安装镜像</span> <span id="singleImageRequired" class="hint-inline" hidden style="color:#f38ba8;" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
+            <label><span data-i18n="panelInstalledImage">已安装镜像</span> <span id="singleImageRequired" class="hint-inline" hidden style="color:var(--taskplugin-danger);" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
             <select id="singleContainerImage" class="form-select">
               <option value="" data-i18n="panelNone">无</option>
             </select>
@@ -287,7 +288,7 @@
           </select>
         </div>
         <div class="form-row">
-          <label><span data-i18n="panelInstalledImage">已安装镜像</span> <span id="batchImageRequired" class="hint-inline" hidden style="color:#f38ba8;" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
+          <label><span data-i18n="panelInstalledImage">已安装镜像</span> <span id="batchImageRequired" class="hint-inline" hidden style="color:var(--taskplugin-danger);" data-i18n="panelAutoRunRequired">*自动运行必选</span></label>
           <select id="batchContainerImage" class="form-select">
             <option value="" data-i18n="panelNone">无</option>
           </select>

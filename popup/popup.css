@@ -3,8 +3,8 @@
 body {
   width: 300px; min-height: 200px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 13px; color: #e0e0e0;
-  background: #1e1e2e; line-height: 1.5;
+  font-size: 13px; color: var(--taskplugin-foreground);
+  background: var(--taskplugin-background); color-scheme: light; line-height: 1.5;
 }
 
 /* === Loading === */
@@ -13,8 +13,8 @@ body {
   justify-content: center; padding: 32px 12px; gap: 12px;
 }
 .spinner {
-  width: 28px; height: 28px; border: 3px solid #313244;
-  border-top-color: #89b4fa; border-radius: 50%;
+  width: 28px; height: 28px; border: 3px solid var(--taskplugin-border);
+  border-top-color: var(--taskplugin-accent); border-radius: 50%;
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -25,7 +25,7 @@ body {
 .popup-header {
   display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px;
   margin-bottom: 12px; padding-bottom: 8px;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--taskplugin-border);
 }
 .popup-header-title {
   display: flex; align-items: baseline; justify-content: space-between;
@@ -36,11 +36,11 @@ body {
   line-height: 1.3; white-space: normal; min-width: 0;
 }
 .popup-version {
-  font-size: 11px; color: #a6adc8; flex-shrink: 0;
+  font-size: 11px; color: var(--taskplugin-muted-foreground); flex-shrink: 0;
   font-variant-numeric: tabular-nums;
 }
 .header-user {
-  font-size: 11px; color: #a6adc8; max-width: 120px;
+  font-size: 11px; color: var(--taskplugin-muted-foreground); max-width: 120px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 #headerUserArea {
@@ -56,8 +56,8 @@ body {
 }
 .plugin-locale-select {
   font-size: 11px; padding: 2px 4px; max-width: 96px;
-  background: #313244; color: #cdd6f4;
-  border: 1px solid #45475a; border-radius: 4px;
+  background: var(--taskplugin-muted); color: var(--taskplugin-foreground);
+  border: 1px solid var(--taskplugin-border); border-radius: 4px;
 }
 /* 字号由 .heading-sm 统一提供，勿在本规则内再写 font-size（OPT-20260927-001） */
 #btnToggleLogin,
@@ -74,7 +74,7 @@ body {
   gap: 6px;
 }
 #pageAdvisorSkillSection .llm-section-heading h3 #lnkPromptMarket {
-  color: #89b4fa;
+  color: var(--taskplugin-accent-ink);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -87,9 +87,9 @@ body {
   font-size: 10px;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 600;
-  color: #1e1e2e;
-  background: #fff;
-  border: 1px solid #45475a;
+  color: var(--taskplugin-foreground);
+  background: var(--taskplugin-card);
+  border: 1px solid var(--taskplugin-border);
   border-radius: 4px;
   vertical-align: middle;
 }
@@ -101,19 +101,19 @@ body {
 }
 .tracking-toggle input { opacity: 0; width: 0; height: 0; }
 .toggle-slider {
-  position: absolute; inset: 0; background: #45475a; border-radius: 18px;
+  position: absolute; inset: 0; background: var(--taskplugin-track); border-radius: 18px;
   transition: background .2s;
 }
 .toggle-slider::before {
   content: ''; position: absolute; width: 14px; height: 14px;
-  left: 2px; top: 2px; background: #cdd6f4; border-radius: 50%;
+  left: 2px; top: 2px; background: var(--taskplugin-card); border-radius: 50%;
   transition: transform .2s;
 }
-.tracking-toggle input:checked + .toggle-slider { background: #89b4fa; }
+.tracking-toggle input:checked + .toggle-slider { background: var(--taskplugin-accent); }
 .tracking-toggle input:checked + .toggle-slider::before { transform: translateX(14px); }
 
 .float-ball-hint {
-  margin-top: 6px; font-size: 10px; color: #6c7086; line-height: 1.4;
+  margin-top: 6px; font-size: 10px; color: var(--taskplugin-muted-foreground); line-height: 1.4;
 }
 
 .advisor-defaults-heading {
@@ -131,8 +131,8 @@ body {
   cursor: pointer;
   width: 16px; height: 16px; padding: 0;
   border-radius: 50%;
-  border: 1px solid #89b4fa;
-  color: #89b4fa;
+  border: 1px solid var(--taskplugin-accent);
+  color: var(--taskplugin-accent-ink);
   background: transparent;
   font-size: 11px; font-weight: 700; line-height: 14px;
   display: inline-flex; align-items: center; justify-content: center;
@@ -144,26 +144,26 @@ body {
 .badge {
   padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 500;
 }
-.badge-connected { background: #a6e3a1; color: #1e1e2e; }
-.badge-disconnected { background: #f38ba8; color: #1e1e2e; }
-.badge-warning { background: #fab387; color: #1e1e2e; }
+.badge-connected { background: var(--taskplugin-success-soft); color: var(--taskplugin-foreground); }
+.badge-disconnected { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); }
+.badge-warning { background: var(--taskplugin-warning-soft); color: var(--taskplugin-foreground); }
 
 /* === Sections === */
 .section {
-  background: #252536; border-radius: 8px;
+  background: var(--taskplugin-card); border-radius: 8px;
   padding: 10px 12px; margin-bottom: 10px;
 }
-.section h3 { font-size: 11px; color: #89b4fa; margin-bottom: 8px; }
+.section h3 { font-size: 11px; color: var(--taskplugin-accent-ink); margin-bottom: 8px; }
 
 /* === Form === */
 .form-row { margin-bottom: 8px; }
-.form-row label { display: block; font-size: 10px; color: #a6adc8; margin-bottom: 3px; }
+.form-row label { display: block; font-size: 10px; color: var(--taskplugin-muted-foreground); margin-bottom: 3px; }
 .form-input {
-  width: 100%; padding: 6px 8px; border: 1px solid #45475a;
-  border-radius: 5px; background: #313244; color: #cdd6f4;
+  width: 100%; padding: 6px 8px; border: 1px solid var(--taskplugin-border);
+  border-radius: 5px; background: var(--taskplugin-muted); color: var(--taskplugin-foreground);
   font-size: 12px; font-family: inherit;
 }
-.form-input:focus { outline: none; border-color: #89b4fa; }
+.form-input:focus { outline: none; border-color: var(--taskplugin-accent); }
 
 /* 调用方式 / 转发目标：去掉浏览器 fieldset 线框。 */
 #popupLlmRouteField,
@@ -181,7 +181,7 @@ body {
   padding: 0;
   margin-bottom: 3px;
   font-size: 10px;
-  color: #a6adc8;
+  color: var(--taskplugin-muted-foreground);
 }
 /* 调用方式：长文案仍上下排列 */
 #popupLlmRouteField .llm-route-option {
@@ -191,7 +191,7 @@ body {
   margin-bottom: 4px;
   font-size: 12px;
   line-height: 1.4;
-  color: #cdd6f4;
+  color: var(--taskplugin-foreground);
   cursor: pointer;
 }
 #popupLlmRouteField .llm-route-option input {
@@ -216,7 +216,7 @@ body {
   margin-bottom: 0;
   font-size: 12px;
   line-height: 1.4;
-  color: #cdd6f4;
+  color: var(--taskplugin-foreground);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -227,13 +227,13 @@ body {
 
 /* === Buttons === */
 .btn {
-  padding: 7px 12px; border: 1px solid #45475a; border-radius: 5px;
-  background: #313244; color: #cdd6f4; font-size: 12px;
+  padding: 7px 12px; border: 1px solid var(--taskplugin-border); border-radius: 5px;
+  background: var(--taskplugin-muted); color: var(--taskplugin-foreground); font-size: 12px;
   cursor: pointer; transition: all .15s; text-align: center;
 }
-.btn:hover { background: #45475a; }
-.btn-primary { background: #89b4fa; color: #1e1e2e; border-color: #89b4fa; }
-.btn-primary:hover { background: #74c7ec; }
+.btn:hover { background: var(--taskplugin-track); }
+.btn-primary { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); border-color: var(--taskplugin-accent); }
+.btn-primary:hover { background: var(--taskplugin-accent-secondary); }
 .btn-full { display: block; width: 100%; }
 
 /* === Status Rows === */
@@ -241,25 +241,25 @@ body {
   display: flex; justify-content: space-between; align-items: center;
   padding: 4px 0; font-size: 11px;
 }
-.status-row .label { color: #6c7086; }
-.status-row .value { color: #cdd6f4; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.status-row .token { font-family: 'SF Mono', monospace; font-size: 10px; color: #6c7086; }
+.status-row .label { color: var(--taskplugin-muted-foreground); }
+.status-row .value { color: var(--taskplugin-foreground); max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-row .token { font-family: 'SF Mono', monospace; font-size: 10px; color: var(--taskplugin-muted-foreground); }
 
 /* === Result === */
 .result {
   margin-top: 8px; padding: 6px 10px; border-radius: 5px;
   font-size: 11px; display: none;
 }
-.result.success { display: block; background: rgba(166, 227, 161, 0.15); color: #a6e3a1; border: 1px solid #a6e3a1; }
-.result.error { display: block; background: rgba(243, 139, 168, 0.15); color: #f38ba8; border: 1px solid #f38ba8; }
+.result.success { display: block; background: var(--taskplugin-success-soft); color: var(--taskplugin-success); border: 1px solid var(--taskplugin-success); }
+.result.error { display: block; background: var(--taskplugin-danger-soft); color: var(--taskplugin-danger); border: 1px solid var(--taskplugin-danger); }
 
 /* === Hint === */
-.hint { font-size: 10px; color: #6c7086; margin-top: 6px; text-align: center; }
-.hint code { background: #313244; padding: 1px 4px; border-radius: 3px; font-size: 9px; }
+.hint { font-size: 10px; color: var(--taskplugin-muted-foreground); margin-top: 6px; text-align: center; }
+.hint code { background: var(--taskplugin-muted); padding: 1px 4px; border-radius: 3px; font-size: 9px; }
 
 /* === Link Button === */
-.btn-link { border: none; background: transparent; color: #89b4fa; padding: 0 4px; font-size: 10px; }
-.btn-link:hover { color: #74c7ec; background: transparent; }
+.btn-link { border: none; background: transparent; color: var(--taskplugin-accent-ink); padding: 0 4px; font-size: 10px; }
+.btn-link:hover { color: var(--taskplugin-foreground); background: transparent; }
 
 /* === Small Input === */
 .form-input-sm { padding: 5px 7px; font-size: 11px; }
@@ -280,11 +280,11 @@ body {
   margin-left: auto;
   background: transparent;
   border-color: transparent;
-  color: #cdd6f4;
+  color: var(--taskplugin-foreground);
 }
 #pageAdvisorSkillSection #btnToggleSkillSettings:hover {
   background: transparent;
-  color: #fff;
+  color: var(--taskplugin-foreground);
 }
 /* 「已保存的 Key」下拉旁的设置：与 select 同行 */
 .llm-profile-select-with-settings {
@@ -313,18 +313,18 @@ body {
 
 /* === Select === */
 .form-select {
-  width: 100%; padding: 6px 8px; border: 1px solid #45475a;
-  border-radius: 5px; background: #313244; color: #cdd6f4;
+  width: 100%; padding: 6px 8px; border: 1px solid var(--taskplugin-border);
+  border-radius: 5px; background: var(--taskplugin-muted); color: var(--taskplugin-foreground);
   font-size: 12px; font-family: inherit; cursor: pointer;
 }
-.form-select:focus { outline: none; border-color: #89b4fa; }
+.form-select:focus { outline: none; border-color: var(--taskplugin-accent); }
 /* Alt+E 默认项目列表 */
 .popup-project-list {
   max-height: 140px;
   overflow-y: auto;
-  border: 1px solid #45475a;
+  border: 1px solid var(--taskplugin-border);
   border-radius: 5px;
-  background: #313244;
+  background: var(--taskplugin-muted);
   padding: 6px 8px;
 }
 .popup-project-list label {
@@ -332,17 +332,17 @@ body {
   align-items: flex-start;
   gap: 6px;
   font-size: 11px;
-  color: #cdd6f4;
+  color: var(--taskplugin-foreground);
   padding: 3px 0;
   cursor: pointer;
 }
 .popup-project-list input[type="radio"] {
-  accent-color: #89b4fa;
+  accent-color: var(--taskplugin-accent);
   margin-top: 2px;
   flex-shrink: 0;
 }
-.popup-project-list .hint { font-size: 10px; color: #6c7086; }
-.popup-project-list .hint.err { color: #f38ba8; }
+.popup-project-list .hint { font-size: 10px; color: var(--taskplugin-muted-foreground); }
+.popup-project-list .hint.err { color: var(--taskplugin-danger); }
 #popupDefaultsStatus { margin-top: 6px; min-height: 14px; }
 
 /* 已保存的 Skill：与调用方式同一套，去掉浏览器 fieldset 线框。图例里的「新建」仍靠右。 */
@@ -360,13 +360,13 @@ body {
 .popup-skill-group {
   margin: 8px 0 10px;
   padding: 6px 0 0;
-  border-top: 1px solid #313244;
+  border-top: 1px solid var(--taskplugin-border);
 }
 .popup-skill-group-title {
   margin: 0 0 6px;
   font-size: 11px;
   font-weight: 600;
-  color: #89b4fa;
+  color: var(--taskplugin-accent-ink);
   letter-spacing: 0.02em;
 }
 .popup-skill-row {
@@ -376,7 +376,7 @@ body {
 /* 预设类别的系统/自行定制单选（OPT-20260922-043） */
 .popup-skill-category-source {
   display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
-  margin: 2px 0 4px; font-size: 11px; color: var(--color-text-muted, #6c7086);
+  margin: 2px 0 4px; font-size: 11px; color: var(--color-text-muted, var(--taskplugin-muted-foreground));
 }
 .popup-skill-category-source input[type="radio"] { margin: 0; }
 .popup-skill-category-source-label { margin-right: 6px; cursor: pointer; }
@@ -401,67 +401,67 @@ body {
 .popup-skill-sync { flex: 1 1 72px; min-width: 0; font-size: 11px; }
 .popup-skill-row .btn { flex: 0 0 auto; }
 .popup-skill-delete-dialog {
-  max-width: 260px; border: 1px solid #45475a; border-radius: 8px;
-  background: #1e1e2e; color: #cdd6f4; padding: 12px;
+  max-width: 260px; border: 1px solid var(--taskplugin-border); border-radius: 8px;
+  background: var(--taskplugin-background); color: var(--taskplugin-foreground); padding: 12px;
 }
-.popup-skill-delete-dialog::backdrop { background: rgba(17, 17, 27, 0.55); }
+.popup-skill-delete-dialog::backdrop { background: rgba(26, 26, 26, 0.45); }
 .popup-skill-delete-dialog p { margin: 0 0 10px; font-size: 12px; line-height: 1.4; }
 
 /* === Textarea === */
 .form-textarea {
-  width: 100%; padding: 6px 8px; border: 1px solid #45475a;
-  border-radius: 5px; background: #313244; color: #cdd6f4;
+  width: 100%; padding: 6px 8px; border: 1px solid var(--taskplugin-border);
+  border-radius: 5px; background: var(--taskplugin-muted); color: var(--taskplugin-foreground);
   font-size: 12px; font-family: inherit; resize: vertical;
 }
-.form-textarea:focus { outline: none; border-color: #89b4fa; }
+.form-textarea:focus { outline: none; border-color: var(--taskplugin-accent); }
 
 /* === Danger Button === */
-.btn-danger { background: #f38ba8; color: #1e1e2e; border-color: #f38ba8; }
-.btn-danger:hover { background: #eba0ac; }
+.btn-danger { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); border-color: var(--taskplugin-danger); }
+.btn-danger:hover { background: var(--taskplugin-danger); }
 
 /* === Checkbox Group === */
 .checkbox-group { max-height: 120px; overflow-y: auto; }
 .checkbox-group label {
   display: flex; align-items: center; gap: 4px;
-  font-size: 11px; color: #cdd6f4; padding: 2px 0; cursor: pointer;
+  font-size: 11px; color: var(--taskplugin-foreground); padding: 2px 0; cursor: pointer;
 }
-.checkbox-group input[type="checkbox"] { accent-color: #89b4fa; }
-.checkbox-group .placeholder { font-size: 10px; color: #6c7086; }
+.checkbox-group input[type="checkbox"] { accent-color: var(--taskplugin-accent); }
+.checkbox-group .placeholder { font-size: 10px; color: var(--taskplugin-muted-foreground); }
 
-.select-all-row { margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid #313244; }
-.select-all-row label { font-weight: 500; color: #89b4fa; }
+.select-all-row { margin-bottom: 4px; padding-bottom: 4px; border-bottom: 1px solid var(--taskplugin-border); }
+.select-all-row label { font-weight: 500; color: var(--taskplugin-accent-ink); }
 
 /* === Popup Request List === */
 .popup-req-list { max-height: 200px; overflow-y: auto; }
 .popup-req-item {
   display: flex; align-items: center; gap: 4px; padding: 4px 6px;
   border-radius: 4px; cursor: pointer; transition: background .1s;
-  border-bottom: 1px solid #313244;
+  border-bottom: 1px solid var(--taskplugin-border);
 }
-.popup-req-item:hover { background: #313244; }
-.popup-req-item.selected { background: rgba(137, 180, 250, 0.15); border-left: 2px solid #89b4fa; }
+.popup-req-item:hover { background: var(--taskplugin-muted); }
+.popup-req-item.selected { background: var(--taskplugin-accent-muted); border-left: 2px solid var(--taskplugin-accent); }
 
 .req-method {
   display: inline-block; padding: 0 4px; border-radius: 3px;
   font-size: 9px; font-weight: 600; min-width: 36px; text-align: center;
-  background: #45475a; color: #cdd6f4;
+  background: var(--taskplugin-track); color: var(--taskplugin-foreground);
 }
-.req-method.GET { background: #a6e3a1; color: #1e1e2e; }
-.req-method.POST { background: #89b4fa; color: #1e1e2e; }
-.req-method.PUT { background: #fab387; color: #1e1e2e; }
-.req-method.DELETE { background: #f38ba8; color: #1e1e2e; }
-.req-method.PATCH { background: #cba6f7; color: #1e1e2e; }
+.req-method.GET { background: var(--taskplugin-success-soft); color: var(--taskplugin-foreground); }
+.req-method.POST { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); }
+.req-method.PUT { background: var(--taskplugin-warning-soft); color: var(--taskplugin-foreground); }
+.req-method.DELETE { background: var(--taskplugin-danger-soft); color: var(--taskplugin-foreground); }
+.req-method.PATCH { background: var(--taskplugin-accent-muted); color: var(--taskplugin-foreground); }
 
 .req-status {
   display: inline-block; padding: 0 4px; border-radius: 3px;
   font-size: 9px; font-weight: 600; min-width: 28px; text-align: center;
 }
-.req-status.err-5xx { background: rgba(243, 139, 168, 0.3); color: #f38ba8; }
-.req-status.err-4xx { background: rgba(250, 179, 135, 0.3); color: #fab387; }
-.req-status.err-ok { background: rgba(166, 227, 161, 0.3); color: #a6e3a1; }
+.req-status.err-5xx { background: var(--taskplugin-danger-soft); color: var(--taskplugin-danger); }
+.req-status.err-4xx { background: var(--taskplugin-warning-soft); color: var(--taskplugin-warning); }
+.req-status.err-ok { background: var(--taskplugin-success-soft); color: var(--taskplugin-success); }
 
 .req-url {
-  font-size: 10px; color: #bac2de; flex: 1; overflow: hidden;
+  font-size: 10px; color: var(--taskplugin-foreground); flex: 1; overflow: hidden;
   text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -471,15 +471,15 @@ body {
 .search-select { flex: 1; min-width: 60px; }
 
 /* === Global link color === */
-/* Dark popup: default browser link blue/purple is unreadable on #1e1e2e */
-a { color: #89b4fa; }
-a:hover { color: #74c7ec; }
+/* Dark popup: default browser link blue/purple is unreadable on var(--taskplugin-foreground) */
+a { color: var(--taskplugin-accent-ink); }
+a:hover { color: var(--taskplugin-foreground); }
 
 progress.builtin-progress {
   display: block;
   width: 100%;
   height: 8px;
   margin: 6px 0 8px;
-  accent-color: #89b4fa;
+  accent-color: var(--taskplugin-accent);
 }
 progress.builtin-progress[hidden] { display: none; }

@@ -3,13 +3,13 @@
 /* ── 覆盖层细滚动条（OPT-20260922-007）────────────────────────────────────────
    对齐工作台 DESIGN「Overlay scrollbars」：6px、半透明 thumb、悬浮才显形。
    插件注入的页内样式不继承工作台 CSS（宿主页面多数没有 overlay 规则），故自带一份。
-   色值等价工作台 color-mix 规则的 #6c7086 35% 与 transparent 混合；扩展未声明
+   色值等价工作台 color-mix 规则的 var(--taskplugin-muted-foreground) 35% 与 transparent 混合；扩展未声明
    minimum_chrome_version，故此处写等价的 rgba 而非 color-mix 函数。
    滚动容器不得相互嵌套（会出现双滚动条），清单 SSOT 见
    test/content-overlay-scrollbar.test.js。 */
 :is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body) {
   scrollbar-width: thin !important;
-  scrollbar-color: rgba(108, 112, 134, 0.4) transparent !important;
+  scrollbar-color: rgba(107, 107, 107, 0.4) transparent !important;
 }
 :is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar {
   width: 6px !important;
@@ -19,7 +19,7 @@
   background: transparent !important;
 }
 :is(.taskplugin-panel-body, .taskplugin-checkbox-list, .taskplugin-page-advisor-status-card, .taskplugin-user-guide-host .tcp-guide-body)::-webkit-scrollbar-thumb {
-  background-color: rgba(108, 112, 134, 0.35) !important;
+  background-color: rgba(107, 107, 107, 0.35) !important;
   border-radius: 999px !important;
 }
 @media (hover: hover) and (pointer: fine) {
@@ -46,7 +46,7 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
-  color: #e0e0e0 !important;
+  color: var(--taskplugin-foreground) !important;
   /* 防止宿主页面样式泄漏 */
   visibility: visible !important;
   opacity: 1 !important;
@@ -62,10 +62,11 @@
   right: 24px !important;
   width: 380px !important;
   max-height: 520px !important;
-  background: #1e1e2e !important;
-  border: 1px solid #45475a !important;
+  background: var(--taskplugin-background) !important;
+  border: 1px solid var(--taskplugin-border-strong) !important;
+  border-top: 2px solid var(--taskplugin-accent) !important;
   border-radius: 12px !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5) !important;
+  box-shadow: 0 8px 24px rgba(26, 26, 26, 0.12) !important;
   z-index: 2147483646 !important;
   display: none !important;
   flex-direction: column !important;
@@ -82,8 +83,8 @@
   align-items: center !important;
   justify-content: space-between !important;
   padding: 12px 14px !important;
-  background: #181825 !important;
-  border-bottom: 1px solid #313244 !important;
+  background: var(--taskplugin-muted) !important;
+  border-bottom: 1px solid var(--taskplugin-border) !important;
   flex-shrink: 0 !important;
 }
 #taskplugin-float-close {
@@ -94,7 +95,7 @@
   border: none !important;
   border-radius: 6px !important;
   background: transparent !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
   font-size: 20px !important;
   font-weight: 500 !important;
   line-height: 1 !important;
@@ -106,13 +107,13 @@
   pointer-events: auto !important;
 }
 #taskplugin-float-close:hover {
-  background: rgba(243, 139, 168, 0.2) !important;
-  color: #f38ba8 !important;
+  background: var(--taskplugin-danger-soft) !important;
+  color: var(--taskplugin-danger) !important;
 }
 .taskplugin-panel-header h3 {
   font-size: 14px !important;
   font-weight: 600 !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
   margin: 0 !important;
 }
 .taskplugin-panel-header .taskplugin-badge {
@@ -130,10 +131,10 @@ button#taskplugin-login-badge {
 button#taskplugin-login-badge:disabled {
   cursor: default !important;
 }
-.taskplugin-badge-ok { background: rgba(166, 227, 161, 0.2) !important; color: #a6e3a1 !important; }
-.taskplugin-badge-warn { background: rgba(250, 179, 135, 0.25) !important; color: #fab387 !important; }
-.taskplugin-badge-critical { background: rgba(243, 139, 168, 0.25) !important; color: #f38ba8 !important; }
-.taskplugin-badge-err { background: rgba(243, 139, 168, 0.2) !important; color: #f38ba8 !important; }
+.taskplugin-badge-ok { background: var(--taskplugin-success-soft) !important; color: var(--taskplugin-success) !important; }
+.taskplugin-badge-warn { background: var(--taskplugin-warning-soft) !important; color: var(--taskplugin-warning) !important; }
+.taskplugin-badge-critical { background: var(--taskplugin-danger-soft) !important; color: var(--taskplugin-danger) !important; }
+.taskplugin-badge-err { background: var(--taskplugin-danger-soft) !important; color: var(--taskplugin-danger) !important; }
 
 /* 浮窗顶栏语言选择器（OPT-20260922-037）：300px 顶栏内保持紧凑 */
 .taskplugin-locale-wrap {
@@ -172,8 +173,8 @@ button#taskplugin-login-badge:disabled {
   padding: 8px 14px !important;
   font-size: 12px !important;
   line-height: 1.4 !important;
-  color: #1e1e2e !important;
-  background: #f9e2af !important;
+  color: var(--taskplugin-foreground) !important;
+  background: var(--taskplugin-warning-soft) !important;
 }
 .taskplugin-toolbar-pin-hint[hidden] {
   display: none !important;
@@ -188,8 +189,8 @@ button#taskplugin-login-badge:disabled {
   padding: 4px 8px !important;
   border: 0 !important;
   border-radius: 6px !important;
-  background: #1e1e2e !important;
-  color: #f9e2af !important;
+  background: var(--taskplugin-background) !important;
+  color: var(--taskplugin-warning) !important;
   cursor: pointer !important;
 }
 .taskplugin-aidev-status {
@@ -197,21 +198,21 @@ button#taskplugin-login-badge:disabled {
   padding: 6px 8px !important;
   font-size: 11px !important;
   line-height: 1.4 !important;
-  color: #a6e3a1 !important;
-  background: rgba(166, 227, 161, 0.08) !important;
-  border: 1px solid rgba(166, 227, 161, 0.25) !important;
+  color: var(--taskplugin-success) !important;
+  background: var(--taskplugin-success-soft) !important;
+  border: 1px solid var(--taskplugin-success) !important;
   border-radius: 6px !important;
 }
 
 /* 自动捕获的 URL */
 .taskplugin-captured-url {
-  background: #252536 !important;
-  border: 1px solid #313244 !important;
+  background: var(--taskplugin-card) !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 6px !important;
   padding: 8px 10px !important;
   margin-bottom: 10px !important;
   font-family: 'SF Mono', monospace !important;
   font-size: 10px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   word-break: break-all !important;
 }

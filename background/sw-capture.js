@@ -126,7 +126,8 @@ async function updateBadgeForActiveTab() {
   const count = tab5xxCounts.get(activeTabId) || 0;
   if (count > 0) {
     await chrome.action.setBadgeText({ text: String(count) });
-    await chrome.action.setBadgeBackgroundColor({ color: '#f38ba8' });
+    // Chrome 徽章 API 不接受 CSS 变量，色值与 --taskplugin-danger 相同。
+    await chrome.action.setBadgeBackgroundColor({ color: '#B91C1C' });
   } else {
     await chrome.action.setBadgeText({ text: '' });
   }

@@ -275,7 +275,7 @@
     el.innerHTML = `<div style="margin-bottom:6px">
       <span class="req-method ${method}">${method}</span>
       <span class="req-status ${isRequestCanceled(req) ? 'err-4xx' : (req.statusCode >= 400 ? 'err-4xx' : 'err-ok')}">${escHtml(formatRequestStatusLabel(req))}</span>
-      <span style="font-size:10px;color:#6c7086;margin-left:6px">${escHtml(req.url)}</span>
+      <span style="font-size:10px;color:var(--taskplugin-muted-foreground);margin-left:6px">${escHtml(req.url)}</span>
     </div>
     ${reqHdrHtml}
     ${req.requestBody ? `<div class="detail-section"><h4>${escHtml(tx('popupReqBody'))}</h4><pre class="body-pre">${escHtml(String(req.requestBody))}</pre></div>` : ''}

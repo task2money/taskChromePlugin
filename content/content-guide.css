@@ -7,9 +7,9 @@
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
-  background: #313244 !important;
-  color: #cdd6f4 !important;
-  border: 1px solid #45475a !important;
+  background: var(--taskplugin-muted) !important;
+  color: var(--taskplugin-foreground) !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 6px !important;
   padding: 6px 10px !important;
   font-size: 12px !important;
@@ -18,7 +18,7 @@
 }
 .taskplugin-user-guide-host .tcp-guide-root-summary:focus,
 .taskplugin-user-guide-host .tcp-guide-close:focus {
-  outline: 2px solid #89b4fa !important;
+  outline: 2px solid var(--taskplugin-accent) !important;
   outline-offset: 1px !important;
 }
 .taskplugin-user-guide-host .tcp-guide-body[hidden] {
@@ -27,8 +27,8 @@
 .taskplugin-user-guide-host .tcp-guide-body {
   margin-top: 8px !important;
   padding: 8px !important;
-  background: #181825 !important;
-  border: 1px solid #313244 !important;
+  background: var(--taskplugin-muted) !important;
+  border: 1px solid var(--taskplugin-border) !important;
   border-radius: 8px !important;
   max-height: 280px !important;
   overflow: auto !important;
@@ -42,12 +42,12 @@
 .taskplugin-user-guide-host .tcp-guide-heading {
   margin: 10px 0 4px !important;
   font-size: 12px !important;
-  color: #cdd6f4 !important;
+  color: var(--taskplugin-foreground) !important;
 }
 .taskplugin-user-guide-host .tcp-guide-steps {
   margin: 0 0 8px 1.1em !important;
   padding: 0 !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   font-size: 11px !important;
 }
 .taskplugin-user-guide-host .tcp-guide-toc-list {
@@ -58,24 +58,24 @@
 .taskplugin-user-guide-host .tcp-guide-kbd,
 .taskplugin-user-guide-host kbd.tcp-guide-kbd {
   display: inline-block !important;
-  background: #45475a !important;
-  color: #cdd6f4 !important;
+  background: var(--taskplugin-track) !important;
+  color: var(--taskplugin-foreground) !important;
   padding: 1px 5px !important;
   border-radius: 4px !important;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace !important;
   font-size: 10px !important;
-  border-bottom: 2px solid #585b70 !important;
+  border-bottom: 2px solid var(--taskplugin-border) !important;
 }
 .taskplugin-user-guide-host .tcp-guide-shortcut-table {
   width: 100% !important;
   border-collapse: collapse !important;
   font-size: 11px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
   margin-bottom: 8px !important;
 }
 .taskplugin-user-guide-host .tcp-guide-shortcut-table th,
 .taskplugin-user-guide-host .tcp-guide-shortcut-table td {
-  border: 1px solid #313244 !important;
+  border: 1px solid var(--taskplugin-border) !important;
   padding: 4px 6px !important;
   text-align: left !important;
   vertical-align: top !important;
@@ -90,7 +90,7 @@
   padding: 0 !important;
   margin: 0 0 4px !important;
   font-size: 11px !important;
-  color: #a6adc8 !important;
+  color: var(--taskplugin-muted-foreground) !important;
 }
 .sr-only {
   position: absolute !important;
