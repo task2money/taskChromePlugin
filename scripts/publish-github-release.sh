@@ -68,7 +68,11 @@ if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   if git remote get-url origin >/dev/null 2>&1; then
     bash "$ROOT/scripts/retarget-release-tag.sh" --remote origin --tag "$TAG" --target "$TARGET"
   fi
-  gh release upload "$TAG" "${ASSETS[@]}" -R "$REPO" --clobber
+  # OPT-20261012-005: 先删同名旧 asset 再上传（--clobber 同名时返回 422，
+  # post-commit 只告警，旧包会留下，用户下到的仍是上一版 zip）。
+  _ASSET_ARGS=()
+  for _a in "${ASSETS[@]}"; do _ASSET_ARGS+=(--asset "$_a"); done
+  bash "$ROOT/scripts/publish-release-assets.sh" --repo "$REPO" --tag "$TAG" "${_ASSET_ARGS[@]}"
   # 更新说明与 targetCommitish（幂等）
   gh release edit "$TAG" -R "$REPO" --notes "$NOTES" --target "$TARGET" >/dev/null
 else
