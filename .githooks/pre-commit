@@ -52,6 +52,20 @@ export PRE_COMMIT=1
 TEST_RATIO="${PRECOMMIT_TEST_RATIO:-30}"
 STAGED_FILES="$(git diff --cached --name-only 2>/dev/null || true)"
 
+# OPT-20261012-012: 本钩子要跑约半分钟随机单测。这段窗口里若另一进程对同一
+# 工作树执行 git reset 清空暂存，钩子仍返回成功会让 git 写出与父提交同树的
+# 空提交。开始前记录暂存文件数，结束前断言仍非空（共享守卫 SSOT 见
+# scripts/hooks/templates/lib/rt_assert_staged_preserved.sh）。
+STAGED_COUNT_AT_START=0
+if [ -n "$STAGED_FILES" ]; then
+    STAGED_COUNT_AT_START="$(printf '%s\n' "$STAGED_FILES" | grep -c . || true)"
+fi
+GUARD_LIB="$(pwd)/.githooks/lib/rt_assert_staged_preserved.sh"
+if [ -f "$GUARD_LIB" ]; then
+    # shellcheck source=lib/rt_assert_staged_preserved.sh
+    source "$GUARD_LIB"
+fi
+
 should_run_all=false
 should_run_login_e2e=false
 should_run_layout_e2e=false
@@ -177,6 +191,11 @@ if [ "$should_run_layout_e2e" = true ]; then
     echo "Staged layout-bearing files; running layout Playwright E2E..."
     # 自包含（无登录/扩展/外网）几何断言，退出码即判据
     bash e2e/run-layout-e2e.sh || exit 1
+fi
+
+# OPT-20261012-012: 暂存被并发 reset 清空时以非 0 退出，避免空提交。
+if declare -F rt_assert_staged_preserved >/dev/null 2>&1; then
+    rt_assert_staged_preserved || exit 1
 fi
 
 echo "taskChromePlugin pre-commit checks passed."
