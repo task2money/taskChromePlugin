@@ -67,18 +67,18 @@ describe('side panel manifest', () => {
     assert.doesNotMatch(src, /action\.onClicked/);
   });
 
-  it('创建任务与设置页签是浅色渐变画布，设置 iframe 铺满宽度', () => {
+  it('创建任务与设置页签底色为 #FAFAF8，设置 iframe 铺满宽度', () => {
     const css = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.css'), 'utf8');
     const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
     const settingsCss = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup-sidepanel.css'), 'utf8');
-    assert.match(css, /linear-gradient\(165deg,\s*#E6E0FF/);
-    assert.match(css, /\.sp-tab\[aria-selected="true"\]\s*\{[^}]*background:\s*#fff/);
-    assert.match(css, /#taskplugin-float-panel[\s\S]*?background-image:\s*linear-gradient/);
+    assert.match(css, /background-color:\s*#FAFAF8/);
+    assert.match(css, /\.sp-tab\[aria-selected="true"\]\s*\{[^}]*background:\s*#FAFAF8/);
+    assert.match(css, /#taskplugin-float-panel[\s\S]*?background-color:\s*#FAFAF8/);
     assert.doesNotMatch(css, /background:\s*#1e1e2e/);
     assert.match(html, /popup\.html\?host=sidepanel/);
     assert.match(settingsCss, /width:\s*100%/);
-    assert.match(settingsCss, /linear-gradient\(165deg,\s*#E6E0FF/);
-    assert.match(settingsCss, /background:\s*#fff/);
+    assert.match(settingsCss, /background-color:\s*#FAFAF8\s*!important/);
+    assert.match(settingsCss, /background:\s*#FAFAF8/);
   });
 
   // 本机模型页签在侧栏宿主直接渲染（非设置 iframe），若只引 popup.css 会吃到 #1e1e2e。
@@ -135,7 +135,7 @@ describe('side panel light surface layer', () => {
     const blanket = /body \*:not\(:where\(([\s\S]*?)\)\)[\s\S]*?\{([\s\S]*?)\}/.exec(settingsCss);
     assert.ok(blanket, '设置页应有 body *:not(:where(...)) 通配覆盖');
     const exclusions = blanket[1].split(',').map((item) => item.trim()).filter(Boolean);
-    assert.match(blanket[2], /background:\s*#fff\s*!important/);
+    assert.match(blanket[2], /background:\s*#FAFAF8\s*!important/);
     assert.ok(exclusions.includes('kbd'), 'kbd 芯片保留深色主题配色');
     assert.ok(exclusions.includes('.btn-primary'), '主按钮保留强调色');
     assert.ok(exclusions.includes('.badge-connected') && exclusions.includes('.req-method'));
@@ -152,9 +152,9 @@ describe('side panel light surface layer', () => {
     assert.ok(guideAt >= 0 && lightAt > guideAt, '浅色层须在 guide 之后，否则 #popup-user-guide 深色底会漏网');
     assert.match(
       settingsCss,
-      /#popup-user-guide\s+\.tcp-guide-body[\s\S]*?background:\s*#fff\s*!important/,
+      /#popup-user-guide\s+\.tcp-guide-body[\s\S]*?background:\s*#FAFAF8\s*!important/,
     );
-    assert.match(settingsCss, /\.popup-req-detail[\s\S]*?background:\s*#fff\s*!important/);
+    assert.match(settingsCss, /\.popup-req-detail[\s\S]*?background:\s*#FAFAF8\s*!important/);
   });
 
   it('深色底选择器要么是控件色，要么被覆盖并且有深色前景', () => {
@@ -275,7 +275,7 @@ describe('sidepanel create-form contrast overrides', () => {
     const classes = classTokens(selectorPart);
     for (const rule of cssRules(sidepanelCss)) {
       if (!rule.selector.includes('data-taskplugin-host="sidepanel"')) continue;
-      if (!/background:\s*#fff|#f1f2f6|#f9fafb|rgba\(22,\s*101,\s*52|rgba\(185,\s*28,\s*28/i.test(rule.decls)) {
+      if (!/background:\s*#fff|#fafaf8|#f1f2f6|#f9fafb|rgba\(22,\s*101,\s*52|rgba\(185,\s*28,\s*28/i.test(rule.decls)) {
         continue;
       }
       if (classes.some((cls) => new RegExp(`\\.${cls}(?:\\W|$)`).test(rule.selector))) {
@@ -288,7 +288,7 @@ describe('sidepanel create-form contrast overrides', () => {
   it('重置按钮在浅色宿主用深色字 + 浅底', () => {
     const decls = declsFor('\\.taskplugin-btn-reset');
     assert.match(decls, /color:\s*#1e1e2e\s*!important/);
-    assert.match(decls, /background:\s*#f1f2f6\s*!important/);
+    assert.match(decls, /background:\s*#FAFAF8\s*!important/);
     assert.match(decls, /border-color:\s*transparent\s*!important/);
   });
 

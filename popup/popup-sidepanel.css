@@ -1,12 +1,12 @@
-/* 设置页嵌在侧边栏 iframe 时铺满宽度。画布用 DESIGN.md primary-light → canvas 渐变，
-   分区是无描边白卡片。独立打开 popup.html 不带 host 参数，保持 300px 深色弹窗。 */
+/* 设置页嵌在侧边栏 iframe 时铺满宽度。画布、卡片和次按钮统一为 #FAFAF8。
+   独立打开 popup.html 不带 host 参数，保持 300px 深色弹窗。 */
 html[data-taskplugin-host="sidepanel"],
 html[data-taskplugin-host="sidepanel"] body {
   width: 100%;
   max-width: none;
   min-width: 0;
-  background-color: #F7F9FC !important;
-  background-image: linear-gradient(165deg, #E6E0FF 0%, #F7F9FC 240px) !important;
+  background-color: #FAFAF8 !important;
+  background-image: none !important;
   color: #1e1e2e;
   color-scheme: light;
 }
@@ -17,7 +17,7 @@ html[data-taskplugin-host="sidepanel"] .popup-container {
   background: transparent !important;
 }
 html[data-taskplugin-host="sidepanel"] .section {
-  background: #fff !important;
+  background: #FAFAF8 !important;
   color: #1e1e2e;
   border: 0;
   border-radius: 16px;
@@ -39,7 +39,7 @@ html[data-taskplugin-host="sidepanel"] .hint {
   color: #1e1e2e;
 }
 html[data-taskplugin-host="sidepanel"] #popupDeliveryTargetField .delivery-content-prefix-input {
-  background: #F7F9FC !important;
+  background: #FAFAF8 !important;
   color: #1e1e2e;
   border-color: transparent;
   border-radius: 10px;
@@ -49,13 +49,13 @@ html[data-taskplugin-host="sidepanel"] .form-input,
 html[data-taskplugin-host="sidepanel"] .form-select,
 html[data-taskplugin-host="sidepanel"] .form-textarea {
   width: 100%;
-  background: #F7F9FC !important;
+  background: #FAFAF8 !important;
   color: #1e1e2e;
   border-color: transparent;
   border-radius: 10px;
   box-shadow: inset 0 0 0 1px color-mix(in srgb, #7241F2 16%, #E5E7EB);
 }
-/* OPT-20260929-014 / 设置 Tab 白底：一层覆盖。除下方控件外一律白底。
+/* OPT-20260929-014 / 设置 Tab 浅底：一层覆盖。除下方控件外一律 #FAFAF8。
    !important：压过 popup-guide.css 的 #popup-user-guide … ID 规则，以及内联 style 深色底。
    排除的控件色（主/危险/链接按钮、徽章、请求方法、状态色块、结果横幅、开关滑块、
    kbd 芯片、使用说明主 CTA）在深色主题里前景与背景成对定义，抹掉底色会坏对比度。
@@ -78,7 +78,7 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   .pa-wf-track,
   progress.builtin-progress
 )) {
-  background: #fff !important;
+  background: #FAFAF8 !important;
 }
 
 /* 深色主题里靠描边出效果的控件（转圈动画）不铺白底，边界色要还原成强调色。 */
@@ -142,7 +142,7 @@ html[data-taskplugin-host="sidepanel"] .devtools-guide,
 html[data-taskplugin-host="sidepanel"] .popup-req-detail,
 html[data-taskplugin-host="sidepanel"] .body-pre,
 html[data-taskplugin-host="sidepanel"] .dt-hint {
-  background: #fff !important;
+  background: #FAFAF8 !important;
   border-color: transparent;
 }
 
@@ -234,7 +234,7 @@ html[data-taskplugin-host="sidepanel"] .section h3 {
   font-weight: 600;
 }
 html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
-  background: #F1F2F6 !important;
+  background: #FAFAF8 !important;
   border-color: transparent !important;
   border-radius: 10px;
 }

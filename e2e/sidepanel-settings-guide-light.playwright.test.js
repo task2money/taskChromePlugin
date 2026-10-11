@@ -20,7 +20,7 @@ function loadPlaywrightTest() {
 const { test, expect } = loadPlaywrightTest();
 const SIDEPANEL_URL = pathToFileURL(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html')).href;
 
-const WHITE = 'rgb(255, 255, 255)';
+const SURFACE = 'rgb(250, 250, 248)'; // #FAFAF8
 
 function isDarkInk(cssColor) {
   const nums = String(cssColor).match(/\d+/g);
@@ -100,11 +100,11 @@ test.describe('侧栏设置 iframe 使用说明浅色层', () => {
     await expect(body).toBeVisible({ timeout: 10000 });
     const bodyBg = await body.evaluate((el) => getComputedStyle(el).backgroundColor);
     const bodyColor = await body.evaluate((el) => getComputedStyle(el).color);
-    expect(bodyBg, '.tcp-guide-body 应为白底').toBe(WHITE);
+    expect(bodyBg, '.tcp-guide-body 应为 #FAFAF8').toBe(SURFACE);
     expect(isDarkInk(bodyColor), `.tcp-guide-body 应为深字，实际 ${bodyColor}`).toBe(true);
 
     const section = frame.locator('.tcp-guide-section').first();
     const sectionBg = await section.evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(sectionBg, '.tcp-guide-section 应为白底').toBe(WHITE);
+    expect(sectionBg, '.tcp-guide-section 应为 #FAFAF8').toBe(SURFACE);
   });
 });
