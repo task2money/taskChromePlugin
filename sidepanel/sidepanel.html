@@ -30,8 +30,6 @@
         <p id="spBuiltinStatus" class="hint" aria-live="polite"></p>
         <progress id="spBuiltinProgress" class="builtin-progress" max="100" value="0" hidden></progress>
         <div class="btn-row">
-          <!-- Anti-Replay-OK: ui-only LanguageModel probe -->
-          <button type="button" id="spBuiltinRefresh" class="btn btn-sm" data-i18n="paBuiltinRefresh">刷新状态</button>
           <button type="button" id="spBuiltinDownload" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
           <button type="button" id="spBuiltinCancel" class="btn btn-sm" data-i18n="paBuiltinCancelDownload" hidden>取消下载</button>
         </div>
@@ -50,11 +48,6 @@
         <div class="form-row">
           <label data-i18n="paBuiltinLastRunLabel">最近一次本机运行</label>
           <p id="spBuiltinLastRun" class="hint">—</p>
-        </div>
-        <div class="form-row" id="spBuiltinWaterfallRow">
-          <label data-i18n="paWfBuiltinPanelLabel">快捷键耗时</label>
-          <!-- Anti-Replay-OK: ui-only timing chart; no write API -->
-          <div id="pageAdvisorWaterfallBuiltin" class="page-advisor-waterfall" data-testid="page-advisor-waterfall-builtin"></div>
         </div>
         <p id="spBuiltinInternalsHint" class="hint">
           <span data-i18n="paBuiltinOnDeviceInternalsLead">高级排障请打开 </span>

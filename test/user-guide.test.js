@@ -29,7 +29,8 @@ describe('UserGuide sections', () => {
     const direct = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
     assert.match((direct.steps || []).join('\n'), /离开弹窗去复制下一项/);
     assert.match((direct.steps || []).join('\n'), /不会把页内/);
-    assert.match((direct.steps || []).join('\n'), /正在刷新/);
+    assert.match((direct.steps || []).join('\n'), /打开完整管理/);
+    assert.match((direct.steps || []).join('\n'), /不再另写已就绪说明/);
     assert.match((direct.steps || []).join('\n'), /尚未启用/);
     assert.match((direct.steps || []).join('\n'), /正在启用/);
     assert.match((direct.steps || []).join('\n'), /解压进度条/);
@@ -421,8 +422,10 @@ describe('float surface does not mount UserGuide', () => {
     const js = fs.readFileSync(path.join(__dirname, '../lib/user-guide.js'), 'utf8');
     const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
     const en = fs.readFileSync(path.join(__dirname, '../lib/user-guide-en-sections.js'), 'utf8');
-    assert.match(js, /正在采集页面并生成优化建议…」面板同步显示同一组环节耗时/);
-    assert.match(md, /正在采集页面并生成优化建议…」面板同步显示同一组环节耗时/);
+    assert.match(js, /不再显示各环节耗时条/);
+    assert.match(md, /不再显示各环节耗时条/);
+    assert.match(js, /面板仍显示各环节耗时/);
+    assert.match(md, /面板仍显示各环节耗时/);
     assert.match(en, /in-page panel that says it is collecting the page/);
   });
 

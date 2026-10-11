@@ -14,6 +14,7 @@ const {
   formatHighlights,
   buildReleaseNotes,
   collectSubjects,
+  gitExec,
 } = require('./release-highlights.js');
 
 const API = 'https://gitee.com/api/v5';
@@ -49,7 +50,7 @@ function attachmentList(body) {
 }
 
 function localNotes({ cwd, tag, owner, repo, hasCrx, rev }) {
-  const names = execFileSync('git', ['-C', cwd, 'tag', '--list', 'v*'], { encoding: 'utf8' })
+  const names = gitExec(['-C', cwd, 'tag', '--list', 'v*'])
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean);
@@ -59,7 +60,7 @@ function localNotes({ cwd, tag, owner, repo, hasCrx, rev }) {
   if (!prev) {
     highlights = formatHighlights(collectSubjects({ cwd, fromSha: '', toRev: rev, limit: 10 }));
   } else {
-    const prevSha = execFileSync('git', ['-C', cwd, 'rev-parse', `${prev.tag}^{}`], { encoding: 'utf8' }).trim();
+    const prevSha = gitExec(['-C', cwd, 'rev-parse', `${prev.tag}^{}`]).trim();
     if (prevSha === rev) highlights = formatHighlights([], { sameCommit: true });
     else highlights = formatHighlights(collectSubjects({ cwd, fromSha: prevSha, toRev: rev }));
   }
@@ -224,7 +225,7 @@ async function publishFromCli(argv, env, request) {
   const cwd = args.cwd || process.cwd();
   const version = JSON.parse(fs.readFileSync(path.join(cwd, 'manifest.json'), 'utf8')).version;
   const tag = `v${version}`;
-  const rev = String(args.rev || execFileSync('git', ['-C', cwd, 'rev-parse', 'HEAD'], { encoding: 'utf8' })).trim();
+  const rev = String(args.rev || gitExec(['-C', cwd, 'rev-parse', 'HEAD'])).trim();
   const files = [{ path: args.zip }];
   const hasCrx = Boolean(args.crx && fs.existsSync(args.crx));
   if (hasCrx) files.push({ path: args.crx });

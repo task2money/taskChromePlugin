@@ -92,7 +92,6 @@
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
           <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 不上传，换浏览器需要重新设置。未选择时默认调用平台后端。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。「已保存的 Key」下拉旁点「设置」新增或修改一组。点「测试连通性」用当前填写的 Base URL、模型和 API Key 发一次最短请求，不改已保存的 Key。</p>
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」后面同一行选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paWfHelp">按 Alt+Z 或区域确认后，本区块底部显示各环节耗时条（仅侧栏设置页）。点选区域等待不计入。测试连通性不画这条。</p>
         </details>
         <!-- Anti-Replay-OK: external navigation -->
         <a id="lnkIdleMarket" class="heading-sm" href="https://www.aidevpush.com/friend-links/#idle-market" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket">闲置集市</a>
@@ -127,20 +126,20 @@
           <p id="popupLlmSystemSkuStatus" class="hint" aria-live="polite"></p>
           <button type="button" id="popupLlmSystemSkuRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-system-sku-retry">重试</button>
         </div>
-        <label class="llm-route-option" id="popupLlmRouteBuiltinWrap" hidden>
-          <input type="radio" name="popupLlmRoute" id="popupLlmRouteBuiltin" value="builtin">
-          <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型</span>
-        </label>
+        <div class="llm-route-builtin-line">
+          <label class="llm-route-option" id="popupLlmRouteBuiltinWrap" hidden>
+            <input type="radio" name="popupLlmRoute" id="popupLlmRouteBuiltin" value="builtin">
+            <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型</span>
+          </label>
+          <!-- Anti-Replay-OK: ui-only — tell sidepanel shell to switch tab -->
+          <button type="button" id="btnOpenBuiltinFullMgmt" class="btn btn-sm" data-i18n="paBuiltinOpenFull" hidden>打开完整管理</button>
+        </div>
         <p id="popupBuiltinStatus" hidden aria-live="polite"></p>
         <progress id="popupBuiltinProgress" class="builtin-progress" max="100" value="0" hidden></progress>
         <div id="popupBuiltinBasicMgmt" class="builtin-basic-mgmt" hidden>
           <div class="btn-row builtin-basic-actions">
-            <!-- Anti-Replay-OK: ui-only refresh of LanguageModel.availability -->
-            <button type="button" id="btnRefreshBuiltinStatus" class="btn btn-sm" data-i18n="paBuiltinRefresh">刷新状态</button>
             <button type="button" id="btnDownloadBuiltinModel" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
             <button type="button" id="btnCancelBuiltinDownload" class="btn btn-sm" data-i18n="paBuiltinCancelDownload" hidden>取消下载</button>
-            <!-- Anti-Replay-OK: ui-only — tell sidepanel shell to switch tab -->
-            <button type="button" id="btnOpenBuiltinFullMgmt" class="btn btn-sm" data-i18n="paBuiltinOpenFull">打开完整管理</button>
           </div>
         </div>
         <button type="button" id="btnDownloadBuiltinModelPopup" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
@@ -177,8 +176,6 @@
         </div>
       </div>
       <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
-      <!-- Anti-Replay-OK: ui-only timing chart; no write API -->
-      <div id="pageAdvisorWaterfall" class="page-advisor-waterfall" hidden data-testid="page-advisor-waterfall"></div>
     </section>
 
     <section id="pageAdvisorSkillSection" class="section" style="display:none">

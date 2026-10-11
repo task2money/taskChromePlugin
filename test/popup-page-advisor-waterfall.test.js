@@ -5,148 +5,76 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-require('../lib/page-advisor-timing.js');
-require('../lib/page-advisor-waterfall-view.js');
+require('../lib/page-advisor-builtin-last-run.js');
 const PopupWf = require('../popup/popup-waterfall.js');
 
-function fakeDoc(host, extras) {
+function fakeDoc(host) {
   const attrs = host ? { 'data-taskplugin-host': host } : {};
-  const nodes = {};
-  function makeParent() {
-    return {
-      appendChild(el) { nodes[el.id] = el; return el; },
-    };
-  }
-  if (!extras || extras.llm !== false) {
-    nodes.pageAdvisorLlmSection = makeParent();
-  }
-  if (extras && extras.builtin) {
-    nodes.spBuiltinPanel = makeParent();
-  }
+  const label = { textContent: '使用浏览器内置模型' };
   return {
     documentElement: {
       getAttribute(name) { return attrs[name] || null; },
     },
-    getElementById(id) { return nodes[id] || null; },
-    createElement(tag) {
-      const el = {
-        tagName: String(tag).toUpperCase(),
-        id: '',
-        className: '',
-        hidden: false,
-        innerHTML: '',
-        setAttribute(name, value) { this[name] = value; },
-      };
-      return el;
+    querySelector(sel) {
+      return sel === '[data-i18n="paLlmRouteBuiltin"]' ? label : null;
     },
+    label,
   };
 }
 
 describe('popup page-advisor waterfall host', () => {
-  it('mounts only when host is sidepanel', () => {
+  it('设置页与本机模型页不再挂载耗时条', () => {
     assert.equal(PopupWf.mount(fakeDoc('')), null);
     assert.equal(PopupWf.mount(fakeDoc('popup')), null);
-    const el = PopupWf.mount(fakeDoc('sidepanel'));
-    assert.ok(el);
-    assert.equal(el.id, 'pageAdvisorWaterfall');
-    assert.equal(el.hidden, false);
+    assert.equal(PopupWf.mount(fakeDoc('sidepanel')), null);
+    assert.equal(typeof PopupWf.SLOTS, 'undefined');
   });
 
-  it('popup.html keeps waterfall after llm status and loads scripts', () => {
+  it('popup.html 把打开完整管理放在内置模型后面，且没有刷新和耗时条', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup.html'), 'utf8');
-    const statusAt = html.indexOf('id="popupLlmStatus"');
-    const wfAt = html.indexOf('id="pageAdvisorWaterfall"');
-    assert.ok(statusAt >= 0 && wfAt > statusAt);
+    const builtinAt = html.indexOf('id="popupLlmRouteBuiltin"');
+    const openAt = html.indexOf('id="btnOpenBuiltinFullMgmt"');
+    const downloadAt = html.indexOf('id="btnDownloadBuiltinModel"');
+    assert.ok(builtinAt >= 0 && openAt > builtinAt && downloadAt > openAt);
+    assert.doesNotMatch(html, /id="btnRefreshBuiltinStatus"/);
+    assert.doesNotMatch(html, /id="pageAdvisorWaterfall"/);
+    assert.doesNotMatch(html, /data-i18n="paWfHelp"/);
     assert.match(html, /popup-waterfall\.js/);
-    assert.match(html, /page-advisor-timing\.js/);
-    assert.match(html, /data-i18n="paWfHelp"/);
   });
 
-  it('mounts waterfall under 本机模型 panel when settings section is absent', () => {
-    const el = PopupWf.mount(fakeDoc('sidepanel', { llm: false, builtin: true }));
-    assert.ok(el);
-    assert.equal(el.id, 'pageAdvisorWaterfallBuiltin');
-    assert.equal(el.hidden, false);
+  it('sidepanel.html 不再放刷新按钮和耗时条', () => {
+    const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
+    assert.doesNotMatch(html, /id="spBuiltinRefresh"/);
+    assert.doesNotMatch(html, /id="pageAdvisorWaterfallBuiltin"/);
+    assert.match(html, /popup-waterfall\.js/);
+    assert.match(html, /id="spBuiltinDownload"/);
   });
 
-  it('applyRun paints settings and 本机模型 slots together', () => {
-    const doc = fakeDoc('sidepanel', { builtin: true });
+  it('成功的本机运行仍写入最近耗时并刷新选项文案', async () => {
+    const store = {};
+    globalThis.chrome = {
+      storage: {
+        local: {
+          async get() { return { ...store }; },
+          async set(bag) { Object.assign(store, bag); },
+        },
+      },
+    };
+    globalThis.tx = (key) => {
+      if (key === 'paLlmRouteBuiltin') return '使用浏览器内置模型';
+      if (key === 'paLlmRouteBuiltinMeasured') return '使用浏览器内置模型（本机最近约 {sec}s）';
+      return key;
+    };
+    const doc = fakeDoc('sidepanel');
     PopupWf.mount(doc);
-    const settings = doc.getElementById('pageAdvisorWaterfall');
-    const builtin = doc.getElementById('pageAdvisorWaterfallBuiltin');
-    assert.ok(settings && builtin);
-    PopupWf.applyRun({
-      runId: 'r1',
-      status: 'ok',
-      startedAt: 0,
-      endedAt: 10,
-      spans: [{ id: 'builtin_infer', startMs: 0, endMs: 10, status: 'ok' }],
-    });
-    assert.match(settings.innerHTML, /data-span="builtin_infer"/);
-    assert.match(builtin.innerHTML, /data-span="builtin_infer"/);
-  });
-
-  it('成功运行默认折叠 skipped 细项，点击切换展开（OPT-20261005-003）', () => {
-    const doc = fakeDoc('sidepanel', { builtin: true });
-    PopupWf.mount(doc);
-    const settings = doc.getElementById('pageAdvisorWaterfall');
-
-    PopupWf.applyRun({
-      runId: 'r-ok',
-      route: 'direct',
-      status: 'ok',
-      startedAt: 0,
-      endedAt: 20,
-      spans: [
-        { id: 'capture', startMs: 0, endMs: 20, status: 'ok' },
-        { id: 'llm_wait', startMs: 0, endMs: 0, status: 'skipped' },
-      ],
-    });
-    assert.doesNotMatch(settings.innerHTML, /data-span="llm_wait"/);
-    assert.match(settings.innerHTML, /pa-wf-toggle-skipped/);
-
-    // 点击切换：调用事件处理（测试用 fake 事件，closest 命中切换按钮）。
-    PopupWf.onRootClick({ target: { closest: () => ({}) } });
-    assert.match(settings.innerHTML, /data-span="llm_wait"/);
-  });
-
-  it('本机模型 Tab 仅在非 builtin 路由时给出说明行（OPT-20261005-004）', () => {
-    const doc = fakeDoc('sidepanel', { builtin: true });
-    PopupWf.mount(doc);
-    const settings = doc.getElementById('pageAdvisorWaterfall');
-    const builtin = doc.getElementById('pageAdvisorWaterfallBuiltin');
-
-    // 平台/直连路由：本机模型 Tab 顶部提示，设置 Tab 不提示。
-    PopupWf.applyRun({
-      runId: 'r-platform',
-      route: 'platform',
-      status: 'ok',
-      startedAt: 0,
-      endedAt: 10,
-      spans: [{ id: 'builtin_infer', startMs: 0, endMs: 10, status: 'ok' }],
-    });
-    assert.match(builtin.innerHTML, /pa-wf-route-notice/);
-    assert.doesNotMatch(settings.innerHTML, /pa-wf-route-notice/);
-
-    // builtin 路由：两个 Tab 都不提示。
-    PopupWf.applyRun({
-      runId: 'r-builtin',
+    const ms = await PopupWf.applyRun({
       route: 'builtin',
       status: 'ok',
       startedAt: 0,
-      endedAt: 10,
-      spans: [{ id: 'builtin_infer', startMs: 0, endMs: 10, status: 'ok' }],
+      endedAt: 3200,
+      spans: [],
     });
-    assert.doesNotMatch(builtin.innerHTML, /pa-wf-route-notice/);
-  });
-
-  it('sidepanel.html 本机模型 Tab has waterfall slot and loads paint scripts', () => {
-    const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
-    const lastAt = html.indexOf('id="spBuiltinLastRun"');
-    const wfAt = html.indexOf('id="pageAdvisorWaterfallBuiltin"');
-    assert.ok(lastAt >= 0 && wfAt > lastAt);
-    assert.match(html, /popup-waterfall\.js/);
-    assert.match(html, /page-advisor-waterfall-view\.js/);
-    assert.match(html, /page-advisor-timing\.js/);
+    assert.equal(ms, 3200);
+    assert.match(doc.label.textContent, /3s/);
   });
 });

@@ -6,9 +6,6 @@
   const downloadGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
-  const refreshGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
-    ? ClickGuard.createClickGuard({ debounceMs: 400 })
-    : null;
   const cancelGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
@@ -53,17 +50,33 @@
     Progress.applyProgressBar(el, Runtime.progressBarModel(runtimeSnap));
   }
 
+  function paintStatus(status, line) {
+    if (!status) return;
+    const text = line == null ? '' : String(line);
+    status.textContent = text;
+    status.hidden = text === '';
+  }
+
+  function syncOpenFull(supported) {
+    const openFull = $('#btnOpenBuiltinFullMgmt');
+    if (openFull) openFull.hidden = !(supported && isSidepanelHost());
+  }
+
+  function syncBasicActions() {
+    const basic = $('#popupBuiltinBasicMgmt');
+    const download = downloadBtn();
+    const cancel = $('#btnCancelBuiltinDownload');
+    if (!basic) return;
+    const show = (download && !download.hidden) || (cancel && !cancel.hidden);
+    basic.hidden = !show;
+  }
+
   async function applyBuiltinStatusFromProbe(availability, runtimeSnap, selectedRouteMode) {
     const status = $('#popupBuiltinStatus');
     const download = downloadBtn();
     const cancel = $('#btnCancelBuiltinDownload');
-    const basic = $('#popupBuiltinBasicMgmt');
-    const refresh = $('#btnRefreshBuiltinStatus');
-    const openFull = $('#btnOpenBuiltinFullMgmt');
-    const side = isSidepanelHost();
-    if (basic) basic.hidden = false;
-    if (refresh) refresh.hidden = false;
-    if (openFull) openFull.hidden = !side;
+    const wrap = $('#popupLlmRouteBuiltinWrap');
+    syncOpenFull(!!(wrap && !wrap.hidden));
     const popupOnly = $('#btnDownloadBuiltinModelPopup');
     if (popupOnly) popupOnly.hidden = true;
     const Runtime = typeof PageAdvisorBuiltinRuntime !== 'undefined' ? PageAdvisorBuiltinRuntime : null;
@@ -77,20 +90,16 @@
       }
     }
     if (!line) {
-      if (availability === 'available') line = tx('paBuiltinReady');
-      else if (availability === 'downloadable') line = tx('paBuiltinNeedsDownload');
+      if (availability === 'downloadable') line = tx('paBuiltinNeedsDownload');
       else if (availability === 'downloading') {
         const pct = runtimeSnap && runtimeSnap.downloadPct != null ? String(runtimeSnap.downloadPct) : '…';
         const inFlight = !!(runtimeSnap && runtimeSnap.downloadInFlight);
         line = Number(pct) >= 100
           ? tx(inFlight ? 'paBuiltinEnabling' : 'paBuiltinDownloadNeedEnable', { pct })
           : tx('paBuiltinDownloading', { pct });
-      } else line = tx('paBuiltinUnavailable');
+      } else if (availability === 'unavailable') line = tx('paBuiltinUnavailable');
     }
-    if (status) {
-      status.hidden = false;
-      status.textContent = line;
-    }
+    paintStatus(status, line);
     syncBuiltinProgress({ ...(runtimeSnap || {}), availability });
     if (download) {
       download.hidden = availability !== 'downloadable' && availability !== 'downloading';
@@ -104,6 +113,7 @@
     const showCancel = availability === 'downloading'
       || (runtimeSnap && runtimeSnap.phase === 'downloading');
     if (cancel) cancel.hidden = !showCancel;
+    syncBasicActions();
     void selectedRouteMode;
   }
 
@@ -115,11 +125,13 @@
     const supported = !!(lm && typeof lm.availability === 'function'
       && typeof PageAdvisorBuiltinPrompt !== 'undefined');
     if (wrap) wrap.hidden = !supported;
+    syncOpenFull(supported);
     if (!supported || selectedRouteMode() !== 'builtin') {
-      if (status) status.hidden = true;
+      paintStatus(status, '');
       if (download) download.hidden = true;
-      const basic = $('#popupBuiltinBasicMgmt');
-      if (basic) basic.hidden = true;
+      const cancel = $('#btnCancelBuiltinDownload');
+      if (cancel) cancel.hidden = true;
+      syncBasicActions();
       const popupOnly = $('#btnDownloadBuiltinModelPopup');
       if (popupOnly) popupOnly.hidden = true;
       syncBuiltinProgress({ downloadInFlight: false });
@@ -139,9 +151,9 @@
     if (typeof PageAdvisorBuiltinRuntime !== 'undefined' && PageAdvisorBuiltinRuntime.write) {
       try {
         const phase = typeof PageAdvisorBuiltinRuntime.phaseForSettingsProbe === 'function'
-          ? PageAdvisorBuiltinRuntime.phaseForSettingsProbe(runtimeSnap, availability, {
-            clearInFlight: !!(opts && opts.clearInFlight),
-          })
+          ? PageAdvisorBuiltinRuntime.phaseForSettingsProbe(runtimeSnap, availability, (
+            opts && opts.clearInFlight ? { clearInFlight: true } : {}
+          ))
           : 'idle';
         await PageAdvisorBuiltinRuntime.write({
           availability,
@@ -228,26 +240,6 @@
     return pending;
   }
 
-  function onRefreshBuiltinStatus(selectedRouteMode) {
-    const run = async () => {
-      const status = $('#popupBuiltinStatus');
-      const btn = $('#btnRefreshBuiltinStatus');
-      setBusy(btn, true);
-      if (status && typeof tx === 'function') {
-        status.hidden = false;
-        status.textContent = tx('paBuiltinRefreshing');
-      }
-      try {
-        await refreshBuiltinRoute(selectedRouteMode, { clearInFlight: true });
-      } finally {
-        setBusy(btn, false);
-      }
-    };
-    const pending = refreshGuard ? refreshGuard.run(run) : run();
-    pending.catch(() => {});
-    return pending;
-  }
-
   function onOpenBuiltinFullMgmt() {
     try {
       window.parent.postMessage({ action: 'sidePanelShow', which: 'builtin' }, '*');
@@ -283,8 +275,6 @@
     if (download) download.addEventListener('click', () => onDownloadBuiltinModel(selectedRouteMode));
     const downloadPopup = $('#btnDownloadBuiltinModelPopup');
     if (downloadPopup) downloadPopup.addEventListener('click', () => onDownloadBuiltinModel(selectedRouteMode));
-    const refreshBtn = $('#btnRefreshBuiltinStatus');
-    if (refreshBtn) refreshBtn.addEventListener('click', () => onRefreshBuiltinStatus(selectedRouteMode));
     const cancelBtn = $('#btnCancelBuiltinDownload');
     if (cancelBtn) cancelBtn.addEventListener('click', () => onCancelBuiltinDownload(selectedRouteMode));
     const openFull = $('#btnOpenBuiltinFullMgmt');

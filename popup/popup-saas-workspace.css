@@ -40,3 +40,8 @@
 #popupSaasWorkspaceStatus { text-align: left; min-height: 0; margin-top: 0; }
 #popupSaasWorkspaceStatus:empty { display: none; }
 #popupSaasWorkspaceStatus:not(:empty) { flex: 1 0 100%; }
+
+.llm-route-builtin-line { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:4px; }
+.llm-route-builtin-line > .llm-route-option { margin-bottom:0; flex:0 1 auto; }
+.llm-route-builtin-line:not(:has(:not([hidden]))) { display:none; }
+#btnOpenBuiltinFullMgmt[hidden] { display:none !important; }

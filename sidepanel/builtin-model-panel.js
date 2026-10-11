@@ -5,9 +5,6 @@
   'use strict';
 
   const $ = (sel) => document.querySelector(sel);
-  const refreshGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
-    ? ClickGuard.createClickGuard({ debounceMs: 400 })
-    : null;
   const downloadGuard = (typeof ClickGuard !== 'undefined' && ClickGuard.createClickGuard)
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
@@ -29,6 +26,13 @@
     btn.disabled = !!busy;
     if (busy) btn.setAttribute('aria-busy', 'true');
     else btn.removeAttribute('aria-busy');
+  }
+
+  function paintStatus(statusEl, line) {
+    if (!statusEl) return;
+    const text = line == null ? '' : String(line);
+    statusEl.textContent = text;
+    statusEl.hidden = text === '';
   }
 
   function syncSpProgress(runtimeSnap) {
@@ -54,7 +58,7 @@
     const download = $('#spBuiltinDownload');
     const cancel = $('#spBuiltinCancel');
     if (!lm || !Builtin) {
-      if (statusEl) statusEl.textContent = typeof tx === 'function' ? tx('paBuiltinUnavailable') : 'unavailable';
+      paintStatus(statusEl, typeof tx === 'function' ? tx('paBuiltinUnavailable') : 'unavailable');
       syncSpProgress({ downloadInFlight: false });
       return { supported: false };
     }
@@ -79,11 +83,11 @@
         ? Runtime.statusLineForSettings
         : Runtime.statusLine;
       if (typeof lineFn === 'function') {
-        statusEl.textContent = lineFn({
+        paintStatus(statusEl, lineFn({
           ...(snap || {}),
           availability,
           phase,
-        }, typeof tx === 'function' ? tx : (k) => k);
+        }, typeof tx === 'function' ? tx : (k) => k));
       }
     }
     const inFlight = (availability === 'available' || (opts && opts.clearInFlight))
@@ -186,40 +190,22 @@
     return { supported: true, availability };
   }
 
-  function onRefresh() {
-    const run = async () => {
-      const statusEl = $('#spBuiltinStatus');
-      const btn = $('#spBuiltinRefresh');
-      setBusy(btn, true);
-      if (statusEl && typeof tx === 'function') {
-        statusEl.textContent = tx('paBuiltinRefreshing');
-      }
-      try {
-        await probeDetails({ clearInFlight: true });
-      } finally {
-        setBusy(btn, false);
-      }
-    };
-    if (refreshGuard) refreshGuard.run(run).catch(() => {});
-    else run().catch(() => {});
-  }
-
   function onDownload() {
     const run = async () => {
       const btn = $('#spBuiltinDownload');
       const statusEl = $('#spBuiltinStatus');
       setBusy(btn, true);
-      if (statusEl && typeof tx === 'function') {
-        statusEl.textContent = tx('paBuiltinDownloading', { pct: '0' });
+      if (typeof tx === 'function') {
+        paintStatus(statusEl, tx('paBuiltinDownloading', { pct: '0' }));
       }
       try {
         const result = await PageAdvisorBuiltinPrompt.startDownload(globalThis.LanguageModel, locale(), {
           onProgress(pct, extra) {
             const loadPct = extra && extra.loadPct != null ? extra.loadPct : (Number(pct) >= 100 ? 1 : 0);
-            if (statusEl && typeof tx === 'function') {
-              statusEl.textContent = Number(pct) >= 100
+            if (typeof tx === 'function') {
+              paintStatus(statusEl, Number(pct) >= 100
                 ? tx('paBuiltinEnabling', { pct, loadPct })
-                : tx('paBuiltinDownloading', { pct });
+                : tx('paBuiltinDownloading', { pct }));
             }
             const hundredAt = extra && Number(extra.enableHundredAt) > 0
               ? Number(extra.enableHundredAt)
@@ -242,7 +228,7 @@
         if (statusEl) {
           const base = typeof tx === 'function' ? tx('paBuiltinFailed') : 'failed';
           const detail = err && err.message ? String(err.message).slice(0, 160) : '';
-          statusEl.textContent = detail ? `${base} (${detail})` : base;
+          paintStatus(statusEl, detail ? `${base} (${detail})` : base);
         }
         await probeDetails().catch(() => {});
       } finally {
@@ -259,8 +245,8 @@
       const cancelled = PageAdvisorBuiltinPrompt.cancelDownload
         ? PageAdvisorBuiltinPrompt.cancelDownload()
         : false;
-      if (!cancelled && statusEl && typeof tx === 'function') {
-        statusEl.textContent = tx('paBuiltinNeedsDownload');
+      if (!cancelled && typeof tx === 'function') {
+        paintStatus(statusEl, tx('paBuiltinNeedsDownload'));
       }
       await probeDetails();
     };
@@ -300,11 +286,9 @@
   }
 
   function bind() {
-    const refresh = $('#spBuiltinRefresh');
     const download = $('#spBuiltinDownload');
     const cancel = $('#spBuiltinCancel');
     const internals = $('#spBuiltinInternalsLink');
-    if (refresh) refresh.addEventListener('click', onRefresh);
     if (download) download.addEventListener('click', onDownload);
     if (cancel) cancel.addEventListener('click', onCancel);
     if (internals) internals.addEventListener('click', onOpenInternals);
@@ -321,7 +305,7 @@
           ? Runtime.statusLineForSettings
           : Runtime.statusLine;
         if (typeof lineFn === 'function') {
-          statusEl.textContent = lineFn(nv, typeof tx === 'function' ? tx : (k) => k);
+          paintStatus(statusEl, lineFn(nv, typeof tx === 'function' ? tx : (k) => k));
         }
         syncSpProgress(nv);
       });
@@ -332,7 +316,7 @@
         await AidevpushI18n.hydrateFromStorage().catch(() => {});
         if (typeof AidevpushI18n.applyDom === 'function') AidevpushI18n.applyDom(document);
       }
-      if (languageModelSupported()) await probeDetails();
+      if (languageModelSupported()) await probeDetails({ clearInFlight: true });
     })().catch(() => {});
   }
 

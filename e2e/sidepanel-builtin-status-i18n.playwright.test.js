@@ -1,5 +1,5 @@
 /**
- * 侧栏本机模型状态行必须是中文「就绪」文案，不能显示键名 paBuiltinReady。
+ * 侧栏本机模型就绪时收起状态行，配额仍要探测出来。
  *
  * 运行：bash e2e/sidepanel-builtin-status-i18n.playwright.test.js.sh
  */
@@ -86,15 +86,16 @@ async function installStub(page) {
 }
 
 test.describe('侧栏本机模型 i18n', () => {
-  test('刷新后状态行是就绪文案而不是键名', async ({ page }) => {
+  test('已就绪时状态行收起，配额仍能探测', async ({ page }) => {
     await installStub(page);
     await page.goto(SIDEPANEL_URL);
     await page.locator('[data-testid=sp-tab-builtin]').click();
+    await expect(page.locator('#spBuiltinRefresh')).toHaveCount(0);
+    await expect(page.locator('#pageAdvisorWaterfallBuiltin')).toHaveCount(0);
+    await expect(page.locator('#spBuiltinQuota')).toHaveText('9216', { timeout: 15000 });
     const status = page.locator('#spBuiltinStatus');
-    await expect(status).toBeVisible({ timeout: 15000 });
-    await page.locator('#spBuiltinRefresh').click();
-    await expect(status).not.toHaveText('paBuiltinReady', { timeout: 10000 });
-    await expect(status).toContainText(/就绪|ready|Alt\+Z/i);
-    await expect(page.locator('#spBuiltinQuota')).toHaveText('9216');
+    await expect(status).toBeHidden();
+    await expect(status).not.toHaveText('paBuiltinReady');
+    await expect(status).not.toContainText('内置模型已就绪');
   });
 });

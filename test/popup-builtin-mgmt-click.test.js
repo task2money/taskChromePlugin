@@ -29,6 +29,7 @@ function makeEl() {
 
 function loadMgmt(opts) {
   const probeAv = (opts && opts.availability) || 'downloadable';
+  const host = (opts && opts.host) || '';
   const seed = (opts && opts.runtime) || {
     phase: 'collecting',
     availability: 'downloadable',
@@ -93,7 +94,9 @@ function loadMgmt(opts) {
       return map[k] || k;
     },
     document: {
-      documentElement: { getAttribute: () => '' },
+      documentElement: {
+        getAttribute: (name) => (name === 'data-taskplugin-host' ? host : ''),
+      },
       querySelector: (sel) => els[sel] || null,
     },
     chrome: {
@@ -132,11 +135,11 @@ function loadMgmt(opts) {
   globalThis.chrome = context.chrome;
   vm.createContext(context);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'popup/popup-builtin-mgmt.js'), 'utf8'), context);
-  return { context, status, refresh, download, store };
+  return { context, status, download, openFull, store };
 }
 
-test('刷新后设置行不再保持采集中，即使 session 仍有 collecting 心跳', async () => {
-  const { context, status, refresh, store } = loadMgmt();
+test('探测后设置行不再保持采集中，即使 session 仍有 collecting 心跳', async () => {
+  const { context, status, store } = loadMgmt();
   context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
   await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
   assert.notEqual(status.textContent, '正在采集页面并生成优化建议…');
@@ -147,7 +150,7 @@ test('刷新后设置行不再保持采集中，即使 session 仍有 collecting
     availability: 'downloadable',
     updatedAt: Date.now(),
   };
-  await refresh.click();
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin', { clearInFlight: true });
   assert.notEqual(status.textContent, '正在采集页面并生成优化建议…');
 });
 
@@ -180,8 +183,8 @@ test('下载点击不得先 await 挂起的 storage 再 startDownload', async ()
   await done;
 });
 
-test('刷新 downloading 100% 不得显示尚未下载', async () => {
-  const { context, status, refresh } = loadMgmt({
+test('探测 downloading 100% 不得显示尚未下载', async () => {
+  const { context, status } = loadMgmt({
     availability: 'downloading',
     runtime: {
       phase: 'downloading',
@@ -191,15 +194,15 @@ test('刷新 downloading 100% 不得显示尚未下载', async () => {
     },
   });
   context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
-  await refresh.click();
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin', { clearInFlight: true });
   await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
   assert.match(status.textContent, /尚未启用/);
   assert.notEqual(status.textContent, '需要下载内置模型');
   assert.equal(status.textContent.includes('尚未下载'), false);
 });
 
-test('刷新 inFlight 100% 后 session 不再 downloadInFlight', async () => {
-  const { context, refresh, store } = loadMgmt({
+test('clearInFlight 后 session 不再 downloadInFlight', async () => {
+  const { context, store } = loadMgmt({
     availability: 'downloading',
     runtime: {
       phase: 'downloading',
@@ -211,7 +214,7 @@ test('刷新 inFlight 100% 后 session 不再 downloadInFlight', async () => {
     },
   });
   context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
-  await refresh.click();
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin', { clearInFlight: true });
   const snap = store.pageAdvisorBuiltinRuntime;
   assert.equal(snap.downloadInFlight, false);
 });
@@ -267,6 +270,28 @@ test('create 完成后即使 probe 仍 downloading 也切到就绪并隐藏进�
   };
   context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
   await download.click();
-  assert.equal(status.textContent, '就绪');
+  assert.equal(status.textContent, '');
+  assert.equal(status.hidden, true);
   assert.equal(context.document.querySelector('#popupBuiltinProgress').hidden, true);
+});
+
+test('侧栏打开完整管理跟在选项旁，就绪时不写状态行', async () => {
+  const { context, status, openFull } = loadMgmt({
+    host: 'sidepanel',
+    availability: 'available',
+    runtime: { phase: 'idle', availability: 'available', updatedAt: Date.now() },
+  });
+  context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'saas');
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'saas');
+  assert.equal(openFull.hidden, false);
+  assert.equal(status.hidden, true);
+  assert.equal(status.textContent, '');
+  await context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
+  assert.equal(openFull.hidden, false);
+  assert.equal(status.hidden, true);
+  assert.equal(status.textContent, '');
+  const popup = loadMgmt({ availability: 'available' });
+  popup.context.PopupBuiltinMgmt.bindBuiltinMgmt(() => 'builtin');
+  await popup.context.PopupBuiltinMgmt.refreshBuiltinRoute(() => 'builtin');
+  assert.equal(popup.openFull.hidden, true);
 });

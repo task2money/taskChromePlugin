@@ -10,6 +10,22 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+const GIT_ENV_KEYS = [
+  'GIT_DIR',
+  'GIT_WORK_TREE',
+  'GIT_INDEX_FILE',
+  'GIT_PREFIX',
+  'GIT_COMMON_DIR',
+  'GIT_OBJECT_DIRECTORY',
+  'GIT_ALTERNATE_OBJECT_DIRECTORIES',
+];
+
+function gitExec(args, extra) {
+  const env = { ...process.env };
+  GIT_ENV_KEYS.forEach((key) => { delete env[key]; });
+  return execFileSync('git', args, { encoding: 'utf8', ...(extra || {}), env });
+}
+
 const MAX_HIGHLIGHTS = 12;
 const NOISE = [
   /^chore\(auto-commit\)/i,
@@ -118,7 +134,7 @@ function collectSubjects({ cwd, fromSha, toRev, limit }) {
   const args = ['-C', cwd, 'log', '--no-merges', '--pretty=%s'];
   if (fromSha) args.push(`${fromSha}..${toRev}`);
   else args.push('-n', String(limit || 10), toRev || 'HEAD');
-  const out = execFileSync('git', args, { encoding: 'utf8' });
+  const out = gitExec(args);
   return out.split('\n').map((line) => line.trim()).filter(Boolean);
 }
 
@@ -131,7 +147,7 @@ function assertRepo(repo) {
 function commitExists(cwd, sha) {
   if (!/^[0-9a-f]{40}$/i.test(String(sha || ''))) return false;
   try {
-    execFileSync('git', ['-C', cwd, 'cat-file', '-e', `${sha}^{commit}`], { stdio: 'ignore' });
+    gitExec(['-C', cwd, 'cat-file', '-e', `${sha}^{commit}`], { stdio: 'ignore' });
     return true;
   } catch {
     return false;
@@ -163,11 +179,7 @@ function resolveSha(cwd, tag, sha) {
   if (commitExists(cwd, sha)) return sha;
   if (!tag) return '';
   try {
-    const parsed = execFileSync(
-      'git',
-      ['-C', cwd, 'rev-parse', '--verify', `${tag}^{commit}`],
-      { encoding: 'utf8' },
-    ).trim();
+    const parsed = gitExec(['-C', cwd, 'rev-parse', '--verify', `${tag}^{commit}`]).trim();
     if (commitExists(cwd, parsed)) return parsed;
   } catch {
     return '';
@@ -369,4 +381,5 @@ module.exports = {
   collectSubjects,
   resolveSha,
   sameCommitRelease,
+  gitExec,
 };

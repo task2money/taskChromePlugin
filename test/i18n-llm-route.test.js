@@ -63,7 +63,9 @@ describe('i18n-llm-route builtin refresh copy', () => {
   it('中英都有 waterfall 空闲与环节文案', () => {
     assert.match(src, /paWfIdle:\s*'按 Alt\+Z 或 Alt\+Shift\+Z 后这里显示各环节耗时'/);
     assert.match(src, /paWfIdle:\s*'After Alt\+Z or Alt\+Shift\+Z/);
-    assert.match(src, /paWfHelp:\s*'按 Alt\+Z 或区域确认后/);
+    assert.doesNotMatch(src, /paWfHelp/);
+    assert.doesNotMatch(src, /内置模型已就绪/);
+    assert.doesNotMatch(src, /The built-in model is ready/);
     assert.match(src, /paWfCapture:\s*'采集'/);
     assert.match(src, /paWfCapture:\s*'Capture'/);
   });

@@ -45,6 +45,7 @@ test('statusLine 按 phase 优先', () => {
   assert.equal(runtime.statusLine({ phase: 'generating', updatedAt: Date.now() }, tx), 'paBuiltinInferring');
   assert.equal(runtime.statusLine({ phase: 'downloading', downloadPct: 42 }, tx), 'paBuiltinDownloading:42');
   assert.equal(runtime.statusLine({ phase: 'idle', availability: 'downloadable' }, tx), 'paBuiltinNeedsDownload');
+  assert.equal(runtime.statusLine({ phase: 'idle', availability: 'available' }, tx), '');
 });
 
 test('下载进度 100% 但仍 downloading 时不得显示尚未下载', () => {

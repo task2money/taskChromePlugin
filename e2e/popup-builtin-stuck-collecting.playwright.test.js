@@ -107,20 +107,18 @@ async function installStub(page) {
 }
 
 test.describe('Popup 内置模型卡住采集中', () => {
-  test('刷新与下载点击后状态行离开采集中文案', async ({ page }) => {
+  test('选中内置模型后离开采集中文案，下载点击继续显示进度', async ({ page }) => {
     await installStub(page);
     await page.goto(POPUP_URL);
     await expect(page.locator('#popupLlmRouteBuiltinWrap')).toBeVisible({ timeout: 15000 });
     await page.locator('#popupLlmRouteBuiltin').check();
     const status = page.locator('#popupBuiltinStatus');
+    await expect(page.locator('#btnRefreshBuiltinStatus')).toHaveCount(0);
+    await expect(page.locator('#pageAdvisorWaterfall')).toHaveCount(0);
     await expect(status).toBeVisible({ timeout: 10000 });
     await expect(status).not.toContainText(COLLECTING);
-    await expect(page.locator('#btnRefreshBuiltinStatus')).toBeVisible();
+    await expect(status).toContainText(/尚未下载/);
     await expect(page.locator('#btnDownloadBuiltinModel')).toBeVisible();
-
-    await page.locator('#btnRefreshBuiltinStatus').click();
-    await expect(status).not.toContainText(COLLECTING);
-    await expect(status).toContainText(/刷新|尚未下载|需要下载|Refreshing|download/i);
 
     await page.locator('#btnDownloadBuiltinModel').click();
     await expect(status).toContainText(/下载|download/i);

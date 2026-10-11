@@ -46,7 +46,7 @@
 
   function refreshBuiltinRoute() {
     if (typeof PopupBuiltinMgmt !== 'undefined' && PopupBuiltinMgmt.refreshBuiltinRoute) {
-      return PopupBuiltinMgmt.refreshBuiltinRoute(selectedRouteMode);
+      return PopupBuiltinMgmt.refreshBuiltinRoute(selectedRouteMode, { clearInFlight: true });
     }
     return Promise.resolve();
   }
