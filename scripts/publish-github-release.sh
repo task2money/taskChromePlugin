@@ -62,9 +62,15 @@ fi
 
 if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   echo "publish-github-release: tag $TAG 已存在，上传/覆盖 assets..." >&2
+  # OPT-20261012-006: tag 已存在但可能仍留在上一提交（v1.8.237 曾指向 3832d97，
+  # 样式修复在 89b97f5）。此时按标签检出的是上一版，与下载的 zip 不是同一棵树。
+  # 只把这一个 tag ref 移到本次提交，不动任何分支。
+  if git remote get-url origin >/dev/null 2>&1; then
+    bash "$ROOT/scripts/retarget-release-tag.sh" --remote origin --tag "$TAG" --target "$TARGET"
+  fi
   gh release upload "$TAG" "${ASSETS[@]}" -R "$REPO" --clobber
-  # 更新说明（幂等）
-  gh release edit "$TAG" -R "$REPO" --notes "$NOTES" >/dev/null
+  # 更新说明与 targetCommitish（幂等）
+  gh release edit "$TAG" -R "$REPO" --notes "$NOTES" --target "$TARGET" >/dev/null
 else
   # 新建 Release 前拒绝「与上一版同一提交」的空版本：版本号没有对应新变更时，
   # Releases 列表里读不出有没有新包（v1.8.75/v1.8.74 曾指向同一提交）。

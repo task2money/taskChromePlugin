@@ -72,3 +72,10 @@ env -u http_proxy -u https_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u al
   --rev "$TARGET" \
   --cwd "$ROOT" \
   "${CRX_ARG[@]}"
+
+# OPT-20261012-006: Gitee 侧 Release 已存在时 API 只改 tag_name 与说明，不动 tag
+# ref；标签若留在上一提交，按标签检出与下载的 zip 会不一致。发布后把该 tag 移到
+# 本次提交（只动这一个 tag，不动 main）。标签不存在时脚本自身 no-op，交给创建路径。
+if git remote get-url gitee >/dev/null 2>&1; then
+  bash "$ROOT/scripts/retarget-release-tag.sh" --remote gitee --tag "v${VERSION}" --target "$TARGET"
+fi
