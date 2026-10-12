@@ -169,6 +169,46 @@
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.4) !important;
   box-sizing: border-box !important;
 }
+.taskplugin-page-advisor-post-tabs {
+  pointer-events: auto !important;
+  position: fixed !important;
+  top: 12px !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  z-index: 2147483647 !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  max-width: calc(100vw - 16px) !important;
+  overflow-x: auto !important;
+  padding: 6px !important;
+  margin: 0 !important;
+  background: var(--taskplugin-card) !important;
+  border: 1px solid var(--taskplugin-border) !important;
+  border-radius: 12px !important;
+  box-sizing: border-box !important;
+}
+.taskplugin-page-advisor-post-tab {
+  flex: 0 0 auto !important;
+  min-height: 44px !important;
+  min-width: 44px !important;
+  max-width: 180px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  padding: 0 12px !important;
+  border-radius: 8px !important;
+  border: 1px solid var(--taskplugin-border) !important;
+  background: var(--taskplugin-background) !important;
+  color: var(--taskplugin-foreground) !important;
+  font-size: 13px !important;
+  cursor: pointer !important;
+}
+.taskplugin-page-advisor-post-tab[aria-selected="true"] {
+  background: var(--taskplugin-accent) !important;
+  color: var(--taskplugin-foreground) !important;
+  border-color: var(--taskplugin-accent) !important;
+}
 .taskplugin-page-advisor-toolbar-hint {
   margin: 0 0 8px !important;
   color: var(--taskplugin-muted-foreground) !important;

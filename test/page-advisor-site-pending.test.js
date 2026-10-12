@@ -13,6 +13,9 @@ const {
   isSkippableNavigationUrl,
   buildSitePendingCardHtml,
   buildSitePendingDecisionHtml,
+  buildSitePendingTabsHtml,
+  pickSitePendingPostId,
+  sitePendingPostsAfterMark,
 } = require('../lib/page-advisor-site-pending.js');
 
 describe('PageAdvisorSitePending helpers', () => {
@@ -84,6 +87,28 @@ describe('PageAdvisorSitePending helpers', () => {
       ['a', 'b'],
     );
     assert.deepEqual(tenantIdsForSitePending([], 'c'), ['c']);
+  });
+
+  it('shows a tab per pending post and none when only one post is open', () => {
+    const posts = [
+      { id: 'p1', title: '首页标题' },
+      { id: 'p2', title: '' },
+    ];
+    assert.equal(buildSitePendingTabsHtml([posts[0]], 'p1', (s) => s), '');
+    const html = buildSitePendingTabsHtml(posts, 'p2', (s) => s);
+    assert.match(html, /role="tab"/);
+    assert.match(html, /data-post-id="p1"/);
+    assert.match(html, /data-post-id="p2"/);
+    assert.match(html, /aria-selected="false"/);
+    assert.match(html, /data-post-id="p2" aria-selected="true"/);
+    assert.match(html, />首页标题</);
+    assert.match(html, />建议 2</);
+    assert.equal(pickSitePendingPostId(posts, 'p1'), 'p1');
+    assert.equal(pickSitePendingPostId(posts, 'gone'), 'p2');
+    assert.deepEqual(
+      sitePendingPostsAfterMark(posts, 'p2').map((post) => post.id),
+      ['p1'],
+    );
   });
 
   it('buildSitePendingDecisionHtml marks adopt and discard on the saved row', () => {

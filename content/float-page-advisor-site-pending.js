@@ -12,6 +12,8 @@ var pageAdvisorSitePendingState = {
   tenantId: "",
   pageUrl: "",
 };
+var pageAdvisorSitePendingPosts = [];
+var pageAdvisorSitePendingActiveId = "";
 var pageAdvisorSitePendingDeferred = null;
 var sitePendingConfirmGuard =
   typeof ClickGuard !== "undefined" && ClickGuard.createClickGuard
@@ -82,7 +84,11 @@ function syncSitePendingToolbar() {
 
 function hidePageAdvisorSitePendingLayer() {
   pageAdvisorSitePendingMode = false;
+  pageAdvisorSitePendingAnchored = false;
+  pageAdvisorSitePendingPosts = [];
+  pageAdvisorSitePendingActiveId = "";
   syncSitePendingToolbar();
+  document.getElementById("taskplugin-page-advisor-post-tabs")?.remove();
   const layer = document.getElementById("taskplugin-page-advisor-layer");
   if (layer) layer.hidden = true;
   if (typeof restorePageAdvisorDocumentTitle === "function") {
@@ -146,7 +152,22 @@ async function runSitePendingWrite(action, suggestionId, btnEl) {
       }
       return { ok: false };
     }
-    if (pageAdvisorSitePendingAnchored) {
+    if (pageAdvisorSitePendingPosts.length) {
+      const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
+      pageAdvisorSitePendingPosts = Pending?.sitePendingPostsAfterMark
+        ? Pending.sitePendingPostsAfterMark(pageAdvisorSitePendingPosts, sid)
+        : pageAdvisorSitePendingPosts.filter((post) => String(post.id) !== sid);
+      if (!pageAdvisorSitePendingPosts.length) {
+        const cards = document.getElementById("taskplugin-page-advisor-cards");
+        if (cards) cards.innerHTML = "";
+        hidePageAdvisorSitePendingLayer();
+      } else {
+        pageAdvisorSitePendingActiveId = Pending?.pickSitePendingPostId
+          ? Pending.pickSitePendingPostId(pageAdvisorSitePendingPosts, "")
+          : String(pageAdvisorSitePendingPosts[pageAdvisorSitePendingPosts.length - 1].id || "");
+        showActiveSitePendingPost();
+      }
+    } else if (pageAdvisorSitePendingAnchored) {
       pageAdvisorSitePendingAnchored = false;
       pageAdvisorSitePendingState.items = [];
       const cards = document.getElementById("taskplugin-page-advisor-cards");
@@ -211,15 +232,6 @@ function showPageAdvisorSitePending(payload) {
     pageUrl: String(payload?.pageUrl || ""),
   };
 
-  if (
-    typeof isPageAdvisorLayerVisible === "function"
-    && isPageAdvisorLayerVisible()
-    && pageAdvisorState?.suggestions?.length
-  ) {
-    pageAdvisorSitePendingDeferred = payload;
-    return;
-  }
-
   if (!items.length) {
     if (pageAdvisorSitePendingMode) {
       hidePageAdvisorSitePendingLayer();
@@ -268,33 +280,113 @@ function showPageAdvisorSitePending(payload) {
   if (typeof showPageAdvisorLayer === "function") showPageAdvisorLayer();
 }
 
-function handlePageAdvisorSitePendingMessage(msg) {
-  if (!msg?.ok) return;
-  const Anchor = typeof PageAdvisorAnchor !== "undefined" ? PageAdvisorAnchor : null;
-  const rebound = Anchor && typeof Anchor.rebindOfflineSuggestions === "function"
-    ? Anchor.rebindOfflineSuggestions(msg.items)
-    : { hadAnchors: false, suggestions: [] };
-  if (rebound.hadAnchors && rebound.suggestions.length && typeof showPageAdvisorSuggestions === "function") {
-    pageAdvisorSitePendingMode = false;
-    pageAdvisorSitePendingAnchored = true;
-    pageAdvisorSitePendingState = {
-      items: [{ id: rebound.siteSuggestionId }],
-      tenantId: String(rebound.tenantId || msg.tenantId || ""),
-      pageUrl: String(msg.pageUrl || ""),
-    };
-    if (typeof syncSitePendingToolbar === "function") syncSitePendingToolbar();
-    showPageAdvisorSuggestions({
-      suggestions: rebound.suggestions,
-      pageUrl: String(msg.pageUrl || ""),
-      sitePending: {
-        id: rebound.siteSuggestionId,
-        tenantId: String(rebound.tenantId || msg.tenantId || ""),
-      },
-    });
+function renderSitePendingTabs() {
+  const layer = document.getElementById("taskplugin-page-advisor-layer");
+  const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
+  const html = Pending?.buildSitePendingTabsHtml
+    ? Pending.buildSitePendingTabsHtml(
+      pageAdvisorSitePendingPosts,
+      pageAdvisorSitePendingActiveId,
+      typeof esc === "function" ? esc : (s) => String(s ?? ""),
+    )
+    : "";
+  const existing = document.getElementById("taskplugin-page-advisor-post-tabs");
+  if (!html) {
+    existing?.remove();
     return;
   }
-  pageAdvisorSitePendingAnchored = false;
-  showPageAdvisorSitePending(msg);
+  const host = existing || document.createElement("div");
+  host.id = "taskplugin-page-advisor-post-tabs";
+  host.className = "taskplugin-page-advisor-post-tabs";
+  host.setAttribute("role", "tablist");
+  host.setAttribute("aria-label", typeof tx === "function" ? tx("paSitePostTabsAria") : "切换自动创新建议");
+  host.innerHTML = html;
+  if (!existing && layer) layer.insertBefore(host, layer.firstChild);
+  host.querySelectorAll("[role=tab]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      // Anti-Replay-OK: local view switch between saved suggestion posts; no write
+      const id = String(btn.getAttribute("data-post-id") || "");
+      if (!id || id === pageAdvisorSitePendingActiveId) return;
+      pageAdvisorSitePendingActiveId = id;
+      showActiveSitePendingPost();
+    });
+  });
+}
+
+function showActiveSitePendingPost() {
+  const posts = pageAdvisorSitePendingPosts;
+  const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
+  const activeId = Pending?.pickSitePendingPostId
+    ? Pending.pickSitePendingPostId(posts, pageAdvisorSitePendingActiveId)
+    : pageAdvisorSitePendingActiveId;
+  const post = posts.find((item) => String(item.id) === activeId) || posts[posts.length - 1];
+  if (!post) {
+    hidePageAdvisorSitePendingLayer();
+    return;
+  }
+  pageAdvisorSitePendingActiveId = String(post.id);
+  const pageUrl = pageAdvisorSitePendingState.pageUrl;
+  if (post.suggestions?.length && typeof showPageAdvisorSuggestions === "function") {
+    pageAdvisorSitePendingAnchored = true;
+    pageAdvisorSitePendingMode = false;
+    if (typeof syncSitePendingToolbar === "function") syncSitePendingToolbar();
+    showPageAdvisorSuggestions({
+      suggestions: post.suggestions,
+      pageUrl,
+      sitePending: { id: post.id, tenantId: post.tenantId },
+    });
+  } else {
+    pageAdvisorSitePendingAnchored = false;
+    showPageAdvisorSitePending({
+      items: [{
+        id: post.id,
+        title: post.title,
+        summary: post.summary,
+        tenant_id: post.tenantId,
+      }],
+      tenantId: post.tenantId,
+      pageUrl,
+    });
+  }
+  renderSitePendingTabs();
+}
+
+function handlePageAdvisorSitePendingMessage(msg) {
+  if (!msg?.ok) return;
+  const showingSaved = pageAdvisorSitePendingMode || pageAdvisorSitePendingAnchored;
+  if (
+    !showingSaved
+    && typeof isPageAdvisorLayerVisible === "function"
+    && isPageAdvisorLayerVisible()
+    && pageAdvisorState?.suggestions?.length
+  ) {
+    pageAdvisorSitePendingDeferred = msg;
+    return;
+  }
+  const Anchor = typeof PageAdvisorAnchor !== "undefined" ? PageAdvisorAnchor : null;
+  const items = Array.isArray(msg.items) ? msg.items : [];
+  pageAdvisorSitePendingState.pageUrl = String(msg.pageUrl || "");
+  pageAdvisorSitePendingState.tenantId = String(msg.tenantId || "");
+  pageAdvisorSitePendingPosts = Anchor?.rebindOfflineSuggestionPosts
+    ? Anchor.rebindOfflineSuggestionPosts(items)
+    : items.filter((item) => item?.id).map((item) => ({
+      id: String(item.id),
+      tenantId: String(item.tenant_id || item.tenantId || msg.tenantId || ""),
+      title: String(item.title || ""),
+      summary: String(item.summary || ""),
+      suggestions: [],
+    }));
+  const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
+  pageAdvisorSitePendingActiveId = Pending?.pickSitePendingPostId
+    ? Pending.pickSitePendingPostId(pageAdvisorSitePendingPosts, pageAdvisorSitePendingActiveId)
+    : "";
+  if (!pageAdvisorSitePendingPosts.length) {
+    hidePageAdvisorSitePendingLayer();
+    const cards = document.getElementById("taskplugin-page-advisor-cards");
+    if (cards) cards.innerHTML = "";
+    return;
+  }
+  showActiveSitePendingPost();
 }
 
 function requestSitePendingRefresh(force) {
@@ -318,5 +410,5 @@ function flushDeferredSitePendingIfAny() {
   if (!pageAdvisorSitePendingDeferred) return;
   const payload = pageAdvisorSitePendingDeferred;
   pageAdvisorSitePendingDeferred = null;
-  showPageAdvisorSitePending(payload);
+  handlePageAdvisorSitePendingMessage(payload);
 }

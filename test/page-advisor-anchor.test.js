@@ -11,6 +11,7 @@ const {
   pageAdvisorDomAnchor,
   attachSuggestionAnchors,
   rebindOfflineSuggestions,
+  rebindOfflineSuggestionPosts,
 } = require('../lib/page-advisor-anchor.js');
 
 function el(tag, { id = '', attrs = {}, children = [] } = {}) {
@@ -188,6 +189,36 @@ describe('page-advisor-anchor', () => {
     ], doc);
     assert.equal(missed.hadAnchors, true);
     assert.equal(missed.suggestions.length, 0);
+  });
+
+  it('rebinds every pending post so a tab can switch among them', () => {
+    const hero = {
+      getAttribute(name) {
+        return name === 'data-taskplugin-nid' ? 'n9' : null;
+      },
+    };
+    const price = {
+      getAttribute(name) {
+        return name === 'data-taskplugin-nid' ? 'n3' : null;
+      },
+    };
+    const doc = {
+      getElementById(id) {
+        if (id === 'hero') return hero;
+        if (id === 'price') return price;
+        return null;
+      },
+      querySelector() { return null; },
+      querySelectorAll() { return []; },
+    };
+    const posts = rebindOfflineSuggestionPosts([
+      { id: 'old', title: '旧帖', tenant_id: 'ten-1', suggestions: [{ id: 's-old', dom_id: 'hero', title: '旧' }] },
+      { id: 'new', title: '新帖', tenantId: 'ten-2', suggestions: [{ id: 's-new', dom_id: 'price', title: '新' }] },
+    ], doc);
+    assert.equal(posts.length, 2);
+    assert.equal(posts[0].suggestions[0].target_nid, 'n9');
+    assert.equal(posts[1].suggestions[0].target_nid, 'n3');
+    assert.equal(posts[1].tenantId, 'ten-2');
   });
 
   it('stamps a nid when the matched element has none yet', () => {
