@@ -176,6 +176,7 @@ describe('page-advisor-anchor', () => {
     assert.equal(placed.hadAnchors, true);
     assert.equal(placed.suggestions.length, 1);
     assert.equal(placed.suggestions[0].target_nid, 'n9');
+    assert.equal(placed.siteSuggestionId, 'row');
     const latestOnly = rebindOfflineSuggestions([
       { id: 'old', suggestions: [{ id: 's-old', dom_id: 'hero', title: '旧' }] },
       { id: 'new', suggestions: [{ id: 's-new', dom_id: 'missing', title: '新' }] },

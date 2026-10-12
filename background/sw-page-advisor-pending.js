@@ -42,10 +42,10 @@ async function resolveTenantIdForSitePending() {
     : { workspaceId: '', companyId: '', source: '' };
 
   const tenantId = String(resolved.companyId || '').trim();
-  if (!tenantId) {
+  if (!tenantId && !(Array.isArray(workspaces) && workspaces.length)) {
     return { ok: false, reason: 'no_tenant' };
   }
-  return { ok: true, tenantId };
+  return { ok: true, tenantId, workspaces };
 }
 
 async function notifyContentSitePending(tabId, payload) {
@@ -86,24 +86,45 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
     return { ok: true, skipped: true, reason: tenant.reason };
   }
 
-  let listPayload;
-  try {
-    listPayload = await PageAdvisorAPI.listPendingSuggestions(tenant.tenantId, url);
-  } catch (e) {
-    console.warn('[taskChromePlugin] listPendingSuggestions failed:', e?.message || e);
-    return { ok: false, error: e?.message || tx('swPendingFetchFailed'), traceId: e?.traceId || '' };
+  const tenantIds = Pending?.tenantIdsForSitePending
+    ? Pending.tenantIdsForSitePending(tenant.workspaces, tenant.tenantId)
+    : [tenant.tenantId].filter(Boolean);
+  const items = [];
+  let anyOk = false;
+  let lastErr = null;
+  for (const tid of tenantIds) {
+    let listPayload;
+    try {
+      listPayload = await PageAdvisorAPI.listPendingSuggestions(tid, url);
+      anyOk = true;
+    } catch (e) {
+      lastErr = e;
+      console.warn('[taskChromePlugin] listPendingSuggestions failed:', e?.message || e);
+      continue;
+    }
+    const raw = Pending?.parseSitePendingItems
+      ? Pending.parseSitePendingItems(listPayload)
+      : (Array.isArray(listPayload?.items) ? listPayload.items : []);
+    const pending = Pending?.filterSitePendingOnly
+      ? Pending.filterSitePendingOnly(raw)
+      : raw;
+    for (const item of pending) {
+      items.push(Object.assign({}, item, {
+        tenant_id: String(item?.tenant_id || item?.tenantId || tid),
+      }));
+    }
   }
-
-  const raw = Pending?.parseSitePendingItems
-    ? Pending.parseSitePendingItems(listPayload)
-    : (Array.isArray(listPayload?.items) ? listPayload.items : []);
-  const items = Pending?.filterSitePendingOnly
-    ? Pending.filterSitePendingOnly(raw)
-    : raw;
+  if (!anyOk && lastErr) {
+    return {
+      ok: false,
+      error: lastErr?.message || tx('swPendingFetchFailed'),
+      traceId: lastErr?.traceId || '',
+    };
+  }
 
   await notifyContentSitePending(tabId, {
     ok: true,
-    tenantId: tenant.tenantId,
+    tenantId: String(items[0]?.tenant_id || tenant.tenantId || ''),
     pageUrl: url,
     items,
   });

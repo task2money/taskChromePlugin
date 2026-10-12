@@ -80,6 +80,37 @@ describe('sw-page-advisor-pending', () => {
     assert.equal(sent[0].action, 'pageAdvisorSitePending');
     assert.equal(sent[0].tenantId, 'ten1');
     assert.equal(sent[0].items[0].id, 'p1');
+    assert.equal(sent[0].items[0].tenant_id, 'ten1');
+  });
+
+  it('refreshSitePendingForTab asks every company the user can open', async () => {
+    const calls = [];
+    const { sandbox, sent } = loadPendingStack({
+      API: {
+        init: () => {},
+        setOwner: () => {},
+        getWorkspaces: async () => [
+          { id: 'ws1', company_id: 'ten1' },
+          { id: 'ws2', company_id: 'ten2' },
+        ],
+      },
+      PageAdvisorAPI: {
+        listPendingSuggestions: async (tenantId) => {
+          calls.push(tenantId);
+          return {
+            items: [{ id: `${tenantId}-s`, title: 'T', confirm_status: 'pending' }],
+          };
+        },
+        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
+        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
+      },
+    });
+    const result = await sandbox.refreshSitePendingForTab(4, 'https://shop.test/p', { force: true });
+    assert.equal(result.ok, true);
+    assert.equal(result.count, 2);
+    assert.deepEqual(calls.sort(), ['ten1', 'ten2']);
+    assert.equal(sent[0].items[0].tenant_id, 'ten1');
+    assert.equal(sent[0].items[1].tenant_id, 'ten2');
   });
 
   it('confirmSitePendingSuggestion requires Idempotency-Key', async () => {

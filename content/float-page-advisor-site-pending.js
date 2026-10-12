@@ -5,6 +5,7 @@
 "use strict";
 
 var pageAdvisorSitePendingMode = false;
+var pageAdvisorSitePendingAnchored = false;
 
 var pageAdvisorSitePendingState = {
   items: [],
@@ -110,7 +111,11 @@ function removeSitePendingCard(sid) {
 }
 
 async function runSitePendingWrite(action, suggestionId, btnEl) {
-  const tenantId = String(pageAdvisorSitePendingState.tenantId || "").trim();
+  const tenantId = String(
+    (btnEl && btnEl.getAttribute("data-tenant"))
+    || pageAdvisorSitePendingState.tenantId
+    || "",
+  ).trim();
   const sid = String(suggestionId || "").trim();
   if (!tenantId || !sid) return;
 
@@ -141,7 +146,15 @@ async function runSitePendingWrite(action, suggestionId, btnEl) {
       }
       return { ok: false };
     }
-    removeSitePendingCard(sid);
+    if (pageAdvisorSitePendingAnchored) {
+      pageAdvisorSitePendingAnchored = false;
+      pageAdvisorSitePendingState.items = [];
+      const cards = document.getElementById("taskplugin-page-advisor-cards");
+      if (cards) cards.innerHTML = "";
+      hidePageAdvisorSitePendingLayer();
+    } else {
+      removeSitePendingCard(sid);
+    }
     if (typeof showPageToast === "function") {
       showPageToast(
         (typeof tx === "function" ? tx(action === "confirm" ? "paSiteConfirmed" : "paSiteRejected") : (action === "confirm" ? "已确认并启动任务" : "已拒绝该建议")),
@@ -261,19 +274,26 @@ function handlePageAdvisorSitePendingMessage(msg) {
   const rebound = Anchor && typeof Anchor.rebindOfflineSuggestions === "function"
     ? Anchor.rebindOfflineSuggestions(msg.items)
     : { hadAnchors: false, suggestions: [] };
-  if (rebound.hadAnchors) {
+  if (rebound.hadAnchors && rebound.suggestions.length && typeof showPageAdvisorSuggestions === "function") {
     pageAdvisorSitePendingMode = false;
+    pageAdvisorSitePendingAnchored = true;
+    pageAdvisorSitePendingState = {
+      items: [{ id: rebound.siteSuggestionId }],
+      tenantId: String(rebound.tenantId || msg.tenantId || ""),
+      pageUrl: String(msg.pageUrl || ""),
+    };
     if (typeof syncSitePendingToolbar === "function") syncSitePendingToolbar();
-    if (rebound.suggestions.length && typeof showPageAdvisorSuggestions === "function") {
-      showPageAdvisorSuggestions({
-        suggestions: rebound.suggestions,
-        pageUrl: String(msg.pageUrl || ""),
-      });
-    } else if (typeof hidePageAdvisorSitePendingLayer === "function") {
-      hidePageAdvisorSitePendingLayer();
-    }
+    showPageAdvisorSuggestions({
+      suggestions: rebound.suggestions,
+      pageUrl: String(msg.pageUrl || ""),
+      sitePending: {
+        id: rebound.siteSuggestionId,
+        tenantId: String(rebound.tenantId || msg.tenantId || ""),
+      },
+    });
     return;
   }
+  pageAdvisorSitePendingAnchored = false;
   showPageAdvisorSitePending(msg);
 }
 

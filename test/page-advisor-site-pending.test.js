@@ -8,9 +8,11 @@ require('./helpers/txRuntime.js').installTxRuntime();
 const {
   parseSitePendingItems,
   filterSitePendingOnly,
+  tenantIdsForSitePending,
   shouldFetchSitePending,
   isSkippableNavigationUrl,
   buildSitePendingCardHtml,
+  buildSitePendingDecisionHtml,
 } = require('../lib/page-advisor-site-pending.js');
 
 describe('PageAdvisorSitePending helpers', () => {
@@ -60,12 +62,34 @@ describe('PageAdvisorSitePending helpers', () => {
 
   it('buildSitePendingCardHtml includes confirm/dismiss controls', () => {
     const html = buildSitePendingCardHtml(
-      { id: 'sug-1', title: 'T', summary: 'S' },
+      { id: 'sug-1', title: 'T', summary: 'S', tenant_id: 'ten-9' },
       0,
       (s) => s,
     );
     assert.match(html, /taskplugin-page-advisor-site-confirm/);
     assert.match(html, /taskplugin-page-advisor-site-dismiss/);
     assert.match(html, /data-sid="sug-1"/);
+    assert.match(html, /data-tenant="ten-9"/);
+    assert.match(html, />采纳</);
+    assert.match(html, />废弃</);
+  });
+
+  it('tenantIdsForSitePending keeps one id per company', () => {
+    assert.deepEqual(
+      tenantIdsForSitePending([
+        { company_id: 'a' },
+        { companyId: 'a' },
+        { company: 'b' },
+      ], 'c'),
+      ['a', 'b'],
+    );
+    assert.deepEqual(tenantIdsForSitePending([], 'c'), ['c']);
+  });
+
+  it('buildSitePendingDecisionHtml marks adopt and discard on the saved row', () => {
+    const html = buildSitePendingDecisionHtml('row-1', 'ten-9', (s) => s);
+    assert.match(html, /data-sid="row-1"/);
+    assert.match(html, /data-tenant="ten-9"/);
+    assert.match(html, />采纳</);
   });
 });
