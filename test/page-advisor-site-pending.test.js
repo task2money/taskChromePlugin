@@ -15,6 +15,7 @@ const {
   buildSitePendingTabsHtml,
   pageUrlForAgentSuggestions,
   resolveAgentSuggestionLookupUrl,
+  sitePendingGeneratedDate,
   pickSitePendingPostId,
   sitePendingPostsAfterMark,
   agentSuggestionTabBadge,
@@ -130,6 +131,28 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.match(fallback, /1 条建议/);
     assert.match(fallback, /自定义/);
     assert.doesNotMatch(fallback, /2026-/);
+  });
+
+  it('renders the generation date in the browser local calendar', () => {
+    const prevTz = process.env.TZ;
+    process.env.TZ = 'Asia/Shanghai';
+    try {
+      // 2026-10-12T17:00:00Z is 2026-10-13 01:00 in UTC+8.
+      assert.equal(
+        sitePendingGeneratedDate({ created_at: '2026-10-12T17:00:00Z' }),
+        '2026-10-13',
+      );
+      assert.equal(
+        sitePendingGeneratedDate({ createdAt: '2026-10-12T20:00:00+08:00' }),
+        '2026-10-12',
+      );
+      // A date-only prefix and an empty value keep their literal output.
+      assert.equal(sitePendingGeneratedDate({ created_at: '2026-10-12' }), '2026-10-12');
+      assert.equal(sitePendingGeneratedDate({}), '');
+    } finally {
+      if (prevTz === undefined) delete process.env.TZ;
+      else process.env.TZ = prevTz;
+    }
   });
 
   it('looks up the active tab when the URL box is empty', () => {
