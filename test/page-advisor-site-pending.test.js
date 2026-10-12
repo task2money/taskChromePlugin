@@ -18,6 +18,7 @@ const {
   pageUrlForAgentSuggestions,
   pickSitePendingPostId,
   sitePendingPostsAfterMark,
+  agentSuggestionTabBadge,
 } = require('../lib/page-advisor-site-pending.js');
 
 describe('PageAdvisorSitePending helpers', () => {
@@ -133,6 +134,12 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.equal(pageUrlForAgentSuggestions(raw, false), 'https://www.aidevpush.com/');
     assert.equal(pageUrlForAgentSuggestions(raw, true), raw);
     assert.equal(pageUrlForAgentSuggestions('not a url', false), 'not a url');
+  });
+
+  it('tab badge shows the pending post count and hides at zero', () => {
+    assert.deepEqual(agentSuggestionTabBadge(0), { visible: false, text: '' });
+    assert.deepEqual(agentSuggestionTabBadge(2), { visible: true, text: '2' });
+    assert.deepEqual(agentSuggestionTabBadge('3'), { visible: true, text: '3' });
   });
 
   it('renders the selected post body for the agent suggestions tab', () => {

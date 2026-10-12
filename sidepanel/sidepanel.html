@@ -19,7 +19,7 @@
       <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="false" aria-controls="sp-pane-create">创建任务</button>
       <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="true" aria-controls="sp-pane-settings">设置</button>
       <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" data-i18n="paBuiltinTab" data-testid="sp-tab-builtin">本机模型</button>
-      <button type="button" class="sp-tab" id="sp-tab-agent" role="tab" aria-selected="false" aria-controls="sp-pane-agent" data-i18n="agentSuggestionsTab" data-testid="sp-tab-agent">智能体建议</button>
+      <button type="button" class="sp-tab" id="sp-tab-agent" role="tab" aria-selected="false" aria-controls="sp-pane-agent" data-testid="sp-tab-agent"><span data-i18n="agentSuggestionsTab">智能体建议</span><span id="sp-agent-count" class="sp-agent-count" hidden data-testid="sp-agent-count"></span></button>
     </div>
     <div id="sp-pane-create" class="sp-pane" role="tabpanel" hidden></div>
     <div id="sp-pane-settings" class="sp-pane" role="tabpanel">
@@ -105,6 +105,7 @@
             <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里列出当前网页上还没采纳、也没废弃的自动创新建议。点标题查看该帖，并可标记采纳或废弃。</p>
           </details>
         </div>
+        <button type="button" class="sp-agent-query" id="sp-agent-query" data-testid="sp-agent-query" data-i18n="agentSuggestionsQuery">查询</button>
         <label class="sp-agent-include-query" for="sp-agent-include-query">
           <input type="checkbox" id="sp-agent-include-query" data-testid="sp-agent-include-query">
           <span data-i18n="agentSuggestionsIncludeQuery">查询时包含网址参数</span>

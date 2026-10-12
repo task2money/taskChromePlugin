@@ -109,8 +109,41 @@
     showTab(message.which);
   });
 
+  function applyAgentSuggestionBadge(count) {
+    const Pending = globalThis.PageAdvisorSitePending;
+    const badge = Pending && Pending.agentSuggestionTabBadge
+      ? Pending.agentSuggestionTabBadge(count)
+      : { visible: Number(count) > 0, text: String(Number(count) || '') };
+    const el = document.getElementById('sp-agent-count');
+    const tab = document.getElementById('sp-tab-agent');
+    if (!el) return;
+    el.hidden = !badge.visible;
+    el.textContent = badge.visible ? badge.text : '';
+    if (badge.visible) {
+      const label = tx('agentSuggestionsCountAria').replace('{n}', badge.text);
+      el.setAttribute('aria-label', label);
+    } else {
+      el.removeAttribute('aria-label');
+    }
+    if (tab) {
+      if (badge.visible) tab.setAttribute('data-count', badge.text);
+      else tab.removeAttribute('data-count');
+    }
+  }
+  globalThis.applyAgentSuggestionBadge = applyAgentSuggestionBadge;
+
   chrome.runtime.onMessage.addListener((message) => {
     if (!message) return;
+    if (message.action === 'agentSuggestionsListed') {
+      const current = globalThis.__taskpluginSidePanelTabId;
+      if (current && message.tabId && String(message.tabId) !== String(current)) return;
+      applyAgentSuggestionBadge(message.count);
+      const agentPane = document.getElementById('sp-pane-agent');
+      if (agentPane && !agentPane.hidden && globalThis.AgentSuggestionsPanel && AgentSuggestionsPanel.applyListed) {
+        AgentSuggestionsPanel.applyListed(message);
+      }
+      return;
+    }
     if (message.action === 'sidePanelShow') {
       showTab(message.which);
       return;
@@ -146,7 +179,9 @@
     const agentPane = document.getElementById('sp-pane-agent');
     if (agentPane && !agentPane.hidden && globalThis.AgentSuggestionsPanel) {
       AgentSuggestionsPanel.refresh().catch(() => {});
+      return;
     }
+    chrome.runtime.sendMessage({ action: 'listSitePendingForActiveTab' }).catch(() => {});
   });
 
   if (chrome.sidePanel && chrome.sidePanel.onOpened && chrome.sidePanel.onOpened.addListener) {

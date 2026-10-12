@@ -119,23 +119,23 @@
       posts = Pending.sitePendingPostsAfterMark(posts, sid);
       activeId = Pending.pickSitePendingPostId(posts, activeId);
       if (status) status.textContent = '';
+      syncBadge(posts.length);
       render();
       chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
     });
   }
 
-  async function refresh() {
-    await bindIncludeQuery();
-    const status = statusEl();
-    let resp;
-    try {
-      resp = await chrome.runtime.sendMessage({ action: 'listSitePendingForActiveTab' });
-    } catch (e) {
-      if (status) status.textContent = tx('agentSuggestionsLoadFail');
-      return;
+  function syncBadge(count) {
+    if (typeof global.applyAgentSuggestionBadge === 'function') {
+      global.applyAgentSuggestionBadge(count);
     }
-    if (!resp || !resp.success) {
+  }
+
+  function applyItems(resp) {
+    const status = statusEl();
+    if (!resp || resp.success === false || resp.ok === false) {
       posts = [];
+      syncBadge(0);
       if (status) status.textContent = (resp && resp.error) || tx('agentSuggestionsLoadFail');
       render();
       return;
@@ -147,15 +147,63 @@
       const body = document.getElementById('sp-agent-body');
       if (host) host.innerHTML = '';
       if (body) body.innerHTML = '';
+      syncBadge(0);
       if (status) status.textContent = tx('agentSuggestionsLogin');
       return;
     }
     posts = Array.isArray(resp.items) ? resp.items : [];
     const Pending = global.PageAdvisorSitePending;
     activeId = Pending ? Pending.pickSitePendingPostId(posts, activeId) : '';
+    syncBadge(posts.length);
     if (status) status.textContent = posts.length ? '' : tx('agentSuggestionsEmpty');
     render();
   }
 
-  global.AgentSuggestionsPanel = { refresh };
+  async function refresh(opts) {
+    await bindIncludeQuery();
+    bindQueryButton();
+    const status = statusEl();
+    const notifyPage = !!(opts && opts.notifyPage);
+    let resp;
+    try {
+      resp = await chrome.runtime.sendMessage({
+        action: notifyPage ? 'refreshSitePendingForActiveTab' : 'listSitePendingForActiveTab',
+      });
+    } catch (e) {
+      posts = [];
+      syncBadge(0);
+      if (status) status.textContent = tx('agentSuggestionsLoadFail');
+      return;
+    }
+    applyItems(resp || {});
+  }
+
+  function bindQueryButton() {
+    const btn = document.getElementById('sp-agent-query');
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', async () => {
+      // Anti-Replay-OK: read-only lookup of pending suggestions for the active tab
+      if (btn.dataset.busy === '1') return;
+      btn.dataset.busy = '1';
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      try {
+        await refresh({ notifyPage: true });
+      } finally {
+        btn.dataset.busy = '0';
+        btn.disabled = false;
+        btn.setAttribute('aria-busy', 'false');
+      }
+    });
+  }
+
+  bindQueryButton();
+
+  global.AgentSuggestionsPanel = {
+    refresh,
+    applyListed(message) {
+      applyItems(Object.assign({ success: true }, message || {}));
+    },
+  };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

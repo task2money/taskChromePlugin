@@ -150,6 +150,87 @@ describe('sw-page-advisor-pending', () => {
     assert.equal(result.items[0].tenant_id, 'ten1');
   });
 
+  it('a logged-in reload queries once past the debounce and publishes the count', async () => {
+    const calls = [];
+    const published = [];
+    const { sandbox } = loadPendingStack({
+      PageAdvisorAPI: {
+        listPendingSuggestions: async () => {
+          calls.push(1);
+          return {
+            items: [
+              { id: 'a', confirm_status: 'pending' },
+              { id: 'b', confirm_status: 'pending' },
+              { id: 'c', confirm_status: 'confirmed' },
+            ],
+          };
+        },
+        confirmSuggestion: async () => ({ id: 'a', confirm_status: 'confirmed' }),
+        dismissSuggestion: async () => ({ id: 'a', confirm_status: 'dismissed' }),
+      },
+    });
+    let listener = null;
+    sandbox.chrome.webNavigation = {
+      onCompleted: { addListener(fn) { listener = fn; } },
+    };
+    sandbox.chrome.runtime = {
+      sendMessage(payload) {
+        published.push(payload);
+        return Promise.resolve();
+      },
+    };
+    sandbox.registerPageAdvisorSitePendingHooks();
+    await listener({ frameId: 1, tabId: 3, url: 'https://shop.test/p', transitionType: 'reload' });
+    assert.equal(calls.length, 0);
+    await listener({ frameId: 0, tabId: 3, url: 'https://shop.test/p', transitionType: 'link' });
+    await listener({ frameId: 0, tabId: 3, url: 'https://shop.test/p', transitionType: 'link' });
+    assert.equal(calls.length, 1);
+    await listener({ frameId: 0, tabId: 3, url: 'https://shop.test/p', transitionType: 'reload' });
+    assert.equal(calls.length, 2);
+    const last = published[published.length - 1];
+    assert.equal(last.action, 'agentSuggestionsListed');
+    assert.equal(last.count, 2);
+    assert.equal(last.tabId, 3);
+  });
+
+  it('a reload while logged out does not call the list API', async () => {
+    const calls = [];
+    const published = [];
+    const { sandbox } = loadPendingStack({
+      Storage: {
+        migrateStaleTokenExpiryOnce: async () => {},
+        getApiConfig: async () => ({ token: '', baseUrl: 'https://example.test' }),
+        getEndpointMapping: async () => ({}),
+        getCredentials: async () => ({ userId: '' }),
+        isTokenExpired: async () => false,
+        getLastWorkspace: async () => '',
+      },
+      PageAdvisorAPI: {
+        listPendingSuggestions: async () => {
+          calls.push(1);
+          return { items: [] };
+        },
+        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
+        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
+      },
+    });
+    let listener = null;
+    sandbox.chrome.webNavigation = {
+      onCompleted: { addListener(fn) { listener = fn; } },
+    };
+    sandbox.chrome.runtime = {
+      sendMessage(payload) {
+        published.push(payload);
+        return Promise.resolve();
+      },
+    };
+    sandbox.registerPageAdvisorSitePendingHooks();
+    await listener({ frameId: 0, tabId: 8, url: 'https://shop.test/p', transitionType: 'reload' });
+    assert.equal(calls.length, 0);
+    assert.equal(published[0].count, 0);
+    assert.equal(published[0].reason, 'not_logged_in');
+  });
+
   it('confirmSitePendingSuggestion requires Idempotency-Key', async () => {
     const { sandbox } = loadPendingStack();
     const bad = await sandbox.handleConfirmSitePendingSuggestion({

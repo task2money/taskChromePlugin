@@ -66,6 +66,34 @@ async function notifyContentSitePending(tabId, payload) {
  * @param {string} pageUrl
  * @param {{ force?: boolean }} [opts]
  */
+function publishAgentSuggestionsListed(tabId, collected) {
+  const raw = Array.isArray(collected?.items) ? collected.items : [];
+  const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
+  const items = Pending?.filterSitePendingOnly ? Pending.filterSitePendingOnly(raw) : raw;
+  const payload = {
+    action: 'agentSuggestionsListed',
+    tabId,
+    count: items.length,
+    items,
+    reason: collected?.reason || '',
+    ok: collected?.ok !== false,
+    pageUrl: collected?.pageUrl || '',
+  };
+  console.info('[taskChromePlugin] agent_suggestions_listed', {
+    tabId,
+    count: items.length,
+    reason: payload.reason,
+  });
+  try {
+    const send = chrome?.runtime?.sendMessage;
+    if (typeof send !== 'function') return;
+    const pending = send(payload);
+    if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+  } catch (_err) {
+    /* side panel may be closed */
+  }
+}
+
 async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
   const url = String(pageUrl || '').trim();
   const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
@@ -82,6 +110,7 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
   sitePendingFetchLastAt.set(debKey, now);
 
   const collected = await collectSitePendingForUrl(url);
+  publishAgentSuggestionsListed(tabId, collected);
   if (!collected.ok || collected.skipped) return collected;
   const items = collected.items || [];
   await notifyContentSitePending(tabId, {
@@ -178,6 +207,7 @@ async function handleListSitePendingForActiveTab() {
   const tab = tabs && tabs[0];
   if (!tab?.url) return { success: true, items: [], skipped: true };
   const collected = await collectSitePendingForUrl(tab.url);
+  publishAgentSuggestionsListed(tab.id, collected);
   if (!collected.ok) {
     return {
       success: false,
@@ -278,7 +308,8 @@ function registerPageAdvisorSitePendingHooks() {
     const url = String(details.url || '');
     const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
     if (Pending?.isSkippableNavigationUrl?.(url)) return;
-    void refreshSitePendingForTab(details.tabId, url).catch((e) => {
+    const force = details.transitionType === 'reload';
+    return refreshSitePendingForTab(details.tabId, url, { force }).catch((e) => {
       console.warn('[taskChromePlugin] refreshSitePendingForTab:', e?.message || e);
     });
   });

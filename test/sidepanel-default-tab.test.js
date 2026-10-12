@@ -19,6 +19,11 @@ describe('side panel default tab', () => {
     assert.match(html, /data-i18n="agentSuggestionsTab"/);
     assert.match(html, /id="sp-pane-agent"[^>]*hidden/);
     assert.match(html, /智能体建议/);
+    assert.match(html, /id="sp-agent-query"/);
+    assert.match(html, /data-i18n="agentSuggestionsQuery"/);
+    assert.match(html, /id="sp-agent-count"/);
+    assert.match(html, /id="sp-agent-count"[^>]*hidden/);
+    assert.match(html, /<span data-i18n="agentSuggestionsTab">/);
     assert.match(html, /id="sp-agent-include-query"/);
     assert.doesNotMatch(html, /id="sp-agent-include-query"[^>]*checked/);
     assert.match(html, /data-i18n="agentSuggestionsIncludeQuery"/);
@@ -33,6 +38,10 @@ describe('side panel default tab', () => {
     assert.match(panel, /agentSuggestionsIncludeQuery/);
     assert.match(panel, /refreshSitePendingForActiveTab/);
     assert.match(panel, /Anti-Replay-OK: local lookup preference/);
+    assert.match(panel, /id="sp-agent-query"|sp-agent-query/);
+    assert.match(panel, /Anti-Replay-OK: read-only lookup/);
+    assert.match(js, /agentSuggestionsListed/);
+    assert.match(js, /applyAgentSuggestionBadge/);
   });
 
   it('任务描述有内容才自动显示创建任务', () => {
