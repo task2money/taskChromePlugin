@@ -14,6 +14,7 @@ function loadPendingStack(extraSandbox = {}) {
     console,
     chrome: {
       tabs: {
+        query: async () => [{ id: 3, url: 'https://shop.test/p' }],
         sendMessage: async (_tabId, msg) => {
           sent.push(msg);
           return { success: true };
@@ -111,6 +112,15 @@ describe('sw-page-advisor-pending', () => {
     assert.deepEqual(calls.sort(), ['ten1', 'ten2']);
     assert.equal(sent[0].items[0].tenant_id, 'ten1');
     assert.equal(sent[0].items[1].tenant_id, 'ten2');
+  });
+
+  it('listSitePendingForActiveTab returns posts for the agent suggestions tab', async () => {
+    const { sandbox } = loadPendingStack();
+    const result = await sandbox.handleListSitePendingForActiveTab();
+    assert.equal(result.success, true);
+    assert.equal(result.pageUrl, 'https://shop.test/p');
+    assert.equal(result.items[0].id, 'p1');
+    assert.equal(result.items[0].tenant_id, 'ten1');
   });
 
   it('confirmSitePendingSuggestion requires Idempotency-Key', async () => {

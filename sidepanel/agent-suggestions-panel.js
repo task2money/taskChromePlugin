@@ -1,0 +1,131 @@
+/**
+ * 侧边栏「智能体建议」：列出当前网页上未采纳、未废弃的建议帖。
+ */
+(function initAgentSuggestionsPanel(global) {
+  'use strict';
+
+  var posts = [];
+  var activeId = '';
+  var confirmGuard = global.ClickGuard && ClickGuard.createClickGuard
+    ? ClickGuard.createClickGuard({ debounceMs: 400 })
+    : null;
+  var dismissGuard = global.ClickGuard && ClickGuard.createClickGuard
+    ? ClickGuard.createClickGuard({ debounceMs: 300 })
+    : null;
+
+  function esc(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;');
+  }
+
+  function statusEl() {
+    return document.getElementById('sp-agent-status');
+  }
+
+  function render() {
+    const host = document.getElementById('sp-agent-posts');
+    const body = document.getElementById('sp-agent-body');
+    const status = statusEl();
+    const Pending = global.PageAdvisorSitePending;
+    if (!host || !Pending) return;
+    if (!posts.length) {
+      host.innerHTML = '';
+      if (body) body.innerHTML = '';
+      if (status && !status.textContent) status.textContent = tx('agentSuggestionsEmpty');
+      return;
+    }
+    if (status) status.textContent = '';
+    host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc);
+    const post = posts.find((item) => String(item.id) === String(activeId)) || posts[posts.length - 1];
+    if (body) body.innerHTML = Pending.buildSitePendingPostBodyHtml(post, esc);
+    bind(host);
+  }
+
+  function bind(host) {
+    host.querySelectorAll('.taskplugin-page-advisor-post-tab-select').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        // Anti-Replay-OK: local view switch between saved suggestion posts; no write
+        const id = String(btn.getAttribute('data-post-id') || '');
+        if (!id || id === activeId) return;
+        activeId = id;
+        render();
+      });
+    });
+    host.querySelectorAll('.taskplugin-page-advisor-site-confirm').forEach((btn) => {
+      btn.addEventListener('click', () => { mark('confirm', btn); });
+    });
+    host.querySelectorAll('.taskplugin-page-advisor-site-dismiss').forEach((btn) => {
+      btn.addEventListener('click', () => { mark('dismiss', btn); });
+    });
+  }
+
+  async function mark(action, btn) {
+    const guard = action === 'confirm' ? confirmGuard : dismissGuard;
+    const sid = String(btn.getAttribute('data-sid') || '').trim();
+    const tenantId = String(btn.getAttribute('data-tenant') || '').trim();
+    if (!guard || !sid || !tenantId) return;
+    await guard.run(async (ctx) => {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      const resp = await chrome.runtime.sendMessage({
+        action: action === 'confirm'
+          ? 'confirmSitePendingSuggestion'
+          : 'dismissSitePendingSuggestion',
+        tenantId,
+        suggestionId: sid,
+        idempotencyKey: ctx.idempotencyKey,
+      });
+      btn.disabled = false;
+      btn.setAttribute('aria-busy', 'false');
+      const status = statusEl();
+      if (!resp || !resp.success) {
+        if (status) {
+          status.textContent = (resp && resp.error) || tx(action === 'confirm' ? 'paSiteConfirmFail' : 'paSiteRejectFail');
+        }
+        return;
+      }
+      const Pending = global.PageAdvisorSitePending;
+      posts = Pending.sitePendingPostsAfterMark(posts, sid);
+      activeId = Pending.pickSitePendingPostId(posts, activeId);
+      if (status) status.textContent = '';
+      render();
+      chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
+    });
+  }
+
+  async function refresh() {
+    const status = statusEl();
+    let resp;
+    try {
+      resp = await chrome.runtime.sendMessage({ action: 'listSitePendingForActiveTab' });
+    } catch (e) {
+      if (status) status.textContent = tx('agentSuggestionsLoadFail');
+      return;
+    }
+    if (!resp || !resp.success) {
+      posts = [];
+      if (status) status.textContent = (resp && resp.error) || tx('agentSuggestionsLoadFail');
+      render();
+      return;
+    }
+    if (resp.reason === 'not_logged_in') {
+      posts = [];
+      activeId = '';
+      const host = document.getElementById('sp-agent-posts');
+      const body = document.getElementById('sp-agent-body');
+      if (host) host.innerHTML = '';
+      if (body) body.innerHTML = '';
+      if (status) status.textContent = tx('agentSuggestionsLogin');
+      return;
+    }
+    posts = Array.isArray(resp.items) ? resp.items : [];
+    const Pending = global.PageAdvisorSitePending;
+    activeId = Pending ? Pending.pickSitePendingPostId(posts, activeId) : '';
+    if (status) status.textContent = posts.length ? '' : tx('agentSuggestionsEmpty');
+    render();
+  }
+
+  global.AgentSuggestionsPanel = { refresh };
+})(typeof globalThis !== 'undefined' ? globalThis : this);

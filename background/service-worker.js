@@ -12,6 +12,7 @@ importScripts(
   '../lib/i18n.js',
   '../lib/i18n-messages.js',
   '../lib/i18n-ui-messages.js',
+  '../lib/i18n-site-pending-tabs.js',
   '../lib/i18n-llm-route.js',
   '../lib/i18n-tx.js',
   '../lib/i18n-hardware-stock-messages.js',

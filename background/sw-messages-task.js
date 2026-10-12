@@ -207,6 +207,9 @@ async function handleMessageRest(message, sender) {
     case 'refreshSitePendingForActiveTab':
       return handleRefreshSitePendingForActiveTab();
 
+    case 'listSitePendingForActiveTab':
+      return handleListSitePendingForActiveTab();
+
     case 'confirmSitePendingSuggestion':
       return handleConfirmSitePendingSuggestion(message);
 

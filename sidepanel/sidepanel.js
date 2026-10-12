@@ -27,20 +27,28 @@
     const createPane = document.getElementById('sp-pane-create');
     const settingsPane = document.getElementById('sp-pane-settings');
     const builtinPane = document.getElementById('sp-pane-builtin');
+    const agentPane = document.getElementById('sp-pane-agent');
     const createBtn = document.getElementById('sp-tab-create');
     const settingsBtn = document.getElementById('sp-tab-settings');
     const builtinBtn = document.getElementById('sp-tab-builtin');
+    const agentBtn = document.getElementById('sp-tab-agent');
     const showCreate = tab === 'create';
     const showSettings = tab === 'settings';
     const showBuiltin = tab === 'builtin';
+    const showAgent = tab === 'agent';
     createPane.hidden = !showCreate;
     settingsPane.hidden = !showSettings;
     if (builtinPane) builtinPane.hidden = !showBuiltin;
+    if (agentPane) agentPane.hidden = !showAgent;
     createBtn.setAttribute('aria-selected', showCreate ? 'true' : 'false');
     settingsBtn.setAttribute('aria-selected', showSettings ? 'true' : 'false');
     if (builtinBtn) builtinBtn.setAttribute('aria-selected', showBuiltin ? 'true' : 'false');
+    if (agentBtn) agentBtn.setAttribute('aria-selected', showAgent ? 'true' : 'false');
     if (showBuiltin && globalThis.SidepanelBuiltinPanel && SidepanelBuiltinPanel.probeDetails) {
       SidepanelBuiltinPanel.probeDetails().catch(() => {});
+    }
+    if (showAgent && globalThis.AgentSuggestionsPanel && AgentSuggestionsPanel.refresh) {
+      AgentSuggestionsPanel.refresh().catch(() => {});
     }
   }
 
@@ -89,6 +97,11 @@
   if (builtinTabBtn) {
     builtinTabBtn.addEventListener('click', () => showTab('builtin'));
   }
+  const agentTabBtn = document.getElementById('sp-tab-agent');
+  if (agentTabBtn) {
+    // Anti-Replay-OK: local view switch to the agent suggestions pane
+    agentTabBtn.addEventListener('click', () => showTab('agent'));
+  }
 
   window.addEventListener('message', (event) => {
     const message = event && event.data;
@@ -115,7 +128,7 @@
     let which = 'settings';
     try {
       const intent = await chrome.runtime.sendMessage({ action: 'getSidePanelOpenIntent' });
-      if (intent && (intent.which === 'create' || intent.which === 'settings' || intent.which === 'builtin')) {
+      if (intent && (intent.which === 'create' || intent.which === 'settings' || intent.which === 'builtin' || intent.which === 'agent')) {
         which = intent.which;
       }
     } catch (_) {
@@ -130,6 +143,10 @@
   chrome.tabs.onActivated.addListener((info) => {
     globalThis.__taskpluginSidePanelTabId = info.tabId;
     applyStoredDescription(info.tabId).catch(() => {});
+    const agentPane = document.getElementById('sp-pane-agent');
+    if (agentPane && !agentPane.hidden && globalThis.AgentSuggestionsPanel) {
+      AgentSuggestionsPanel.refresh().catch(() => {});
+    }
   });
 
   if (chrome.sidePanel && chrome.sidePanel.onOpened && chrome.sidePanel.onOpened.addListener) {

@@ -81,11 +81,32 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
   }
   sitePendingFetchLastAt.set(debKey, now);
 
+  const collected = await collectSitePendingForUrl(url);
+  if (!collected.ok || collected.skipped) return collected;
+  const items = collected.items || [];
+  await notifyContentSitePending(tabId, {
+    ok: true,
+    tenantId: String(collected.tenantId || ''),
+    pageUrl: url,
+    items,
+  });
+  return { ok: true, count: items.length, items };
+}
+
+/**
+ * Pending posts for one page URL, without notifying the content script.
+ * @param {string} pageUrl
+ */
+async function collectSitePendingForUrl(pageUrl) {
+  const url = String(pageUrl || '').trim();
+  const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
+  if (!url || Pending?.isSkippableNavigationUrl?.(url)) {
+    return { ok: true, skipped: true, items: [] };
+  }
   const tenant = await resolveTenantIdForSitePending();
   if (!tenant.ok) {
-    return { ok: true, skipped: true, reason: tenant.reason };
+    return { ok: true, skipped: true, reason: tenant.reason, items: [] };
   }
-
   const tenantIds = Pending?.tenantIdsForSitePending
     ? Pending.tenantIdsForSitePending(tenant.workspaces, tenant.tenantId)
     : [tenant.tenantId].filter(Boolean);
@@ -117,18 +138,17 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
   if (!anyOk && lastErr) {
     return {
       ok: false,
+      items: [],
       error: lastErr?.message || tx('swPendingFetchFailed'),
       traceId: lastErr?.traceId || '',
     };
   }
-
-  await notifyContentSitePending(tabId, {
+  return {
     ok: true,
+    items,
     tenantId: String(items[0]?.tenant_id || tenant.tenantId || ''),
     pageUrl: url,
-    items,
-  });
-  return { ok: true, count: items.length };
+  };
 }
 
 async function refreshSitePendingForActiveTab() {
@@ -136,6 +156,27 @@ async function refreshSitePendingForActiveTab() {
   const tab = tabs && tabs[0];
   if (!tab?.id || !tab.url) return { ok: true, skipped: true };
   return refreshSitePendingForTab(tab.id, tab.url, { force: true });
+}
+
+async function handleListSitePendingForActiveTab() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs && tabs[0];
+  if (!tab?.url) return { success: true, items: [], skipped: true };
+  const collected = await collectSitePendingForUrl(tab.url);
+  if (!collected.ok) {
+    return {
+      success: false,
+      error: collected.error || tx('agentSuggestionsLoadFail'),
+      traceId: collected.traceId || '',
+      items: [],
+    };
+  }
+  return {
+    success: true,
+    items: collected.items || [],
+    pageUrl: collected.pageUrl || tab.url,
+    reason: collected.reason || '',
+  };
 }
 
 async function handleRefreshSitePendingForActiveTab() {

@@ -48,6 +48,49 @@ html, body {
   padding: 8px 12px 16px;
   box-sizing: border-box;
 }
+#sp-pane-agent {
+  padding: 8px 12px 16px;
+  box-sizing: border-box;
+}
+#sp-agent-posts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+#sp-pane-agent .taskplugin-page-advisor-post-tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 4px;
+  border: 1px solid var(--taskplugin-border);
+  border-radius: 8px;
+  background: var(--taskplugin-background);
+  box-sizing: border-box;
+}
+#sp-pane-agent .taskplugin-page-advisor-post-tab-select {
+  flex: 1 1 auto;
+  min-height: 44px;
+  min-width: 44px;
+  border: 0;
+  background: transparent;
+  color: var(--taskplugin-foreground);
+  text-align: left;
+  cursor: pointer;
+}
+#sp-pane-agent .taskplugin-page-advisor-post-tab[aria-selected="true"] {
+  border-color: var(--taskplugin-accent);
+}
+#sp-pane-agent .taskplugin-page-advisor-site-confirm,
+#sp-pane-agent .taskplugin-page-advisor-site-dismiss {
+  flex: 0 0 auto;
+  min-height: 44px;
+  min-width: 44px;
+}
+.sp-agent-suggestions {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
 .sp-pane[hidden] {
   display: none !important;
 }

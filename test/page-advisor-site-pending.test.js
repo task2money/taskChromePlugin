@@ -14,6 +14,7 @@ const {
   buildSitePendingCardHtml,
   buildSitePendingDecisionHtml,
   buildSitePendingTabsHtml,
+  buildSitePendingPostBodyHtml,
   pickSitePendingPostId,
   sitePendingPostsAfterMark,
 } = require('../lib/page-advisor-site-pending.js');
@@ -124,5 +125,15 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.match(html, /data-sid="row-1"/);
     assert.match(html, /data-tenant="ten-9"/);
     assert.match(html, />采纳</);
+  });
+
+  it('renders the selected post body for the agent suggestions tab', () => {
+    const body = buildSitePendingPostBodyHtml({
+      summary: '帖子摘要',
+      suggestions: [{ title: '改标题', summary: '更短' }],
+    }, (s) => s);
+    assert.match(body, /帖子摘要/);
+    assert.match(body, /改标题/);
+    assert.match(body, /更短/);
   });
 });

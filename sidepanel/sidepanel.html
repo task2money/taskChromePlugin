@@ -19,6 +19,7 @@
       <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="false" aria-controls="sp-pane-create">创建任务</button>
       <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="true" aria-controls="sp-pane-settings">设置</button>
       <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" data-i18n="paBuiltinTab" data-testid="sp-tab-builtin">本机模型</button>
+      <button type="button" class="sp-tab" id="sp-tab-agent" role="tab" aria-selected="false" aria-controls="sp-pane-agent" data-i18n="agentSuggestionsTab" data-testid="sp-tab-agent">智能体建议</button>
     </div>
     <div id="sp-pane-create" class="sp-pane" role="tabpanel" hidden></div>
     <div id="sp-pane-settings" class="sp-pane" role="tabpanel">
@@ -95,10 +96,25 @@
         <p id="builtinEdgeSellStatus" class="hint" aria-live="polite" data-testid="builtin-edge-sell-status"></p>
       </section>
     </div>
+    <div id="sp-pane-agent" class="sp-pane" role="tabpanel" hidden data-testid="sp-pane-agent">
+      <section class="section">
+        <div class="advisor-defaults-heading">
+          <h3 data-i18n="agentSuggestionsTab">智能体建议</h3>
+          <details class="region-help">
+            <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
+            <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里列出当前网页上还没采纳、也没废弃的自动创新建议。点标题查看该帖，并可标记采纳或废弃。</p>
+          </details>
+        </div>
+        <p id="sp-agent-status" class="hint" aria-live="polite" data-testid="sp-agent-status"></p>
+        <div id="sp-agent-posts" data-testid="sp-agent-posts"></div>
+        <div id="sp-agent-body" data-testid="sp-agent-body"></div>
+      </section>
+    </div>
   </div>
   <script src="../lib/i18n.js"></script>
   <script src="../lib/i18n-messages.js"></script>
   <script src="../lib/i18n-ui-messages.js"></script>
+  <script src="../lib/i18n-site-pending-tabs.js"></script>
   <script src="../lib/i18n-llm-route.js"></script>
   <script src="../lib/i18n-tx.js"></script>
   <script src="../lib/page-advisor-timing.js"></script>
@@ -129,6 +145,8 @@
   <script src="../popup/popup-builtin-edge-sell.js"></script>
   <script src="builtin-model-panel.js"></script>
   <script src="sidepanel-edge-sell-boot.js"></script>
+  <script src="../lib/page-advisor-site-pending.js"></script>
+  <script src="agent-suggestions-panel.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 </html>

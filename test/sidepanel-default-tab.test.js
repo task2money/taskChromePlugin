@@ -15,6 +15,10 @@ describe('side panel default tab', () => {
 
   it('首屏是设置页，并加载页签判定', () => {
     assert.match(html, /id="sp-tab-settings"[^>]*aria-selected="true"/);
+    assert.match(html, /id="sp-tab-agent"/);
+    assert.match(html, /data-i18n="agentSuggestionsTab"/);
+    assert.match(html, /id="sp-pane-agent"[^>]*hidden/);
+    assert.match(html, /智能体建议/);
     assert.match(html, /id="sp-pane-create"[^>]*hidden/);
     assert.match(html, /side-panel-bridge\.js/);
     assert.match(js, /getSidePanelOpenIntent/);

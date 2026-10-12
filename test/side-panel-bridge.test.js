@@ -12,6 +12,7 @@ describe('side panel tab', () => {
     assert.equal(bridge.normalizeSidePanelTab('settings'), 'settings');
     assert.equal(bridge.normalizeSidePanelTab('create'), 'create');
     assert.equal(bridge.normalizeSidePanelTab('builtin'), 'builtin');
+    assert.equal(bridge.normalizeSidePanelTab('agent'), 'agent');
     assert.equal(bridge.normalizeSidePanelTab(''), 'create');
     assert.equal(bridge.normalizeSidePanelTab(undefined), 'create');
   });
