@@ -180,6 +180,17 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     }
     return true;
   }
+  if (msg.action === 'selectAgentSuggestionPost') {
+    try {
+      if (typeof handleSelectAgentSuggestionPost === 'function') {
+        handleSelectAgentSuggestionPost(msg);
+      }
+      sendResponse?.({ success: true });
+    } catch (e) {
+      sendResponse?.({ success: false, error: e?.message || (typeof tx === 'function' ? tx('contentShowSitePendingFailed') : '展示待确认建议失败') });
+    }
+    return true;
+  }
   if (msg.action === 'toggleElementPick') {
     console.log('[taskChromePlugin] toggleElementPick via keyboard shortcut');
     // 与页内 keydown 兜底监听共享去抖时间戳：

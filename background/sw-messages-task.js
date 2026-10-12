@@ -216,6 +216,9 @@ async function handleMessageRest(message, sender) {
     case 'dismissSitePendingSuggestion':
       return handleDismissSitePendingSuggestion(message);
 
+    case 'selectAgentSuggestionPost':
+      return handleSelectAgentSuggestionPost(message);
+
     case 'startPageAdvisorRegionSelect':
       {
         await handlePageOptimizationSuggestRegionCommand();

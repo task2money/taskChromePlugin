@@ -268,6 +268,33 @@ async function handleRefreshSitePendingForActiveTab(message) {
   return { success: true, ...result };
 }
 
+async function handleSelectAgentSuggestionPost(message) {
+  if (message?.applyToPage === false) return { success: true, skipped: true };
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs && tabs[0];
+  if (!tab?.id) return { success: false, error: tx('swNoActiveTab') };
+  const msg = {
+    action: 'selectAgentSuggestionPost',
+    postId: String(message?.postId || ''),
+    item: message?.item || null,
+  };
+  console.info('[taskChromePlugin] agent_suggestion_selected', {
+    tabId: tab.id,
+    postId: msg.postId,
+  });
+  try {
+    await chrome.tabs.sendMessage(tab.id, msg, { frameId: 0 });
+  } catch (_frame0Err) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, msg);
+    } catch (e) {
+      console.warn('[taskChromePlugin] selectAgentSuggestionPost 投递失败:', e?.message || e);
+      return { success: false, error: e?.message || tx('contentShowSitePendingFailed') };
+    }
+  }
+  return { success: true };
+}
+
 async function handleFetchSitePendingForPage(message, sender) {
   const tabId = sender?.tab?.id;
   if (!tabId) return { success: false, error: tx('swMissingTabId') };

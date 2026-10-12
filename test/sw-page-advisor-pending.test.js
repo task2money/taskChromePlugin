@@ -186,6 +186,26 @@ describe('sw-page-advisor-pending', () => {
     assert.equal(calls.length, 0);
   });
 
+  it('selectAgentSuggestionPost forwards the sticker to the active tab', async () => {
+    const { sandbox, sent } = loadPendingStack();
+    const skipped = await sandbox.handleSelectAgentSuggestionPost({
+      applyToPage: false,
+      postId: 'p1',
+    });
+    assert.equal(skipped.skipped, true);
+    assert.equal(sent.length, 0);
+    const result = await sandbox.handleSelectAgentSuggestionPost({
+      applyToPage: true,
+      postId: 'p1',
+      item: { id: 'p1', title: 'Pending' },
+    });
+    assert.equal(result.success, true);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].action, 'selectAgentSuggestionPost');
+    assert.equal(sent[0].postId, 'p1');
+    assert.equal(sent[0].item.id, 'p1');
+  });
+
   it('listSitePendingForActiveTab returns posts for the agent suggestions tab', async () => {
     const { sandbox } = loadPendingStack();
     const result = await sandbox.handleListSitePendingForActiveTab();

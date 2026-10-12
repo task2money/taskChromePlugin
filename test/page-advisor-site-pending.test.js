@@ -11,15 +11,14 @@ const {
   tenantIdsForSitePending,
   shouldFetchSitePending,
   isSkippableNavigationUrl,
-  buildSitePendingCardHtml,
   buildSitePendingDecisionHtml,
   buildSitePendingTabsHtml,
-  buildSitePendingPostBodyHtml,
   pageUrlForAgentSuggestions,
   resolveAgentSuggestionLookupUrl,
   pickSitePendingPostId,
   sitePendingPostsAfterMark,
   agentSuggestionTabBadge,
+  nextSitePendingPageAction,
 } = require('../lib/page-advisor-site-pending.js');
 
 describe('PageAdvisorSitePending helpers', () => {
@@ -65,20 +64,6 @@ describe('PageAdvisorSitePending helpers', () => {
   it('isSkippableNavigationUrl skips browser internal URLs', () => {
     assert.equal(isSkippableNavigationUrl('chrome://extensions'), true);
     assert.equal(isSkippableNavigationUrl('https://example.test/a'), false);
-  });
-
-  it('buildSitePendingCardHtml includes confirm/dismiss controls', () => {
-    const html = buildSitePendingCardHtml(
-      { id: 'sug-1', title: 'T', summary: 'S', tenant_id: 'ten-9' },
-      0,
-      (s) => s,
-    );
-    assert.match(html, /taskplugin-page-advisor-site-confirm/);
-    assert.match(html, /taskplugin-page-advisor-site-dismiss/);
-    assert.match(html, /data-sid="sug-1"/);
-    assert.match(html, /data-tenant="ten-9"/);
-    assert.match(html, />采纳</);
-    assert.match(html, />废弃</);
   });
 
   it('tenantIdsForSitePending keeps one id per company', () => {
@@ -173,13 +158,24 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.deepEqual(agentSuggestionTabBadge('3'), { visible: true, text: '3' });
   });
 
-  it('renders the selected post body for the agent suggestions tab', () => {
-    const body = buildSitePendingPostBodyHtml({
-      summary: '帖子摘要',
-      suggestions: [{ title: '改标题', summary: '更短' }],
-    }, (s) => s);
-    assert.match(body, /帖子摘要/);
-    assert.match(body, /改标题/);
-    assert.match(body, /更短/);
+  it('keeps the suggestion overlay off the page until a sidebar sticker is selected', () => {
+    const posts = [
+      { id: 'a', suggestions: [{ id: 's1', title: '改标题' }] },
+      { id: 'b', suggestions: [] },
+    ];
+    const listed = nextSitePendingPageAction('list', posts, 'a', { selectedBySidebar: false });
+    assert.equal(listed.kind, 'hide-overlay');
+    assert.equal(listed.showPostTabs, false);
+    const selected = nextSitePendingPageAction('sidebar-select', posts, 'a', { selectedBySidebar: true });
+    assert.equal(selected.kind, 'show-suggestion');
+    assert.equal(selected.postId, 'a');
+    assert.equal(selected.showPostTabs, false);
+    const unanchored = nextSitePendingPageAction('sidebar-select', posts, 'b', { selectedBySidebar: true });
+    assert.equal(unanchored.kind, 'hide-overlay');
+    assert.equal(unanchored.showPostTabs, false);
+    const refreshed = nextSitePendingPageAction('list', posts, 'a', { selectedBySidebar: true });
+    assert.equal(refreshed.kind, 'show-suggestion');
+    assert.equal(refreshed.postId, 'a');
   });
+
 });

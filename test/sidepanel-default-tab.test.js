@@ -46,6 +46,8 @@ describe('side panel default tab', () => {
     assert.match(panel, /Anti-Replay-OK: read-only lookup/);
     assert.match(panel, /resolveAgentSuggestionLookupUrl/);
     assert.match(panel, /pageUrl/);
+    assert.match(panel, /selectAgentSuggestionPost/);
+    assert.doesNotMatch(panel, /buildSitePendingPostBodyHtml/);
     assert.match(js, /agentSuggestionsListed/);
     assert.match(js, /applyAgentSuggestionBadge/);
   });

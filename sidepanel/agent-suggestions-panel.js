@@ -1,11 +1,12 @@
 /**
- * 侧边栏「智能体建议」：列出当前网页上未采纳、未废弃的建议帖。
+ * 侧边栏「智能体建议」：只放建议贴。点选后让当前页切换显示这一条建议。
  */
 (function initAgentSuggestionsPanel(global) {
   'use strict';
 
   var posts = [];
   var activeId = '';
+  var pageShownId = '';
   var confirmGuard = global.ClickGuard && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
@@ -71,9 +72,21 @@
     }
     if (status) status.textContent = '';
     host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc);
-    const post = posts.find((item) => String(item.id) === String(activeId)) || posts[posts.length - 1];
-    if (body) body.innerHTML = Pending.buildSitePendingPostBodyHtml(post, esc);
+    if (body) body.innerHTML = '';
     bind(host);
+  }
+
+  function notifyPageSelection(postId) {
+    if (lookupSource === 'typed') return;
+    const id = String(postId || '');
+    const post = posts.find((item) => String(item.id) === id) || null;
+    pageShownId = id;
+    chrome.runtime.sendMessage({
+      action: 'selectAgentSuggestionPost',
+      postId: id,
+      item: post,
+      applyToPage: true,
+    }).catch(() => {});
   }
 
   function bind(host) {
@@ -81,9 +94,11 @@
       btn.addEventListener('click', () => {
         // Anti-Replay-OK: local view switch between saved suggestion posts; no write
         const id = String(btn.getAttribute('data-post-id') || '');
-        if (!id || id === activeId) return;
+        if (!id) return;
+        const changed = id !== activeId;
         activeId = id;
-        render();
+        if (changed) render();
+        notifyPageSelection(id);
       });
     });
     host.querySelectorAll('.taskplugin-page-advisor-site-confirm').forEach((btn) => {
@@ -120,11 +135,13 @@
         return;
       }
       const Pending = global.PageAdvisorSitePending;
+      const shown = pageShownId;
       posts = Pending.sitePendingPostsAfterMark(posts, sid);
       activeId = Pending.pickSitePendingPostId(posts, activeId);
       if (status) status.textContent = '';
       syncBadge(posts.length);
       render();
+      if (shown && shown === sid) notifyPageSelection(activeId);
       chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
     });
   }
