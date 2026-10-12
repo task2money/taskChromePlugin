@@ -55,6 +55,10 @@ describe('侧栏柔和表面', () => {
     assert.match(btn, /border-color:\s*transparent\s*!important/);
     assert.match(btn, /background:\s*transparent\s*!important/);
     assert.match(settingsCss, /:has\(input:checked\)[\s\S]*background:\s*var\(--taskplugin-accent-muted\)\s*!important/);
+    assert.match(
+      settingsCss,
+      /\.llm-route-option :is\(span, a\)\s*\{[^}]*background:\s*transparent\s*!important/,
+    );
   });
 
   it('主背景是白色，按钮内文字不另铺底色', () => {

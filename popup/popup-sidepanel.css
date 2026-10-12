@@ -303,3 +303,7 @@ html[data-taskplugin-host="sidepanel"] :is(
 ) *:not(kbd):not(.tcp-guide-kbd) {
   background: transparent !important;
 }
+/* 通配白底会给选项里的文字铺上画布色。选中项是浅金底，白条会盖住选项颜色。 */
+html[data-taskplugin-host="sidepanel"] .llm-route-option :is(span, a) {
+  background: transparent !important;
+}
