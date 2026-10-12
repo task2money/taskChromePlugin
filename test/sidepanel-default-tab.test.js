@@ -21,6 +21,10 @@ describe('side panel default tab', () => {
     assert.match(html, /智能体建议/);
     assert.match(html, /id="sp-agent-query"/);
     assert.match(html, /data-i18n="agentSuggestionsQuery"/);
+    const urlAt = html.indexOf('id="sp-agent-url"');
+    const queryAt = html.indexOf('id="sp-agent-query"');
+    assert.ok(urlAt >= 0 && urlAt < queryAt, 'URL input sits before the query button');
+    assert.match(html, /data-i18n-placeholder="agentSuggestionsUrlPlaceholder"/);
     assert.match(html, /id="sp-agent-count"/);
     assert.match(html, /id="sp-agent-count"[^>]*hidden/);
     assert.match(html, /<span data-i18n="agentSuggestionsTab">/);
@@ -40,6 +44,8 @@ describe('side panel default tab', () => {
     assert.match(panel, /Anti-Replay-OK: local lookup preference/);
     assert.match(panel, /id="sp-agent-query"|sp-agent-query/);
     assert.match(panel, /Anti-Replay-OK: read-only lookup/);
+    assert.match(panel, /resolveAgentSuggestionLookupUrl/);
+    assert.match(panel, /pageUrl/);
     assert.match(js, /agentSuggestionsListed/);
     assert.match(js, /applyAgentSuggestionBadge/);
   });

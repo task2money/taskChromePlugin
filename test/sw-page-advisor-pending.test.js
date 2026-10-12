@@ -141,6 +141,51 @@ describe('sw-page-advisor-pending', () => {
     assert.equal(calls[0], 'https://www.aidevpush.com/?accessCode=token#top');
   });
 
+  it('a typed pageUrl is queried instead of the active tab and does not paint the current page', async () => {
+    const calls = [];
+    const { sandbox, sent } = loadPendingStack({
+      PageAdvisorAPI: {
+        listPendingSuggestions: async (_tenantId, pageUrl) => {
+          calls.push(pageUrl);
+          return { items: [{ id: 'other', title: 'Other', confirm_status: 'pending' }] };
+        },
+        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
+        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
+      },
+    });
+    sandbox.chrome.storage = { local: { get: async () => ({}) } };
+    const listed = await sandbox.handleListSitePendingForActiveTab({
+      pageUrl: 'https://other.test/docs?q=1',
+    });
+    assert.equal(listed.success, true);
+    assert.equal(listed.items[0].id, 'other');
+    assert.deepEqual(calls, ['https://other.test/docs']);
+    const refreshed = await sandbox.handleRefreshSitePendingForActiveTab({
+      pageUrl: 'https://other.test/docs',
+    });
+    assert.equal(refreshed.success, true);
+    assert.equal(sent.length, 0);
+  });
+
+  it('a non-http pageUrl does not call the list API', async () => {
+    const calls = [];
+    const { sandbox } = loadPendingStack({
+      PageAdvisorAPI: {
+        listPendingSuggestions: async () => {
+          calls.push(1);
+          return { items: [] };
+        },
+        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
+        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
+      },
+    });
+    const result = await sandbox.handleListSitePendingForActiveTab({
+      pageUrl: 'javascript:alert(1)',
+    });
+    assert.equal(result.success, false);
+    assert.equal(calls.length, 0);
+  });
+
   it('listSitePendingForActiveTab returns posts for the agent suggestions tab', async () => {
     const { sandbox } = loadPendingStack();
     const result = await sandbox.handleListSitePendingForActiveTab();

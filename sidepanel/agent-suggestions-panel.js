@@ -21,6 +21,7 @@
   }
 
   var INCLUDE_QUERY_KEY = 'agentSuggestionsIncludeQuery';
+  var lookupSource = 'active-tab';
 
   function statusEl() {
     return document.getElementById('sp-agent-status');
@@ -49,7 +50,10 @@
       // Anti-Replay-OK: local lookup preference; re-reads the pending list
       await chrome.storage.local.set({ [INCLUDE_QUERY_KEY]: box.checked === true });
       await refresh();
-      chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
+      const target = lookupTarget();
+      if (target.ok && target.source !== 'typed') {
+        chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
+      }
     });
   }
 
@@ -136,7 +140,12 @@
     if (!resp || resp.success === false || resp.ok === false) {
       posts = [];
       syncBadge(0);
-      if (status) status.textContent = (resp && resp.error) || tx('agentSuggestionsLoadFail');
+      if (status) {
+        status.textContent = (resp && resp.error) || tx('agentSuggestionsLoadFail');
+        const traceId = String((resp && (resp.traceId || resp.trace_id)) || '').trim();
+        if (traceId) status.setAttribute('data-traceId', traceId);
+        else status.removeAttribute('data-traceId');
+      }
       render();
       return;
     }
@@ -155,20 +164,68 @@
     const Pending = global.PageAdvisorSitePending;
     activeId = Pending ? Pending.pickSitePendingPostId(posts, activeId) : '';
     syncBadge(posts.length);
-    if (status) status.textContent = posts.length ? '' : tx('agentSuggestionsEmpty');
+    if (status) {
+      const emptyKey = lookupSource === 'typed' ? 'agentSuggestionsEmptyUrl' : 'agentSuggestionsEmpty';
+      status.textContent = posts.length ? '' : tx(emptyKey);
+    }
     render();
+  }
+
+  function urlInput() {
+    return document.getElementById('sp-agent-url');
+  }
+
+  function typedUrlRaw() {
+    const input = urlInput();
+    return input ? String(input.value || '') : '';
+  }
+
+  function lookupTarget() {
+    const Pending = global.PageAdvisorSitePending;
+    if (Pending && typeof Pending.resolveAgentSuggestionLookupUrl === 'function') {
+      return Pending.resolveAgentSuggestionLookupUrl(typedUrlRaw(), '');
+    }
+    const raw = typedUrlRaw().trim();
+    return raw
+      ? { ok: true, source: 'typed', url: raw }
+      : { ok: true, source: 'active-tab', url: '' };
+  }
+
+  function bindUrlInput() {
+    const input = urlInput();
+    const btn = document.getElementById('sp-agent-query');
+    if (!input || input.dataset.bound === '1') return;
+    input.dataset.bound = '1';
+    input.addEventListener('keydown', (ev) => {
+      // Anti-Replay-OK: read-only lookup; the query button busy flag blocks a second click
+      if (ev.key !== 'Enter') return;
+      ev.preventDefault();
+      if (btn) btn.click();
+    });
   }
 
   async function refresh(opts) {
     await bindIncludeQuery();
     bindQueryButton();
+    bindUrlInput();
     const status = statusEl();
-    const notifyPage = !!(opts && opts.notifyPage);
+    const target = lookupTarget();
+    if (!target.ok) {
+      if (status) {
+        status.textContent = tx('agentSuggestionsInvalidUrl');
+        status.removeAttribute('data-traceId');
+      }
+      return;
+    }
+    lookupSource = target.source;
+    const notifyPage = !!(opts && opts.notifyPage) && target.source !== 'typed';
+    const message = {
+      action: notifyPage ? 'refreshSitePendingForActiveTab' : 'listSitePendingForActiveTab',
+    };
+    if (target.source === 'typed') message.pageUrl = target.url;
     let resp;
     try {
-      resp = await chrome.runtime.sendMessage({
-        action: notifyPage ? 'refreshSitePendingForActiveTab' : 'listSitePendingForActiveTab',
-      });
+      resp = await chrome.runtime.sendMessage(message);
     } catch (e) {
       posts = [];
       syncBadge(0);
@@ -203,6 +260,8 @@
   global.AgentSuggestionsPanel = {
     refresh,
     applyListed(message) {
+      if (typedUrlRaw().trim()) return;
+      lookupSource = 'active-tab';
       applyItems(Object.assign({ success: true }, message || {}));
     },
   };

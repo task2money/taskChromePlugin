@@ -195,6 +195,16 @@ async function collectSitePendingForUrl(pageUrl) {
   };
 }
 
+function resolveSitePendingLookup(message, tabUrl) {
+  const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
+  const typed = String(message?.pageUrl || '').trim();
+  if (Pending?.resolveAgentSuggestionLookupUrl) {
+    return Pending.resolveAgentSuggestionLookupUrl(typed, String(tabUrl || ''));
+  }
+  if (!typed) return { ok: true, source: 'active-tab', url: String(tabUrl || '').trim() };
+  return { ok: true, source: 'typed', url: typed };
+}
+
 async function refreshSitePendingForActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
@@ -202,12 +212,16 @@ async function refreshSitePendingForActiveTab() {
   return refreshSitePendingForTab(tab.id, tab.url, { force: true });
 }
 
-async function handleListSitePendingForActiveTab() {
+async function handleListSitePendingForActiveTab(message) {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
-  if (!tab?.url) return { success: true, items: [], skipped: true };
-  const collected = await collectSitePendingForUrl(tab.url);
-  publishAgentSuggestionsListed(tab.id, collected);
+  const resolved = resolveSitePendingLookup(message, tab?.url || '');
+  if (!resolved.ok) {
+    return { success: false, error: tx('agentSuggestionsInvalidUrl'), items: [] };
+  }
+  if (!resolved.url) return { success: true, items: [], skipped: true };
+  const collected = await collectSitePendingForUrl(resolved.url);
+  publishAgentSuggestionsListed(tab?.id, collected);
   if (!collected.ok) {
     return {
       success: false,
@@ -219,12 +233,37 @@ async function handleListSitePendingForActiveTab() {
   return {
     success: true,
     items: collected.items || [],
-    pageUrl: collected.pageUrl || tab.url,
+    pageUrl: collected.pageUrl || resolved.url,
     reason: collected.reason || '',
   };
 }
 
-async function handleRefreshSitePendingForActiveTab() {
+async function handleRefreshSitePendingForActiveTab(message) {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs && tabs[0];
+  const resolved = resolveSitePendingLookup(message, tab?.url || '');
+  if (!resolved.ok) {
+    return { success: false, error: tx('agentSuggestionsInvalidUrl'), items: [] };
+  }
+  if (resolved.source === 'typed') {
+    if (!tab?.id || !resolved.url) return { success: true, skipped: true, items: [] };
+    const collected = await collectSitePendingForUrl(resolved.url);
+    publishAgentSuggestionsListed(tab.id, collected);
+    if (!collected.ok) {
+      return {
+        success: false,
+        error: collected.error || tx('agentSuggestionsLoadFail'),
+        traceId: collected.traceId || '',
+        items: [],
+      };
+    }
+    return {
+      success: true,
+      items: collected.items || [],
+      pageUrl: collected.pageUrl || resolved.url,
+      reason: collected.reason || '',
+    };
+  }
   const result = await refreshSitePendingForActiveTab();
   return { success: true, ...result };
 }

@@ -102,10 +102,13 @@
           <h3 data-i18n="agentSuggestionsTab">智能体建议</h3>
           <details class="region-help">
             <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-            <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里列出当前网页上还没采纳、也没废弃的自动创新建议。点标题查看该帖，并可标记采纳或废弃。</p>
+            <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里列出还没采纳、也没废弃的自动创新建议。网址留空则查询当前网页，填写后查询该网址。点标题查看该帖，并可标记采纳或废弃。</p>
           </details>
         </div>
-        <button type="button" class="sp-agent-query" id="sp-agent-query" data-testid="sp-agent-query" data-i18n="agentSuggestionsQuery">查询</button>
+        <div class="sp-agent-query-row">
+          <input type="text" class="form-input sp-agent-url" id="sp-agent-url" data-testid="sp-agent-url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="留空则查询当前网页" data-i18n-placeholder="agentSuggestionsUrlPlaceholder" data-i18n-aria-label="agentSuggestionsUrlLabel" aria-label="要查询的网址">
+          <button type="button" class="sp-agent-query" id="sp-agent-query" data-testid="sp-agent-query" data-i18n="agentSuggestionsQuery">查询</button>
+        </div>
         <label class="sp-agent-include-query" for="sp-agent-include-query">
           <input type="checkbox" id="sp-agent-include-query" data-testid="sp-agent-include-query">
           <span data-i18n="agentSuggestionsIncludeQuery">查询时包含网址参数</span>

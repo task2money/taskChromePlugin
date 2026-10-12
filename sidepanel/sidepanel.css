@@ -66,10 +66,23 @@ html, body {
   line-height: 1.25rem;
   font-weight: 600;
 }
+.sp-agent-query-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+html[data-taskplugin-host="sidepanel"] .sp-agent-query-row .sp-agent-url {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  min-height: 44px;
+}
 .sp-agent-query {
+  flex: 0 0 auto;
   min-height: 44px;
   min-width: 44px;
-  margin: 0 0 8px;
+  margin: 0;
   padding: 0 16px;
 }
 .sp-agent-include-query {
