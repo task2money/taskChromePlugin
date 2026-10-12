@@ -202,11 +202,14 @@
   background: var(--taskplugin-accent) !important;
   color: var(--taskplugin-foreground) !important;
 }
-.taskplugin-page-advisor-post-tab .taskplugin-page-advisor-site-confirm,
-.taskplugin-page-advisor-post-tab .taskplugin-page-advisor-site-dismiss {
+.taskplugin-page-advisor-post-tab .taskplugin-page-advisor-site-compact {
   flex: 0 0 auto !important;
-  min-height: 44px !important;
-  min-width: 44px !important;
+  min-height: 24px !important;
+  min-width: 0 !important;
+  height: auto !important;
+  padding: 2px 8px !important;
+  font-size: 12px !important;
+  line-height: 1.2 !important;
 }
 .taskplugin-page-advisor-toolbar-hint {
   margin: 0 0 8px !important;

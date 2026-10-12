@@ -4,6 +4,7 @@ const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
 
 require('./helpers/txRuntime.js').installTxRuntime();
+require('../lib/task-detail-href.js');
 
 const {
   parseSitePendingItems,
@@ -166,6 +167,34 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.equal(pageUrlForAgentSuggestions(raw, false), 'https://www.aidevpush.com/');
     assert.equal(pageUrlForAgentSuggestions(raw, true), raw);
     assert.equal(pageUrlForAgentSuggestions('not a url', false), 'not a url');
+  });
+
+  it('uses a smaller adopt and discard and links the saved task', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const css = fs.readFileSync(path.join(__dirname, '../sidepanel/sidepanel.css'), 'utf8');
+    assert.match(css, /#sp-pane-agent \.taskplugin-page-advisor-site-compact \{[^}]*min-height: 24px;/s);
+    const post = {
+      id: 'p1',
+      tenant_id: 'co',
+      workspace_id: 'ws',
+      task_id: 'task-9',
+      title: '自定义',
+    };
+    const html = buildSitePendingTabsHtml([post], 'p1', (s) => s, 'https://www.aidevpush.com');
+    assert.match(html, /taskplugin-page-advisor-site-compact taskplugin-page-advisor-site-dismiss/);
+    assert.match(html, /taskplugin-page-advisor-site-compact taskplugin-page-advisor-site-confirm/);
+    assert.match(html, /href="https:\/\/www\.aidevpush\.com\/tenant\/co\/workspace\/ws\/task-detail\/task-9\/"/);
+    assert.match(html, /target="_blank"/);
+    assert.match(html, /rel="noopener noreferrer"/);
+    assert.match(html, />打开帖子</);
+    const bare = buildSitePendingTabsHtml(
+      [{ id: 'p1', tenant_id: 'co', task_id: 'task-9', title: '自定义' }],
+      'p1',
+      (s) => s,
+      'https://www.aidevpush.com',
+    );
+    assert.equal(bare.includes('<a '), false);
   });
 
   it('tab badge shows the pending post count and hides at zero', () => {

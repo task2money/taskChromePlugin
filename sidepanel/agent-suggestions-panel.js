@@ -6,6 +6,7 @@
 
   var posts = [];
   var activeId = '';
+  var siteBaseUrl = '';
   var pageShownId = '';
   var confirmGuard = global.ClickGuard && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
@@ -71,7 +72,7 @@
       return;
     }
     if (status) status.textContent = '';
-    host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc);
+    host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc, siteBaseUrl);
     if (body) body.innerHTML = '';
     bind(host);
   }
@@ -221,7 +222,15 @@
     });
   }
 
+  function rememberSiteBase() {
+    if (!global.Storage || typeof global.Storage.getApiConfig !== 'function') return Promise.resolve();
+    return global.Storage.getApiConfig().then((cfg) => {
+      siteBaseUrl = String((cfg && cfg.baseUrl) || '');
+    }).catch(() => {});
+  }
+
   async function refresh(opts) {
+    await rememberSiteBase();
     await bindIncludeQuery();
     bindQueryButton();
     bindUrlInput();
@@ -279,7 +288,9 @@
     applyListed(message) {
       if (typedUrlRaw().trim()) return;
       lookupSource = 'active-tab';
-      applyItems(Object.assign({ success: true }, message || {}));
+      rememberSiteBase().then(() => {
+        applyItems(Object.assign({ success: true }, message || {}));
+      });
     },
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

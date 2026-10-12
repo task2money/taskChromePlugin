@@ -140,11 +140,20 @@ html[data-taskplugin-host="sidepanel"] .sp-agent-query-row .sp-agent-url {
 #sp-pane-agent .taskplugin-page-advisor-post-tab[aria-selected="true"] {
   border-color: var(--taskplugin-accent);
 }
-#sp-pane-agent .taskplugin-page-advisor-site-confirm,
-#sp-pane-agent .taskplugin-page-advisor-site-dismiss {
+#sp-pane-agent .taskplugin-page-advisor-site-open {
   flex: 0 0 auto;
-  min-height: 44px;
-  min-width: 44px;
+  font-size: 12px;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+#sp-pane-agent .taskplugin-page-advisor-site-compact {
+  flex: 0 0 auto;
+  min-height: 24px;
+  min-width: 0;
+  height: auto;
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.2;
 }
 .sp-agent-suggestions {
   margin: 8px 0 0;
