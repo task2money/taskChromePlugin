@@ -137,8 +137,8 @@ html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger
 }
 /* 浅色侧栏：技能设置按钮透明底上改回深字，避免沿用弹窗浅字。 */
 html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings {
-  background: transparent !important;
-  border-color: transparent !important;
+  background: var(--taskplugin-muted) !important;
+  border-color: var(--taskplugin-border) !important;
   color: var(--taskplugin-foreground) !important;
 }
 /* 使用说明展开区：ID 选择器曾压过通配白底，这里显式钉死。 */
@@ -244,13 +244,21 @@ html[data-taskplugin-host="sidepanel"] .section h3 {
   font-weight: 600;
 }
 html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)) {
-  background: transparent !important;
-  border-color: transparent !important;
+  background: var(--taskplugin-muted) !important;
+  border-color: var(--taskplugin-border) !important;
   border-radius: 10px;
+}
+html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link)):hover {
+  background: var(--taskplugin-track) !important;
+}
+html[data-taskplugin-host="sidepanel"] .btn-danger {
+  background: var(--taskplugin-muted) !important;
+  border-color: var(--taskplugin-border) !important;
+  color: var(--taskplugin-danger) !important;
 }
 html[data-taskplugin-host="sidepanel"] .btn-primary {
   background: var(--taskplugin-accent) !important;
-  border-color: transparent !important;
+  border-color: var(--taskplugin-border) !important;
   color: var(--taskplugin-foreground) !important;
   border-radius: 10px;
   box-shadow: 0 6px 16px rgba(184, 134, 11, 0.24);

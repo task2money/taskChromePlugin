@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 弹窗标题行三处对比度：快捷键白底、使用说明青色、设置按钮透明底。
+ * 弹窗标题行三处对比度：快捷键白底、使用说明暗金、设置按钮米色底。
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -38,11 +38,11 @@ describe('Popup heading chrome colors', () => {
     assert.doesNotMatch(close, /var\(--taskplugin-accent\)/);
   });
 
-  it('提示词标题行设置按钮背景透明；LLM 设置在下拉旁用普通按钮', () => {
+  it('提示词标题行设置按钮用米色底和米色线框；LLM 设置在下拉旁用普通按钮', () => {
     const css = read('popup/popup.css');
     const block = ruleBlock(css, '#pageAdvisorSkillSection #btnToggleSkillSettings');
-    assert.match(block, /background:\s*transparent\b/);
-    assert.match(block, /border-color:\s*transparent\b/);
+    assert.match(block, /background:\s*var\(--taskplugin-muted\)/);
+    assert.match(block, /border-color:\s*var\(--taskplugin-border\)/);
     assert.doesNotMatch(
       css,
       /#pageAdvisorLlmSection #btnToggleLlmSettings[^{]*\{[^}]*background:\s*transparent/,
@@ -56,7 +56,8 @@ describe('Popup heading chrome colors', () => {
       css,
       'html[data-taskplugin-host="sidepanel"] #pageAdvisorSkillSection #btnToggleSkillSettings',
     );
-    assert.match(block, /background:\s*transparent\b/);
+    assert.match(block, /background:\s*var\(--taskplugin-muted\)/);
+    assert.match(block, /border-color:\s*var\(--taskplugin-border\)/);
     assert.match(block, /color:\s*var\(--taskplugin-foreground\)/);
     assert.doesNotMatch(
       css,

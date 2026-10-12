@@ -83,7 +83,7 @@
   align-items: center !important;
   justify-content: space-between !important;
   padding: 12px 14px !important;
-  background: var(--taskplugin-muted) !important;
+  background: var(--taskplugin-background) !important;
   border-bottom: 1px solid var(--taskplugin-border) !important;
   flex-shrink: 0 !important;
 }

@@ -254,8 +254,8 @@ describe('sidepanel create-form contrast overrides', () => {
   it('重置按钮在浅色宿主用深色字，文字下不另铺底色', () => {
     const decls = declsFor('\\.taskplugin-btn-reset');
     assert.match(decls, /color:\s*var\(--taskplugin-foreground\)\s*!important/);
-    assert.match(decls, /background:\s*transparent\s*!important/);
-    assert.match(decls, /border-color:\s*transparent\s*!important/);
+    assert.match(decls, /background:\s*var\(--taskplugin-muted\)\s*!important/);
+    assert.match(decls, /border-color:\s*var\(--taskplugin-border\)\s*!important/);
   });
 
   it('重置按钮 hover 保持深色字（不回退粉红浅字）', () => {

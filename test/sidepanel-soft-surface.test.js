@@ -47,13 +47,13 @@ describe('侧栏柔和表面', () => {
     assert.doesNotMatch(blanket[2], /border-color/);
   });
 
-  it('次按钮文字下不另铺底色，选中单选仍用浅金底', () => {
+  it('次按钮用米色底和米色线框，选中单选仍用浅金底', () => {
     const btn = ruleBodies(
       settingsCss,
       'html[data-taskplugin-host="sidepanel"] .btn:not(:where(.btn-primary, .btn-danger, .btn-link))',
     );
-    assert.match(btn, /border-color:\s*transparent\s*!important/);
-    assert.match(btn, /background:\s*transparent\s*!important/);
+    assert.match(btn, /border-color:\s*var\(--taskplugin-border\)\s*!important/);
+    assert.match(btn, /background:\s*var\(--taskplugin-muted\)\s*!important/);
     assert.match(settingsCss, /:has\(input:checked\)[\s\S]*background:\s*var\(--taskplugin-accent-muted\)\s*!important/);
     assert.match(
       settingsCss,
@@ -61,7 +61,7 @@ describe('侧栏柔和表面', () => {
     );
   });
 
-  it('主背景是白色，按钮内文字不另铺底色', () => {
+  it('主背景是白色，按钮是米色底和米色线框，文字不另铺底色', () => {
     const tokens = read('lib/design-tokens.css');
     assert.match(tokens, /--taskplugin-background:\s*#FFFFFF\b/);
     assert.match(
@@ -72,13 +72,16 @@ describe('侧栏柔和表面', () => {
     const panelCss = read('panel/panel.css');
     const formCss = read('content/content-form.css');
     for (const css of [popupCss, panelCss]) {
-      assert.match(css, /\.btn \{[^}]*background:\s*transparent/);
+      assert.match(css, /\.btn \{[^}]*background:\s*var\(--taskplugin-muted\)/);
+      assert.match(css, /\.btn \{[^}]*border:\s*1px solid var\(--taskplugin-border\)/);
       assert.match(css, /button \*:not\(kbd\)[\s\S]*?background:\s*transparent\s*!important/);
     }
-    assert.match(formCss, /\.taskplugin-btn \{[^}]*background:\s*transparent\s*!important/);
+    assert.match(formCss, /\.taskplugin-btn \{[^}]*background:\s*var\(--taskplugin-muted\)\s*!important/);
+    assert.match(formCss, /\.taskplugin-btn \{[^}]*border:\s*1px solid var\(--taskplugin-border\)/);
     assert.match(formCss, /\.taskplugin-btn \*:not\(kbd\)[\s\S]*?background:\s*transparent\s*!important/);
-    assert.match(panelCss, /\.type-chip \{[^}]*background:\s*transparent/);
-    assert.match(panelCss, /\.btn-danger \{[^}]*background:\s*transparent/);
+    assert.match(panelCss, /\.type-chip \{[^}]*background:\s*var\(--taskplugin-muted\)/);
+    assert.match(panelCss, /\.btn-danger \{[^}]*background:\s*var\(--taskplugin-muted\)/);
+    assert.match(panelCss, /\.btn-danger \{[^}]*border-color:\s*var\(--taskplugin-border\)/);
   });
 
   it('页签选中态与壳层都是白底，字色是暗金', () => {

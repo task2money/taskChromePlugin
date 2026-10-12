@@ -21,8 +21,8 @@ html, body {
 .sp-tab {
   flex: 1;
   min-height: 44px;
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--taskplugin-border);
+  background: var(--taskplugin-muted);
   color: var(--taskplugin-muted-foreground);
   font-size: 14px;
   font-weight: 500;
@@ -34,6 +34,7 @@ html, body {
 .sp-tab[aria-selected="true"] {
   background: var(--taskplugin-background);
   color: var(--taskplugin-accent-ink);
+  border-color: var(--taskplugin-border);
   box-shadow: 0 6px 18px rgba(184, 134, 11, 0.14);
 }
 .sp-pane {
@@ -137,9 +138,9 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-project-auto-run[data-auto-ru
   color: var(--taskplugin-success) !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn {
-  background: transparent !important;
+  background: var(--taskplugin-muted) !important;
   color: var(--taskplugin-foreground) !important;
-  border-color: transparent !important;
+  border-color: var(--taskplugin-border) !important;
   border-radius: 10px !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn:hover {
@@ -150,20 +151,20 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary,
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary:hover {
   background: var(--taskplugin-accent) !important;
   color: var(--taskplugin-foreground) !important;
-  border-color: transparent !important;
+  border-color: var(--taskplugin-border) !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-primary:hover {
   background: var(--taskplugin-accent-secondary) !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset {
   color: var(--taskplugin-foreground) !important;
-  background: transparent !important;
-  border-color: transparent !important;
+  background: var(--taskplugin-muted) !important;
+  border-color: var(--taskplugin-border) !important;
   border-radius: 10px !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:hover:not(:disabled) {
   background: var(--taskplugin-track) !important;
-  border-color: transparent !important;
+  border-color: var(--taskplugin-border) !important;
   color: var(--taskplugin-foreground) !important;
 }
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn-reset:disabled {
