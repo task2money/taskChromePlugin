@@ -22,6 +22,8 @@ const I18N_FILES = [
   '_locales/en/messages.json',
   'lib/i18n-messages.js',
   'lib/i18n-ui-messages.js',
+  'lib/i18n-panel-messages.js',
+  'lib/i18n-popup-messages.js',
 ];
 
 describe('悬浮球 i18n 键已清理（OPT-20261005-024）', () => {

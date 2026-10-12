@@ -4,7 +4,8 @@
  * 按运行时加载顺序安装全局取词器（ADR-0089，OPT-20260919-009）。
  *
  * content_scripts 主组、popup/panel/devtools/oauth-callback 扩展页都由 HTML/manifest
- * 保证 `lib/i18n.js` → `i18n-messages.js` → `i18n-ui-messages.js` → `i18n-tx.js`
+ * 保证 `lib/i18n.js` → `i18n-messages.js` → `i18n-ui-messages.js` →
+ * `i18n-panel-messages.js` → `i18n-popup-messages.js` → `i18n-tx.js`
  * 先于业务脚本加载，因此业务脚本里裸写 `tx('key')` 是合法的（不需要 content 层
  * all_frames 组那种 `typeof tx === 'function' ? … : '中文'` 兜底）。
  *
@@ -22,6 +23,8 @@ function installTxRuntime(locale = 'zh-CN') {
   const i18n = require(path.join(ROOT, 'lib/i18n.js'));
   require(path.join(ROOT, 'lib/i18n-messages.js'));
   require(path.join(ROOT, 'lib/i18n-ui-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-panel-messages.js'));
+  require(path.join(ROOT, 'lib/i18n-popup-messages.js'));
   require(path.join(ROOT, 'lib/i18n-site-pending-tabs.js'));
   require(path.join(ROOT, 'lib/i18n-llm-route.js'));
   require(path.join(ROOT, 'lib/i18n-skill-browse-messages.js'));
@@ -38,6 +41,8 @@ const I18N_SCRIPT_RELS = [
   'lib/i18n.js',
   'lib/i18n-messages.js',
   'lib/i18n-ui-messages.js',
+  'lib/i18n-panel-messages.js',
+  'lib/i18n-popup-messages.js',
   'lib/i18n-site-pending-tabs.js',
   'lib/i18n-llm-route.js',
   'lib/i18n-skill-browse-messages.js',

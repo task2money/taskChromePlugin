@@ -47,6 +47,8 @@ const ALL_MESSAGE_RELS = [
   'lib/i18n.js',
   'lib/i18n-messages.js',
   'lib/i18n-ui-messages.js',
+  'lib/i18n-panel-messages.js',
+  'lib/i18n-popup-messages.js',
   'lib/i18n-llm-route.js',
   'lib/i18n-locale-messages.js',
   'lib/i18n-site-pending-tabs.js',

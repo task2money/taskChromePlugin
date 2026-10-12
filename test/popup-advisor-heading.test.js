@@ -118,7 +118,7 @@ describe('Popup advisor heading', () => {
  * OPT-20260921-029：快捷键说明有「!」details 与底部「快捷键」两处入口。
  */
 describe('Popup 快捷键双入口不矛盾（OPT-20260921-029）', () => {
-  const uiMessages = require('../lib/i18n-ui-messages.js');
+  const uiMessages = require('../lib/i18n-popup-messages.js');
 
   function advisorSection() {
     return llmSection();

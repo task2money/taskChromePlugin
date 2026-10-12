@@ -262,6 +262,7 @@ describe('panel applyRequestFilters wiring', () => {
     const i18n = require('../lib/i18n.js');
     require('../lib/i18n-messages.js');
     require('../lib/i18n-ui-messages.js');
+    require('../lib/i18n-panel-messages.js');
     i18n.setLocale('zh-CN');
     const P = {
       t: (key, params) => i18n.t(key, params),

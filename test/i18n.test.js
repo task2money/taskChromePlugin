@@ -27,9 +27,13 @@ test('plugin i18n panel float keys', () => {
   delete require.cache[require.resolve('../lib/i18n.js')]
   delete require.cache[require.resolve('../lib/i18n-messages.js')]
   delete require.cache[require.resolve('../lib/i18n-ui-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-panel-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-popup-messages.js')]
   const i18n = require('../lib/i18n.js')
   require('../lib/i18n-messages.js')
   require('../lib/i18n-ui-messages.js')
+  require('../lib/i18n-panel-messages.js')
+  require('../lib/i18n-popup-messages.js')
   i18n.setLocale('en')
   assert.equal(i18n.t('floatQuickCreate'), 'Quick create task')
   assert.equal(i18n.t('panelTabSingle'), '📋 Single request')
@@ -39,9 +43,13 @@ test('自动运行提示键在 zh-CN / en 均有独立译文', () => {
   delete require.cache[require.resolve('../lib/i18n.js')]
   delete require.cache[require.resolve('../lib/i18n-messages.js')]
   delete require.cache[require.resolve('../lib/i18n-ui-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-panel-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-popup-messages.js')]
   const i18n = require('../lib/i18n.js')
   require('../lib/i18n-messages.js')
   require('../lib/i18n-ui-messages.js')
+  require('../lib/i18n-panel-messages.js')
+  require('../lib/i18n-popup-messages.js')
   const tables = i18n.getMessageTables()
   const keys = [
     'panelAutoRunHintPickProject',
@@ -62,9 +70,13 @@ test('applyDom 用 SSOT 品牌名替换静态文案里的 {brand}', () => {
   delete require.cache[require.resolve('../lib/i18n.js')]
   delete require.cache[require.resolve('../lib/i18n-messages.js')]
   delete require.cache[require.resolve('../lib/i18n-ui-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-panel-messages.js')]
+  delete require.cache[require.resolve('../lib/i18n-popup-messages.js')]
   const i18n = require('../lib/i18n.js')
   require('../lib/i18n-messages.js')
   require('../lib/i18n-ui-messages.js')
+  require('../lib/i18n-panel-messages.js')
+  require('../lib/i18n-popup-messages.js')
   const { PLUGIN_DISPLAY_NAME } = require('../lib/plugin-brand.js')
   globalThis.PLUGIN_DISPLAY_NAME = PLUGIN_DISPLAY_NAME
   try {

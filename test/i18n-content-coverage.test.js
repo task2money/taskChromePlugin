@@ -55,7 +55,13 @@ describe('content/*.js i18n 覆盖门禁', () => {
     const vm = require('node:vm');
     const broken = [];
     // 译文表也纳入：每批 i18n 都要改它，且它不在任何 content 行数/注入门禁内。
-    const PARSE_TARGETS = [...CONTENT_JS, 'lib/i18n-messages.js', 'lib/i18n-ui-messages.js'];
+    // 按目录枚举而非逐个点名，新增文案包自动获得语法覆盖（拆包后曾漏检新文件）。
+    const I18N_MSG_JS = fs
+      .readdirSync(path.join(ROOT, 'lib'))
+      .filter((f) => f === 'i18n-messages.js' || /^i18n-.*messages\.js$/.test(f))
+      .map((f) => `lib/${f}`)
+      .sort();
+    const PARSE_TARGETS = [...CONTENT_JS, ...I18N_MSG_JS];
     for (const rel of PARSE_TARGETS) {
       const src = fs.readFileSync(path.join(ROOT, rel), 'utf8');
       try {

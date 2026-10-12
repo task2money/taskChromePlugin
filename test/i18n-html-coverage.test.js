@@ -19,6 +19,8 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
+const { pageScriptsFromHtml } = require('./helpers/i18nScan.js');
+
 const ROOT = path.join(__dirname, '..');
 
 /** CJK（含全角标点）字符 */
@@ -121,27 +123,54 @@ function scanUncovered(html) {
 }
 
 /**
- * 载入插件消息表。
- * @param {boolean} withUi 是否叠加 panel/float 的 ui 消息表（lib/i18n-ui-messages.js）
+ * 全部文案包（每个文件独立导出 `{ zh, en }`）。
+ * 提示词目录、硬件库存等按域拆出的包同样登记在此，新增包须一并补入。
  */
-function loadMessageTables(withUi = true) {
+const MESSAGE_PACKS = [
+  'lib/i18n-messages.js',
+  'lib/i18n-ui-messages.js',
+  'lib/i18n-panel-messages.js',
+  'lib/i18n-popup-messages.js',
+  'lib/i18n-locale-messages.js',
+  'lib/i18n-site-pending-tabs.js',
+  'lib/i18n-llm-route.js',
+  'lib/i18n-skill-browse-messages.js',
+  'lib/i18n-hardware-stock-messages.js',
+  'lib/i18n-version-messages.js',
+  'lib/i18n-toolbar-pin.js',
+];
+
+/**
+ * 载入插件消息表。
+ * @param {boolean} withDomainPacks 是否叠加 ui / 域包（即除基础表外的全部文案包）
+ */
+function loadMessageTables(withDomainPacks = true) {
+  const rels = withDomainPacks ? MESSAGE_PACKS : ['lib/i18n-messages.js'];
+  for (const rel of MESSAGE_PACKS) delete require.cache[require.resolve('../' + rel)];
   delete require.cache[require.resolve('../lib/i18n.js')];
-  delete require.cache[require.resolve('../lib/i18n-messages.js')];
-  delete require.cache[require.resolve('../lib/i18n-ui-messages.js')];
-  delete require.cache[require.resolve('../lib/i18n-llm-route.js')];
-  delete require.cache[require.resolve('../lib/i18n-locale-messages.js')];
-  delete require.cache[require.resolve('../lib/i18n-skill-browse-messages.js')];
-  delete require.cache[require.resolve('../lib/i18n-toolbar-pin.js')];
   const i18n = require('../lib/i18n.js');
-  require('../lib/i18n-messages.js');
-  if (withUi) {
-    require('../lib/i18n-ui-messages.js');
-    require('../lib/i18n-llm-route.js');
-    require('../lib/i18n-locale-messages.js');
-    require('../lib/i18n-skill-browse-messages.js');
-    require('../lib/i18n-toolbar-pin.js');
-  }
+  for (const rel of rels) require('../' + rel);
   return { i18n, tables: i18n.getMessageTables() };
+}
+
+/**
+ * 键 → 定义它的文案包。页面「用了键却没加载对应包」是渲染裸 key 的根因，
+ * 判据须按包的**键归属**判定，而不是按包的文件名是否出现（拆包后文件名判据会假绿）。
+ * 同名键可被多个包定义，任一包被加载即可。
+ * @returns {Map<string, string[]>}
+ */
+function keyOwners() {
+  const owners = new Map();
+  for (const rel of MESSAGE_PACKS) {
+    const abs = path.join(ROOT, rel);
+    if (!fs.existsSync(abs)) continue;
+    const { zh } = require(abs);
+    for (const key of Object.keys(zh || {})) {
+      if (!owners.has(key)) owners.set(key, []);
+      owners.get(key).push(rel);
+    }
+  }
+  return owners;
 }
 
 const BINDING_ATTRS = [
@@ -189,22 +218,22 @@ describe('panel/popup HTML 双语覆盖门禁', () => {
     assert.deepEqual(missing, [], `i18n 键缺失：\n${missing.join('\n')}`);
   });
 
-  it('页面引用的 ui 层键，页面自身须加载 lib/i18n-ui-messages.js', () => {
-    const base = loadMessageTables(false).tables;
-    const uiOnly = new Set(
-      Object.keys(loadMessageTables(true).tables['zh-CN']).filter((k) => !(k in base['zh-CN'])),
-    );
+  it('页面引用的域层键，页面自身须加载定义该键的文案包', () => {
+    // 先快照基础表的键：getMessageTables() 返回的就是运行期那张活表，
+    // 而 keyOwners() 要 require 各文案包，注册会当场把包内键写回同一张表，
+    // 于是「是否为基础键」的判据会在判定过程中自己失效（整条用例假绿）。
+    const baseKeys = new Set(Object.keys(loadMessageTables(false).tables['zh-CN']));
+    const owners = keyOwners();
     const problems = [];
     for (const rel of PAGES) {
       const html = fs.readFileSync(path.join(ROOT, rel), 'utf8');
-      const usesUiKey = collectKeys(html).filter((k) => uiOnly.has(k));
-      if (!usesUiKey.length) continue;
-      if (!/<script src="[^"]*lib\/i18n-ui-messages\.js">/.test(html)) {
-        problems.push(`${rel} 引用了 ui 键（如 ${usesUiKey[0]}）但未加载 i18n-ui-messages.js`);
-      }
-      if (usesUiKey.some((k) => k.startsWith('pluginLocale'))
-          && !/<script src="[^"]*lib\/i18n-locale-messages\.js">/.test(html)) {
-        problems.push(`${rel} 引用了 pluginLocale 键但未加载 i18n-locale-messages.js`);
+      const scripts = pageScriptsFromHtml(rel);
+      for (const key of collectKeys(html)) {
+        if (baseKeys.has(key)) continue;
+        const files = owners.get(key);
+        if (!files || !files.length) continue; // 非文案包定义的键交给「两表均有定义」用例
+        if (files.some((f) => scripts.includes(f))) continue;
+        problems.push(`${rel} 引用了 ${key}，但未加载定义它的文案包（${files.join(' / ')}）`);
       }
     }
     assert.deepEqual(problems, [], problems.join('\n'));
