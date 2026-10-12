@@ -39,10 +39,8 @@ function startPageAdvisorDomWatcher() {
     document,
     session,
     getSuggestions: () => pageAdvisorState.suggestions,
-    resolveNid: (nid) => {
-      const nidId = String(nid || "").replace(/"/g, "");
-      return document.querySelector(`[data-taskplugin-nid="${nidId}"]`);
-    },
+    resolveNid: (nid) => queryPageAdvisorNidElement(nid),
+    scopeRoots: () => pageAdvisorActiveScopeRoots(),
     isSelected: (sid) => isPageAdvisorSuggestionSelected(sid),
     debounceMs: 80,
   });
@@ -175,9 +173,16 @@ function showPageAdvisorLayer() {
   startPageAdvisorDomWatcher();
 }
 
+function pageAdvisorActiveScopeRoots() {
+  return typeof getPageAdvisorScopeRoots === "function" ? getPageAdvisorScopeRoots() : [];
+}
+
 function queryPageAdvisorNidElement(nid) {
   const id = String(nid || "").trim().replace(/"/g, "");
   if (!id) return null;
+  const roots = pageAdvisorActiveScopeRoots();
+  const Scope = typeof PageAdvisorScope !== "undefined" ? PageAdvisorScope : null;
+  if (roots.length && Scope?.queryNidWithinRoots) return Scope.queryNidWithinRoots(id, roots);
   try {
     return document.querySelector(`[data-taskplugin-nid="${id}"]`);
   } catch (_) {
@@ -185,14 +190,9 @@ function queryPageAdvisorNidElement(nid) {
   }
 }
 
-/**
- * Resolve the host page element for layout + hover highlight.
- * Order: target_nid → first still-present preview.ops[].nid → anchor_text.
- */
 function resolveSuggestionAnchor(suggestion) {
   const byTarget = queryPageAdvisorNidElement(suggestion?.target_nid);
   if (byTarget) return byTarget;
-
   const ops = suggestion?.preview?.ops;
   if (Array.isArray(ops)) {
     for (const op of ops) {
@@ -200,14 +200,14 @@ function resolveSuggestionAnchor(suggestion) {
       if (el) return el;
     }
   }
-
   const anchor = String(suggestion?.anchor_text || "").trim();
-  if (anchor && anchor.length >= 2) {
-    const stamped = document.querySelectorAll("[data-taskplugin-nid]");
-    for (const el of stamped) {
-      const t = String(el.textContent || "").replace(/\s+/g, " ");
-      if (t.includes(anchor)) return el;
-    }
+  if (anchor.length < 2) return null;
+  const roots = pageAdvisorActiveScopeRoots();
+  const Scope = typeof PageAdvisorScope !== "undefined" ? PageAdvisorScope : null;
+  if (roots.length && Scope?.deepestTextMatch) return Scope.deepestTextMatch(roots, anchor);
+  const stamped = document.querySelectorAll("[data-taskplugin-nid]");
+  for (const el of stamped) {
+    if (String(el.textContent || "").replace(/\s+/g, " ").includes(anchor)) return el;
   }
   return null;
 }
@@ -389,32 +389,24 @@ function getPageAdvisorContextFromFloat() {
     typeof getPendingPageAdvisorRegion === "function"
       ? getPendingPageAdvisorRegion()
       : null;
-  if (pendingRegion && typeof rememberPageAdvisorLastRegion === "function") {
-    rememberPageAdvisorLastRegion(pendingRegion);
-  }
-  if (
-    Array.isArray(pendingEls) &&
-    pendingEls.length &&
-    typeof unionPageAdvisorElementRects === "function" &&
-    typeof rememberPageAdvisorLastRegion === "function"
-  ) {
-    const union = unionPageAdvisorElementRects(pendingEls);
-    if (union) rememberPageAdvisorLastRegion(union);
-  }
-
   let page;
   if (Capture && Array.isArray(pendingEls) && pendingEls.length
     && Capture.capturePageContextForElements) {
+    if (typeof rememberPageAdvisorScopeRoots === "function") {
+      rememberPageAdvisorScopeRoots(pendingEls);
+    }
     page = Capture.capturePageContextForElements({
       stampNids: true,
       roots: pendingEls,
     });
   } else if (Capture && pendingRegion && Capture.capturePageContextInRect) {
+    if (typeof clearPageAdvisorScopeRoots === "function") clearPageAdvisorScopeRoots();
     page = Capture.capturePageContextInRect({
       stampNids: true,
       region: pendingRegion,
     });
   } else if (Capture) {
+    if (typeof clearPageAdvisorScopeRoots === "function") clearPageAdvisorScopeRoots();
     page = Capture.capturePageContext({ stampNids: true });
   } else {
     page = {

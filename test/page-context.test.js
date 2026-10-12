@@ -296,6 +296,26 @@ describe('DOM 大纲进 LLM 提示的长度控制', () => {
     assert.equal(node.landmark.length, MAX_OUTLINE_ARIA_CHARS);
   });
 
+  it('选区外的父节点不写入 parent_nid', () => {
+    const outside = {
+      nodeType: 1,
+      getAttribute(name) {
+        return name === NID_ATTR ? 'n0' : null;
+      },
+    };
+    const child = fakeNidEl('n1', '结算');
+    child.parentElement = outside;
+    const picked = {
+      nodeType: 1,
+      contains(el) {
+        return el === picked;
+      },
+      querySelectorAll: () => [child],
+    };
+    const [node] = captureDomOutline(picked, 1);
+    assert.equal(node.parent_nid, '');
+  });
+
   it('按 rune 截断，不切碎代理对', () => {
     globalThis.pageAdvisorDomAnchor = () => ({ label: '🙂'.repeat(MAX_OUTLINE_LABEL_CHARS + 5) });
     const [node] = captureDomOutline(fakeNidRoot([fakeNidEl('n1')]), 1);

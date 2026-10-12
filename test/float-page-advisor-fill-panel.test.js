@@ -233,7 +233,7 @@ describe('quick-create float opens only after fill into description', () => {
       showPageAdvisorLayer() {},
       stopPageAdvisorDomWatcher() {},
       restorePageAdvisorDocumentTitle() {},
-      clearPageAdvisorLastRegion() {},
+      clearPageAdvisorScopeRoots() {},
       syncFloatPanelPrimaryHeading() {},
       syncFloatPanelFocusTrap() {},
       clearPageAdvisorRegionHighlight() {},

@@ -241,6 +241,23 @@ describe('page-advisor card region hover highlight', () => {
       );
     });
 
+    it('resolveSuggestionAnchor ignores a page-wide nid outside the selected roots', () => {
+      sandbox.getPageAdvisorScopeRoots = () => [{ nodeType: 1 }];
+      sandbox.PageAdvisorScope = {
+        queryNidWithinRoots() {
+          return null;
+        },
+        deepestTextMatch() {
+          return null;
+        },
+      };
+      const el = sandbox.resolveSuggestionAnchor({
+        target_nid: 'n1',
+        anchor_text: '登录按钮',
+      });
+      assert.equal(el, null);
+    });
+
     it('resolveSuggestionAnchor still finds nid after setText-like text change', () => {
       sandbox.pageAdvisorState.suggestions = [
         {

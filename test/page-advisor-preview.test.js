@@ -160,6 +160,56 @@ describe('page-advisor-preview apply/undo', () => {
     assert.equal(btn.textContent, '提交');
   });
 
+  it('rebind with scope roots does not retarget a button outside the selection', () => {
+    const outside = makeButton('去结算', 'n9');
+    const inner = makeButton('去结算', null);
+    const picked = {
+      nodeType: 1,
+      tagName: 'SECTION',
+      textContent: '去结算',
+      children: [inner],
+      contains(el) {
+        return el === picked || el === inner;
+      },
+      querySelectorAll() {
+        return [inner];
+      },
+    };
+    inner.parentElement = picked;
+    const old = makeButton('去结算', 'n1');
+    const map = { n1: old };
+    const session = PageAdvisorPreview.createPreviewSession({
+      resolveNid: (nid) => {
+        if (map[nid]) return map[nid];
+        return inner.getAttribute('data-taskplugin-nid') === nid ? inner : null;
+      },
+    });
+    const sug = {
+      id: 's3',
+      target_nid: 'n1',
+      anchor_text: '去结算',
+      preview: { ops: [{ op: 'setText', nid: 'n1', value: '马上结算' }] },
+    };
+    assert.equal(session.applySuggestion(sug).applied, true);
+    old.isConnected = false;
+    map.n1 = null;
+    const root = {
+      querySelector(sel) {
+        return String(sel).includes('n1') ? null : outside;
+      },
+      querySelectorAll: () => [outside],
+    };
+    const outcome = PageAdvisorPreview.rebindSuggestionPreview(session, sug, {
+      resolveNid: (nid) => map[nid] || null,
+      root,
+      isSelected: () => true,
+      scopeRoots: () => [picked],
+    });
+    assert.equal(outcome, 'reapplied');
+    assert.equal(inner.textContent, '马上结算');
+    assert.equal(outside.textContent, '去结算');
+  });
+
   it('rebind undo leaves preview off when unchecked', () => {
     const btn = makeButton('保存');
     const map = { n1: btn };

@@ -31,6 +31,9 @@ function getPageAdvisorPreviewSession() {
   pageAdvisorPreviewSession = Preview.createPreviewSession({
     document,
     resolveNid: (nid) => {
+      if (typeof queryPageAdvisorNidElement === "function") {
+        return queryPageAdvisorNidElement(nid);
+      }
       const id = String(nid || "").replace(/"/g, "");
       return document.querySelector(`[data-taskplugin-nid="${id}"]`);
     },
@@ -131,7 +134,7 @@ function closePageAdvisorModal() {
     links.innerHTML = "";
   }
   syncPageAdvisorFillButtons();
-  if (typeof clearPageAdvisorLastRegion === "function") clearPageAdvisorLastRegion();
+  if (typeof clearPageAdvisorScopeRoots === "function") clearPageAdvisorScopeRoots();
   if (typeof flushDeferredSitePendingIfAny === "function") {
     flushDeferredSitePendingIfAny();
   }

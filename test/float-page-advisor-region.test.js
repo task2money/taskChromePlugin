@@ -69,7 +69,7 @@ describe('float-page-advisor-region element pick', () => {
     );
   });
 
-  it('remembers lastRegion for retry until layer close', () => {
+  it('remembers selected roots for retry until layer close', () => {
     const region = fs.readFileSync(
       path.join(root, 'content/float-page-advisor-region.js'),
       'utf8',
@@ -82,14 +82,15 @@ describe('float-page-advisor-region element pick', () => {
       path.join(root, 'content/float-page-advisor.js'),
       'utf8',
     );
-    assert.match(region, /rememberPageAdvisorLastRegion/);
+    assert.match(region, /rememberPageAdvisorScopeRoots/);
     assert.match(region, /restorePageAdvisorLastCaptureForRetry/);
-    assert.match(layer, /rememberPageAdvisorLastRegion\(pendingRegion\)/);
+    assert.match(layer, /rememberPageAdvisorScopeRoots\(pendingEls\)/);
     assert.match(layer, /retryPageAdvisorSuggestFromToolbar[\s\S]*restorePageAdvisorLastCaptureForRetry/);
-    assert.match(advisor, /clearPageAdvisorLastRegion/);
+    assert.match(advisor, /clearPageAdvisorScopeRoots/);
+    assert.doesNotMatch(region, /rememberPageAdvisorLastRegion/);
   });
 
-  it('restorePageAdvisorLastCaptureForRetry sets pending region', () => {
+  it('restorePageAdvisorLastCaptureForRetry restores the selected elements', () => {
     const vm = require('node:vm');
     const src = fs.readFileSync(
       path.join(root, 'content/float-page-advisor-region.js'),
@@ -97,6 +98,7 @@ describe('float-page-advisor-region element pick', () => {
     );
     const sandbox = {
       globalThis: {},
+      picked: [{ nodeType: 1, isConnected: true }],
       PageAdvisorRegion: {
         isValidRegion: (r) => r && r.width >= 20 && r.height >= 20,
       },
@@ -104,15 +106,15 @@ describe('float-page-advisor-region element pick', () => {
     };
     vm.runInNewContext(
       `${src}\n`
-      + 'rememberPageAdvisorLastRegion({ left: 1, top: 2, width: 100, height: 80 });\n'
+      + 'rememberPageAdvisorScopeRoots(picked);\n'
       + 'this.restorePageAdvisorLastCaptureForRetry = restorePageAdvisorLastCaptureForRetry;\n'
+      + 'this.getPendingPageAdvisorElements = getPendingPageAdvisorElements;\n'
       + 'this.getPendingPageAdvisorRegion = getPendingPageAdvisorRegion;\n',
       sandbox,
     );
     assert.equal(sandbox.restorePageAdvisorLastCaptureForRetry(), true);
-    const pending = sandbox.getPendingPageAdvisorRegion();
-    assert.equal(pending.width, 100);
-    assert.equal(pending.height, 80);
+    assert.equal(sandbox.getPendingPageAdvisorElements()[0], sandbox.picked[0]);
+    assert.equal(sandbox.getPendingPageAdvisorRegion(), null);
   });
 
   it('layer prefers capturePageContextForElements over rect', () => {
