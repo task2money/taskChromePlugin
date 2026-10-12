@@ -89,18 +89,26 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.deepEqual(tenantIdsForSitePending([], 'c'), ['c']);
   });
 
-  it('shows a tab per pending post and none when only one post is open', () => {
+  it('shows a tab per pending post with adopt and discard on the entry', () => {
     const posts = [
-      { id: 'p1', title: '首页标题' },
-      { id: 'p2', title: '' },
+      { id: 'p1', title: '首页标题', tenantId: 'ten-1' },
+      { id: 'p2', title: '', tenant_id: 'ten-2' },
     ];
-    assert.equal(buildSitePendingTabsHtml([posts[0]], 'p1', (s) => s), '');
+    assert.equal(buildSitePendingTabsHtml([], 'p1', (s) => s), '');
+    const one = buildSitePendingTabsHtml([posts[0]], 'p1', (s) => s);
+    assert.match(one, /data-post-id="p1"/);
+    assert.match(one, /data-sid="p1"/);
+    assert.match(one, /data-tenant="ten-1"/);
+    assert.match(one, />采纳</);
+    assert.match(one, />废弃</);
     const html = buildSitePendingTabsHtml(posts, 'p2', (s) => s);
     assert.match(html, /role="tab"/);
     assert.match(html, /data-post-id="p1"/);
     assert.match(html, /data-post-id="p2"/);
     assert.match(html, /aria-selected="false"/);
     assert.match(html, /data-post-id="p2" aria-selected="true"/);
+    assert.match(html, /data-sid="p2"/);
+    assert.match(html, /data-tenant="ten-2"/);
     assert.match(html, />首页标题</);
     assert.match(html, />建议 2</);
     assert.equal(pickSitePendingPostId(posts, 'p1'), 'p1');

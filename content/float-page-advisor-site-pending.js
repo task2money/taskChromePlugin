@@ -163,7 +163,10 @@ async function runSitePendingWrite(action, suggestionId, btnEl) {
         hidePageAdvisorSitePendingLayer();
       } else {
         pageAdvisorSitePendingActiveId = Pending?.pickSitePendingPostId
-          ? Pending.pickSitePendingPostId(pageAdvisorSitePendingPosts, "")
+          ? Pending.pickSitePendingPostId(
+            pageAdvisorSitePendingPosts,
+            pageAdvisorSitePendingActiveId,
+          )
           : String(pageAdvisorSitePendingPosts[pageAdvisorSitePendingPosts.length - 1].id || "");
         showActiveSitePendingPost();
       }
@@ -302,7 +305,7 @@ function renderSitePendingTabs() {
   host.setAttribute("aria-label", typeof tx === "function" ? tx("paSitePostTabsAria") : "切换自动创新建议");
   host.innerHTML = html;
   if (!existing && layer) layer.insertBefore(host, layer.firstChild);
-  host.querySelectorAll("[role=tab]").forEach((btn) => {
+  host.querySelectorAll(".taskplugin-page-advisor-post-tab-select").forEach((btn) => {
     btn.addEventListener("click", () => {
       // Anti-Replay-OK: local view switch between saved suggestion posts; no write
       const id = String(btn.getAttribute("data-post-id") || "");
@@ -311,6 +314,9 @@ function renderSitePendingTabs() {
       showActiveSitePendingPost();
     });
   });
+  if (typeof bindSitePendingCardActions === "function") {
+    bindSitePendingCardActions(host);
+  }
 }
 
 function showActiveSitePendingPost() {
