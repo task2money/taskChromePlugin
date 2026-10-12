@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.257",
+  "version": "1.8.258",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -104,6 +104,7 @@
         "lib/page-advisor-region.js",
         "lib/page-advisor-a11y.js",
         "lib/page-advisor-fill.js",
+        "lib/deeplink-core.js",
         "lib/page-advisor-delivery.js",
         "lib/page-advisor-preview.js",
         "lib/page-advisor-defaults.js",

@@ -77,6 +77,7 @@ importScripts(
   './sw-messages-task.js',
   './sw-pick.js',
   './sw-page-advisor-timing-run.js',
+  '../lib/deeplink-core.js',
   '../lib/page-advisor-delivery.js',
   './sw-page-advisor.js',
   './sw-page-advisor-delivery.js',
