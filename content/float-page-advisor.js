@@ -362,17 +362,6 @@ function showPageAdvisorSuggestions(payload) {
     bindPageAdvisorCardDismiss(cards);
     if (typeof bindPageAdvisorCardRegionHover === "function")
       bindPageAdvisorCardRegionHover(cards);
-    const pending = payload?.sitePending;
-    const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
-    if (pending?.id && Pending?.buildSitePendingDecisionHtml && cards) {
-      cards.insertAdjacentHTML(
-        "beforeend",
-        Pending.buildSitePendingDecisionHtml(pending.id, pending.tenantId, esc),
-      );
-      if (typeof bindSitePendingCardActions === "function") {
-        bindSitePendingCardActions(cards);
-      }
-    }
   }
 
   setPageAdvisorError("");

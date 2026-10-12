@@ -75,30 +75,6 @@
   color: var(--taskplugin-foreground) !important;
   background: var(--taskplugin-muted) !important;
 }
-.taskplugin-page-advisor-site-pending-body {
-  padding: 10px 12px 12px !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 6px !important;
-  color: var(--taskplugin-foreground) !important;
-  font-size: 13px !important;
-  line-height: 1.4 !important;
-}
-.taskplugin-page-advisor-site-title {
-  display: block !important;
-  font-size: 14px !important;
-  color: var(--taskplugin-accent-ink) !important;
-}
-.taskplugin-page-advisor-site-actions {
-  display: flex !important;
-  gap: 8px !important;
-  margin-top: 8px !important;
-  justify-content: flex-end !important;
-}
-.taskplugin-page-advisor-site-actions .taskplugin-btn {
-  flex: 1 1 auto !important;
-  min-height: 32px !important;
-}
 .taskplugin-page-advisor-drag-handle:active,
 .taskplugin-page-advisor-dragging .taskplugin-page-advisor-drag-handle {
   cursor: grabbing !important;

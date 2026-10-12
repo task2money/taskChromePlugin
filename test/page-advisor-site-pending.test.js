@@ -11,7 +11,6 @@ const {
   tenantIdsForSitePending,
   shouldFetchSitePending,
   isSkippableNavigationUrl,
-  buildSitePendingDecisionHtml,
   buildSitePendingTabsHtml,
   pageUrlForAgentSuggestions,
   resolveAgentSuggestionLookupUrl,
@@ -106,13 +105,6 @@ describe('PageAdvisorSitePending helpers', () => {
       sitePendingPostsAfterMark(posts, 'p2').map((post) => post.id),
       ['p1'],
     );
-  });
-
-  it('buildSitePendingDecisionHtml marks adopt and discard on the saved row', () => {
-    const html = buildSitePendingDecisionHtml('row-1', 'ten-9', (s) => s);
-    assert.match(html, /data-sid="row-1"/);
-    assert.match(html, /data-tenant="ten-9"/);
-    assert.match(html, />采纳</);
   });
 
   it('looks up the active tab when the URL box is empty', () => {

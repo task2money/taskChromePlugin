@@ -16,14 +16,6 @@ var pageAdvisorSitePendingPosts = [];
 var pageAdvisorSitePendingActiveId = "";
 var pageAdvisorSuggestionSelectedBySidebar = false;
 var pageAdvisorSitePendingDeferred = null;
-var sitePendingConfirmGuard =
-  typeof ClickGuard !== "undefined" && ClickGuard.createClickGuard
-    ? ClickGuard.createClickGuard({ debounceMs: 400 })
-    : null;
-var sitePendingDismissGuard =
-  typeof ClickGuard !== "undefined" && ClickGuard.createClickGuard
-    ? ClickGuard.createClickGuard({ debounceMs: 300 })
-    : null;
 
 function syncSitePendingToolbar() {
   const toolbar = document.getElementById("taskplugin-page-advisor-toolbar");
@@ -103,137 +95,6 @@ function rememberSitePendingItem(item) {
   else pageAdvisorSitePendingPosts.push(post);
 }
 
-function removeSitePendingCard(sid) {
-  const id = String(sid || "");
-  pageAdvisorSitePendingState.items = pageAdvisorSitePendingState.items.filter(
-    (s) => String(s.id) !== id,
-  );
-  const safe = id.replace(/"/g, "");
-  document
-    .querySelector(
-      `.taskplugin-page-advisor-site-pending-card[data-sid="${safe}"]`,
-    )
-    ?.remove();
-  if (!pageAdvisorSitePendingState.items.length) {
-    hidePageAdvisorSitePendingLayer();
-    const cards = document.getElementById("taskplugin-page-advisor-cards");
-    if (cards) cards.innerHTML = "";
-  } else if (typeof layoutPageAdvisorCards === "function") {
-    layoutPageAdvisorCards();
-  }
-}
-
-async function runSitePendingWrite(action, suggestionId, btnEl) {
-  const tenantId = String(
-    (btnEl && btnEl.getAttribute("data-tenant"))
-    || pageAdvisorSitePendingState.tenantId
-    || "",
-  ).trim();
-  const sid = String(suggestionId || "").trim();
-  if (!tenantId || !sid) return;
-
-  const guard = action === "confirm" ? sitePendingConfirmGuard : sitePendingDismissGuard;
-  const run = async (ctx) => {
-    if (btnEl) {
-      btnEl.disabled = true;
-      btnEl.setAttribute("aria-busy", "true");
-    }
-    const resp = await chrome.runtime.sendMessage({
-      action: action === "confirm"
-        ? "confirmSitePendingSuggestion"
-        : "dismissSitePendingSuggestion",
-      tenantId,
-      suggestionId: sid,
-      idempotencyKey: ctx?.idempotencyKey || "",
-    });
-    if (btnEl) {
-      btnEl.disabled = false;
-      btnEl.setAttribute("aria-busy", "false");
-    }
-    if (!resp?.success) {
-      const errMsg =
-        resp?.error ||
-        (typeof tx === "function" ? tx(action === "confirm" ? "paSiteConfirmFail" : "paSiteRejectFail") : (action === "confirm" ? "确认失败" : "拒绝失败"));
-      if (typeof setPageAdvisorError === "function") {
-        setPageAdvisorError(errMsg, resp?.traceId || "");
-      }
-      return { ok: false };
-    }
-    if (pageAdvisorSitePendingPosts.length) {
-      const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
-      pageAdvisorSitePendingPosts = Pending?.sitePendingPostsAfterMark
-        ? Pending.sitePendingPostsAfterMark(pageAdvisorSitePendingPosts, sid)
-        : pageAdvisorSitePendingPosts.filter((post) => String(post.id) !== sid);
-      if (!pageAdvisorSitePendingPosts.length) {
-        const cards = document.getElementById("taskplugin-page-advisor-cards");
-        if (cards) cards.innerHTML = "";
-        hidePageAdvisorSitePendingLayer();
-      } else {
-        pageAdvisorSitePendingActiveId = Pending?.pickSitePendingPostId
-          ? Pending.pickSitePendingPostId(
-            pageAdvisorSitePendingPosts,
-            pageAdvisorSitePendingActiveId,
-          )
-          : String(pageAdvisorSitePendingPosts[pageAdvisorSitePendingPosts.length - 1].id || "");
-        showActiveSitePendingPost();
-      }
-    } else if (pageAdvisorSitePendingAnchored) {
-      pageAdvisorSitePendingAnchored = false;
-      pageAdvisorSitePendingState.items = [];
-      const cards = document.getElementById("taskplugin-page-advisor-cards");
-      if (cards) cards.innerHTML = "";
-      hidePageAdvisorSitePendingLayer();
-    } else {
-      removeSitePendingCard(sid);
-    }
-    if (typeof showPageToast === "function") {
-      showPageToast(
-        (typeof tx === "function" ? tx(action === "confirm" ? "paSiteConfirmed" : "paSiteRejected") : (action === "confirm" ? "已确认并启动任务" : "已拒绝该建议")),
-      );
-    } else if (typeof setPageAdvisorError === "function") {
-      setPageAdvisorError("");
-    }
-    return { ok: true };
-  };
-
-  if (guard) {
-    await guard.run(run);
-    return;
-  }
-  await run({ idempotencyKey: ClickGuard?.newIdempotencyKey?.() || `ik-${Date.now()}` });
-}
-
-function bindSitePendingCardActions(root) {
-  if (!root) return;
-  root.querySelectorAll(".taskplugin-page-advisor-site-confirm").forEach((btnEl) => {
-    if (btnEl.getAttribute("data-site-bound") === "1") return;
-    btnEl.setAttribute("data-site-bound", "1");
-    btnEl.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      void runSitePendingWrite(
-        "confirm",
-        btnEl.getAttribute("data-sid"),
-        btnEl,
-      );
-    });
-  });
-  const dismissSelector = ".taskplugin-page-advisor-site-dismiss, .taskplugin-page-advisor-site-dismiss-btn";
-  root.querySelectorAll(dismissSelector).forEach((btnEl) => {
-    if (btnEl.getAttribute("data-site-bound") === "1") return;
-    btnEl.setAttribute("data-site-bound", "1");
-    btnEl.addEventListener("click", (ev) => {
-      ev.preventDefault();
-      ev.stopPropagation();
-      void runSitePendingWrite(
-        "dismiss",
-        btnEl.getAttribute("data-sid"),
-        btnEl,
-      );
-    });
-  });
-}
-
 function showActiveSitePendingPost() {
   const posts = pageAdvisorSitePendingPosts;
   const Pending = typeof PageAdvisorSitePending !== "undefined" ? PageAdvisorSitePending : null;
@@ -254,7 +115,6 @@ function showActiveSitePendingPost() {
     showPageAdvisorSuggestions({
       suggestions: post.suggestions,
       pageUrl,
-      sitePending: { id: post.id, tenantId: post.tenantId },
     });
   } else {
     pageAdvisorSuggestionSelectedBySidebar = false;
