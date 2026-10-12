@@ -111,6 +111,11 @@ html[data-taskplugin-host="sidepanel"] .sp-agent-query-row .sp-agent-url {
 }
 #sp-pane-agent .taskplugin-page-advisor-post-tab-select {
   flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
   min-height: 44px;
   min-width: 44px;
   border: 0;
@@ -118,6 +123,19 @@ html[data-taskplugin-host="sidepanel"] .sp-agent-query-row .sp-agent-url {
   color: var(--taskplugin-foreground);
   text-align: left;
   cursor: pointer;
+  line-height: 1.3;
+}
+#sp-pane-agent .taskplugin-page-advisor-post-tab-title,
+#sp-pane-agent .taskplugin-page-advisor-post-tab-meta {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#sp-pane-agent .taskplugin-page-advisor-post-tab-meta {
+  font-size: 12px;
+  color: var(--taskplugin-muted-foreground);
 }
 #sp-pane-agent .taskplugin-page-advisor-post-tab[aria-selected="true"] {
   border-color: var(--taskplugin-accent);

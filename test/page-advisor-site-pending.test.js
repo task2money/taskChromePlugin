@@ -99,12 +99,36 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.match(html, /data-tenant="ten-2"/);
     assert.match(html, />首页标题</);
     assert.match(html, />建议 2</);
+    assert.match(html, /1 条建议/);
     assert.equal(pickSitePendingPostId(posts, 'p1'), 'p1');
     assert.equal(pickSitePendingPostId(posts, 'gone'), 'p2');
     assert.deepEqual(
       sitePendingPostsAfterMark(posts, 'p2').map((post) => post.id),
       ['p1'],
     );
+  });
+
+  it('shows the generation date, suggestion count, and prompt type on a post', () => {
+    const html = buildSitePendingTabsHtml([
+      {
+        id: 'p1',
+        title: '自定义 · https://aidevpush.com/blog/togaf-saas-workflow',
+        tenantId: 'ten-1',
+        created_at: '2026-10-12T04:00:00Z',
+        prompt_tendency: 'seo',
+        suggestions: [{ id: 'a' }, { id: 'b' }, { id: 'c' }],
+      },
+    ], 'p1', (s) => s);
+    assert.match(html, /taskplugin-page-advisor-post-tab-meta/);
+    assert.match(html, /2026-10-12/);
+    assert.match(html, /3 条建议/);
+    assert.match(html, /SEO/);
+    const fallback = buildSitePendingTabsHtml([
+      { id: 'p2', title: '自定义', tenant_id: 'ten-2', suggestions: [] },
+    ], 'p2', (s) => s);
+    assert.match(fallback, /1 条建议/);
+    assert.match(fallback, /自定义/);
+    assert.doesNotMatch(fallback, /2026-/);
   });
 
   it('looks up the active tab when the URL box is empty', () => {
