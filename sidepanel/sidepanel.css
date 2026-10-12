@@ -52,6 +52,14 @@ html, body {
   padding: 8px 12px 16px;
   box-sizing: border-box;
 }
+.sp-agent-include-query {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  margin: 0 0 8px;
+  font-size: 14px;
+}
 #sp-agent-posts {
   display: flex;
   flex-direction: column;

@@ -97,9 +97,24 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
  * Pending posts for one page URL, without notifying the content script.
  * @param {string} pageUrl
  */
+async function sitePendingIncludeQuery() {
+  try {
+    const store = chrome?.storage?.local;
+    if (!store || typeof store.get !== 'function') return false;
+    const got = await store.get('agentSuggestionsIncludeQuery');
+    return got?.agentSuggestionsIncludeQuery === true;
+  } catch (_err) {
+    return false;
+  }
+}
+
 async function collectSitePendingForUrl(pageUrl) {
-  const url = String(pageUrl || '').trim();
+  const rawUrl = String(pageUrl || '').trim();
   const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
+  const includeQuery = await sitePendingIncludeQuery();
+  const url = Pending?.pageUrlForAgentSuggestions
+    ? Pending.pageUrlForAgentSuggestions(rawUrl, includeQuery)
+    : rawUrl;
   if (!url || Pending?.isSkippableNavigationUrl?.(url)) {
     return { ok: true, skipped: true, items: [] };
   }

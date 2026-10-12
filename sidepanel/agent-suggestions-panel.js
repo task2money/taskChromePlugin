@@ -20,8 +20,37 @@
       .replace(/</g, '&lt;');
   }
 
+  var INCLUDE_QUERY_KEY = 'agentSuggestionsIncludeQuery';
+
   function statusEl() {
     return document.getElementById('sp-agent-status');
+  }
+
+  function includeQueryBox() {
+    return document.getElementById('sp-agent-include-query');
+  }
+
+  async function readIncludeQuery() {
+    try {
+      const got = await chrome.storage.local.get(INCLUDE_QUERY_KEY);
+      return got && got[INCLUDE_QUERY_KEY] === true;
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  async function bindIncludeQuery() {
+    const box = includeQueryBox();
+    if (!box) return;
+    box.checked = await readIncludeQuery();
+    if (box.dataset.bound === '1') return;
+    box.dataset.bound = '1';
+    box.addEventListener('change', async () => {
+      // Anti-Replay-OK: local lookup preference; re-reads the pending list
+      await chrome.storage.local.set({ [INCLUDE_QUERY_KEY]: box.checked === true });
+      await refresh();
+      chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
+    });
   }
 
   function render() {
@@ -96,6 +125,7 @@
   }
 
   async function refresh() {
+    await bindIncludeQuery();
     const status = statusEl();
     let resp;
     try {

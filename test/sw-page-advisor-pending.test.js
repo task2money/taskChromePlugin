@@ -12,6 +12,7 @@ function loadPendingStack(extraSandbox = {}) {
   const sent = [];
   const sandbox = {
     console,
+    URL,
     chrome: {
       tabs: {
         query: async () => [{ id: 3, url: 'https://shop.test/p' }],
@@ -112,6 +113,32 @@ describe('sw-page-advisor-pending', () => {
     assert.deepEqual(calls.sort(), ['ten1', 'ten2']);
     assert.equal(sent[0].items[0].tenant_id, 'ten1');
     assert.equal(sent[0].items[1].tenant_id, 'ten2');
+  });
+
+  it('side panel and page overlay drop the query unless the option is on', async () => {
+    const calls = [];
+    const { sandbox } = loadPendingStack({
+      PageAdvisorAPI: {
+        listPendingSuggestions: async (_tenantId, pageUrl) => {
+          calls.push(pageUrl);
+          return { items: [] };
+        },
+        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
+        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
+      },
+    });
+    sandbox.chrome.storage = { local: { get: async () => ({}) } };
+    sandbox.chrome.tabs.query = async () => [{ id: 3, url: 'https://www.aidevpush.com/?accessCode=token#top' }];
+    await sandbox.handleListSitePendingForActiveTab();
+    await sandbox.refreshSitePendingForTab(9, 'https://www.aidevpush.com/pricing?plan=pro', { force: true });
+    assert.deepEqual(calls, [
+      'https://www.aidevpush.com/',
+      'https://www.aidevpush.com/pricing',
+    ]);
+    sandbox.chrome.storage.local.get = async () => ({ agentSuggestionsIncludeQuery: true });
+    calls.length = 0;
+    await sandbox.handleListSitePendingForActiveTab();
+    assert.equal(calls[0], 'https://www.aidevpush.com/?accessCode=token#top');
   });
 
   it('listSitePendingForActiveTab returns posts for the agent suggestions tab', async () => {

@@ -19,10 +19,20 @@ describe('side panel default tab', () => {
     assert.match(html, /data-i18n="agentSuggestionsTab"/);
     assert.match(html, /id="sp-pane-agent"[^>]*hidden/);
     assert.match(html, /智能体建议/);
+    assert.match(html, /id="sp-agent-include-query"/);
+    assert.doesNotMatch(html, /id="sp-agent-include-query"[^>]*checked/);
+    assert.match(html, /data-i18n="agentSuggestionsIncludeQuery"/);
     assert.match(html, /id="sp-pane-create"[^>]*hidden/);
     assert.match(html, /side-panel-bridge\.js/);
     assert.match(js, /getSidePanelOpenIntent/);
     assert.match(js, /sidePanel\.onOpened/);
+  });
+
+  it('查询开关写到本机并让页面浮层重拉', () => {
+    const panel = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'agent-suggestions-panel.js'), 'utf8');
+    assert.match(panel, /agentSuggestionsIncludeQuery/);
+    assert.match(panel, /refreshSitePendingForActiveTab/);
+    assert.match(panel, /Anti-Replay-OK: local lookup preference/);
   });
 
   it('任务描述有内容才自动显示创建任务', () => {

@@ -15,6 +15,7 @@ const {
   buildSitePendingDecisionHtml,
   buildSitePendingTabsHtml,
   buildSitePendingPostBodyHtml,
+  pageUrlForAgentSuggestions,
   pickSitePendingPostId,
   sitePendingPostsAfterMark,
 } = require('../lib/page-advisor-site-pending.js');
@@ -125,6 +126,13 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.match(html, /data-sid="row-1"/);
     assert.match(html, /data-tenant="ten-9"/);
     assert.match(html, />采纳</);
+  });
+
+  it('drops the query string unless the agent suggestions option is on', () => {
+    const raw = 'https://www.aidevpush.com/?accessCode=token#top';
+    assert.equal(pageUrlForAgentSuggestions(raw, false), 'https://www.aidevpush.com/');
+    assert.equal(pageUrlForAgentSuggestions(raw, true), raw);
+    assert.equal(pageUrlForAgentSuggestions('not a url', false), 'not a url');
   });
 
   it('renders the selected post body for the agent suggestions tab', () => {
