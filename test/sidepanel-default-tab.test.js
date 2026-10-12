@@ -50,6 +50,10 @@ describe('side panel default tab', () => {
     assert.doesNotMatch(panel, /buildSitePendingPostBodyHtml/);
     assert.match(js, /agentSuggestionsListed/);
     assert.match(js, /applyAgentSuggestionBadge/);
+    // 查询框填了网址时页签数字归那条网址，别被当前标签的列表消息盖掉（OPT-20261012-024）
+    assert.match(js, /isPinnedToTypedUrl/);
+    assert.match(panel, /isPinnedToTypedUrl/);
+    assert.match(panel, /agentSuggestionsTypedScope/);
   });
 
   it('任务描述有内容才自动显示创建任务', () => {

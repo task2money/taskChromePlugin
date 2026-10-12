@@ -321,7 +321,7 @@ button *:not(kbd):not(.tcp-guide-kbd) { background: transparent !important; }
   font-size: 12px; font-family: inherit; cursor: pointer;
 }
 .form-select:focus { outline: none; border-color: var(--taskplugin-accent); }
-/* Alt+E 默认项目列表 */
+/* 默认项目列表（现行快捷键 Alt+Z；Alt+E 已废弃） */
 .popup-project-list {
   max-height: 140px;
   overflow-y: auto;

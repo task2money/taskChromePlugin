@@ -71,7 +71,7 @@
       if (status && !status.textContent) status.textContent = tx('agentSuggestionsEmpty');
       return;
     }
-    if (status) status.textContent = '';
+    if (status) status.textContent = scopedStatusText();
     host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc, siteBaseUrl);
     if (body) body.innerHTML = '';
     bind(host);
@@ -184,7 +184,7 @@
     syncBadge(posts.length);
     if (status) {
       const emptyKey = lookupSource === 'typed' ? 'agentSuggestionsEmptyUrl' : 'agentSuggestionsEmpty';
-      status.textContent = posts.length ? '' : tx(emptyKey);
+      status.textContent = posts.length ? scopedStatusText() : tx(emptyKey);
     }
     render();
   }
@@ -196,6 +196,21 @@
   function typedUrlRaw() {
     const input = urlInput();
     return input ? String(input.value || '') : '';
+  }
+
+  /** 查询框里填的网址；非空即把列表钉在该网址上。 */
+  function typedScopeUrl() {
+    return typedUrlRaw().trim();
+  }
+
+  /**
+   * 钉住时状态行写明看的是哪条网址，空则交回调用方决定文案。
+   * 只认输入框的当前值，所以清空输入框后无需额外复位就能回到跟随当前标签。
+   */
+  function scopedStatusText() {
+    const url = typedScopeUrl();
+    if (!url || lookupSource !== 'typed') return '';
+    return tx('agentSuggestionsTypedScope').replace('{url}', url);
   }
 
   function lookupTarget() {
@@ -214,6 +229,11 @@
     const btn = document.getElementById('sp-agent-query');
     if (!input || input.dataset.bound === '1') return;
     input.dataset.bound = '1';
+    input.addEventListener('input', () => {
+      // 清空输入框即取消钉住，重新跟随当前标签；仍有网址时不自动查询，等用户点查询。
+      if (typedScopeUrl() || lookupSource !== 'typed') return;
+      refresh().catch(() => {});
+    });
     input.addEventListener('keydown', (ev) => {
       // Anti-Replay-OK: read-only lookup; the query button busy flag blocks a second click
       if (ev.key !== 'Enter') return;
@@ -285,6 +305,10 @@
 
   global.AgentSuggestionsPanel = {
     refresh,
+    /** 查询框有网址时，列表与页签数字都归该网址，不再被当前标签的列表消息改写。 */
+    isPinnedToTypedUrl() {
+      return typedScopeUrl() !== '';
+    },
     applyListed(message) {
       if (typedUrlRaw().trim()) return;
       lookupSource = 'active-tab';

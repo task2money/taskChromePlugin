@@ -13,8 +13,17 @@ var pageAdvisorPickFrame = null;
 var pageAdvisorScopeRoots = null;
 var lastAdvisorPickGestureAt = 0;
 
+/** 选区根带上相交的同源 iframe 子文档根，编号与文案才落得进子文档。 */
+function expandPageAdvisorScopeRoots(els) {
+  const list = (Array.isArray(els) ? els : []).filter((el) => el && el.nodeType === 1);
+  if (!list.length) return list;
+  const Scope = typeof PageAdvisorScope !== 'undefined' ? PageAdvisorScope : null;
+  if (!Scope || typeof Scope.scopeRootsWithFrames !== 'function') return list;
+  return Scope.scopeRootsWithFrames(list);
+}
+
 function rememberPageAdvisorScopeRoots(els) {
-  pageAdvisorScopeRoots = (Array.isArray(els) ? els : []).filter((el) => el && el.nodeType === 1);
+  pageAdvisorScopeRoots = expandPageAdvisorScopeRoots(els);
 }
 
 function getPageAdvisorScopeRoots() {
@@ -57,7 +66,10 @@ function clearPendingPageAdvisorElements() {
 }
 
 function setPendingPageAdvisorElements(els) {
-  pendingPageAdvisorElements = Array.isArray(els) ? els.filter((el) => el && el.nodeType === 1) : null;
+  // 采集正文与大纲时同样要把同源 iframe 子文档算进选区。
+  pendingPageAdvisorElements = Array.isArray(els)
+    ? expandPageAdvisorScopeRoots(els)
+    : null;
 }
 
 function isPageAdvisorRegionMode() {

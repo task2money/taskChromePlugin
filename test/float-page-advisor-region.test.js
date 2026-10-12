@@ -125,4 +125,38 @@ describe('float-page-advisor-region element pick', () => {
     assert.match(layer, /capturePageContextForElements/);
     assert.match(layer, /getPendingPageAdvisorElements/);
   });
+
+  it('选区根与待采集元素都带上同源 iframe 子文档（OPT-20261012-032）', () => {
+    const vm = require('node:vm');
+    const src = fs.readFileSync(
+      path.join(root, 'content/float-page-advisor-region.js'),
+      'utf8',
+    );
+    const picked = [{ nodeType: 1, isConnected: true }];
+    const subDocRoot = { nodeType: 1, isConnected: true };
+    const expanded = [];
+    const sandbox = {
+      globalThis: {},
+      picked,
+      subDocRoot,
+      console,
+      PageAdvisorScope: {
+        scopeRootsWithFrames(roots) {
+          expanded.push(roots);
+          return roots.concat([subDocRoot]);
+        },
+      },
+    };
+    vm.runInNewContext(
+      `${src}\n`
+      + 'rememberPageAdvisorScopeRoots(picked);\n'
+      + 'setPendingPageAdvisorElements(picked);\n'
+      + 'this.getPageAdvisorScopeRoots = getPageAdvisorScopeRoots;\n'
+      + 'this.getPendingPageAdvisorElements = getPendingPageAdvisorElements;\n',
+      sandbox,
+    );
+    assert.equal(expanded.length, 2, '登记选区根与登记待采集元素都走扩展');
+    assert.equal(sandbox.getPageAdvisorScopeRoots()[1], subDocRoot);
+    assert.equal(sandbox.getPendingPageAdvisorElements()[1], subDocRoot);
+  });
 });

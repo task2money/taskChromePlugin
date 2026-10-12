@@ -135,6 +135,9 @@
   chrome.runtime.onMessage.addListener((message) => {
     if (!message) return;
     if (message.action === 'agentSuggestionsListed') {
+      // 查询框填了网址时，页签数字归那条网址，不能被当前标签的列表消息盖掉。
+      const panel = globalThis.AgentSuggestionsPanel;
+      if (panel && typeof panel.isPinnedToTypedUrl === 'function' && panel.isPinnedToTypedUrl()) return;
       const current = globalThis.__taskpluginSidePanelTabId;
       if (current && message.tabId && String(message.tabId) !== String(current)) return;
       applyAgentSuggestionBadge(message.count);

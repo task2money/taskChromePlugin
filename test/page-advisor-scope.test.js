@@ -5,6 +5,7 @@ const assert = require('node:assert/strict');
 
 const {
   allocateDomNid,
+  scopeRootsWithFrames,
   queryNidWithinRoots,
   deepestTextMatch,
   parentNidIfInside,
@@ -54,7 +55,7 @@ function makeRegistry() {
         };
         return walk(node);
       },
-      querySelectorAll() {
+      querySelectorAll(sel) {
         const out = [];
         const walk = (el) => {
           for (const c of el.children) {
@@ -63,7 +64,9 @@ function makeRegistry() {
           }
         };
         walk(node);
-        return out;
+        const tag = String(sel || '').trim().toUpperCase();
+        if (!tag || tag === '*') return out;
+        return out.filter((el) => el.tagName === tag);
       },
       contains(el) {
         let cur = el;
@@ -141,5 +144,68 @@ describe('page-advisor-scope resolution stays inside the selection', () => {
     const picked = make('section', outside);
     assert.equal(parentNidIfInside(picked, outside, 'n1'), '');
     assert.equal(parentNidIfInside(picked, picked, 'n2'), 'n2');
+  });
+});
+
+const rect = (top, left, width, height) => ({
+  top, left, width, height, bottom: top + height, right: left + width,
+});
+
+/** 外层 section 包一个 iframe；子文档是一套自己的注册表。 */
+function makeFrameHost({ crossOrigin = false, sectionRect = rect(0, 0, 500, 500), frameRect = rect(40, 40, 200, 120) } = {}) {
+  const host = makeRegistry();
+  const section = host.make('section');
+  section.getBoundingClientRect = () => sectionRect;
+  const frame = host.make('iframe', section);
+  frame.getBoundingClientRect = () => frameRect;
+  const sub = makeRegistry();
+  const subHtml = sub.make('html');
+  sub.doc.documentElement = subHtml;
+  if (crossOrigin) {
+    Object.defineProperty(frame, 'contentDocument', {
+      get() { throw new Error('SecurityError: cross-origin'); },
+    });
+  } else {
+    frame.contentDocument = sub.doc;
+  }
+  return { host, section, frame, sub, subHtml };
+}
+
+describe('page-advisor-scope 把同源 iframe 子文档算进选区（OPT-20261012-032）', () => {
+  it('外层容器带相交的同源 iframe 时，子文档根也进选区', () => {
+    const { section, subHtml } = makeFrameHost();
+    const roots = scopeRootsWithFrames([section]);
+    assert.equal(roots[0], section, '点选的根排在第一位');
+    assert.ok(roots.includes(subHtml), '同源子文档根进了选区');
+  });
+
+  it('iframe 里的编号与文案都能在外层容器选区里找到', () => {
+    const h = makeFrameHost();
+    const btn = h.sub.make('button', h.subHtml);
+    btn.setAttribute(NID, 'n7');
+    btn.textContent = '去结算';
+    const roots = scopeRootsWithFrames([h.section]);
+    assert.equal(queryNidWithinRoots('n7', roots, NID), btn, '标记落在 iframe 内的按钮上');
+    assert.equal(deepestTextMatch(roots, '去结算'), btn);
+  });
+
+  it('不带子文档扩展的选区仍然找不到 iframe 里的编号', () => {
+    const h = makeFrameHost();
+    const btn = h.sub.make('button', h.subHtml);
+    btn.setAttribute(NID, 'n7');
+    assert.equal(queryNidWithinRoots('n7', [h.section], NID), null, '只查外层容器会落空');
+  });
+
+  it('跨域 iframe 不进选区', () => {
+    const { section } = makeFrameHost({ crossOrigin: true });
+    assert.deepEqual(scopeRootsWithFrames([section]), [section]);
+  });
+
+  it('零尺寸与不相交的 iframe 不进选区', () => {
+    const hidden = makeFrameHost({ frameRect: rect(40, 40, 0, 0) });
+    assert.deepEqual(scopeRootsWithFrames([hidden.section]), [hidden.section]);
+
+    const away = makeFrameHost({ frameRect: rect(900, 900, 200, 120) });
+    assert.deepEqual(scopeRootsWithFrames([away.section]), [away.section]);
   });
 });
