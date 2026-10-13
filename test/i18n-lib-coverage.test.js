@@ -49,6 +49,7 @@ const MIGRATED = [
   'background/sw-auth.js',
   'background/sw-pick.js',
   'background/sw-page-advisor.js',
+  'background/sw-page-advisor-generate.js',
   'background/sw-page-advisor-pending.js',
   'background/sw-messages-task.js',
   'background/sw-messages-session.js',

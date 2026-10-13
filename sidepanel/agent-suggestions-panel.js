@@ -1,5 +1,9 @@
 /**
- * 侧边栏「智能体建议」：只放建议贴。点选后让当前页切换显示这一条建议。
+ * 侧边栏「智能体建议」：只放当前网页的建议贴，并按需为当前网页生成一条。
+ *
+ * 列表固定跟随当前网页（不再有网址框与查询按钮，ADR-0167）。用户能选的是
+ * 提示词（本机 prompt skills 多选一），点「给当前网页生成建议」后由后台生成并
+ * 落到域名所属项目（没绑定则默认项目），落点项目名由后台回报。
  */
 (function initAgentSuggestionsPanel(global) {
   'use strict';
@@ -8,6 +12,8 @@
   var activeId = '';
   var siteBaseUrl = '';
   var pageShownId = '';
+  // 与下拉菜单同源的技能缓存，供点击生成时同步取用（见 bindPromptSelect）。
+  var skillList = [];
   var confirmGuard = global.ClickGuard && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
@@ -22,63 +28,45 @@
       .replace(/</g, '&lt;');
   }
 
-  var INCLUDE_QUERY_KEY = 'agentSuggestionsIncludeQuery';
-  var lookupSource = 'active-tab';
-
   function statusEl() {
     return document.getElementById('sp-agent-status');
   }
 
-  function includeQueryBox() {
-    return document.getElementById('sp-agent-include-query');
+  function promptSelect() {
+    return document.getElementById('sp-agent-prompt');
   }
 
-  async function readIncludeQuery() {
-    try {
-      const got = await chrome.storage.local.get(INCLUDE_QUERY_KEY);
-      return got && got[INCLUDE_QUERY_KEY] === true;
-    } catch (_err) {
-      return false;
-    }
+  function generateButton() {
+    return document.getElementById('sp-agent-generate');
   }
 
-  async function bindIncludeQuery() {
-    const box = includeQueryBox();
-    if (!box) return;
-    box.checked = await readIncludeQuery();
-    if (box.dataset.bound === '1') return;
-    box.dataset.bound = '1';
-    box.addEventListener('change', async () => {
-      // Anti-Replay-OK: local lookup preference; re-reads the pending list
-      await chrome.storage.local.set({ [INCLUDE_QUERY_KEY]: box.checked === true });
-      await refresh();
-      const target = lookupTarget();
-      if (target.ok && target.source !== 'typed') {
-        chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
-      }
-    });
+  function setStatus(text, traceId) {
+    const status = statusEl();
+    if (!status) return;
+    status.textContent = text || '';
+    const tid = String(traceId || '').trim();
+    if (tid) status.setAttribute('data-traceId', tid);
+    else status.removeAttribute('data-traceId');
   }
 
   function render() {
     const host = document.getElementById('sp-agent-posts');
     const body = document.getElementById('sp-agent-body');
-    const status = statusEl();
+    if (!host) return;
     const Pending = global.PageAdvisorSitePending;
-    if (!host || !Pending) return;
-    if (!posts.length) {
+    if (!Pending || !posts.length) {
       host.innerHTML = '';
       if (body) body.innerHTML = '';
-      if (status && !status.textContent) status.textContent = tx('agentSuggestionsEmpty');
+      if (!posts.length) setStatus(tx('agentSuggestionsEmpty'));
       return;
     }
-    if (status) status.textContent = scopedStatusText();
+    setStatus('');
     host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc, siteBaseUrl);
     if (body) body.innerHTML = '';
     bind(host);
   }
 
   function notifyPageSelection(postId) {
-    if (lookupSource === 'typed') return;
     const id = String(postId || '');
     const post = posts.find((item) => String(item.id) === id) || null;
     pageShownId = id;
@@ -128,18 +116,14 @@
       });
       btn.disabled = false;
       btn.setAttribute('aria-busy', 'false');
-      const status = statusEl();
       if (!resp || !resp.success) {
-        if (status) {
-          status.textContent = (resp && resp.error) || tx(action === 'confirm' ? 'paSiteConfirmFail' : 'paSiteRejectFail');
-        }
+        setStatus((resp && resp.error) || tx(action === 'confirm' ? 'paSiteConfirmFail' : 'paSiteRejectFail'));
         return;
       }
       const Pending = global.PageAdvisorSitePending;
       const shown = pageShownId;
       posts = Pending.sitePendingPostsAfterMark(posts, sid);
       activeId = Pending.pickSitePendingPostId(posts, activeId);
-      if (status) status.textContent = '';
       syncBadge(posts.length);
       render();
       if (shown && shown === sid) notifyPageSelection(activeId);
@@ -154,16 +138,11 @@
   }
 
   function applyItems(resp) {
-    const status = statusEl();
     if (!resp || resp.success === false || resp.ok === false) {
       posts = [];
       syncBadge(0);
-      if (status) {
-        status.textContent = (resp && resp.error) || tx('agentSuggestionsLoadFail');
-        const traceId = String((resp && (resp.traceId || resp.trace_id)) || '').trim();
-        if (traceId) status.setAttribute('data-traceId', traceId);
-        else status.removeAttribute('data-traceId');
-      }
+      setStatus((resp && resp.error) || tx('agentSuggestionsLoadFail'),
+        resp && (resp.traceId || resp.trace_id));
       render();
       return;
     }
@@ -175,71 +154,96 @@
       if (host) host.innerHTML = '';
       if (body) body.innerHTML = '';
       syncBadge(0);
-      if (status) status.textContent = tx('agentSuggestionsLogin');
+      setStatus(tx('agentSuggestionsLogin'));
       return;
     }
     posts = Array.isArray(resp.items) ? resp.items : [];
     const Pending = global.PageAdvisorSitePending;
     activeId = Pending ? Pending.pickSitePendingPostId(posts, activeId) : '';
     syncBadge(posts.length);
-    if (status) {
-      const emptyKey = lookupSource === 'typed' ? 'agentSuggestionsEmptyUrl' : 'agentSuggestionsEmpty';
-      status.textContent = posts.length ? scopedStatusText() : tx(emptyKey);
-    }
     render();
   }
 
-  function urlInput() {
-    return document.getElementById('sp-agent-url');
+  async function loadPromptStore() {
+    const Skills = global.PageAdvisorPromptSkills;
+    if (!Skills || typeof Skills.loadFromStorage !== 'function') {
+      return { skills: [], activeSkillId: '' };
+    }
+    try {
+      return await Skills.loadFromStorage();
+    } catch (e) {
+      console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
+      return { skills: [], activeSkillId: '' };
+    }
   }
 
-  function typedUrlRaw() {
-    const input = urlInput();
-    return input ? String(input.value || '') : '';
-  }
-
-  /** 查询框里填的网址；非空即把列表钉在该网址上。 */
-  function typedScopeUrl() {
-    return typedUrlRaw().trim();
+  function plainSkillOptions(skills) {
+    return skills.map((s) => `<option value="${esc(s.id)}">${esc(s.title || s.id)}</option>`).join('');
   }
 
   /**
-   * 钉住时状态行写明看的是哪条网址，空则交回调用方决定文案。
-   * 只认输入框的当前值，所以清空输入框后无需额外复位就能回到跟随当前标签。
+   * 选择不落盘：这是「这一次生成用哪条提示词」，与工作空间级激活技能
+   * （PageAdvisorPromptSkills 的 activeSkillId，ALT+Z 直连用）是两回事。
    */
-  function scopedStatusText() {
-    const url = typedScopeUrl();
-    if (!url || lookupSource !== 'typed') return '';
-    return tx('agentSuggestionsTypedScope').replace('{url}', url);
+  async function bindPromptSelect() {
+    const sel = promptSelect();
+    if (!sel) return;
+    const store = await loadPromptStore();
+    const skills = (Array.isArray(store?.skills) ? store.skills : []).filter((s) => s && s.id);
+    const active = String(store?.activeSkillId || '');
+    const keep = sel.value || active;
+    sel.innerHTML = `<option value="">${esc(tx('agentSuggestionsPromptDefault'))}</option>`
+      + plainSkillOptions(skills);
+    sel.value = skills.some((s) => s.id === keep) ? keep : '';
+    // 点生成时要同步拿到技能正文与倾向，故随下拉一起缓存，别在点击里再读一次 storage。
+    skillList = skills;
   }
 
-  function lookupTarget() {
-    const Pending = global.PageAdvisorSitePending;
-    if (Pending && typeof Pending.resolveAgentSuggestionLookupUrl === 'function') {
-      return Pending.resolveAgentSuggestionLookupUrl(typedUrlRaw(), '');
+  function bindGenerateButton() {
+    const btn = generateButton();
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => generate());
+  }
+
+  async function generate() {
+    const btn = generateButton();
+    if (!btn || btn.dataset.busy === '1') return;
+    const sel = promptSelect();
+    const skillId = String((sel && sel.value) || '').trim();
+    const skill = skillList.find((s) => s && String(s.id) === skillId) || null;
+
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    setStatus(tx('agentSuggestionsGenerating'));
+    try {
+      // Anti-Replay-OK: 生成由后台带 Idempotency-Key 发一次；这里只挡住重复点击
+      const resp = await chrome.runtime.sendMessage({
+        action: 'generateAgentSuggestionsForActiveTab',
+        skillId: skill ? String(skill.id) : '',
+        promptTendency: skill ? String(skill.tendency || '') : '',
+      });
+      if (!resp || resp.success === false) {
+        setStatus((resp && resp.error) || tx('agentSuggestionsGenerateFail'), resp && resp.traceId);
+        return;
+      }
+      await refresh();
+      if (resp.postId) {
+        activeId = String(resp.postId);
+        render();
+        notifyPageSelection(activeId);
+      }
+      const project = String(resp.projectName || '').trim();
+      setStatus(tx(resp.created === false ? 'agentSuggestionsPostedExisting' : 'agentSuggestionsGeneratedInto',
+        project ? { project } : ''));
+    } catch (e) {
+      setStatus(e?.message || tx('agentSuggestionsGenerateFail'));
+    } finally {
+      btn.dataset.busy = '0';
+      btn.disabled = false;
+      btn.setAttribute('aria-busy', 'false');
     }
-    const raw = typedUrlRaw().trim();
-    return raw
-      ? { ok: true, source: 'typed', url: raw }
-      : { ok: true, source: 'active-tab', url: '' };
-  }
-
-  function bindUrlInput() {
-    const input = urlInput();
-    const btn = document.getElementById('sp-agent-query');
-    if (!input || input.dataset.bound === '1') return;
-    input.dataset.bound = '1';
-    input.addEventListener('input', () => {
-      // 清空输入框即取消钉住，重新跟随当前标签；仍有网址时不自动查询，等用户点查询。
-      if (typedScopeUrl() || lookupSource !== 'typed') return;
-      refresh().catch(() => {});
-    });
-    input.addEventListener('keydown', (ev) => {
-      // Anti-Replay-OK: read-only lookup; the query button busy flag blocks a second click
-      if (ev.key !== 'Enter') return;
-      ev.preventDefault();
-      if (btn) btn.click();
-    });
   }
 
   function rememberSiteBase() {
@@ -249,69 +253,33 @@
     }).catch(() => {});
   }
 
+  /**
+   * 拉当前网页的建议贴。`notifyPage` 为真时顺带让页面浮层也重拉
+   * （标记了一帖之后页面列表要跟着少一行）。
+   */
   async function refresh(opts) {
     await rememberSiteBase();
-    await bindIncludeQuery();
-    bindQueryButton();
-    bindUrlInput();
-    const status = statusEl();
-    const target = lookupTarget();
-    if (!target.ok) {
-      if (status) {
-        status.textContent = tx('agentSuggestionsInvalidUrl');
-        status.removeAttribute('data-traceId');
-      }
-      return;
-    }
-    lookupSource = target.source;
-    const notifyPage = !!(opts && opts.notifyPage) && target.source !== 'typed';
-    const message = {
-      action: notifyPage ? 'refreshSitePendingForActiveTab' : 'listSitePendingForActiveTab',
-    };
-    if (target.source === 'typed') message.pageUrl = target.url;
+    await bindPromptSelect();
+    bindGenerateButton();
     let resp;
     try {
-      resp = await chrome.runtime.sendMessage(message);
-    } catch (e) {
+      resp = await chrome.runtime.sendMessage({
+        action: (opts && opts.notifyPage) ? 'refreshSitePendingForActiveTab' : 'listSitePendingForActiveTab',
+      });
+    } catch (_e) {
       posts = [];
       syncBadge(0);
-      if (status) status.textContent = tx('agentSuggestionsLoadFail');
+      setStatus(tx('agentSuggestionsLoadFail'));
       return;
     }
     applyItems(resp || {});
   }
 
-  function bindQueryButton() {
-    const btn = document.getElementById('sp-agent-query');
-    if (!btn || btn.dataset.bound === '1') return;
-    btn.dataset.bound = '1';
-    btn.addEventListener('click', async () => {
-      // Anti-Replay-OK: read-only lookup of pending suggestions for the active tab
-      if (btn.dataset.busy === '1') return;
-      btn.dataset.busy = '1';
-      btn.disabled = true;
-      btn.setAttribute('aria-busy', 'true');
-      try {
-        await refresh({ notifyPage: true });
-      } finally {
-        btn.dataset.busy = '0';
-        btn.disabled = false;
-        btn.setAttribute('aria-busy', 'false');
-      }
-    });
-  }
-
-  bindQueryButton();
+  bindGenerateButton();
 
   global.AgentSuggestionsPanel = {
     refresh,
-    /** 查询框有网址时，列表与页签数字都归该网址，不再被当前标签的列表消息改写。 */
-    isPinnedToTypedUrl() {
-      return typedScopeUrl() !== '';
-    },
     applyListed(message) {
-      if (typedUrlRaw().trim()) return;
-      lookupSource = 'active-tab';
       rememberSiteBase().then(() => {
         applyItems(Object.assign({ success: true }, message || {}));
       });

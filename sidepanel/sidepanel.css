@@ -66,32 +66,34 @@ html, body {
   line-height: 1.25rem;
   font-weight: 600;
 }
-.sp-agent-query-row {
+.sp-agent-generate-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
   margin: 0 0 8px;
 }
-html[data-taskplugin-host="sidepanel"] .sp-agent-query-row .sp-agent-url {
+.sp-agent-prompt-field {
+  display: flex;
   flex: 1 1 auto;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.sp-agent-prompt-label {
+  font-size: 12px;
+  color: var(--taskplugin-muted-ink, #6b7280);
+}
+html[data-taskplugin-host="sidepanel"] .sp-agent-generate-row .sp-agent-prompt {
   width: auto;
   min-width: 0;
   min-height: 44px;
 }
-.sp-agent-query {
+.sp-agent-generate {
   flex: 0 0 auto;
   min-height: 44px;
-  min-width: 44px;
   margin: 0;
   padding: 0 16px;
-}
-.sp-agent-include-query {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 44px;
-  margin: 0 0 8px;
-  font-size: 14px;
+  white-space: nowrap;
 }
 #sp-agent-posts {
   display: flex;

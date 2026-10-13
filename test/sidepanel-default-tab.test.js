@@ -19,41 +19,39 @@ describe('side panel default tab', () => {
     assert.match(html, /data-i18n="agentSuggestionsTab"/);
     assert.match(html, /id="sp-pane-agent"[^>]*hidden/);
     assert.match(html, /智能体建议/);
-    assert.match(html, /id="sp-agent-query"/);
-    assert.match(html, /data-i18n="agentSuggestionsQuery"/);
-    const urlAt = html.indexOf('id="sp-agent-url"');
-    const queryAt = html.indexOf('id="sp-agent-query"');
-    assert.ok(urlAt >= 0 && urlAt < queryAt, 'URL input sits before the query button');
-    assert.match(html, /data-i18n-placeholder="agentSuggestionsUrlPlaceholder"/);
     assert.match(html, /id="sp-agent-count"/);
     assert.match(html, /id="sp-agent-count"[^>]*hidden/);
     assert.match(html, /<span data-i18n="agentSuggestionsTab">/);
-    assert.match(html, /id="sp-agent-include-query"/);
-    assert.doesNotMatch(html, /id="sp-agent-include-query"[^>]*checked/);
-    assert.match(html, /data-i18n="agentSuggestionsIncludeQuery"/);
+    // 网址输入框、查询按钮、「查询时包含网址参数」都已去掉（ADR-0167）。
+    assert.doesNotMatch(html, /id="sp-agent-url"/);
+    assert.doesNotMatch(html, /id="sp-agent-query"/);
+    assert.doesNotMatch(html, /id="sp-agent-include-query"/);
+    assert.doesNotMatch(html, /agentSuggestionsIncludeQuery/);
+    const promptAt = html.indexOf('id="sp-agent-prompt"');
+    const generateAt = html.indexOf('id="sp-agent-generate"');
+    assert.ok(promptAt >= 0, 'prompt dropdown present');
+    assert.ok(generateAt > promptAt, 'generate button sits after the prompt dropdown');
+    assert.match(html, /id="sp-agent-prompt"[^>]*data-i18n-aria-label="agentSuggestionsPromptLabel"/);
+    assert.match(html, /data-i18n="agentSuggestionsGenerate"/);
     assert.match(html, /id="sp-pane-create"[^>]*hidden/);
     assert.match(html, /side-panel-bridge\.js/);
     assert.match(js, /getSidePanelOpenIntent/);
     assert.match(js, /sidePanel\.onOpened/);
   });
 
-  it('查询开关写到本机并让页面浮层重拉', () => {
+  it('面板按当前网页列列表，点生成走后台生成消息', () => {
     const panel = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'agent-suggestions-panel.js'), 'utf8');
-    assert.match(panel, /agentSuggestionsIncludeQuery/);
+    assert.match(panel, /listSitePendingForActiveTab/);
     assert.match(panel, /refreshSitePendingForActiveTab/);
-    assert.match(panel, /Anti-Replay-OK: local lookup preference/);
-    assert.match(panel, /id="sp-agent-query"|sp-agent-query/);
-    assert.match(panel, /Anti-Replay-OK: read-only lookup/);
-    assert.match(panel, /resolveAgentSuggestionLookupUrl/);
-    assert.match(panel, /pageUrl/);
+    assert.match(panel, /generateAgentSuggestionsForActiveTab/);
+    assert.match(panel, /PageAdvisorPromptSkills/);
     assert.match(panel, /selectAgentSuggestionPost/);
     assert.doesNotMatch(panel, /buildSitePendingPostBodyHtml/);
+    assert.doesNotMatch(panel, /agentSuggestionsIncludeQuery/);
+    assert.doesNotMatch(panel, /resolveAgentSuggestionLookupUrl/);
+    assert.doesNotMatch(panel, /isPinnedToTypedUrl/);
     assert.match(js, /agentSuggestionsListed/);
     assert.match(js, /applyAgentSuggestionBadge/);
-    // 查询框填了网址时页签数字归那条网址，别被当前标签的列表消息盖掉（OPT-20261012-024）
-    assert.match(js, /isPinnedToTypedUrl/);
-    assert.match(panel, /isPinnedToTypedUrl/);
-    assert.match(panel, /agentSuggestionsTypedScope/);
   });
 
   it('任务描述有内容才自动显示创建任务', () => {

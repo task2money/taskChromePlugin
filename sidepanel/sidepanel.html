@@ -105,14 +105,13 @@
             <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里只放还没采纳、也没废弃的建议贴。网址留空则查询当前网页，填写后查询该网址。点一张建议贴，当前页就显示这一条建议；再点另一张，页面换成后一条。页面上不再另放建议浮层。</p>
           </details>
         </div>
-        <div class="sp-agent-query-row">
-          <input type="text" class="form-input sp-agent-url" id="sp-agent-url" data-testid="sp-agent-url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="留空则查询当前网页" data-i18n-placeholder="agentSuggestionsUrlPlaceholder" data-i18n-aria-label="agentSuggestionsUrlLabel" aria-label="要查询的网址">
-          <button type="button" class="sp-agent-query" id="sp-agent-query" data-testid="sp-agent-query" data-i18n="agentSuggestionsQuery">查询</button>
+        <div class="sp-agent-generate-row">
+          <label class="sp-agent-prompt-field" for="sp-agent-prompt">
+            <span class="sp-agent-prompt-label" data-i18n="agentSuggestionsPromptLabel">提示词</span>
+            <select class="form-select sp-agent-prompt" id="sp-agent-prompt" data-testid="sp-agent-prompt" data-i18n-aria-label="agentSuggestionsPromptLabel" aria-label="提示词"></select>
+          </label>
+          <button type="button" class="btn btn-primary sp-agent-generate" id="sp-agent-generate" data-testid="sp-agent-generate" data-i18n="agentSuggestionsGenerate">给当前网页生成建议</button>
         </div>
-        <label class="sp-agent-include-query" for="sp-agent-include-query">
-          <input type="checkbox" id="sp-agent-include-query" data-testid="sp-agent-include-query">
-          <span data-i18n="agentSuggestionsIncludeQuery">查询时包含网址参数</span>
-        </label>
         <p id="sp-agent-status" class="hint" aria-live="polite" data-testid="sp-agent-status"></p>
         <div id="sp-agent-posts" data-testid="sp-agent-posts"></div>
         <div id="sp-agent-body" data-testid="sp-agent-body"></div>

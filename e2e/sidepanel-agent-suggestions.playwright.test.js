@@ -165,19 +165,19 @@ test.describe('侧栏智能体建议', () => {
     await expect(badge).toHaveText('2');
     await expect(page.locator('#sp-agent-posts [data-post-id]')).toHaveCount(2);
 
-    // 服务端多了一条待处理：点「查询」后列表与数字一起变成 3。
+    // 服务端多了一条待处理：重新点开该页签后列表与数字一起变成 3。
     await page.evaluate((extra) => { window.__items = window.__items.concat([extra]); },
       { id: 'post-3', tenantId: TENANT, title: '定价页补对比表', created_at: '2026-10-12T04:00:00Z' });
-    const before = (await sentActions(page)).filter((a) => a === 'refreshSitePendingForActiveTab').length;
-    await page.locator('#sp-agent-query').click();
+    const before = (await sentActions(page)).filter((a) => a === 'listSitePendingForActiveTab').length;
+    await tab.click();
     await expect(page.locator('#sp-agent-posts [data-post-id]')).toHaveCount(3);
     await expect(badge).toHaveText('3');
-    const after = (await sentActions(page)).filter((a) => a === 'refreshSitePendingForActiveTab').length;
+    const after = (await sentActions(page)).filter((a) => a === 'listSitePendingForActiveTab').length;
     expect(after).toBe(before + 1);
 
     // 一条都不剩时数字收起来，别留个 0 在页签上。
     await page.evaluate(() => { window.__items = []; });
-    await page.locator('#sp-agent-query').click();
+    await tab.click();
     await expect(page.locator('#sp-agent-posts [data-post-id]')).toHaveCount(0);
     await expect(badge).toBeHidden();
 

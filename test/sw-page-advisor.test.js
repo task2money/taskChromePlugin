@@ -60,6 +60,7 @@ function loadSwPageAdvisorStack(extraSandbox = {}) {
     'lib/page-advisor-fail-trace-id.js',
     'lib/page-advisor-timing.js',
     'background/sw-page-advisor-timing-run.js',
+    'background/sw-page-advisor-generate.js',
     'background/sw-page-advisor.js',
   ]) {
     vm.runInContext(

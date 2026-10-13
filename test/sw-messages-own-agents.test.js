@@ -23,7 +23,8 @@ describe('sw-messages-own-agents', () => {
     assert.match(src, /overlayPageAdvisorTenantPref/);
     const session = fs.readFileSync(path.join(__dirname, '../background/sw-messages-session.js'), 'utf8');
     assert.match(session, /case 'getTenantAgentPref'/);
-    const sw = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor.js'), 'utf8');
+    // 下发前的租户偏好叠加在生成核心里（Alt+Z 与侧边栏生成共用同一份）。
+    const sw = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor-generate.js'), 'utf8');
     assert.match(sw, /overlayPageAdvisorTenantPref/);
   });
 });

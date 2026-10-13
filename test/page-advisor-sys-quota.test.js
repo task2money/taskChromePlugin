@@ -3,6 +3,7 @@
 /**
  * OPT-20261006-023：系统智能体 SKU 次数用尽须与自有转发次数区分；
  * 若复用 402 的 AUTO_INNOVATE 引导，已选系统购买的用户会被引去买错资源。
+ * 判据跟代码走：分流函数与下发失败处理都在生成核心（sidepanel 生成共用同一份）。
  */
 
 const { describe, it } = require('node:test');
@@ -18,7 +19,7 @@ function read(rel) {
 
 describe('系统智能体次数用尽引导', () => {
   it('service worker 先分流 SYS_AUTO_INNOVATE_QUOTA_EXCEEDED 再落到通用 402', () => {
-    const sw = read('background/sw-page-advisor.js');
+    const sw = read('background/sw-page-advisor-generate.js');
     assert.match(sw, /function sysAutoInnovateQuotaExceededMessage/);
     assert.match(sw, /errorCode: 'SYS_AUTO_INNOVATE_QUOTA_EXCEEDED'/);
     const sysIdx = sw.indexOf("e?.errorCode === 'SYS_AUTO_INNOVATE_QUOTA_EXCEEDED'");
@@ -37,7 +38,7 @@ describe('系统智能体次数用尽引导', () => {
   });
 
   it('系统 SKU 引导链接到设置页而非下单页', () => {
-    const sw = read('background/sw-page-advisor.js');
+    const sw = read('background/sw-page-advisor-generate.js');
     const fnAt = sw.indexOf('function sysAutoInnovateQuotaExceededMessage');
     const body = sw.slice(fnAt, sw.indexOf('\n}', fnAt));
     assert.match(body, /settings\/feature-params\//);

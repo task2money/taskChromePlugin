@@ -14,7 +14,6 @@ const {
   isSkippableNavigationUrl,
   buildSitePendingTabsHtml,
   pageUrlForAgentSuggestions,
-  resolveAgentSuggestionLookupUrl,
   sitePendingGeneratedDate,
   pickSitePendingPostId,
   sitePendingPostsAfterMark,
@@ -155,41 +154,15 @@ describe('PageAdvisorSitePending helpers', () => {
     }
   });
 
-  it('looks up the active tab when the URL box is empty', () => {
-    assert.deepEqual(
-      resolveAgentSuggestionLookupUrl('  ', 'https://shop.test/p'),
-      { ok: true, source: 'active-tab', url: 'https://shop.test/p' },
-    );
-    assert.equal(
-      resolveAgentSuggestionLookupUrl('', '').source,
-      'active-tab',
-    );
-  });
-
-  it('looks up a typed http(s) URL and prefixes https when the scheme is missing', () => {
-    const typed = resolveAgentSuggestionLookupUrl(
-      'https://www.aidevpush.com/docs?x=1#a',
-      'https://shop.test/p',
-    );
-    assert.equal(typed.ok, true);
-    assert.equal(typed.source, 'typed');
-    assert.equal(typed.url, 'https://www.aidevpush.com/docs?x=1#a');
-    const bare = resolveAgentSuggestionLookupUrl('www.aidevpush.com/docs', '');
-    assert.equal(bare.source, 'typed');
-    assert.equal(bare.url, 'https://www.aidevpush.com/docs');
-  });
-
-  it('rejects non-http lookup targets', () => {
-    assert.equal(resolveAgentSuggestionLookupUrl('javascript:alert(1)', 'https://shop.test/p').ok, false);
-    assert.equal(resolveAgentSuggestionLookupUrl('chrome://extensions', '').ok, false);
-    assert.equal(resolveAgentSuggestionLookupUrl('not a url', '').ok, false);
-  });
-
-  it('drops the query string unless the agent suggestions option is on', () => {
+  it('drops the query string and fragment before looking a page up', () => {
     const raw = 'https://www.aidevpush.com/?accessCode=token#top';
-    assert.equal(pageUrlForAgentSuggestions(raw, false), 'https://www.aidevpush.com/');
-    assert.equal(pageUrlForAgentSuggestions(raw, true), raw);
-    assert.equal(pageUrlForAgentSuggestions('not a url', false), 'not a url');
+    assert.equal(pageUrlForAgentSuggestions(raw), 'https://www.aidevpush.com/');
+    assert.equal(
+      pageUrlForAgentSuggestions('https://shop.test/pricing?plan=pro'),
+      'https://shop.test/pricing',
+    );
+    assert.equal(pageUrlForAgentSuggestions('not a url'), 'not a url');
+    assert.equal(pageUrlForAgentSuggestions(''), '');
   });
 
   it('uses a smaller adopt and discard and links the saved task', () => {

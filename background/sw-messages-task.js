@@ -210,6 +210,9 @@ async function handleMessageRest(message, sender) {
     case 'listSitePendingForActiveTab':
       return handleListSitePendingForActiveTab(message);
 
+    case 'generateAgentSuggestionsForActiveTab':
+      return handleGenerateAgentSuggestionsForActiveTab(message);
+
     case 'confirmSitePendingSuggestion':
       return handleConfirmSitePendingSuggestion(message);
 

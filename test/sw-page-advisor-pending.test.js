@@ -115,7 +115,7 @@ describe('sw-page-advisor-pending', () => {
     assert.equal(sent[0].items[1].tenant_id, 'ten2');
   });
 
-  it('side panel and page overlay drop the query unless the option is on', async () => {
+  it('侧边栏与页面浮层都固定按当前网页查，且始终丢掉网址参数', async () => {
     const calls = [];
     const { sandbox } = loadPendingStack({
       PageAdvisorAPI: {
@@ -127,7 +127,6 @@ describe('sw-page-advisor-pending', () => {
         dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
       },
     });
-    sandbox.chrome.storage = { local: { get: async () => ({}) } };
     sandbox.chrome.tabs.query = async () => [{ id: 3, url: 'https://www.aidevpush.com/?accessCode=token#top' }];
     await sandbox.handleListSitePendingForActiveTab();
     await sandbox.refreshSitePendingForTab(9, 'https://www.aidevpush.com/pricing?plan=pro', { force: true });
@@ -135,55 +134,10 @@ describe('sw-page-advisor-pending', () => {
       'https://www.aidevpush.com/',
       'https://www.aidevpush.com/pricing',
     ]);
-    sandbox.chrome.storage.local.get = async () => ({ agentSuggestionsIncludeQuery: true });
+    // 消息里塞了别的网址也不再改口径：列表永远跟随当前网页（ADR-0167）。
     calls.length = 0;
-    await sandbox.handleListSitePendingForActiveTab();
-    assert.equal(calls[0], 'https://www.aidevpush.com/?accessCode=token#top');
-  });
-
-  it('a typed pageUrl is queried instead of the active tab and does not paint the current page', async () => {
-    const calls = [];
-    const { sandbox, sent } = loadPendingStack({
-      PageAdvisorAPI: {
-        listPendingSuggestions: async (_tenantId, pageUrl) => {
-          calls.push(pageUrl);
-          return { items: [{ id: 'other', title: 'Other', confirm_status: 'pending' }] };
-        },
-        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
-        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
-      },
-    });
-    sandbox.chrome.storage = { local: { get: async () => ({}) } };
-    const listed = await sandbox.handleListSitePendingForActiveTab({
-      pageUrl: 'https://other.test/docs?q=1',
-    });
-    assert.equal(listed.success, true);
-    assert.equal(listed.items[0].id, 'other');
-    assert.deepEqual(calls, ['https://other.test/docs']);
-    const refreshed = await sandbox.handleRefreshSitePendingForActiveTab({
-      pageUrl: 'https://other.test/docs',
-    });
-    assert.equal(refreshed.success, true);
-    assert.equal(sent.length, 0);
-  });
-
-  it('a non-http pageUrl does not call the list API', async () => {
-    const calls = [];
-    const { sandbox } = loadPendingStack({
-      PageAdvisorAPI: {
-        listPendingSuggestions: async () => {
-          calls.push(1);
-          return { items: [] };
-        },
-        confirmSuggestion: async () => ({ id: 'p1', confirm_status: 'confirmed' }),
-        dismissSuggestion: async () => ({ id: 'p1', confirm_status: 'dismissed' }),
-      },
-    });
-    const result = await sandbox.handleListSitePendingForActiveTab({
-      pageUrl: 'javascript:alert(1)',
-    });
-    assert.equal(result.success, false);
-    assert.equal(calls.length, 0);
+    await sandbox.handleListSitePendingForActiveTab({ pageUrl: 'https://other.test/docs?q=1' });
+    assert.deepEqual(calls, ['https://www.aidevpush.com/']);
   });
 
   it('selectAgentSuggestionPost forwards the sticker to the active tab', async () => {

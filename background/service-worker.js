@@ -81,10 +81,12 @@ importScripts(
   './sw-page-advisor-timing-run.js',
   '../lib/deeplink-core.js',
   '../lib/page-advisor-delivery.js',
+  './sw-page-advisor-generate.js',
   './sw-page-advisor.js',
   './sw-page-advisor-delivery.js',
   './sw-page-advisor-commands.js',
   './sw-page-advisor-pending.js',
+  './sw-agent-suggestions.js',
   './sw-builtin-edge-tunnel.js',
   './sw-builtin-enable-watchdog.js',
 );

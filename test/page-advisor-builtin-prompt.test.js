@@ -703,10 +703,14 @@ test('Service Worker 在访客门闩之前处理 builtin', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const sw = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor.js'), 'utf8');
+  const core = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor-generate.js'), 'utf8');
   const builtinAt = sw.indexOf("route === 'builtin'");
-  const guestAt = sw.indexOf('!directReady && !sessionOk');
+  const callAt = sw.indexOf('generatePageAdvisorSuggestions(tabId');
+  const guestAt = core.indexOf('!directReady && !sessionOk');
   assert.ok(builtinAt > 0);
-  assert.ok(guestAt > builtinAt);
+  assert.ok(guestAt > 0);
+  // builtin 在入口就返回，访客门闩在生成核心里，故 builtin 分支必须先于核心调用点。
+  assert.ok(callAt > builtinAt, 'builtin 必须先于生成核心调用点分流');
   assert.match(sw, /withTimeout\(p, 12000/);
 });
 

@@ -124,25 +124,14 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
 
 /**
  * Pending posts for one page URL, without notifying the content script.
+ * 网址固定去掉查询串：生成与查询共用同一口径，否则带参数的网页永远对不上。
  * @param {string} pageUrl
  */
-async function sitePendingIncludeQuery() {
-  try {
-    const store = chrome?.storage?.local;
-    if (!store || typeof store.get !== 'function') return false;
-    const got = await store.get('agentSuggestionsIncludeQuery');
-    return got?.agentSuggestionsIncludeQuery === true;
-  } catch (_err) {
-    return false;
-  }
-}
-
 async function collectSitePendingForUrl(pageUrl) {
   const rawUrl = String(pageUrl || '').trim();
   const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
-  const includeQuery = await sitePendingIncludeQuery();
   const url = Pending?.pageUrlForAgentSuggestions
-    ? Pending.pageUrlForAgentSuggestions(rawUrl, includeQuery)
+    ? Pending.pageUrlForAgentSuggestions(rawUrl)
     : rawUrl;
   if (!url || Pending?.isSkippableNavigationUrl?.(url)) {
     return { ok: true, skipped: true, items: [] };
@@ -195,16 +184,6 @@ async function collectSitePendingForUrl(pageUrl) {
   };
 }
 
-function resolveSitePendingLookup(message, tabUrl) {
-  const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
-  const typed = String(message?.pageUrl || '').trim();
-  if (Pending?.resolveAgentSuggestionLookupUrl) {
-    return Pending.resolveAgentSuggestionLookupUrl(typed, String(tabUrl || ''));
-  }
-  if (!typed) return { ok: true, source: 'active-tab', url: String(tabUrl || '').trim() };
-  return { ok: true, source: 'typed', url: typed };
-}
-
 async function refreshSitePendingForActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
@@ -212,15 +191,13 @@ async function refreshSitePendingForActiveTab() {
   return refreshSitePendingForTab(tab.id, tab.url, { force: true });
 }
 
-async function handleListSitePendingForActiveTab(message) {
+/** 列表固定看当前标签页；消息里带的网址一律忽略（ADR-0167 去掉了网址框）。 */
+async function handleListSitePendingForActiveTab() {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
-  const resolved = resolveSitePendingLookup(message, tab?.url || '');
-  if (!resolved.ok) {
-    return { success: false, error: tx('agentSuggestionsInvalidUrl'), items: [] };
-  }
-  if (!resolved.url) return { success: true, items: [], skipped: true };
-  const collected = await collectSitePendingForUrl(resolved.url);
+  const pageUrl = String(tab?.url || '').trim();
+  if (!pageUrl) return { success: true, items: [], skipped: true };
+  const collected = await collectSitePendingForUrl(pageUrl);
   publishAgentSuggestionsListed(tab?.id, collected);
   if (!collected.ok) {
     return {
@@ -233,37 +210,12 @@ async function handleListSitePendingForActiveTab(message) {
   return {
     success: true,
     items: collected.items || [],
-    pageUrl: collected.pageUrl || resolved.url,
+    pageUrl: collected.pageUrl || pageUrl,
     reason: collected.reason || '',
   };
 }
 
-async function handleRefreshSitePendingForActiveTab(message) {
-  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-  const tab = tabs && tabs[0];
-  const resolved = resolveSitePendingLookup(message, tab?.url || '');
-  if (!resolved.ok) {
-    return { success: false, error: tx('agentSuggestionsInvalidUrl'), items: [] };
-  }
-  if (resolved.source === 'typed') {
-    if (!tab?.id || !resolved.url) return { success: true, skipped: true, items: [] };
-    const collected = await collectSitePendingForUrl(resolved.url);
-    publishAgentSuggestionsListed(tab.id, collected);
-    if (!collected.ok) {
-      return {
-        success: false,
-        error: collected.error || tx('agentSuggestionsLoadFail'),
-        traceId: collected.traceId || '',
-        items: [],
-      };
-    }
-    return {
-      success: true,
-      items: collected.items || [],
-      pageUrl: collected.pageUrl || resolved.url,
-      reason: collected.reason || '',
-    };
-  }
+async function handleRefreshSitePendingForActiveTab() {
   const result = await refreshSitePendingForActiveTab();
   return { success: true, ...result };
 }
