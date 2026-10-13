@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 静态门禁：panel/popup 页面 HTML 的用户可见文案必须可切 en（ADR-0089）。
+ * 静态门禁：panel/popup/sidepanel 页面 HTML 的用户可见文案必须可切 en（ADR-0089）。
  *
  * 判据：
  *  1. 任何含 CJK 的文本节点，其自身或祖先必须挂 data-i18n / data-i18n-html；
@@ -33,7 +33,8 @@ const CJK = /[㐀-䶿一-鿿　-〿！-～]/;
  */
 const JS_DRIVEN = new Set();
 
-const PAGES = ['panel/panel.html', 'popup/popup.html'];
+// 手写清单：新增扩展页必须一并登记，否则该页永远不红（OPT-20261013-018 补入侧栏页）。
+const PAGES = ['panel/panel.html', 'popup/popup.html', 'sidepanel/sidepanel.html'];
 
 const VOID_TAGS = new Set([
   'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
