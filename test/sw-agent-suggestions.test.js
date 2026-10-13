@@ -127,6 +127,130 @@ function loadBuiltinStack({ altZResult, ...extra } = {}) {
   return { ...stack, altZ };
 }
 
+/** 刷新重试出口的沙箱：只关心 tabs 通道与采集探针。 */
+function loadReloadStack({ tabUrl, onReload } = {}) {
+  const url = tabUrl || 'https://shop.test/p?utm=1';
+  const reloads = [];
+  const pings = [];
+  // null 复现「扩展重载后的旧页面」：监听器不在，连接直接失败（也是本用例的默认起点）。
+  let ping = null;
+  const sandbox = {
+    console,
+    URL,
+    setTimeout,
+    clearTimeout,
+    chrome: {
+      tabs: {
+        query: async () => [{ id: 7, url }],
+        get: async () => ({ id: 7, url, status: 'complete' }),
+        reload: async (id) => {
+          reloads.push(id);
+          // 默认真刷新：新 content script 注入回来，且必然是新实例。
+          ping = { ready: true, instanceId: 'inst-new' };
+          if (typeof onReload === 'function') onReload();
+        },
+        sendMessage: async (tabId, msg) => {
+          pings.push({ tabId, action: msg && msg.action });
+          if (!ping) throw new Error('Could not establish connection. Receiving end does not exist.');
+          return { success: true, ...ping };
+        },
+      },
+    },
+    isPageAdvisorBlockedUrl: (u) => String(u || '').startsWith('chrome://'),
+  };
+  sandbox.globalThis = sandbox;
+  vm.createContext(sandbox);
+  require('./helpers/txRuntime.js').installTxInSandbox(sandbox);
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'background/sw-agent-suggestions.js'), 'utf8'),
+    sandbox,
+    { filename: 'sw-agent-suggestions.js' },
+  );
+  // 等待预算在单测里缩到毫秒级，别真的等 15 秒。
+  sandbox.AGENT_SUGGESTIONS_CONTENT_READY_MS = 120;
+  sandbox.AGENT_SUGGESTIONS_PROBE_POLL_MS = 5;
+  return { sandbox, reloads, pings, setPing: (v) => { ping = v; } };
+}
+
+describe('sw-agent-suggestions 刷新并重试（OPT-20261013-019）', () => {
+  it('通道探针：监听器不在即 retryable，且一律用轻量 ping（不消费已框选元素）', async () => {
+    const { sandbox, pings } = loadReloadStack();
+    const resp = await sandbox.handleProbeAgentSuggestionsChannel();
+    assert.equal(resp.success, true);
+    assert.equal(resp.state, 'unreachable');
+    assert.equal(resp.retryable, true);
+    assert.equal(resp.errorCode, 'PAGE_CONTEXT_UNREACHABLE');
+    assert.ok(pings.length >= 1);
+    // getPageAdvisorContext 会清空用户已框选/拾取的元素，绝不能当探针用。
+    assert.ok(pings.every((p) => p.action === 'pingPageAdvisorContext'), JSON.stringify(pings));
+  });
+
+  it('通道探针：页面类型本身不支持时不探也不给刷新入口（刷新无用）', async () => {
+    const { sandbox, pings } = loadReloadStack({ tabUrl: 'chrome://extensions/' });
+    const resp = await sandbox.handleProbeAgentSuggestionsChannel();
+    assert.equal(resp.state, 'restricted');
+    assert.equal(resp.retryable, false);
+    assert.equal(pings.length, 0);
+  });
+
+  it('页面类型不支持时点刷新重试：不刷新，直接回不支持', async () => {
+    const { sandbox, reloads } = loadReloadStack({ tabUrl: 'chrome://extensions/' });
+    const resp = await sandbox.handleReloadActiveTabAndRetry();
+    assert.equal(resp.success, false);
+    assert.equal(resp.errorCode, 'PAGE_CONTEXT_RESTRICTED_PAGE');
+    assert.equal(reloads.length, 0);
+  });
+
+  it('刷新后通道恢复：刷新一次并回报成功（由侧栏接着重跑生成）', async () => {
+    const { sandbox, reloads } = loadReloadStack();
+    const resp = await sandbox.handleReloadActiveTabAndRetry();
+    assert.equal(resp.success, true);
+    assert.deepEqual(reloads, [7]);
+  });
+
+  it('刷新后通道仍不通：仍刷新过一次，但如实回报未恢复', async () => {
+    // 刷新没救回来（例如站内脚本又把监听器打断）：探针始终失败。
+    const { sandbox, reloads } = loadReloadStack({ onReload: () => {} });
+    sandbox.chrome.tabs.sendMessage = async () => {
+      throw new Error('Could not establish connection. Receiving end does not exist.');
+    };
+    const resp = await sandbox.handleReloadActiveTabAndRetry();
+    assert.equal(resp.success, false);
+    assert.equal(resp.errorCode, 'PAGE_CONTEXT_UNREACHABLE');
+    assert.deepEqual(reloads, [7], '用户点了刷新就该真刷新一次');
+  });
+
+  it('刷新还没提交文档时探到的旧实例不算恢复（instanceId 未变就继续等）', async () => {
+    const stack = loadReloadStack();
+    // 刷新前监听器还在；刷新后同一实例仍应答 → 是还没被替换掉的旧脚本，不是恢复。
+    stack.setPing({ ready: true, instanceId: 'inst-same' });
+    stack.sandbox.chrome.tabs.reload = async (id) => { stack.reloads.push(id); };
+    const resp = await stack.sandbox.handleReloadActiveTabAndRetry();
+    assert.equal(resp.success, false, '旧实例还在应答就宣告成功，用户点完刷新会再失败一次');
+    assert.deepEqual(stack.reloads, [7]);
+  });
+
+  it('刷新换成新实例才算恢复', async () => {
+    const stack = loadReloadStack();
+    stack.setPing({ ready: true, instanceId: 'inst-old' });
+    stack.sandbox.chrome.tabs.reload = async (id) => {
+      stack.reloads.push(id);
+      stack.setPing({ ready: true, instanceId: 'inst-new' });
+    };
+    const resp = await stack.sandbox.handleReloadActiveTabAndRetry();
+    assert.equal(resp.success, true);
+  });
+
+  it('没有活动 tab：不刷新、不探测', async () => {
+    const { sandbox, reloads, pings } = loadReloadStack();
+    sandbox.chrome.tabs.query = async () => [];
+    const resp = await sandbox.handleReloadActiveTabAndRetry();
+    assert.equal(resp.success, false);
+    assert.equal(reloads.length, 0);
+    assert.equal(pings.length, 0);
+  });
+});
+
 describe('sw-agent-suggestions builtin 路由（OPT-20261013-011）', () => {
   it('内置模型路由由出口接管：runAltZ 的结果照常落贴，不再返回 AGENT_SUGGESTIONS_BUILTIN_ROUTE', async () => {
     const { sandbox, calls, generateCalls, altZ } = loadBuiltinStack();

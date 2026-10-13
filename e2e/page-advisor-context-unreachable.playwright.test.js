@@ -11,6 +11,8 @@
  * 1. 扩展重载前：采集正常（基线，证明后面不是「一律失败」）
  * 2. 重载后旧页面：直接采集与侧边栏消息路径都返回 PAGE_CONTEXT_UNREACHABLE +
  *    「刷新页面」文案，且不抛原始连接错误
+ * 2c.「刷新当前网页并重试」（OPT-20261013-019）：探针把这一档标成 retryable，
+ *    点击后真的刷新、等新 content script 注入、通道恢复，重跑生成不再卡在采集上
  * 3. 重载后新开页面：采集正常（恢复只需刷新页面，分类没有误伤）
  *
  * 运行（需要完整 chromium + 显示服务器）：
@@ -101,17 +103,21 @@ async function tabIdFor(sw, urlFragment) {
   }, urlFragment);
 }
 
+/** 从扩展页发一条 runtime 消息，拿回响应（或 lastError）。 */
+async function sendFromExtensionPage(extPage, message) {
+  return extPage.evaluate((msg) => new Promise((resolve) => {
+    chrome.runtime.sendMessage(msg, (resp) => {
+      if (chrome.runtime.lastError) resolve({ lastError: chrome.runtime.lastError.message });
+      else resolve(resp);
+    });
+  }), message);
+}
+
 /** 侧边栏按钮走的那条消息（sw-messages-task.js:213）。 */
 async function sendGenerateFromExtensionPage(extPage) {
-  return extPage.evaluate(() => new Promise((resolve) => {
-    chrome.runtime.sendMessage(
-      { action: 'generateAgentSuggestionsForActiveTab', skillId: '', promptTendency: '' },
-      (resp) => {
-        if (chrome.runtime.lastError) resolve({ lastError: chrome.runtime.lastError.message });
-        else resolve(resp);
-      },
-    );
-  }));
+  return sendFromExtensionPage(extPage, {
+    action: 'generateAgentSuggestionsForActiveTab', skillId: '', promptTendency: '',
+  });
 }
 
 test.describe('真实扩展：页面联系不上 content script 时的生成建议出口', () => {
@@ -176,6 +182,29 @@ test.describe('真实扩展：页面联系不上 content script 时的生成建�
       expect(resp && resp.success).toBe(false);
       expect(resp.errorCode, JSON.stringify(resp)).toBe('PAGE_CONTEXT_UNREACHABLE');
       expect(String(resp.error)).toMatch(REFRESH_HINT);
+
+      // 2c. 「刷新当前网页并重试」（OPT-20261013-019）：同一档失败既给了文案，也给了出口。
+      //     探针必须把这一档标成 retryable（页面类型不支持那档才不给）。
+      const probe = await sendFromExtensionPage(extPage, { action: 'probeAgentSuggestionsChannel' });
+      expect(probe && probe.retryable, `探针应把采集失败标成可刷新：${JSON.stringify(probe)}`).toBe(true);
+      expect(probe.state, JSON.stringify(probe)).toBe('unreachable');
+
+      // 用户点「刷新当前网页并重试」：刷新 → 等新 content script 注入 → 通道恢复。
+      await page.bringToFront();
+      const retried = await sendFromExtensionPage(extPage, { action: 'reloadPageAndRetryAgentSuggestions' });
+      expect(retried && retried.success, `刷新后通道应恢复：${JSON.stringify(retried)}`).toBe(true);
+      const recovered = await sw.evaluate((id) => askContentPageAdvisorContext(id), tabIdAfter);
+      expect(recovered && recovered.success, `刷新后采集应恢复：${JSON.stringify(recovered)}`).toBe(true);
+
+      // 重跑一次生成：这次不再卡在采集上（直连 LLM 指向黑洞端口，会在网络那步失败）。
+      const afterRetry = await sendGenerateFromExtensionPage(extPage);
+      expect(afterRetry && afterRetry.success).toBe(false);
+      expect(
+        afterRetry.errorCode,
+        `刷新重试后不该再是采集失败：${JSON.stringify(afterRetry)}`,
+      ).not.toBe('PAGE_CONTEXT_UNREACHABLE');
+      // 恢复是可观测的，不是「安静地好了」。
+      expect(swLogs.some((l) => l.includes('page_context_recovered'))).toBe(true);
 
       // 3. 恢复路径：重载后新开的页面采集正常
       const page2 = await context.newPage();

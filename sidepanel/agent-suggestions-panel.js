@@ -40,6 +40,19 @@
     return document.getElementById('sp-agent-generate');
   }
 
+  function reloadRetryButton() {
+    return document.getElementById('sp-agent-reload-retry');
+  }
+
+  /**
+   * 只有「刷新页面可能修好」的失败才露出这个入口：页面类型本身不支持（chrome:// 等）
+   * 刷新也无用，给出按钮等于给死路。
+   */
+  function setReloadRetryVisible(visible) {
+    const btn = reloadRetryButton();
+    if (btn) btn.hidden = !visible;
+  }
+
   function setStatus(text, traceId) {
     const status = statusEl();
     if (!status) return;
@@ -235,6 +248,52 @@
     btn.addEventListener('click', () => generate());
   }
 
+  function bindReloadRetryButton() {
+    const btn = reloadRetryButton();
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => reloadAndRetry());
+  }
+
+  /**
+   * 「刷新当前网页并重试」：刷新由后台执行（要等新 content script 注入完再回来），
+   * 通道探通以后由这里重跑一次生成——生成本身在 generate()，不复制第二份。
+   */
+  async function reloadAndRetry() {
+    const btn = reloadRetryButton();
+    if (!btn || btn.dataset.busy === '1') return;
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    setStatus(tx('agentSuggestionsReloading'));
+    try {
+      // Anti-Replay-OK: 只由用户点击触发；刷新会丢页面未保存状态，绝不自动刷新
+      const resp = await chrome.runtime.sendMessage({ action: 'reloadPageAndRetryAgentSuggestions' });
+      if (!resp || resp.success === false) {
+        setStatus((resp && resp.error) || tx('paContextUnreachable'));
+        return;
+      }
+      setReloadRetryVisible(false);
+      await generate();
+    } catch (e) {
+      setStatus(e?.message || tx('paContextUnreachable'));
+    } finally {
+      btn.dataset.busy = '0';
+      btn.disabled = false;
+    }
+  }
+
+  /**
+   * 侧栏打开 / 切 tab 时先探一次采集通道（OPT-20261013-019）：通道坏了就直接把
+   * 「刷新并重试」摆出来，省掉「先点生成 → 看到失败 → 再点刷新」那一轮。探不通就静默，
+   * 生成失败那条路径仍会再报一次。
+   */
+  async function probeCaptureChannel() {
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'probeAgentSuggestionsChannel' });
+      setReloadRetryVisible(!!(resp && resp.retryable));
+    } catch (_e) { /* 探测失败不影响列表与生成 */ }
+  }
+
   async function generate() {
     const btn = generateButton();
     if (!btn || btn.dataset.busy === '1') return;
@@ -245,6 +304,7 @@
     btn.dataset.busy = '1';
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
+    setReloadRetryVisible(false);
     setStatus(tx('agentSuggestionsGenerating'));
     try {
       // Anti-Replay-OK: 生成由后台带 Idempotency-Key 发一次；这里只挡住重复点击
@@ -255,6 +315,8 @@
       });
       if (!resp || resp.success === false) {
         setStatus((resp && resp.error) || tx('agentSuggestionsGenerateFail'), resp && resp.traceId);
+        // 只有「刷新页面能修好」的那类失败才给一键入口。
+        setReloadRetryVisible(resp && resp.errorCode === 'PAGE_CONTEXT_UNREACHABLE');
         return;
       }
       await refresh();
@@ -290,6 +352,9 @@
     await rememberSiteBase();
     await bindPromptSelect();
     bindGenerateButton();
+    bindReloadRetryButton();
+    // 探测不挡列表：等它回来再决定要不要露出刷新入口。
+    probeCaptureChannel();
     let resp;
     try {
       resp = await chrome.runtime.sendMessage({

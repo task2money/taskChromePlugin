@@ -213,6 +213,12 @@ async function handleMessageRest(message, sender) {
     case 'generateAgentSuggestionsForActiveTab':
       return handleGenerateAgentSuggestionsForActiveTab(message);
 
+    case 'probeAgentSuggestionsChannel':
+      return handleProbeAgentSuggestionsChannel();
+
+    case 'reloadPageAndRetryAgentSuggestions':
+      return handleReloadActiveTabAndRetry();
+
     case 'confirmSitePendingSuggestion':
       return handleConfirmSitePendingSuggestion(message);
 

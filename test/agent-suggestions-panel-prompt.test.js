@@ -33,6 +33,9 @@ const MESSAGES = {
   agentSuggestionsGeneratedInto: '已在「{project}」创建优化贴',
   agentSuggestionsPostedExisting: '「{project}」里已有当前网页的优化贴',
   agentSuggestionsGenerateFail: '生成建议失败',
+  agentSuggestionsReloadRetry: '刷新当前网页并重试',
+  agentSuggestionsReloading: '正在刷新当前网页…',
+  paContextUnreachable: '页面联系不上插件脚本，刷新当前网页即可恢复',
 };
 
 const SKILLS = {
@@ -70,7 +73,11 @@ function makeEl(id) {
   };
 }
 
-function buildHarness({ generateResponse, skills = SKILLS, promptSkillsApi, storage } = {}) {
+function buildHarness({
+  generateResponse, skills = SKILLS, promptSkillsApi, storage,
+  probeResponse = { success: true, retryable: false },
+  reloadResponse = { success: true },
+} = {}) {
   const els = {};
   const document = {
     getElementById(id) {
@@ -110,12 +117,15 @@ function buildHarness({ generateResponse, skills = SKILLS, promptSkillsApi, stor
         getManifest: () => ({ content_scripts: [{ js: [] }] }),
         sendMessage(message) {
           sent.push(message);
-          if (message && message.action === 'listSitePendingForActiveTab') {
+          const action = message && message.action;
+          if (action === 'listSitePendingForActiveTab') {
             return Promise.resolve(listResponse);
           }
-          if (message && message.action === 'generateAgentSuggestionsForActiveTab') {
+          if (action === 'generateAgentSuggestionsForActiveTab') {
             return Promise.resolve(generateResponse || { success: true, created: true, projectName: '默认项目' });
           }
+          if (action === 'probeAgentSuggestionsChannel') return Promise.resolve(probeResponse);
+          if (action === 'reloadPageAndRetryAgentSuggestions') return Promise.resolve(reloadResponse);
           return Promise.resolve({ success: true });
         },
       },
@@ -142,8 +152,13 @@ function buildHarness({ generateResponse, skills = SKILLS, promptSkillsApi, stor
     generateBtn() { return document.getElementById('sp-agent-generate'); },
     status() { return document.getElementById('sp-agent-status').textContent; },
     actions() { return sent.map((m) => m && m.action); },
+    reloadRetryBtn() { return document.getElementById('sp-agent-reload-retry'); },
     async clickGenerate() {
       const btn = document.getElementById('sp-agent-generate');
+      await btn.listeners.click[0]();
+    },
+    async clickReloadRetry() {
+      const btn = document.getElementById('sp-agent-reload-retry');
       await btn.listeners.click[0]();
     },
   };
@@ -312,5 +327,58 @@ describe('侧栏按需补种系统预埋提示词', () => {
     assert.equal(stub.calls.apply.length, 1, '判定过，只是没得改');
     assert.equal(stub.calls.saved.length, 0, 'noop 不该写盘');
     assert.equal(h.promptSelect().value, '');
+  });
+});
+
+describe('侧边栏「刷新当前网页并重试」（OPT-20261013-019）', () => {
+  const UNREACHABLE = {
+    success: false,
+    error: '页面联系不上插件脚本，刷新当前网页即可恢复',
+    errorCode: 'PAGE_CONTEXT_UNREACHABLE',
+  };
+
+  it('生成因「联系不上插件脚本」失败：露出刷新入口，页面类型不支持则不露', async () => {
+    const unreachable = buildHarness({ generateResponse: UNREACHABLE });
+    await unreachable.context.AgentSuggestionsPanel.refresh();
+    await unreachable.clickGenerate();
+    assert.equal(unreachable.reloadRetryBtn().hidden, false);
+
+    const restricted = buildHarness({
+      generateResponse: { success: false, error: '该页面类型不支持', errorCode: 'PAGE_CONTEXT_RESTRICTED_PAGE' },
+    });
+    await restricted.context.AgentSuggestionsPanel.refresh();
+    await restricted.clickGenerate();
+    assert.equal(restricted.reloadRetryBtn().hidden, true, '刷新救不了的页面别给死路');
+  });
+
+  it('打开面板时探到通道不通：不用先点一次生成就把刷新入口摆出来', async () => {
+    const h = buildHarness({ probeResponse: { success: true, state: 'unreachable', retryable: true } });
+    await h.context.AgentSuggestionsPanel.refresh();
+    // 探测是「不挡列表」的后台动作，等它落地
+    await new Promise((r) => setTimeout(r, 0));
+    assert.equal(h.reloadRetryBtn().hidden, false);
+    assert.ok(h.actions().includes('probeAgentSuggestionsChannel'));
+  });
+
+  it('点「刷新并重试」：后台刷新成功后自动重跑一次生成', async () => {
+    const h = buildHarness({ generateResponse: { success: true, created: true, projectName: '默认项目' } });
+    await h.context.AgentSuggestionsPanel.refresh();
+    await h.clickReloadRetry();
+
+    assert.equal(h.actions().filter((a) => a === 'reloadPageAndRetryAgentSuggestions').length, 1);
+    assert.equal(h.actions().filter((a) => a === 'generateAgentSuggestionsForActiveTab').length, 1);
+    assert.equal(h.reloadRetryBtn().hidden, true, '恢复后收起入口');
+    assert.equal(h.status(), '已在「默认项目」创建优化贴');
+  });
+
+  it('刷新后通道仍不通：不重跑生成，如实报失败', async () => {
+    const h = buildHarness({
+      reloadResponse: { success: false, error: '页面联系不上插件脚本，刷新当前网页即可恢复', errorCode: 'PAGE_CONTEXT_UNREACHABLE' },
+    });
+    await h.context.AgentSuggestionsPanel.refresh();
+    await h.clickReloadRetry();
+
+    assert.equal(h.actions().filter((a) => a === 'generateAgentSuggestionsForActiveTab').length, 0);
+    assert.match(h.status(), /刷新当前网页即可恢复/);
   });
 });

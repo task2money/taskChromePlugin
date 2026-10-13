@@ -1,4 +1,10 @@
 /**
+ * 本次 content script 注入的实例标识（OPT-20261013-019）：每次注入都不同。
+ * 「刷新当前网页并重试」靠它确认等到的不是刷新前那个还没被替换掉的旧实例。
+ */
+var __taskpluginContentInstanceId = Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+/**
  * 浮窗收尾：关闭面板、runtime 消息、init（须最后注入）。
  */
 function bindFloatPanelCloseButton() {
@@ -135,6 +141,16 @@ if (!__taskpluginFloatSkip && !globalThis.__taskpluginContentBoot?.skip) {
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (msg.action === 'openDevToolsHint') {
     return;
+  }
+  // 采集通道存活探针（OPT-20261013-019）：只回答「本页采集脚本是否就绪、是哪个实例」。
+  // 不能拿 getPageAdvisorContext 当探针——它会消费已框选/拾取的元素并清空选区。
+  if (msg.action === 'pingPageAdvisorContext') {
+    sendResponse?.({
+      success: true,
+      ready: typeof getPageAdvisorContextFromFloat === 'function',
+      instanceId: __taskpluginContentInstanceId,
+    });
+    return true;
   }
   if (msg.action === 'getPageAdvisorContext') {
     try {
