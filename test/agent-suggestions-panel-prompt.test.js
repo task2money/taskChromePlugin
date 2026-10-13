@@ -70,7 +70,7 @@ function makeEl(id) {
   };
 }
 
-function buildHarness({ generateResponse, skills = SKILLS } = {}) {
+function buildHarness({ generateResponse, skills = SKILLS, promptSkillsApi, storage } = {}) {
   const els = {};
   const document = {
     getElementById(id) {
@@ -84,6 +84,11 @@ function buildHarness({ generateResponse, skills = SKILLS } = {}) {
 
   const sent = [];
   let listResponse = { success: true, items: [] };
+  // 补种路径默认缺席（老本机文档只有 loadFromStorage）；要测补种的用例从
+  // promptSkillsApi 传整套 api 进来，自己记调用。
+  const promptSkills = Object.assign({
+    loadFromStorage: async () => skills,
+  }, promptSkillsApi || {});
   const context = {
     console,
     document,
@@ -98,9 +103,7 @@ function buildHarness({ generateResponse, skills = SKILLS } = {}) {
       }
       return out;
     },
-    PageAdvisorPromptSkills: {
-      loadFromStorage: async () => skills,
-    },
+    PageAdvisorPromptSkills: promptSkills,
     chrome: {
       runtime: {
         onMessage: { addListener(fn) { context.__onMessage = fn; } },
@@ -123,6 +126,7 @@ function buildHarness({ generateResponse, skills = SKILLS } = {}) {
       tabs: { query: async () => [{ id: 7 }], onActivated: { addListener() {} } },
     },
   };
+  if (storage) context.Storage = storage;
   context.globalThis = context;
   vm.createContext(context);
 
@@ -132,6 +136,7 @@ function buildHarness({ generateResponse, skills = SKILLS } = {}) {
     context,
     els,
     sent,
+    promptSkills,
     setListResponse(next) { listResponse = next; },
     promptSelect() { return document.getElementById('sp-agent-prompt'); },
     generateBtn() { return document.getElementById('sp-agent-generate'); },
@@ -214,5 +219,98 @@ describe('侧边栏智能体建议的提示词下拉与生成按钮', () => {
 
     assert.equal(h.status(), '未登录');
     assert.equal(h.generateBtn().disabled, false);
+  });
+});
+
+/**
+ * 补种系统预埋（ADR-0167 回归修复的另一半）。
+ *
+ * 宿主页少加载 `lib/page-advisor-prompt-skills.js` 时下拉只剩默认项——那是 e2e 守的。
+ * 这里守后半段：模块在、本机文档空着时，侧栏要自己把预埋种下去并且**落盘**。
+ * 生成时后台按 skillId 回本机文档取正文（`background/sw-agent-suggestions.js`），
+ * 只在下拉里画一条而不落盘的项，用户选中后会静默退回默认提示词。
+ *
+ * 上面那批用例用的 stub 只有 `loadFromStorage`（老本机文档的形态），补种路径自动
+ * 短路，所以它们仍然断言「没有本机技能就只留默认项」；这一组才是补种生效的形态。
+ */
+describe('侧栏按需补种系统预埋提示词', () => {
+  const BUNDLED = {
+    id: 'sys_default_auto_innovate',
+    title: '系统默认自动创新',
+    tendency: 'custom',
+    body: '预埋正文',
+  };
+
+  /** 造一套带补种的 PageAdvisorPromptSkills，记录调用与落盘。 */
+  function seedStub(store, action = 'applied') {
+    const calls = { apply: [], saved: [] };
+    return {
+      calls,
+      api: {
+        loadFromStorage: async () => store,
+        bundledPresetSkills: () => [BUNDLED],
+        applySystemCatalogDefault(localStore, catalog, syncTarget) {
+          calls.apply.push({ localStore, catalog, syncTarget });
+          if (action === 'noop') return { store: localStore, action: 'noop' };
+          return {
+            store: {
+              ...localStore,
+              skills: (localStore.skills || []).concat([{ ...BUNDLED, syncTarget, readonly: true }]),
+              activeSkillId: localStore.activeSkillId || BUNDLED.id,
+            },
+            action: 'applied',
+          };
+        },
+        saveToStorage(storeObj, storageApi) {
+          calls.saved.push({ storeObj, storageApi });
+        },
+      },
+    };
+  }
+
+  it('本机一条提示词都没有时补种预埋，并把预埋写回本机文档', async () => {
+    const stub = seedStub({ skills: [], activeSkillId: '', categoryChoices: [] });
+    const h = buildHarness({
+      promptSkillsApi: stub.api,
+      storage: { getLastWorkspace: async () => 'ws-42' },
+    });
+    await h.context.AgentSuggestionsPanel.refresh();
+
+    // 下拉里真的多了这条，用户才有得选
+    assert.match(h.promptSelect().innerHTML, /value="sys_default_auto_innovate"[^>]*>系统默认自动创新</);
+    assert.equal(h.promptSelect().value, 'sys_default_auto_innovate');
+    // 落盘：后台按 id 回本机文档取正文，不落盘的项选中后会退回默认
+    assert.equal(stub.calls.saved.length, 1, '补种结果必须写回 storage');
+    assert.deepEqual(
+      stub.calls.saved[0].storeObj.skills.map((s) => s.id),
+      ['sys_default_auto_innovate'],
+    );
+    // 预埋落进本机上次用的工作空间，而不是写死 'local'
+    assert.equal(stub.calls.apply[0].syncTarget, 'ws-42');
+    assert.equal(stub.calls.saved[0].storeObj.skills[0].syncTarget, 'ws-42');
+  });
+
+  it('本机已有提示词时不抢：既不补种也不落盘', async () => {
+    const stub = seedStub({
+      skills: [{ id: 'sku-seo', title: 'SEO 标题优化', tendency: 'seo' }],
+      activeSkillId: 'sku-seo',
+      categoryChoices: [],
+    });
+    const h = buildHarness({ promptSkillsApi: stub.api });
+    await h.context.AgentSuggestionsPanel.refresh();
+
+    assert.equal(stub.calls.apply.length, 0, '本机有货时不该碰目录');
+    assert.equal(stub.calls.saved.length, 0, '更不该覆盖本机文档');
+    assert.match(h.promptSelect().innerHTML, /value="sku-seo"[^>]*>SEO 标题优化</);
+  });
+
+  it('补种判定 noop 时不落盘，下拉保持原样', async () => {
+    const stub = seedStub({ skills: [], activeSkillId: '', categoryChoices: [] }, 'noop');
+    const h = buildHarness({ promptSkillsApi: stub.api });
+    await h.context.AgentSuggestionsPanel.refresh();
+
+    assert.equal(stub.calls.apply.length, 1, '判定过，只是没得改');
+    assert.equal(stub.calls.saved.length, 0, 'noop 不该写盘');
+    assert.equal(h.promptSelect().value, '');
   });
 });

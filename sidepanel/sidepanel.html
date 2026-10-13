@@ -102,7 +102,7 @@
           <h3 data-i18n="agentSuggestionsTab">智能体建议</h3>
           <details class="region-help">
             <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-            <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里只放还没采纳、也没废弃的建议贴。网址留空则查询当前网页，填写后查询该网址。点一张建议贴，当前页就显示这一条建议；再点另一张，页面换成后一条。页面上不再另放建议浮层。</p>
+            <p class="float-ball-hint" data-region-help="1" data-i18n="agentSuggestionsHint">这里只放还没采纳、也没废弃的建议贴，固定看当前网页。选一条提示词后点「给当前网页生成建议」，会自动把优化贴落到首页域名所属的项目；域名还没绑到任何项目时，落到你的默认项目。点一张建议贴，当前页就显示这一条建议；再点另一张，页面换成后一条。页面上不再另放建议浮层。</p>
           </details>
         </div>
         <div class="sp-agent-generate-row">
@@ -155,6 +155,12 @@
   <script src="builtin-model-panel.js"></script>
   <script src="sidepanel-edge-sell-boot.js"></script>
   <script src="../lib/task-detail-href.js"></script>
+  <!-- 提示词下拉的数据源：本机 prompt skills。顺序即依赖：预埋表 → 目录 → 本机文档。
+       浏览器里没有 require，`page-advisor-prompt-skills.js` 顶部的 require 守卫不会生效，
+       少一个脚本标签 `PageAdvisorPromptSkills` 就是 undefined，下拉只剩「默认提示词」一项。 -->
+  <script src="../lib/page-advisor-preset-skills.js"></script>
+  <script src="../lib/page-advisor-prompt-skill-catalog.js"></script>
+  <script src="../lib/page-advisor-prompt-skills.js"></script>
   <script src="../lib/page-advisor-site-pending.js"></script>
   <script src="agent-suggestions-panel.js"></script>
   <script src="sidepanel.js"></script>

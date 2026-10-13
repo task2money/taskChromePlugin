@@ -88,7 +88,7 @@ async function installStub(page, posts) {
 
     window.chrome = {
       runtime: {
-        getManifest: () => ({ version: '1.8.260', content_scripts: [{ js: [] }] }),
+        getManifest: () => ({ version: '1.8.261', content_scripts: [{ js: [] }] }),
         getURL: (p) => p,
         id: 'test-ext',
         lastError: null,

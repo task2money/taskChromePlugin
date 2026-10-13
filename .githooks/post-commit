@@ -9,7 +9,8 @@ if [ "${TASK_CHROME_PLUGIN_SKIP_PACK:-0}" = "1" ] || [ "${TASK_CHROME_PLUGIN_SKI
   exit 0
 fi
 
-# 仅当 HEAD 触及打包清单路径时触发（与 scripts/pack-crx.sh PACK_PATHS 对齐）
+# 仅当 HEAD 触及打包清单路径时触发（与 scripts/pack-crx.sh PACK_PATHS 对齐；
+# 清单里每增一个顶层目录，这里与 test/pack-trigger-paths.test.js 都要同步）
 CHANGED="$(git diff-tree --no-commit-id --name-only -r HEAD 2>/dev/null || true)"
 [ -n "$CHANGED" ] || exit 0
 
@@ -17,7 +18,7 @@ NEED=0
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$f" in
-    manifest.json|oauth-callback.html|_locales/*|background/*|content/*|devtools/*|icons/*|lib/*|panel/*|popup/*)
+    manifest.json|oauth-callback.html|_locales/*|background/*|content/*|devtools/*|icons/*|lib/*|panel/*|popup/*|sidepanel/*)
       NEED=1
       break
       ;;

@@ -164,13 +164,42 @@
     render();
   }
 
+  /**
+   * 本机文档空着时补上系统预埋，否则下拉只剩「默认提示词」一项，等于没得选。
+   * 必须落盘：生成时后台按 id 回本机文档取正文（sw-agent-suggestions.js），
+   * 只在下拉里显示而不落盘的项，选中后会悄悄退回默认提示词。
+   * 本机已有条目就交给 popup 的目录同步去做，这里不抢。
+   */
+  async function seedSystemCatalog(store) {
+    const Skills = global.PageAdvisorPromptSkills;
+    if (!Skills || typeof Skills.applySystemCatalogDefault !== 'function') return store;
+    if (Array.isArray(store?.skills) && store.skills.length) return store;
+    try {
+      const lastWs = global.Storage && typeof global.Storage.getLastWorkspace === 'function'
+        ? String(await global.Storage.getLastWorkspace() || '').trim()
+        : '';
+      const rec = Skills.applySystemCatalogDefault(
+        store,
+        { skills: typeof Skills.bundledPresetSkills === 'function' ? Skills.bundledPresetSkills() : [] },
+        lastWs || 'local',
+      );
+      if (rec?.action === 'applied' && typeof Skills.saveToStorage === 'function') {
+        await Skills.saveToStorage(rec.store, global.Storage || null);
+      }
+      return rec?.store || store;
+    } catch (e) {
+      console.warn('[taskChromePlugin] seed prompt skills:', e?.message || e);
+      return store;
+    }
+  }
+
   async function loadPromptStore() {
     const Skills = global.PageAdvisorPromptSkills;
     if (!Skills || typeof Skills.loadFromStorage !== 'function') {
       return { skills: [], activeSkillId: '' };
     }
     try {
-      return await Skills.loadFromStorage();
+      return await seedSystemCatalog(await Skills.loadFromStorage());
     } catch (e) {
       console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
       return { skills: [], activeSkillId: '' };
