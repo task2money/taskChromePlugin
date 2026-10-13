@@ -15,10 +15,38 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install dependencies
         run: npm ci
 
       - name: Run unit tests
         run: npm test
+
+  # OPT-20261013-021：扩展重载、SW 生命周期、跨上下文消息通道这三类缺陷单测与 stub e2e
+  # 都造不出来，只有真实扩展用例能守；此前它们只能手动跑（不跑的断言等于不存在）。
+  #
+  # 依赖：完整 chromium（`npx playwright install chromium`）+ 显示服务器（runner 脚本在
+  # 无 DISPLAY 时自动套 xvfb-run，ubuntu-latest 预装 xvfb）。单条实测约 6-7s（本机 v22）。
+  # 红了就是真红，不重试、不忽略。
+  real-extension-e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install chromium for Playwright
+        run: npx playwright install --with-deps chromium
+
+      - name: Real-extension e2e — messaging channel
+        run: npm run test:e2e
+
+      - name: Real-extension e2e — page advisor context unreachable + retry
+        run: npm run test:e2e:advisor-context
