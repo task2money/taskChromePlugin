@@ -131,7 +131,13 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     return { ok: false, error: e?.message || tx('paContextReadFailed'), errorCode: '', traceId: '' };
   }
   if (!ctxResp?.success || !ctxResp.data) {
-    return { ok: false, error: ctxResp?.error || tx('paContextUnavailable'), errorCode: '', traceId: '' };
+    // errorCode 透传：侧边栏/内容层据此区分「刷新页面即可」与「页面类型不支持」。
+    return {
+      ok: false,
+      error: ctxResp?.error || tx('paContextUnavailable'),
+      errorCode: ctxResp?.errorCode || '',
+      traceId: '',
+    };
   }
 
   const data = ctxResp.data;

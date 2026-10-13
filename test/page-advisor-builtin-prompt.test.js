@@ -510,6 +510,28 @@ test('内置失败通知不含页面原文', async () => {
   assert.equal(JSON.stringify(failed).includes('apiKey'), false);
 });
 
+test('采集返回非 success 时透传具体文案，而不是退化成笼统「无法读取」', async () => {
+  const notes = [];
+  await builtin.runAltZ(1, {
+    languageModel: {
+      async availability() { return 'available'; },
+      async create() { throw new Error('should not create'); },
+    },
+    askContext: async () => ({
+      success: false,
+      errorCode: 'PAGE_CONTEXT_UNREACHABLE',
+      error: '刷新当前网页后重试。',
+    }),
+    notify: async (_tab, payload) => { notes.push(payload); },
+    tx: (key) => key,
+    locale: 'zh-CN',
+  });
+  const failed = notes.find((item) => item && item.ok === false);
+  assert.ok(failed, `应有失败通知：${JSON.stringify(notes)}`);
+  assert.equal(failed.error, '刷新当前网页后重试。');
+  assert.equal(failed.errorCode, 'PLUGIN_BUILTIN_CONTEXT');
+});
+
 test('startDownload 100% 后超时 abort（enableTimeoutMs）', async () => {
   const runtime = require('../lib/page-advisor-builtin-runtime.js');
   const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
