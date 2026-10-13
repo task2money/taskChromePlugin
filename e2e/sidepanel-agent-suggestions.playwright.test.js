@@ -74,8 +74,16 @@ async function installStub(page, posts) {
     window.__msgListeners = [];
 
     // Anti-Replay-OK: 测试桩，非业务写路径
-    const reply = (message) => {
+    const reply = async (message) => {
       const action = message && message.action;
+      if (action === 'generateAgentSuggestionsForActiveTab') {
+        // 生成 → 落贴：真实 SW 会在这一步建贴，随后 refresh 才列得到它。
+        // __genGate 打开时先挂住，好让用例观察到生成期间按钮 disabled。
+        if (window.__genGate) await new Promise((resolve) => { window.__releaseGenerate = resolve; });
+        const created = { id: 'post-9', tenantId, title: '生成的新建议', created_at: '2026-10-12T05:00:00Z' };
+        window.__items = window.__items.concat([created]);
+        return { success: true, created: true, projectName: '绑定项目', postId: created.id, tabId };
+      }
       if (action === 'listSitePendingForActiveTab' || action === 'refreshSitePendingForActiveTab') {
         return { success: true, items: window.__items.slice(), count: window.__items.length, tabId };
       }
@@ -185,6 +193,43 @@ test.describe('侧栏智能体建议', () => {
     await page.goto(SIDEPANEL_URL);
     await broadcastListed(page, PENDING_POSTS_AFTER_QUERY);
     await expect(page.locator('#sp-agent-count')).toHaveText('3');
+  });
+
+  test('点生成：落贴后列表真多一行、选中该帖、状态行写明落点项目', async ({ page }) => {
+    // OPT-20261013-013：SW 侧 9 例与面板侧 6 例各自保证消息形状，中间的**真消息通道**
+    // （字段名、busy 态、成功文案插值）没人守。这里把两边接起来跑一遍。
+    await installStub(page, PENDING_POSTS);
+    await page.goto(SIDEPANEL_URL);
+    await page.locator('#sp-tab-agent').click();
+
+    const rows = page.locator('#sp-agent-posts .taskplugin-page-advisor-post-tab');
+    await expect(rows).toHaveCount(2);
+
+    // 挂住生成，观察生成期间的按钮态。
+    await page.evaluate(() => { window.__genGate = true; });
+    const generate = page.locator('#sp-agent-generate');
+    await generate.click();
+    await expect(generate).toBeDisabled();
+    await expect(generate).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#sp-agent-status')).toHaveText('正在为当前网页生成建议…');
+
+    await page.evaluate(() => { if (window.__releaseGenerate) window.__releaseGenerate(); });
+
+    // 1) 状态行插值出落点项目；2) 列表真多一行；3) 新帖被选中（页面浮层也跟着切）。
+    await expect(page.locator('#sp-agent-status')).toHaveText('已在「绑定项目」创建优化贴');
+    await expect(rows).toHaveCount(3);
+    const created = page.locator('#sp-agent-posts [data-post-id="post-9"]');
+    await expect(created).toHaveCount(1);
+    await expect(created).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#sp-agent-count')).toHaveText('3');
+    await expect(generate).toBeEnabled();
+
+    // 通道契约：请求确实带着 action 与提示词选择发出，且只发一次。
+    const calls = await page.evaluate(() => (window.__sent || [])
+      .filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab')
+      .map((m) => ({ skillId: m.skillId, promptTendency: m.promptTendency })));
+    expect(calls).toHaveLength(1);
+    expect(typeof calls[0].skillId).toBe('string');
   });
 
   test('点开智能体建议页签，标记一帖后该帖从列表消失', async ({ page }) => {
