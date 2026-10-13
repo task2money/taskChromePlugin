@@ -92,6 +92,105 @@ function loadGenerateStack(extraSandbox = {}) {
   return { sandbox, calls, generateCalls };
 }
 
+/**
+ * builtin（本机内置模型）路由的沙箱：生成核心对 builtin 直接拒绝，出口自己驱动 runAltZ。
+ * `altZResult` 就是 runAltZ 终态交给 `deps.onResult` 的那份载荷。
+ */
+function loadBuiltinStack({ altZResult, ...extra } = {}) {
+  const altZ = [];
+  const result = altZResult === undefined
+    ? {
+      ok: true,
+      phase: 'done',
+      pageUrl: 'https://shop.test/p?utm=1',
+      suggestions: [
+        { id: 'b1', title: '本地模型标题', summary: '本机生成', detail: '细节一' },
+        { id: 'b2', title: '第二条', summary: '', detail: '细节二' },
+      ],
+    }
+    : altZResult;
+  const stack = loadGenerateStack({
+    LanguageModel: { availability: async () => 'available', create: async () => ({}) },
+    loadPageAdvisorDirectReady: async () => ({ route: 'builtin', directReady: false, llmCfg: {} }),
+    loadDirectLlmSkill: async () => ({ id: 'sys-default', title: '系统默认', tendency: 'system' }),
+    askContentPageAdvisorContext: async () => ({ success: true, data: { url: 'https://shop.test/p', title: '商品页' } }),
+    notifyContentPageAdvisor: async () => {},
+    resolvePageAdvisorLocale: () => 'zh-CN',
+    PageAdvisorBuiltinPrompt: {
+      runAltZ: async (tabId, deps) => {
+        altZ.push({ tabId, deps });
+        if (deps && typeof deps.onResult === 'function') deps.onResult(result);
+      },
+    },
+    ...extra,
+  });
+  return { ...stack, altZ };
+}
+
+describe('sw-agent-suggestions builtin 路由（OPT-20261013-011）', () => {
+  it('内置模型路由由出口接管：runAltZ 的结果照常落贴，不再返回 AGENT_SUGGESTIONS_BUILTIN_ROUTE', async () => {
+    const { sandbox, calls, generateCalls, altZ } = loadBuiltinStack();
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    assert.equal(resp.success, true);
+    assert.equal(resp.count, 2);
+    // 生成核心不参与 builtin：接管以后就不该再走到它，也就不会出现那条拒绝码。
+    assert.equal(generateCalls.length, 0);
+    assert.notEqual(resp.errorCode, 'AGENT_SUGGESTIONS_BUILTIN_ROUTE');
+    assert.equal(altZ.length, 1);
+    assert.equal(altZ[0].tabId, 7);
+    assert.equal(altZ[0].deps.languageModel, sandbox.LanguageModel);
+    assert.equal(altZ[0].deps.locale, 'zh-CN');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].body.title, '本地模型标题');
+    assert.equal(calls[0].body.detail, '1. 细节一\n2. 细节二');
+  });
+
+  it('落贴网址仍与列表同源（去查询串与片段）', async () => {
+    const { sandbox, calls } = loadBuiltinStack();
+    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    assert.equal(calls[0].body.page_url, 'https://shop.test/p');
+  });
+
+  it('提示词：下拉选中项优先，未选时用与 Alt+Z 同源的默认加载器', async () => {
+    const selected = loadBuiltinStack();
+    await selected.sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    assert.equal((await selected.altZ[0].deps.loadSkill()).id, 'sk1');
+
+    const fallback = loadBuiltinStack();
+    await fallback.sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: '' });
+    assert.equal((await fallback.altZ[0].deps.loadSkill()).id, 'sys-default');
+  });
+
+  it('下载中/待启用的门禁文案原样透传，不发落贴请求', async () => {
+    const { sandbox, calls } = loadBuiltinStack({
+      altZResult: { ok: false, error: '内置模型下载中 62%', errorCode: 'builtin_downloading' },
+    });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    assert.equal(resp.success, false);
+    assert.equal(resp.error, '内置模型下载中 62%');
+    assert.equal(resp.errorCode, 'builtin_downloading');
+    assert.equal(calls.length, 0);
+  });
+
+  it('拿不到内置模型时也给启用引导（不再退回生成核心的拒绝）', async () => {
+    const { sandbox, generateCalls, altZ } = loadBuiltinStack({ LanguageModel: undefined });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    assert.equal(altZ.length, 1);
+    assert.equal(altZ[0].deps.languageModel, undefined);
+    assert.equal(generateCalls.length, 0);
+    assert.notEqual(resp.errorCode, 'AGENT_SUGGESTIONS_BUILTIN_ROUTE');
+  });
+
+  it('非 builtin 路由仍交回生成核心（接管不越界）', async () => {
+    const { sandbox, generateCalls, altZ } = loadBuiltinStack({
+      loadPageAdvisorDirectReady: async () => ({ route: 'direct', directReady: true, llmCfg: {} }),
+    });
+    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    assert.equal(altZ.length, 0);
+    assert.equal(generateCalls.length, 1);
+  });
+});
+
 describe('sw-agent-suggestions 生成并落贴', () => {
   it('选中的提示词进生成核心，倾向随落贴请求上行', async () => {
     const { sandbox, calls, generateCalls } = loadGenerateStack();

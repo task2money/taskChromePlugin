@@ -74,6 +74,68 @@ async function resolveAgentSuggestionTenant(pageTenantId) {
   return tenant.ok ? String(tenant.tenantId || '') : '';
 }
 
+/** 当前生效的路由（`builtin` / `direct` / `saas` / `system`）；取不到就交回生成核心。 */
+async function resolveAgentSuggestionRoute() {
+  if (typeof loadPageAdvisorDirectReady !== 'function') return '';
+  try {
+    const ready = await loadPageAdvisorDirectReady();
+    return String((ready && ready.route) || '');
+  } catch (e) {
+    console.warn('[taskChromePlugin] resolve page-advisor route:', e?.message || e);
+    return '';
+  }
+}
+
+/**
+ * 本机内置模型（Chrome 自带 LanguageModel）那条出口。
+ *
+ * 生成核心 `generatePageAdvisorSuggestions` 对 `route === 'builtin'` 直接拒绝：内置模型要先过
+ * 启用态检查与下载/启用引导，那套流程只活在 `PageAdvisorBuiltinPrompt.runAltZ` 里。这里把同一组
+ * 注入点接过来，让侧边栏「生成建议」与页面 Alt+Z 走同一条生成路径，落贴仍复用下面的公共代码。
+ *
+ * @returns {Promise<object|null>} `null` 表示「不是 builtin」，交回生成核心处理。
+ */
+async function runBuiltinAgentSuggestions(tabId, skill) {
+  const Prompt = typeof PageAdvisorBuiltinPrompt !== 'undefined' ? PageAdvisorBuiltinPrompt : null;
+  if (!Prompt || typeof Prompt.runAltZ !== 'function') return null;
+  if (await resolveAgentSuggestionRoute() !== 'builtin') return null;
+  // 这里不断言 LanguageModel 存在：缺席时 runAltZ 会按 `builtin_unavailable` 给出「去启用内置模型」
+  // 的具体引导，比生成核心那句「去页面按 Alt+Z」更准确（那条路同样没有模型可用）。
+
+  let payload = null;
+  await Prompt.runAltZ(tabId, {
+    languageModel: globalThis.LanguageModel,
+    askContext: (id) => askContentPageAdvisorContext(id),
+    notify: notifyContentPageAdvisor,
+    loadSkill: () => Promise.resolve(skill || loadAgentSuggestionDefaultSkill()),
+    locale: resolvePageAdvisorLocale(),
+    tx,
+    onResult: (p) => { payload = p; },
+  });
+  if (!payload) {
+    return { ok: false, error: tx('agentSuggestionsGenerateFail'), errorCode: '', traceId: '' };
+  }
+  if (!payload.ok) {
+    // runAltZ 已经按 builtin 的可用性给了具体文案（下载中/待启用/不可用），原样透传给侧边栏。
+    return {
+      ok: false,
+      error: payload.error || tx('agentSuggestionsGenerateFail'),
+      errorCode: payload.errorCode || '',
+      traceId: '',
+    };
+  }
+  return {
+    ok: true,
+    route: 'builtin',
+    pageUrl: String(payload.pageUrl || ''),
+    pageTitle: '',
+    suggestions: Array.isArray(payload.suggestions) ? payload.suggestions : [],
+    jobId: '',
+    featureParamsSource: 'plugin_builtin',
+    traceId: '',
+  };
+}
+
 /**
  * @param {{ skillId?: string, promptTendency?: string }} message
  * @returns {Promise<{ success: boolean, error?: string, errorCode?: string, traceId?: string,
@@ -86,7 +148,8 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   if (!tab?.id || !tab.url) return { success: false, error: tx('swNoActiveTab') };
 
   const skill = await loadAgentSuggestionSkill(message?.skillId);
-  const result = await generatePageAdvisorSuggestions(tab.id, skill
+  const builtin = await runBuiltinAgentSuggestions(tab.id, skill);
+  const result = builtin || await generatePageAdvisorSuggestions(tab.id, skill
     ? { skill, attachAnchors: true }
     : { skillLoader: () => loadAgentSuggestionDefaultSkill(), attachAnchors: true });
 
