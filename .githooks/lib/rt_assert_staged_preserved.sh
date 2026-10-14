@@ -18,6 +18,12 @@
 #
 # Env:
 #   PRECOMMIT_SKIP_STAGED_GUARD=1  — emergency bypass (documented only)
+#
+# 适用边界：本守卫要求「门禁期间索引只能原样不动」。**meta 仓不要用集合判据**——
+# 它的 pre-commit 自身就会改索引（发布指针 hook 在钩子内改写并 git add
+# conf.example/releases.yaml；pre-commit framework 的 auto-fix 会重新暂存生成物），
+# 一律判失败会把每一次正常提交都拦下。meta 的「并发裹挟」问题需要另一种机制，
+# 不能靠把这条判据复制过去解决（OPT-20261014-013 的 Action(2) 因此未做）。
 
 # 一次索引快照：排序去重，供集合比对使用（LC_ALL=C 保证两次排序口径一致）。
 rt_staged_guard_snapshot() {
