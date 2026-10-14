@@ -10,7 +10,7 @@
 # 卷走他会话 9 个文件，反向亦然），双方门禁全绿、无人察觉，污染历史与 blame。
 #
 # Usage (sourced from pre-commit.node before tests pass):
-#   STAGED_COUNT_AT_START=N            # 兼容旧调用方：只做「被清空」判据
+#   STAGED_COUNT_AT_START=N            # 只做「被清空」判据（未提供快照的调用方）
 #   STAGED_SET_AT_START=$'a\nb'        # 钩子开始时的 `git diff --cached --name-only | sort`
 #   PRECOMMIT_STAGED_GUARD_ALLOW_ADD   # 允许新增的**精确路径**（换行分隔）；
 #                                      # 给「钩子自身合法写索引」的仓库用
@@ -54,7 +54,7 @@ rt_assert_staged_preserved() {
     return 1
   fi
 
-  # 集合比对：仅在调用方提供了快照时启用（旧调用方只给计数 → 保持原行为）。
+  # 集合比对：仅在调用方提供了快照时启用（未提供快照的调用方 → 保持原行为）。
   if [ -z "${STAGED_SET_AT_START+x}" ]; then
     return 0
   fi
