@@ -42,7 +42,7 @@ const LATEST_RELEASE_FIXTURE = {
  * options.languageModel 为真时注入 LanguageModel stub，使「内置模型」单选可见。
  */
 async function installChromeStub(page, options = {}) {
-  await page.addInitScript(({ installType, release, token, username, languageModel }) => {
+  await page.addInitScript(({ installType, release, token, username, languageModel, workspaces }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const store = {
       baseUrl: 'https://aidevpush.com',
@@ -86,7 +86,7 @@ async function installChromeStub(page, options = {}) {
           if (msg?.action === 'getWorkspaces') {
             return {
               success: true,
-              data: [
+              data: workspaces || [
                 { id: 'ws-a', name: '空间A', company_id: 'co1' },
                 { id: 'ws-b', name: '空间B', company_id: 'co1' },
               ],
@@ -138,6 +138,7 @@ async function installChromeStub(page, options = {}) {
     token: options.token || '',
     username: options.username || '',
     languageModel: !!options.languageModel,
+    workspaces: options.workspaces || null,
   });
 }
 
@@ -378,6 +379,37 @@ test.describe('Popup 面板布局', () => {
     expect(radioMid).toBeGreaterThanOrEqual(wsBox.y - 2);
     expect(radioMid).toBeLessThanOrEqual(wsBox.y + wsBox.height + 2);
     expect(skuBox.y).toBeGreaterThan(wsBox.y);
+  });
+
+  // 1.8.267：登录 + 「调用平台后端」自动选中平台默认工作空间（is_default）；
+  // 手动切换后记手选、之后不再被默认覆盖。
+  test('登录后自动选中平台默认工作空间，手动切换后记手选', async ({ page }) => {
+    await installChromeStub(page, {
+      token: 'at_e2e_ws_default',
+      username: 'ada',
+      workspaces: [
+        { id: 'ws-a', name: '空间A', company_id: 'co1' },
+        { id: 'ws-b', name: '空间B', company_id: 'co1', is_default: true },
+      ],
+    });
+    await page.goto(POPUP_URL);
+    await expect(page.locator('#popupLlmRouteSaas')).toBeChecked();
+    const select = page.locator('#popupSaasWorkspace');
+    // 自动选中后不再渲染「请选择工作空间」占位 → 只有两个工作空间选项。
+    await expect(select.locator('option')).toHaveCount(2, { timeout: 10000 });
+    await expect(select).toHaveValue('ws-b');
+    await expect.poll(async () => page.evaluate(async () => {
+      const raw = await chrome.storage.local.get(['lastWorkspaceId', 'lastWorkspaceManual']);
+      return `${raw.lastWorkspaceId}|${raw.lastWorkspaceManual}`;
+    })).toBe('ws-b|false');
+
+    // 手动切换 → 记手选（跨次打开的「不再被默认覆盖」由 test/popup-saas-workspace-default.test.js 覆盖）。
+    await select.selectOption('ws-a');
+    await expect(select).toHaveValue('ws-a');
+    await expect.poll(async () => page.evaluate(async () => {
+      const raw = await chrome.storage.local.get(['lastWorkspaceId', 'lastWorkspaceManual']);
+      return `${raw.lastWorkspaceId}|${raw.lastWorkspaceManual}`;
+    })).toBe('ws-a|true');
   });
 
   test('提示词 Skill 设置按钮展开管理区，再点收起', async ({ page }) => {

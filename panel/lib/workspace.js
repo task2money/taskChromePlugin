@@ -129,7 +129,14 @@
           sel.value = state.workspaces[0].id || state.workspaces[0]._id;
         }
       }
-      sel.dispatchEvent(new Event('change'));
+      // 程序化恢复（含单一工作空间自动选中）不是用户切换：打标记让 change 处理器
+      // 不改写「手选」来源（见 P.persistWorkspaceChoice）。
+      sel.dataset.wsRestore = '1';
+      try {
+        sel.dispatchEvent(new Event('change'));
+      } finally {
+        delete sel.dataset.wsRestore;
+      }
     } catch (e) {
       if (P.handleApiAuthFailure(e)) {
         sel.innerHTML = '<option value="">' + P.t('commonReloginExtOption') + '</option>';
@@ -154,9 +161,25 @@
     }
   };
 
+  /**
+   * 记录工作空间选择来源：用户切换记手选；程序化恢复只在值与上次不同时按自动选中记，
+   * 与上次相同则完全不写（保住此前「手选/自动」标志，配合弹窗的平台默认工作空间语义）。
+   */
+  P.persistWorkspaceChoice = async function (wsId, opts) {
+    if (!opts?.restoring) {
+      await Storage.saveLastWorkspace(wsId);
+      return;
+    }
+    const last = String((await Storage.getLastWorkspace()) || '');
+    if (String(wsId || '') === last) return;
+    await Storage.saveLastWorkspace(wsId, { manual: false });
+  };
+
   P.onSingleWorkspaceChange = async function () {
-    const wsId = P.$('#singleWorkspace').value;
-    await Storage.saveLastWorkspace(wsId);
+    const sel = P.$('#singleWorkspace');
+    const restoring = sel.dataset.wsRestore === '1';
+    const wsId = sel.value;
+    await P.persistWorkspaceChoice(wsId, { restoring });
     if (!wsId) {
       P.$('#singleProjects').innerHTML = `<p class="placeholder">${P.t('commonPickWsFirst')}</p>`;
       P.$('#singleOwner').innerHTML = `<option value="">${P.t('commonPickWsFirst')}</option>`;

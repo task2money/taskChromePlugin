@@ -107,8 +107,10 @@
   };
 
   P.onBatchWsChange = async function () {
-    const id = P.$('#batchWorkspace').value;
-    await Storage.saveLastWorkspace(id);
+    const sel = P.$('#batchWorkspace');
+    const restoring = sel.dataset.wsRestore === '1';
+    const id = sel.value;
+    await P.persistWorkspaceChoice(id, { restoring });
     if (!id) {
       const pickWsFirst = P.t('commonPickWsFirst');
       P.$('#batchProjects').innerHTML = `<p class="placeholder">${pickWsFirst}</p>`;

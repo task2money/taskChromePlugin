@@ -22,15 +22,23 @@
 
   function setRetryVisible(visible) { if (gated) gated.setRetryVisible(visible); }
 
+  /** 智能体下拉按工作空间所属租户取数，工作空间一变就要重拉（否则两栏跨租户不一致）。 */
+  function reloadAgentMenu() {
+    if (typeof window !== 'undefined' && window.PopupSystemSku
+      && typeof window.PopupSystemSku.loadMenu === 'function') {
+      window.PopupSystemSku.loadMenu().catch(() => {});
+    }
+  }
+
   function clearStatus() { if (gated) gated.clearStatus(); }
 
   function showError(err) { if (gated) gated.showError(err); }
 
   function retry() { if (gated) gated.retry(); }
 
-  function persist(id) {
+  function persist(id, opts) {
     if (typeof Storage === 'undefined' || typeof Storage.saveLastWorkspace !== 'function') return;
-    Storage.saveLastWorkspace(id).catch((e) => {
+    Storage.saveLastWorkspace(id, opts).catch((e) => {
       console.warn('[taskChromePlugin] save last workspace failed', { message: e?.message || '' });
     });
   }
@@ -106,7 +114,14 @@
     } finally {
       suppress = false;
     }
-    if (menu.persist && menu.selectedId) persist(menu.selectedId);
+    // 自动选中（平台默认工作空间 / 唯一空间）记 auto，手动切换记手选（见 change 处理器）。
+    if (menu.persist && menu.selectedId) {
+      persist(menu.selectedId, { manual: menu.source === 'manual' });
+      console.info('[taskChromePlugin] saas workspace auto-selected', {
+        source: menu.source, workspaceId: menu.selectedId, options: menu.options.length,
+      });
+      reloadAgentMenu();
+    }
   }
 
   function unwrapRows(data) {
@@ -130,9 +145,15 @@
     clearStatus();
     if (typeof sendMessageWithTimeout !== 'function') return;
     let lastId = '';
+    let manual = true;
     try {
       if (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function') {
         lastId = String((await Storage.getLastWorkspace()) || '');
+      }
+      // 缺标志（null / 旧版 Storage mock）视为手选：既有用户的选择不被平台默认覆盖。
+      if (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspaceManual === 'function') {
+        const flag = await Storage.getLastWorkspaceManual();
+        if (typeof flag === 'boolean') manual = flag;
       }
     } catch (_) { /* 无上次选择 */ }
     if (gen !== loadGen) return;
@@ -157,7 +178,7 @@
       : rows.map((ws) => String(ws?.name || ws?.id || ws?._id || ''));
     const lib = Lib();
     render(lib
-      ? lib.buildSaasWorkspaceMenu(rows, lastId, labels)
+      ? lib.buildSaasWorkspaceMenu(rows, lastId, labels, { manual })
       : { options: [], selectedId: '', persist: false });
   }
 
@@ -203,10 +224,9 @@
       if (suppress) return;
       const id = sel.value;
       if (!id) return;
-      persist(id);
-      if (typeof window.PopupSystemSku?.loadMenu === 'function') {
-        window.PopupSystemSku.loadMenu().catch(() => {});
-      }
+      // 用户手动切换：记手选，之后平台默认不再覆盖（除非该工作空间消失）。
+      persist(id, { manual: true });
+      reloadAgentMenu();
     });
   }
 

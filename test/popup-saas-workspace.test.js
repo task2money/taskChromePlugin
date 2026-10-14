@@ -120,9 +120,11 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.equal(already.persist, false);
   });
 
-  it('切换工作空间后重载智能体下拉', () => {
+  it('切换工作空间后重载智能体下拉（含自动选中默认工作空间那一次）', () => {
     const src = fs.readFileSync(path.join(ROOT, 'popup/popup-saas-workspace.js'), 'utf8');
-    assert.match(src, /PopupSystemSku\?\.loadMenu/);
+    assert.match(src, /function reloadAgentMenu\(\)[\s\S]*?PopupSystemSku\.loadMenu\(\)/);
+    assert.match(src, /sel\.addEventListener\('change'[\s\S]*?persist\(id, \{ manual: true \}\);[\s\S]*?reloadAgentMenu\(\);/);
+    assert.match(src, /if \(menu\.persist && menu\.selectedId\) \{[\s\S]*?reloadAgentMenu\(\);/);
   });
 
   it('文案：工作空间 + 请先登录占位；altZHint 指向调用平台后端', () => {
