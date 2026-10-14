@@ -60,6 +60,9 @@ STAGED_COUNT_AT_START=0
 if [ -n "$STAGED_FILES" ]; then
     STAGED_COUNT_AT_START="$(printf '%s\n' "$STAGED_FILES" | grep -c . || true)"
 fi
+# OPT-20261014-013: 同时留一份**集合**快照——只比数量会静默放行并发会话在这段窗口里
+# 追加的条目（会被裹挟进本次提交）。收尾由 rt_assert_staged_preserved 做集合比对。
+STAGED_SET_AT_START="$(printf '%s\n' "$STAGED_FILES" | grep -v '^$' | LC_ALL=C sort -u || true)"
 GUARD_LIB="$(pwd)/.githooks/lib/rt_assert_staged_preserved.sh"
 if [ -f "$GUARD_LIB" ]; then
     # shellcheck source=lib/rt_assert_staged_preserved.sh

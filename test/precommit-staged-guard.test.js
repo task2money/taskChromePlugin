@@ -67,6 +67,19 @@ function selfClearingTest(dir) {
   ].join('\n');
 }
 
+/** 被钩子执行、并在窗口内 `git add` 一个旁路文件的测试文件：
+ *  确定性地复现「并发会话追加暂存条目」（OPT-20261014-013）。 */
+function selfStagingTest(dir) {
+  return [
+    "'use strict';",
+    "const fs = require('node:fs');",
+    "const { execFileSync } = require('node:child_process');",
+    "const { test } = require('node:test');",
+    `test('stages a sibling file mid-hook', () => { fs.writeFileSync(${JSON.stringify(path.join(dir, 'theirs.txt'))}, 'theirs\\n'); execFileSync('git', ['-C', ${JSON.stringify(dir)}, 'add', 'theirs.txt']); });`,
+    '',
+  ].join('\n');
+}
+
 /**
  * 直接跑钩子脚本本身（不经 `git commit`）：commit 期间 git 会把 GIT_INDEX_FILE
  * 指向 next-index 临时索引，被钩子执行的测试再 reset 就落不到钩子读的那个索引上，
@@ -101,6 +114,28 @@ describe('plugin pre-commit staged-index guard', () => {
       assert.match(`${result.stdout}${result.stderr}`, /staged index was cleared during pre-commit/);
       assert.equal(git(dir, ['rev-parse', 'HEAD']).trim(), before, '暂存清空后不得推进 HEAD');
       assert.equal(git(dir, ['diff', '--cached', '--name-only']).trim(), '', '暂存确已被清空');
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  // OPT-20261014-013：只比数量会静默放行「窗口内被追加」的条目——并发会话在
+  // 随机单测跑的这半分钟里 git add 的文件会被裹挟进本人提交（真实事故形态：
+  // 2026-10-14 两起，双方门禁全绿）。这里让被钩子执行的测试自己 git add 一个
+  // 旁路文件，确定性地复现「新增」。
+  it('钩子运行期间暂存被追加 → 钩子非 0 退出（不裹挟他人条目）', () => {
+    const dir = makeRepo();
+    try {
+      const before = git(dir, ['rev-parse', 'HEAD']).trim();
+      fs.writeFileSync(path.join(dir, 'test', 'stages.test.js'), selfStagingTest(dir));
+      fs.writeFileSync(path.join(dir, 'notes.txt'), 'doc\n');
+      git(dir, ['add', 'test/stages.test.js', 'notes.txt']);
+
+      const result = runHook(dir);
+      assert.notEqual(result.status, 0, `钩子不应成功：${result.stdout}${result.stderr}`);
+      assert.match(`${result.stdout}${result.stderr}`, /索引在门禁期间被并发会话修改/);
+      assert.match(`${result.stdout}${result.stderr}`, /theirs\.txt/);
+      assert.equal(git(dir, ['rev-parse', 'HEAD']).trim(), before, '不得推进 HEAD');
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
