@@ -172,6 +172,8 @@
         <div class="btn-row llm-config-actions">
           <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
           <button type="button" id="btnTestLlmConnectivity" class="btn btn-sm" data-testid="btn-test-llm-connectivity">🔌 <span data-i18n="paLlmTest">测试连通性</span></button>
+          <button type="button" id="btnExportLlmCallLedger" class="btn btn-sm" data-testid="btn-export-llm-call-ledger">📤 <span data-i18n="paLlmLedgerExport">导出调用记录</span></button>
+          <button type="button" id="btnClearLlmCallLedger" class="btn btn-sm" data-testid="btn-clear-llm-call-ledger">🧹 <span data-i18n="paLlmLedgerClear">清空调用记录</span></button>
           <button type="button" id="btnDeleteLlmProfile" class="btn btn-sm btn-danger" hidden>🗑 <span data-i18n="paLlmProfileDelete">删除这一组</span></button>
         </div>
       </div>
@@ -414,10 +416,12 @@
   <script src="../lib/page-advisor-skill-draft.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="../lib/click-guard.js"></script>
+  <script src="../lib/llm-call-ledger.js"></script>
   <script src="../lib/page-advisor-llm-probe.js"></script>
   <script src="../lib/page-advisor-timing.js"></script>
   <script src="../lib/page-advisor-waterfall-view.js"></script>
   <script src="../lib/page-advisor-builtin-last-run.js"></script>
+  <script src="popup-llm-ledger.js"></script>
   <script src="popup-llm-config.js"></script>
   <script src="../lib/deeplink-core.js"></script>
   <script src="../lib/page-advisor-delivery.js"></script>

@@ -47,6 +47,7 @@ importScripts(
   '../lib/page-advisor-prompt-skills.js',
   '../lib/page-advisor-locale-prompt.js',
   '../lib/page-advisor-anchor.js',
+  '../lib/llm-call-ledger.js',
   '../lib/page-advisor-llm-client.js',
   '../lib/page-advisor-timing.js',
   '../lib/page-advisor-builtin-runtime.js',
