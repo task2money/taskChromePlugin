@@ -23,6 +23,7 @@ async function resolveTenantIdForSitePending() {
   if (mapping.owner) API.setOwner(mapping.owner);
 
   const lastWorkspaceId = await Storage.getLastWorkspace();
+  const lastWorkspaceManual = await Storage.getLastWorkspaceManual();
   let workspaces = [];
   try {
     const list = await API.getWorkspaces();
@@ -37,6 +38,7 @@ async function resolveTenantIdForSitePending() {
       floatWorkspaceId: '',
       floatCompanyId: '',
       lastWorkspaceId,
+      lastWorkspaceManual,
       workspaces,
     })
     : { workspaceId: '', companyId: '', source: '' };

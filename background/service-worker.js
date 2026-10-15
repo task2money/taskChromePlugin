@@ -73,6 +73,9 @@ importScripts(
   '../lib/toolbar-pin.js',
   './sw-side-panel.js',
   '../lib/popup-login-gated-select.js',
+  // OPT-20261014-037：Alt+Z 平台默认工作空间解析复用弹窗同一实现
+  // （lib/page-advisor-defaults.js 经 PopupSaasWorkspaceMenu 取 SSOT）。
+  '../lib/popup-saas-workspace.js',
   '../lib/popup-system-sku.js',
   './sw-messages-own-agents.js',
   './sw-messages-session.js',

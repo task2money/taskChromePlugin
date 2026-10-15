@@ -28,6 +28,7 @@ function loadSw(extra = {}) {
       getCredentials: async () => ({}),
       isTokenExpired: async () => false,
       getLastWorkspace: async () => '',
+      getLastWorkspaceManual: async () => null,
     },
     API: {
       init: () => {},
@@ -161,6 +162,7 @@ describe('sw-page-advisor direct LLM', () => {
         getCredentials: async () => ({}),
         isTokenExpired: async () => false,
         getLastWorkspace: async () => 'ws-stale',
+        getLastWorkspaceManual: async () => null,
       },
     });
     sandbox.API.getWorkspaces = async () => { listed += 1; return []; };
@@ -193,6 +195,7 @@ describe('sw-page-advisor direct LLM', () => {
         getCredentials: async () => ({}),
         isTokenExpired: async () => false,
         getLastWorkspace: async () => '',
+        getLastWorkspaceManual: async () => null,
       },
     });
     sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
@@ -380,6 +383,7 @@ describe('sw-page-advisor 直连补拉系统目录默认 Skill（OPT-20260922-03
         getCredentials: async () => ({}),
         isTokenExpired: async () => false,
         getLastWorkspace: async () => '',
+        getLastWorkspaceManual: async () => null,
       },
     });
     sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {

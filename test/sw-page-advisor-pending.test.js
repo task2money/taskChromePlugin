@@ -30,6 +30,7 @@ function loadPendingStack(extraSandbox = {}) {
       getCredentials: async () => ({ userId: 'u1' }),
       isTokenExpired: async () => false,
       getLastWorkspace: async () => 'ws1',
+      getLastWorkspaceManual: async () => null,
     },
     API: {
       init: () => {},
@@ -223,6 +224,7 @@ describe('sw-page-advisor-pending', () => {
         getCredentials: async () => ({ userId: '' }),
         isTokenExpired: async () => false,
         getLastWorkspace: async () => '',
+        getLastWorkspaceManual: async () => null,
       },
       PageAdvisorAPI: {
         listPendingSuggestions: async () => {

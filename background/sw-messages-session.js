@@ -313,7 +313,8 @@ async function handleMessage(message, sender) {
           try {
             lastId = String((await Storage.getLastWorkspace()) || '');
           } catch (_) { /* 无上次工作空间 */ }
-          const hit = rows.find((ws) => String(ws?.id || ws?._id || '') === lastId) || rows[0];
+          // OPT-20261014-037：无匹配 → 平台默认工作空间 → 才退回 rows[0]
+          const hit = PageAdvisorDefaults.pickWorkspaceEntry(rows, lastId);
           tenantId = String(hit?.company_id || hit?.companyId || '').trim();
         }
         if (!tenantId || typeof PageAdvisorAPI === 'undefined'

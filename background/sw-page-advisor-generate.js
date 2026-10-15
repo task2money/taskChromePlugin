@@ -358,12 +358,16 @@ async function resolvePlatformScope(data) {
       console.warn('[taskChromePlugin] page advisor getWorkspaces for defaults:', e?.message || e);
     }
     const lastWorkspaceId = await Storage.getLastWorkspace();
+    // OPT-20261014-037：从未选过（或只被插件自动选中）时改用平台默认工作空间，
+    // 否则首次 Alt+Z 会要求用户先打开弹窗选空间。
+    const lastWorkspaceManual = await Storage.getLastWorkspaceManual();
     const resolved = (typeof PageAdvisorDefaults !== 'undefined'
       && PageAdvisorDefaults.resolvePageAdvisorWorkspace)
       ? PageAdvisorDefaults.resolvePageAdvisorWorkspace({
         floatWorkspaceId: workspaceId,
         floatCompanyId: tenantId,
         lastWorkspaceId,
+        lastWorkspaceManual,
         workspaces,
       })
       : { workspaceId: '', companyId: '', source: '' };

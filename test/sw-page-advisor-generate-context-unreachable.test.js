@@ -43,6 +43,7 @@ function loadStack(extraSandbox = {}) {
       getCredentials: async () => ({}),
       isTokenExpired: async () => false,
       getLastWorkspace: async () => '',
+      getLastWorkspaceManual: async () => null,
     },
     API: {
       init: () => {},
