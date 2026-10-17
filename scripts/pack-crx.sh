@@ -119,6 +119,90 @@ PACK_PATHS=(
   sidepanel
 )
 
+# ── 运行时域名配置（SSOT: conf/base.yaml + conf/domain-history.yaml）──────────
+# 扩展代码里不允许出现任何默认域名；发布包在打包期把域名写入
+# lib/runtime-config.values.js。环境变量可显式覆盖（部署到不同域名时无需改码）。
+#   PLUGIN_STORE_BUILD=1   商店构建：不内置任何域名，首次使用引导填写服务器地址
+#   PLUGIN_GATEWAY_URL     服务器（API/主站）基址，未设置时取 Domain Contract baseOrigin
+#   PLUGIN_SITE_URL        公共站点基址（闲置集市/提示词集市），默认 publicBaseUrl
+#   PLUGIN_DOCS_URL        文档站基址，默认 ${scheme}://${subdomains.docs}
+#   PLUGIN_LEGACY_HOSTS    旧域名 host 列表（逗号/空格分隔），默认取 domain-history 中
+#                          status=active|retired 且不是当前 baseDomain 的条目
+PLUGIN_STORE_BUILD="${PLUGIN_STORE_BUILD:-0}"
+GATEWAY_URL="${PLUGIN_GATEWAY_URL:-}"
+SITE_URL="${PLUGIN_SITE_URL:-}"
+DOCS_URL="${PLUGIN_DOCS_URL:-}"
+LEGACY_HOSTS="${PLUGIN_LEGACY_HOSTS:-}"
+CONTRACT_BASE_DOMAIN=""
+
+contract_field() {
+  # $1 = node 表达式（j 为 Domain Contract JSON）
+  printf '%s' "$CONTRACT_JSON" | node -p "const j=JSON.parse(require('fs').readFileSync(0,'utf8')); $1" 2>/dev/null || true
+}
+
+if [[ "$PLUGIN_STORE_BUILD" != "1" ]]; then
+  CONF_READ="$ROOT/../runAll/scripts/conf-read.py"
+  CONTRACT_JSON=""
+  if [[ -f "$CONF_READ" ]] && command -v python3 >/dev/null 2>&1; then
+    CONTRACT_JSON="$(python3 "$CONF_READ" domain-json 2>/dev/null || true)"
+  fi
+  if [[ -n "$CONTRACT_JSON" ]]; then
+    CONTRACT_BASE_DOMAIN="$(contract_field 'j.baseDomain || ""')"
+    [[ -n "$GATEWAY_URL" ]] || GATEWAY_URL="$(contract_field 'j.baseOrigin || ""')"
+    [[ -n "$SITE_URL" ]] || SITE_URL="$(contract_field 'j.publicBaseUrl || ""')"
+    [[ -n "$DOCS_URL" ]] || DOCS_URL="$(contract_field '(j.subdomains && j.subdomains.docs) ? ((j.scheme||"https") + "://" + j.subdomains.docs) : ""')"
+  fi
+  if [[ -z "$LEGACY_HOSTS" ]]; then
+    HISTORY="$ROOT/../conf/domain-history.yaml"
+    HISTORY_LOCAL="$ROOT/../conf-local/domain-history.yaml"
+    if [[ -f "$HISTORY" ]] && command -v python3 >/dev/null 2>&1; then
+      LEGACY_HOSTS="$(python3 - "$HISTORY" "$HISTORY_LOCAL" "$CONTRACT_BASE_DOMAIN" <<'PY'
+import sys
+from pathlib import Path
+
+try:
+    import yaml
+except ImportError:
+    sys.exit(0)
+
+def load(path):
+    p = Path(path)
+    if not p.is_file():
+        return {}
+    return yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+
+entries = {}
+for path in sys.argv[1:3]:
+    for item in (load(path).get("domains") or []):
+        name = str(item.get("domain") or "").strip().lower()
+        if name:
+            entries[name] = item
+current = str(sys.argv[3] if len(sys.argv) > 3 else "").strip().lower()
+hosts = [d for d, item in entries.items()
+         if d != current and str(item.get("status") or "") in ("active", "retired")]
+print(" ".join(hosts))
+PY
+)"
+    fi
+  fi
+  if [[ -z "$GATEWAY_URL" ]]; then
+    echo "错误: 未配置扩展服务器地址：设置 PLUGIN_GATEWAY_URL，或提供 conf/base.yaml Domain Contract（BASE_DOMAIN / conf-local）" >&2
+    exit 1
+  fi
+fi
+
+validate_url() {
+  local name="$1" value="$2"
+  [[ -z "$value" ]] && return 0
+  if [[ ! "$value" =~ ^https?://[^[:space:]\'\"]+$ ]]; then
+    echo "错误: $name 不是合法的 http(s) 地址: $value" >&2
+    exit 1
+  fi
+}
+validate_url "PLUGIN_GATEWAY_URL" "$GATEWAY_URL"
+validate_url "PLUGIN_SITE_URL" "$SITE_URL"
+validate_url "PLUGIN_DOCS_URL" "$DOCS_URL"
+
 # 存在性按 HEAD 树判定：打包只取已提交内容，不因工作区缺文件而误判「仓库缺少」。
 for p in "${PACK_PATHS[@]}"; do
   if ! git cat-file -e "HEAD:$p" 2>/dev/null; then
@@ -148,6 +232,24 @@ mkdir -p "$SRC"
 # 从 HEAD 的已提交树导出（不读工作区），保证产物与某个提交一一对应。
 git archive --format=tar HEAD -- "${PACK_PATHS[@]}" | tar -x -C "$SRC"
 find "$SRC" -name '.DS_Store' -delete
+
+# 注入运行时域名配置（覆盖仓库内的空默认值；只在暂存目录写，不污染工作区）。
+node - "$SRC/lib/runtime-config.values.js" "$GATEWAY_URL" "$SITE_URL" "$DOCS_URL" "$LEGACY_HOSTS" <<'NODE'
+const [out, gateway, site, docs, legacy] = process.argv.slice(2);
+const legacyHosts = [...new Set(
+  String(legacy || '').split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean),
+)];
+const cfg = {
+  gatewayBaseUrl: gateway || '',
+  siteBaseUrl: site || '',
+  docsBaseUrl: docs || '',
+  legacyHosts,
+};
+const body = '/** 打包期生成：域名 SSOT 为 conf/base.yaml；请勿手改。 */\n'
+  + 'globalThis.__TASKPLUGIN_RUNTIME_CONFIG__ = ' + JSON.stringify(cfg, null, 2) + ';\n';
+require('fs').writeFileSync(out, body);
+NODE
+echo "运行时域名: gateway=${GATEWAY_URL:-<empty>} site=${SITE_URL:-<empty>} docs=${DOCS_URL:-<empty>} legacy=${LEGACY_HOSTS:-<none>}" >&2
 
 # side_panel.default_path 必须在包内，否则加载已解压扩展时报
 # Side panel file path must exist.

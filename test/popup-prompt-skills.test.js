@@ -151,6 +151,9 @@ function bootPopup({
 
   const sandbox = {
     console,
+    // 浏览器与 service worker 都有 URL；vm 上下文不带 Web API，需显式注入，
+    // 否则 originFromApiBaseUrl 的 try/catch 会把一切地址判成无效。
+    URL,
     document: {
       readyState: 'complete',
       getElementById: (id) => byId[id] || null,
@@ -163,6 +166,11 @@ function bootPopup({
     Storage: storage,
   };
   if (api) sandbox.PageAdvisorAPI = api;
+  // 发布包形态：域名由打包期注入；源码树不再有默认站点地址。
+  sandbox.TaskPluginRuntimeConfig = {
+    gatewayBaseUrl: 'https://aidevpush.com',
+    siteBaseUrl: 'https://www.aidevpush.com',
+  };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);

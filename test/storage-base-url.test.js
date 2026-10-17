@@ -43,11 +43,19 @@ describe('Storage baseUrl persistence', () => {
     global.chrome.storage.session = createMemoryArea();
     Storage._area = global.chrome.storage.local;
     Storage._session = global.chrome.storage.session;
+    delete global.TaskPluginRuntimeConfig;
   });
 
-  it('getApiConfig returns default when no baseUrl saved', async () => {
+  it('getApiConfig returns empty when no baseUrl saved and no runtime config', async () => {
+    delete global.TaskPluginRuntimeConfig;
     const cfg = await Storage.getApiConfig();
-    assert.equal(cfg.baseUrl, 'https://aidevpush.com');
+    assert.equal(cfg.baseUrl, '', '不得回落到任何代码域名常量');
+  });
+
+  it('getApiConfig uses the packaging-time runtime gateway', async () => {
+    global.TaskPluginRuntimeConfig = { gatewayBaseUrl: 'https://gateway.example.test', legacyHosts: [] };
+    const cfg = await Storage.getApiConfig();
+    assert.equal(cfg.baseUrl, 'https://gateway.example.test');
   });
 
   it('saveBaseUrl persists custom address across getApiConfig', async () => {
@@ -56,13 +64,43 @@ describe('Storage baseUrl persistence', () => {
     assert.equal(cfg.baseUrl, 'http://dev.example.com:18081');
   });
 
-  it('getApiConfig migrates legacy IP:port baseUrl to default gateway', async () => {
+  it('getApiConfig migrates legacy IP:port baseUrl to runtime gateway', async () => {
+    global.TaskPluginRuntimeConfig = { gatewayBaseUrl: 'https://gateway.example.test', legacyHosts: [] };
     await Storage.set({ baseUrl: 'http://10.0.0.1:4000' });
     const cfg = await Storage.getApiConfig();
-    assert.equal(cfg.baseUrl, 'https://aidevpush.com');
+    assert.equal(cfg.baseUrl, 'https://gateway.example.test');
     // 验证迁移后存储也被更新
     const raw = await Storage.get(['baseUrl']);
-    assert.equal(raw.baseUrl, 'https://aidevpush.com');
+    assert.equal(raw.baseUrl, 'https://gateway.example.test');
+  });
+
+  it('getApiConfig keeps IP:port baseUrl when no runtime gateway is injected', async () => {
+    await Storage.set({ baseUrl: 'http://10.0.0.1:4000' });
+    const cfg = await Storage.getApiConfig();
+    assert.equal(cfg.baseUrl, 'http://10.0.0.1:4000');
+  });
+
+  it('getApiConfig migrates a saved legacy-domain baseUrl to the runtime gateway', async () => {
+    global.TaskPluginRuntimeConfig = {
+      gatewayBaseUrl: 'https://daydaymoney.example.test',
+      legacyHosts: ['old.example.test'],
+      isLegacyHost: (url) => String(url).includes('old.example.test'),
+    };
+    await Storage.set({ baseUrl: 'https://www.old.example.test' });
+    const cfg = await Storage.getApiConfig();
+    assert.equal(cfg.baseUrl, 'https://daydaymoney.example.test');
+    assert.equal((await Storage.get(['baseUrl'])).baseUrl, 'https://daydaymoney.example.test');
+  });
+
+  it('getApiConfig keeps a custom non-legacy baseUrl unchanged', async () => {
+    global.TaskPluginRuntimeConfig = {
+      gatewayBaseUrl: 'https://daydaymoney.example.test',
+      legacyHosts: ['old.example.test'],
+      isLegacyHost: (url) => String(url).includes('old.example.test'),
+    };
+    await Storage.set({ baseUrl: 'https://self-hosted.example.test' });
+    const cfg = await Storage.getApiConfig();
+    assert.equal(cfg.baseUrl, 'https://self-hosted.example.test');
   });
 
   it('clearAuth clears token but keeps baseUrl', async () => {

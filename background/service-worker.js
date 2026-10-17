@@ -18,6 +18,8 @@ importScripts(
   '../lib/i18n-llm-route.js',
   '../lib/i18n-tx.js',
   '../lib/i18n-hardware-stock-messages.js',
+  '../lib/runtime-config.values.js',
+  '../lib/runtime-config.js',
   '../lib/storage.js',
   '../lib/create-task-git-identity.js',
   '../lib/branch-datalist.js',

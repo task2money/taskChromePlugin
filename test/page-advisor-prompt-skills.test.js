@@ -301,8 +301,23 @@ describe('prompt skill per-item syncTarget', () => {
     );
     assert.equal(
       PageAdvisorPromptSkills.buildPromptSharesPageHref(''),
-      'https://www.aidevpush.com/prompt-shares/',
+      '',
+      '未配置站点地址时不得回落到代码域名常量',
     );
+  });
+
+  it('buildPromptSharesPageHref 在 baseUrl 为空时使用运行时站点地址', () => {
+    const prev = global.TaskPluginRuntimeConfig;
+    global.TaskPluginRuntimeConfig = { siteBaseUrl: 'https://www.example.test' };
+    try {
+      assert.equal(
+        PageAdvisorPromptSkills.buildPromptSharesPageHref('', 'en'),
+        'https://www.example.test/en/prompt-shares/',
+      );
+    } finally {
+      if (prev === undefined) delete global.TaskPluginRuntimeConfig;
+      else global.TaskPluginRuntimeConfig = prev;
+    }
   });
 
   it('buildPromptSkillsPageHref 对齐 SaaS 独立页路径', () => {

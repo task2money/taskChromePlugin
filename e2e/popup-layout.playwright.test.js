@@ -44,6 +44,12 @@ const LATEST_RELEASE_FIXTURE = {
 async function installChromeStub(page, options = {}) {
   await page.addInitScript(({ installType, release, token, username, languageModel, workspaces }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
+    // 发布包形态：域名由打包期注入；源码树的 values 文件为空。
+    globalThis.__TASKPLUGIN_RUNTIME_CONFIG__ = {
+      gatewayBaseUrl: 'https://aidevpush.com',
+      siteBaseUrl: 'https://www.aidevpush.com',
+      legacyHosts: [],
+    };
     const store = {
       baseUrl: 'https://aidevpush.com',
       token: token || '',

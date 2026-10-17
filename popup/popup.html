@@ -45,7 +45,7 @@
       <p id="loginHint" class="hint" style="margin-bottom:12px" data-i18n="loginHint">通过网页端授权登录（OAuth2+PKCE）。</p>
       <div class="form-row">
         <label data-i18n="serverUrl">服务器地址</label>
-        <input type="text" id="baseUrl" class="form-input" placeholder="https://aidevpush.com" autocomplete="url">
+        <input type="text" id="baseUrl" class="form-input" autocomplete="url">
       </div>
       <button id="btnLogin" class="btn btn-primary btn-full">🔓 <span data-i18n="oauthLogin">OAuth 登录</span></button>
       <div id="loginResult" class="result"></div>
@@ -94,7 +94,7 @@
           <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」后面同一行选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
         </details>
         <!-- Anti-Replay-OK: external navigation -->
-        <a id="lnkIdleMarket" class="heading-sm" href="https://www.aidevpush.com/friend-links/#idle-market" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket">闲置集市</a>
+        <a id="lnkIdleMarket" class="heading-sm" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket" hidden>闲置集市</a>
       </div>
       <fieldset class="form-row" id="popupLlmRouteField">
         <legend data-i18n="paLlmRouteLegend">调用方式</legend>
@@ -184,7 +184,7 @@
       <div class="advisor-defaults-heading llm-section-heading">
         <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill</span>
           <!-- Anti-Replay-OK: external navigation to the public prompt market -->
-          <a id="lnkPromptMarket" class="heading-sm" href="https://www.aidevpush.com/prompt-shares/" target="_blank" rel="noopener noreferrer" data-i18n="paSkillPromptMarket">提示词集市</a>
+          <a id="lnkPromptMarket" class="heading-sm" target="_blank" rel="noopener noreferrer" data-i18n="paSkillPromptMarket" hidden>提示词集市</a>
         </h3>
         <details class="region-help">
           <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
@@ -381,6 +381,8 @@
   <script src="../lib/i18n-skill-browse-messages.js"></script>
   <script src="../lib/i18n-tx.js"></script>
   <script src="../lib/locale-switcher-ui.js"></script>
+  <script src="../lib/runtime-config.values.js"></script>
+  <script src="../lib/runtime-config.js"></script>
   <script src="../lib/storage.js"></script>
   <script src="../lib/dom-trace.js"></script>
   <script src="../lib/api-http.js"></script>

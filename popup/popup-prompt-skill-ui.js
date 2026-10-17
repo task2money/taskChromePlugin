@@ -417,7 +417,14 @@
     const locale = (typeof AidevpushI18n !== 'undefined' && typeof AidevpushI18n.getLocale === 'function')
       ? AidevpushI18n.getLocale()
       : '';
-    a.href = PageAdvisorPromptSkills.buildPromptSharesPageHref(baseUrl, locale);
+    const href = PageAdvisorPromptSkills.buildPromptSharesPageHref(baseUrl, locale);
+    if (href) {
+      a.href = href;
+      a.hidden = false;
+    } else {
+      a.removeAttribute('href');
+      a.hidden = true;
+    }
   }
 
   const PopupPromptSkillUi = {

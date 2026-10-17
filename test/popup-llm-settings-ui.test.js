@@ -98,10 +98,9 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     const heading = llm.slice(0, llm.indexOf('id="popupLlmProfileRow"'));
     assert.doesNotMatch(heading, /id="btnToggleLlmSettings"/);
-    assert.match(
-      heading,
-      /id="lnkIdleMarket"[^>]*href="https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market"/,
-    );
+    // 地址只来自打包期运行时配置：静态标记不带 href，未配置时隐藏入口。
+    assert.doesNotMatch(heading, /id="lnkIdleMarket"[^>]*href=/);
+    assert.match(heading, /id="lnkIdleMarket"[^>]*hidden/);
     assert.match(heading, /id="lnkIdleMarket"[^>]*target="_blank"/);
     assert.match(heading, /id="lnkIdleMarket"[^>]*rel="noopener noreferrer"/);
     assert.match(heading, /data-i18n="paLlmIdleMarket"/);
@@ -120,11 +119,16 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
     const guideEn = fs.readFileSync(path.join(ROOT, 'lib/user-guide-en-sections.js'), 'utf8');
     for (const blob of [guide, guideJs]) {
       assert.match(blob, /闲置集市/);
-      assert.match(blob, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
       assert.match(blob, /已保存的 Key.*设置|下拉.*旁.*设置|下拉菜单旁.*设置|「已保存的 Key」下拉旁/);
     }
-    assert.match(guideEn, /Idle market/);
-    assert.match(guideEn, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+    // 人可读文档保留真实地址；运行时文案只放占位符，地址由打包期配置注入。
+    assert.match(guide, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+    assert.match(guideJs, /\{\{IDLE_MARKET_CLAUSE\}\}/);
+    assert.doesNotMatch(guideJs, /aidevpush\.com/);
+    // 英文子句与中文一样只存在于运行时文案装配处，段落正文用占位符。
+    assert.match(guideJs, /Idle market in the heading opens /);
+    assert.match(guideEn, /\{\{IDLE_MARKET_CLAUSE_EN\}\}/);
+    assert.doesNotMatch(guideEn, /aidevpush\.com/);
     assert.match(guideEn, /Saved keys|dropdown.*Settings|Settings.*dropdown|next to the dropdown/i);
   });
 });

@@ -5,7 +5,7 @@
 window.PanelApp = (function () {
   // ---- State（各 Tab 共享）----
   const state = {
-    apiConfig: { baseUrl: 'https://aidevpush.com', token: '' },
+    apiConfig: { baseUrl: '', token: '' },
     isLoggedIn: false,
     /** 上一轮 refreshAuthState 的登录态，用于检测「已登录→过期/登出」翻转 */
     wasLoggedIn: false,

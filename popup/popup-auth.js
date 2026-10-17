@@ -86,7 +86,10 @@
   async function restoreRememberedFormFields() {
     const cfg = await Storage.getApiConfig();
     const baseUrlInput = $('#baseUrl');
-    if (baseUrlInput) baseUrlInput.value = cfg.baseUrl;
+    if (!baseUrlInput) return;
+    baseUrlInput.value = cfg.baseUrl;
+    const rc = (typeof globalThis !== 'undefined' && globalThis.TaskPluginRuntimeConfig) || {};
+    if (!cfg.baseUrl && rc.gatewayBaseUrl) baseUrlInput.placeholder = rc.gatewayBaseUrl;
   }
 
   async function persistBaseUrlFromInput() {

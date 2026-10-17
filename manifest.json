@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "云端Coding: 自动创新助手",
-  "version": "1.8.270",
+  "version": "1.8.271",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -73,6 +73,8 @@
         "lib/i18n-site-pending-tabs.js",
         "lib/i18n-tx.js",
         "lib/locale-switcher-ui.js",
+        "lib/runtime-config.values.js",
+        "lib/runtime-config.js",
         "lib/storage.js",
         "lib/dom-trace.js",
         "lib/create-task-git-identity.js",

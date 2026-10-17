@@ -308,9 +308,28 @@
     }, 8000);
   }
 
+/**
+ * 站点入口（闲置集市）：地址只来自打包期运行时配置；未配置时隐藏入口，
+ * 不在 HTML/代码里写死任何域名。
+ */
+function applyRuntimeSiteLinks() {
+  const rc = (typeof globalThis !== 'undefined' && globalThis.TaskPluginRuntimeConfig) || {};
+  const site = String(rc.siteBaseUrl || '').replace(/\/+$/, '');
+  const idle = document.getElementById('lnkIdleMarket');
+  if (!idle) return;
+  if (site) {
+    idle.href = site + '/friend-links/#idle-market';
+    idle.hidden = false;
+  } else {
+    idle.removeAttribute('href');
+    idle.hidden = true;
+  }
+}
+
 var Popup = { init };
 
 document.addEventListener('DOMContentLoaded', () => {
+  applyRuntimeSiteLinks();
   // 快捷键排查入口：chrome:// 页无法裸 <a href>，经 OpenChromeUrl → tabs.create
   document.getElementById('taskplugin-shortcut-settings')?.addEventListener('click', (e) => {
     e.preventDefault();

@@ -35,6 +35,7 @@ function makeEl(tag) {
     dispatch(type, ev) { (handlers[type] || []).forEach((fn) => fn(ev || {})); },
     setAttribute(k, v) { attrs[String(k)] = String(v); },
     getAttribute(k) { return Object.prototype.hasOwnProperty.call(attrs, k) ? attrs[k] : null; },
+    removeAttribute(k) { delete attrs[String(k)]; },
     innerHTML: '',
   };
   return el;
@@ -298,6 +299,8 @@ describe('PopupPromptSkillUi.showSignedOutPromptMarketLink', () => {
 
   beforeEach(() => {
     installTxRuntime();
+    // 模拟发布包：站点地址由打包期注入（源码树没有默认域名）。
+    global.TaskPluginRuntimeConfig = { siteBaseUrl: 'https://www.aidevpush.com' };
     delete require.cache[require.resolve('../lib/page-advisor-prompt-skills.js')];
     require('../lib/page-advisor-prompt-skills.js');
     market = makeEl('a');

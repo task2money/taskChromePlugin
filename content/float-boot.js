@@ -127,7 +127,7 @@ var pickCrossOriginHintShown = false;
 /** Cmd/Ctrl 累加多选（同 frame 内，点击顺序） */
 var pickSelection = [];
 var pickSelectionFrame = null; // Element|null，与第一次累加的 frameElement 对齐
-var apiCfg = { baseUrl: 'https://aidevpush.com', token: '' };
+var apiCfg = { baseUrl: '', token: '' };
 var workspacesData = [];
 var projectsData = [];
 var pendingAidevMatches = null;

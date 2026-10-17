@@ -75,7 +75,11 @@ function runPack(dir) {
   const result = spawnSync('bash', [path.join(dir, 'scripts', 'pack-crx.sh'), 'zip'], {
     cwd: dir,
     encoding: 'utf8',
-    env: gitEnv(),
+    // 临时仓没有 monorepo conf，域名按发布流程显式注入（无代码默认域名）。
+    env: gitEnv({
+      PLUGIN_GATEWAY_URL: 'https://gateway.example.test',
+      PLUGIN_SITE_URL: 'https://www.example.test',
+    }),
   });
   return { status: result.status, stdout: String(result.stdout || ''), stderr: String(result.stderr || '') };
 }
