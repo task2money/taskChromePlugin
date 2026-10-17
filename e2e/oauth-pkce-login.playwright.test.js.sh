@@ -29,9 +29,11 @@ fi
 
 "$PW_BIN" install chromium >/dev/null 2>&1 || true
 
-# 生产 OIDC 不可达（CI 沙箱无外网）→ 跳过并告知；本地/有网环境必须真实执行
-if ! curl -s -o /dev/null -m 8 "https://www.aidevpush.com/api/oidc/token" 2>/dev/null; then
-  echo "oauth-pkce e2e: 生产 OIDC 不可达，跳过（本地开发请联网执行）。"
+# 目标部署 OIDC 不可达（CI 沙箱无外网）→ 跳过并告知；本地/有网环境必须真实执行。
+# E2E_PUBLIC_BASE_URL 由运行者提供（本机默认 :4000，不含域名）；禁止在代码里写死部署域名。
+E2E_PUBLIC_BASE_URL="${E2E_PUBLIC_BASE_URL:-http://127.0.0.1:4000}"
+if ! curl -s -o /dev/null -m 8 "${E2E_PUBLIC_BASE_URL%/}/api/oidc/token" 2>/dev/null; then
+  echo "oauth-pkce e2e: ${E2E_PUBLIC_BASE_URL} OIDC 不可达，跳过（本地开发请联网执行）。"
   exit 0
 fi
 
