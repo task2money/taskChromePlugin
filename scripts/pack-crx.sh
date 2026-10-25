@@ -206,7 +206,7 @@ validate_url "PLUGIN_DOCS_URL" "$DOCS_URL"
 # 存在性按 HEAD 树判定：打包只取已提交内容，不因工作区缺文件而误判「仓库缺少」。
 for p in "${PACK_PATHS[@]}"; do
   if ! git cat-file -e "HEAD:$p" 2>/dev/null; then
-    echo "错误: HEAD 中缺少打包所需路径: $p（须提前提交到本仓，勿依赖打包机生成）" >&2
+    echo "错误: HEAD 中缺少打包所需路径: ${p}（须提前提交到本仓，勿依赖打包机生成）" >&2
     exit 1
   fi
 done
@@ -255,7 +255,7 @@ echo "运行时域名: gateway=${GATEWAY_URL:-<empty>} site=${SITE_URL:-<empty>}
 # Side panel file path must exist.
 SIDE_PATH="$(git show HEAD:manifest.json | node -p 'const m=JSON.parse(require("fs").readFileSync(0,"utf8")); (m.side_panel&&m.side_panel.default_path)||""')"
 if [[ -n "$SIDE_PATH" && ! -f "$SRC/$SIDE_PATH" ]]; then
-  echo "错误: 打包目录缺少 side_panel 页面: $SIDE_PATH（Chrome 会报 Side panel file path must exist）" >&2
+  echo "错误: 打包目录缺少 side_panel 页面: ${SIDE_PATH}（Chrome 会报 Side panel file path must exist）" >&2
   exit 1
 fi
 

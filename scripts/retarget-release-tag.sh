@@ -52,7 +52,7 @@ if ! REMOTE_REFS="$(git ls-remote "$REMOTE" "refs/tags/$TAG" "refs/tags/$TAG^{}"
 fi
 
 if [ -z "$REMOTE_REFS" ]; then
-  echo "retarget-release-tag: $REMOTE 上还没有 $TAG，交给创建路径" >&2
+  echo "retarget-release-tag: ${REMOTE} 上还没有 ${TAG}，交给创建路径" >&2
   exit 0
 fi
 

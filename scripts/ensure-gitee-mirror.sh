@@ -72,7 +72,7 @@ if [ -z "$CURRENT_REMOTE" ]; then
   fi
 elif [ "$CURRENT_REMOTE" != "$MIRROR_URL" ]; then
   if [ "$CHECK" -eq 1 ]; then
-    echo "ensure-gitee-mirror: DRIFT remote gitee = $CURRENT_REMOTE（期望 $MIRROR_URL）" >&2
+    echo "ensure-gitee-mirror: DRIFT remote gitee = ${CURRENT_REMOTE}（期望 ${MIRROR_URL}）" >&2
     PROBLEMS=1
   else
     git remote set-url gitee "$MIRROR_URL"
@@ -98,7 +98,7 @@ if [ "$WANT_PUSHURL" -eq 1 ]; then
     ORIGIN_FETCH="$(git remote get-url origin)"
     case "$ORIGIN_FETCH" in
       *gitee.com*)
-        echo "ensure-gitee-mirror: ERROR origin fetch 被指向 Gitee（$ORIGIN_FETCH）" >&2
+        echo "ensure-gitee-mirror: ERROR origin fetch 被指向 Gitee（${ORIGIN_FETCH}）" >&2
         PROBLEMS=1
         ;;
     esac
@@ -122,7 +122,7 @@ $DESIRED_PUSH"
 
     if [ "$CHECK" -eq 1 ]; then
       if [ "$CURRENT_PUSH" != "$DESIRED_PUSH" ]; then
-        echo "ensure-gitee-mirror: MISSING origin push 目标（期望 $ORIGIN_FETCH + $MIRROR_URL）" >&2
+        echo "ensure-gitee-mirror: MISSING origin push 目标（期望 ${ORIGIN_FETCH} + ${MIRROR_URL}）" >&2
         PROBLEMS=1
       fi
       # 危险态：pushurl 里只有镜像，GitHub 已经收不到 push
@@ -137,7 +137,7 @@ $DESIRED_PUSH"
         [ -z "$url" ] && continue
         git config --add remote.origin.pushurl "$url"
       done <<< "$DESIRED_PUSH"
-      echo "ensure-gitee-mirror: ~ origin push → $ORIGIN_FETCH + $MIRROR_URL（一次 push 双写）" >&2
+      echo "ensure-gitee-mirror: ~ origin push → ${ORIGIN_FETCH} + ${MIRROR_URL}（一次 push 双写）" >&2
       CHANGED=1
     fi
   fi

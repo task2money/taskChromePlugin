@@ -61,7 +61,7 @@ sys.exit(0 if b>a else 1)' "$prev" "$next" && return 0
         return 0
     fi
 
-    echo "pre-commit: 暂存了插件运行时路径，但 manifest.json 的 version 未升高（HEAD $prev，当前 $next）。" >&2
+    echo "pre-commit: 暂存了插件运行时路径，但 manifest.json 的 version 未升高（HEAD ${prev}，当前 ${next}）。" >&2
     echo "请先升 patch 版本，再提交运行时改动；升版本后须运行" >&2
     echo "  python3 db/scripts/ci/ensure_plugin_client_version_sql.py --notes '<本版迭代说明>'" >&2
     echo "登记插件版本目录（约束 69）。" >&2

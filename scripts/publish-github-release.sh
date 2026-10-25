@@ -26,7 +26,7 @@ ZIP="$ROOT/dist/task-chrome-plugin-v${VERSION}.zip"
 CRX="$ROOT/dist/task-chrome-plugin-v${VERSION}.crx"
 
 if [ ! -f "$ZIP" ]; then
-  echo "publish-github-release: ERROR missing $ZIP（先跑 publish-dist-zip.sh）" >&2
+  echo "publish-github-release: ERROR missing ${ZIP}（先跑 publish-dist-zip.sh）" >&2
   exit 1
 fi
 
