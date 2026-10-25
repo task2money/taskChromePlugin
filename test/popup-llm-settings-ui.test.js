@@ -122,7 +122,7 @@ describe('Popup LLM settings toggle (T1–T4)', () => {
       assert.match(blob, /已保存的 Key.*设置|下拉.*旁.*设置|下拉菜单旁.*设置|「已保存的 Key」下拉旁/);
     }
     // 人可读文档保留真实地址；运行时文案只放占位符，地址由打包期配置注入。
-    assert.match(guide, /https:\/\/www\.aidevpush\.com\/friend-links\/#idle-market/);
+    assert.match(guide, /https:\/\/www\.daydaymoney\.com\/friend-links\/#idle-market/);
     assert.match(guideJs, /\{\{IDLE_MARKET_CLAUSE\}\}/);
     assert.doesNotMatch(guideJs, /aidevpush\.com/);
     // 英文子句与中文一样只存在于运行时文案装配处，段落正文用占位符。

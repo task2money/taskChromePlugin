@@ -1,15 +1,16 @@
 /**
  * OAuth2+PKCE 登录全链路 E2E（OPT-20260808-024 阶段 2）
  *
- * 覆盖：真实扩展加载 → popup 发起 oauthStart → taskAuth 授权页（生产 www.aidevpush.com）
+ * 覆盖：真实扩展加载 → popup 发起 oauthStart → taskAuth 授权页（E2E_PUBLIC_BASE_URL）
  * → 测试账号网页登录 → 302 回跳 oauth-callback.html → SW token 交换 + userinfo
  * → 单账号持久化 → getAuthStatus loggedIn → Bearer JWT 实际 API 调用 200 → logout 清理。
  *
  * 运行（需要完整 chromium + 显示服务器）：
  *   bash e2e/oauth-pkce-login.playwright.test.js.sh
  *
- * 依赖生产 OIDC 可用（/api/oidc/authorize|token|userinfo）+ 测试账号。CI 中
- * 生产网络不可达时跳过（opt-in），pre-commit 仍回退 real-extension-messaging。
+ * 站点/API 入口由 E2E_PUBLIC_BASE_URL 提供（本机默认 :4000），测试代码不内置
+ * 任何部署域名。依赖目标部署 OIDC 可用（/api/oidc/authorize|token|userinfo）+
+ * 测试账号。CI 中目标网络不可达时跳过（opt-in）。
  */
 
 const fs = require('fs');
@@ -32,7 +33,10 @@ const ROOT = path.resolve(__dirname, '..');
 const EXT_PATH = ROOT;
 const T = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const BASE_URL = process.env.OAUTH_E2E_BASE_URL || process.env.PLAYWRIGHT_SITE_ORIGIN || 'https://www.aidevpush.com';
+const BASE_URL = process.env.OAUTH_E2E_BASE_URL
+  || process.env.E2E_PUBLIC_BASE_URL
+  || process.env.PLAYWRIGHT_SITE_ORIGIN
+  || 'http://127.0.0.1:4000';
 // Secrets: env only — never hardcode (meta rule 62 / ADR-0046).
 const EMAIL = process.env.OAUTH_E2E_EMAIL || process.env.PLAYWRIGHT_TEST_EMAIL || '';
 const PASSWORD = process.env.OAUTH_E2E_PASSWORD || process.env.PLAYWRIGHT_TEST_PASSWORD || '';
