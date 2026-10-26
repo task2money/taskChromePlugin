@@ -212,6 +212,8 @@ exec "${realGit}" "$@"
       assert.match(calls, /GIT_ASKPASS=\S+/);
       assert.doesNotMatch(calls, /test-token-value/);
       assert.doesNotMatch(calls, /--tags/);
+      // 没有 SSH 凭据才用 HTTPS；此时再挂 SSH pushurl 只会让日常 push 失败。
+      assert.deepEqual(pushUrls(dir), []);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

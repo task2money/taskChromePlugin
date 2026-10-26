@@ -18,7 +18,7 @@
 #   bash scripts/ensure-gitee-mirror.sh            # 幂等补齐配置
 #   bash scripts/ensure-gitee-mirror.sh --check    # 只校验，缺失则 exit 1
 #   bash scripts/ensure-gitee-mirror.sh --sync     # 补齐后再推 main 与全部 tag
-#   bash scripts/ensure-gitee-mirror.sh --sync-https  # 同上，但走 HTTPS + 令牌（本机无 Gitee SSH key 时）
+#   bash scripts/ensure-gitee-mirror.sh --sync-https  # 走 HTTPS + 令牌推 main（无 SSH key 时；不挂 pushurl）
 #   bash scripts/ensure-gitee-mirror.sh --no-pushurl  # 只补 remote，不加 pushurl
 #
 # 环境变量:
@@ -44,7 +44,9 @@ for arg in "$@"; do
   case "$arg" in
     --check) CHECK=1 ;;
     --sync) SYNC=1 ;;
-    --sync-https) SYNC=1; SYNC_HTTPS=1 ;;
+    # --sync-https 的前提就是「本机没有 Gitee SSH 凭据」，所以不再给 origin
+    # 挂 SSH 镜像 pushurl——那会让之后每次 git push 都在 Gitee 腿失败。
+    --sync-https) SYNC=1; SYNC_HTTPS=1; WANT_PUSHURL=0 ;;
     --no-pushurl) WANT_PUSHURL=0 ;;
     -h|--help)
       sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
