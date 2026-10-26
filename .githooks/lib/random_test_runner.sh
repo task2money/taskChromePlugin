@@ -459,30 +459,39 @@ rt_js_runner_for_file() {
 # 同一 vitest 工程的文件合并为一次 vitest 调用；node --test 文件逐个跑。
 # 输出每文件一行 `RT_JS_RESULT PASS|FAIL <file>`；任一失败 → 非 0。
 rt_js_run_batch() {
-    local -a nfiles=() projs=()
-    local -A group=()
-    local f proj runner p rc=0
+    local -a nfiles=() projs=() pfiles=()
+    local f proj runner p i rc=0
     for f in "$@"; do
         f="${f#./}"
         [ -n "$f" ] || continue
         runner="$(rt_js_runner_for_file "$f")"
         if [ "${runner%% *}" = "vitest" ]; then
             proj="${runner#vitest }"
-            if [ -z "${group[$proj]:-}" ]; then
+            # 按项目名归组用**并行数组**：macOS 自带 /bin/bash 是 3.2，没有关联数组，
+            # `local -A` 只报一行 usage 而不声明变量，随后在 `set -u` 下访问 group[...]
+            # 直接 unbound variable 中断 —— 钩子会把整批测例判成失败（OPT-20261025-032）。
+            i=0
+            while [ "$i" -lt "${#projs[@]}" ] && [ "${projs[$i]}" != "$proj" ]; do
+                i=$((i + 1))
+            done
+            if [ "$i" -eq "${#projs[@]}" ]; then
                 projs+=("$proj")
-                group[$proj]="$f"
+                pfiles+=("$f")
             else
-                group[$proj]="${group[$proj]}"$'\n'"$f"
+                pfiles[$i]="${pfiles[$i]}"$'\n'"$f"
             fi
         else
             nfiles+=("$f")
         fi
     done
     local -a files=()
-    for p in ${projs[@]+"${projs[@]}"}; do
+    i=0
+    while [ "$i" -lt "${#projs[@]}" ]; do
+        p="${projs[$i]}"
         files=()
-        while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done <<< "${group[$p]}"
+        while IFS= read -r f; do [ -n "$f" ] && files+=("$f"); done <<< "${pfiles[$i]}"
         rt_js_run_vitest_group "$p" ${files[@]+"${files[@]}"} || rc=1
+        i=$((i + 1))
     done
     for f in ${nfiles[@]+"${nfiles[@]}"}; do
         echo "Running: node --test $f"
