@@ -1,6 +1,6 @@
 /**
  * Popup 脚本 — 账号+令牌登录、连接状态、请求快速预览
- * 任务创建请使用 DevTools Panel (F12 → 云端Coding: 自动创新助手)
+ * 任务创建请使用 DevTools Panel (F12 → 天天赚钱: 自动创新助手)
  * Classic scripts share var/function; popup.js must load last (OPT-20260821-004).
  */
 

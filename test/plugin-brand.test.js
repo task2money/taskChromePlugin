@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 用户可见插件名 SSOT：云端Coding: 自动创新助手
+ * 用户可见插件名 SSOT：天天赚钱: 自动创新助手
  * 内部目录/日志前缀仍为 taskChromePlugin。
  */
 
@@ -36,8 +36,8 @@ const USER_FACING = [
 const USER_FACING_SCAN = [...new Set([...USER_FACING, ...popupPageScriptsFromHtml()])];
 
 describe('PLUGIN_DISPLAY_NAME', () => {
-  it('SSOT 为「云端Coding: 自动创新助手」', () => {
-    assert.equal(PLUGIN_DISPLAY_NAME, '云端Coding: 自动创新助手');
+  it('SSOT 为「天天赚钱: 自动创新助手」', () => {
+    assert.equal(PLUGIN_DISPLAY_NAME, '天天赚钱: 自动创新助手');
   });
 
   it('manifest name / default_title 使用 SSOT', () => {
@@ -46,13 +46,13 @@ describe('PLUGIN_DISPLAY_NAME', () => {
     assert.equal(manifest.action.default_title, PLUGIN_DISPLAY_NAME);
   });
 
-  it('用户可见文件不再出现旧名「云端 Coding」（空格）', () => {
+  it('用户可见文件不再出现旧品牌「云端 Coding / 云端Coding / 云端开发」', () => {
     for (const rel of USER_FACING_SCAN) {
       const src = read(rel);
       assert.doesNotMatch(
         src,
-        /云端 Coding/,
-        `${rel} 仍含旧名「云端 Coding」`,
+        /云端 ?Coding|云端开发/,
+        `${rel} 仍含旧品牌`,
       );
     }
   });

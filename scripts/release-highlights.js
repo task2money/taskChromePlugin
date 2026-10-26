@@ -94,7 +94,7 @@ function buildReleaseNotes({ version, highlights, hasCrx, compareUrl }) {
   const crxExtra = hasCrx
     ? `\n| \`task-chrome-plugin-v${ver}.crx\` | Chrome 扩展安装包 |`
     : `\n\n> 本版本未附带 \`.crx\`（缺少 ChromeExtPos 私钥时仅发布 zip）。`;
-  return `## 云端Coding: 自动创新助手 ${tag}
+  return `## 天天赚钱: 自动创新助手 ${tag}
 
 Chrome 扩展编译产物。
 

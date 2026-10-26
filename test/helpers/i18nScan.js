@@ -28,7 +28,7 @@ const SEPARATOR_LITERALS = ["'、'", '"、"', '`、`'];
  * 品牌专名 SSOT（lib/plugin-brand.js）：产品名不随 locale 变化，
  * 文案里的品牌位由 `{brand}` 插值注入，故不算「未迁移的用户可见文案」。
  */
-const BRAND_LITERALS = ["'云端Coding: 自动创新助手'"];
+const BRAND_LITERALS = ["'天天赚钱: 自动创新助手'"];
 
 /** 正则字面量中的服务端错误匹配片段（用于识别后端返回的既有文案，非本端拷贝）。 */
 const MATCHER_LITERALS = [

@@ -462,7 +462,7 @@ describe('page-advisor-delivery', () => {
     assert.ok(bangAt >= 0 && prefixAt > bangAt, '内容前缀输入框须排在转发目标说明标记之后');
     assert.doesNotMatch(brand, /建议送达/);
     assert.doesNotMatch(brand, /data-i18n="extTitle"/);
-    assert.doesNotMatch(brand, /云端Coding/);
+    assert.doesNotMatch(brand, /天天赚钱/);
     assert.match(brand, /class="region-help"/);
     assert.doesNotMatch(llm, /id="popupDeliveryTargetField"/);
     assert.doesNotMatch(llm, /data-i18n="paDeliveryHint"/);
