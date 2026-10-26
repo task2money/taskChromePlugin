@@ -127,7 +127,9 @@ PACK_PATHS=(
 #   PLUGIN_SITE_URL        公共站点基址（闲置集市/提示词集市），默认 publicBaseUrl
 #   PLUGIN_DOCS_URL        文档站基址，默认 ${scheme}://${subdomains.docs}
 #   PLUGIN_LEGACY_HOSTS    旧域名 host 列表（逗号/空格分隔），默认取 domain-history 中
-#                          status=active|retired 且不是当前 baseDomain 的条目
+#                          status=active|grace|retired 且不是当前 baseDomain 的条目
+#                          （grace 必须算进来：宽限期内已装扩展的用户仍保存着旧域名
+#                          baseUrl，靠 legacyHosts 才会被自动迁到新网关）
 PLUGIN_STORE_BUILD="${PLUGIN_STORE_BUILD:-0}"
 GATEWAY_URL="${PLUGIN_GATEWAY_URL:-}"
 SITE_URL="${PLUGIN_SITE_URL:-}"
@@ -178,8 +180,11 @@ for path in sys.argv[1:3]:
         if name:
             entries[name] = item
 current = str(sys.argv[3] if len(sys.argv) > 3 else "").strip().lower()
+# grace 不能漏：切域后旧域进入宽限期但仍在服务，已装扩展的用户保存的 baseUrl
+# 仍是旧域名；只有旧域名在 legacyHosts 里，storage.getApiConfig 才会把它迁到新
+# 网关。漏掉 grace 会让这批用户在宽限期内继续打旧域 API，退役后直接失效。
 hosts = [d for d, item in entries.items()
-         if d != current and str(item.get("status") or "") in ("active", "retired")]
+         if d != current and str(item.get("status") or "") in ("active", "grace", "retired")]
 print(" ".join(hosts))
 PY
 )"
