@@ -16,10 +16,10 @@
   <div class="sp-shell">
     <div class="sp-tabs" role="tablist" aria-label="侧边栏" data-i18n-aria-label="spTabsAriaLabel">
       <!-- Anti-Replay-OK: ui-only — 只切换已挂载的页签，不发写请求 -->
+      <button type="button" class="sp-tab" id="sp-tab-agent" role="tab" aria-selected="false" aria-controls="sp-pane-agent" data-testid="sp-tab-agent"><span data-i18n="agentSuggestionsTab">智能体建议</span><span id="sp-agent-count" class="sp-agent-count" hidden data-testid="sp-agent-count"></span></button>
       <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="false" aria-controls="sp-pane-create" data-i18n="spTabCreate">创建任务</button>
       <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="true" aria-controls="sp-pane-settings" data-i18n="spTabSettings">设置</button>
       <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" data-i18n="paBuiltinTab" data-testid="sp-tab-builtin">本机模型</button>
-      <button type="button" class="sp-tab" id="sp-tab-agent" role="tab" aria-selected="false" aria-controls="sp-pane-agent" data-testid="sp-tab-agent"><span data-i18n="agentSuggestionsTab">智能体建议</span><span id="sp-agent-count" class="sp-agent-count" hidden data-testid="sp-agent-count"></span></button>
     </div>
     <div id="sp-pane-create" class="sp-pane" role="tabpanel" hidden></div>
     <div id="sp-pane-settings" class="sp-pane" role="tabpanel">
