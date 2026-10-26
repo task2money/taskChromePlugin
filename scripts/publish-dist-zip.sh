@@ -47,5 +47,34 @@ echo "publish-dist-zip: OK $ZIP version=$VERSION" >&2
 
 # GitHub Release（zip；有 crx 则一并上传）— OPT-20260920-032 漏发 release 的补全
 bash "$ROOT/scripts/publish-github-release.sh"
-# 第二同步源 Gitee Release（无 gitee remote 时脚本内跳过）
-bash "$ROOT/scripts/publish-gitee-release.sh"
+# 第二同步源 Gitee Release。约束 68 要求双端发布：无 remote / 无令牌（exit 3）
+# 与显式跳过必须出现在摘要与退出码里，不能与「已发布」混为一谈
+# （OPT-20261025-025）。退出码原样传播，SessionEnd 兜底据此保留 pending。
+set +e
+GITEE_OUT="$(bash "$ROOT/scripts/publish-gitee-release.sh")"
+gitee_rc=$?
+set -e
+gitee_status="$(printf '%s\n' "$GITEE_OUT" \
+  | sed -n 's/^GITEE_RELEASE_STATUS=//p' | tail -1)"
+gitee_status="${gitee_status:-unknown}"
+echo "publish-dist-zip: SUMMARY github=published gitee=${gitee_status} (gitee rc=${gitee_rc})" >&2
+case "$gitee_status" in
+  published) ;;
+  published-tag-drift)
+    echo "publish-dist-zip: WARN Gitee Release 已发布但 tag ref 未移动；按 tag 检出可能不是本次 zip" >&2
+    ;;
+  skipped-no-remote|skipped-no-token)
+    echo "publish-dist-zip: WARN 本次只在 GitHub 发布：$gitee_status" >&2
+    echo "publish-dist-zip: WARN 修好 Gitee 配置后执行 bash scripts/ensure-gitee-mirror.sh && bash scripts/publish-gitee-release.sh" >&2
+    ;;
+  skipped-explicit)
+    echo "publish-dist-zip: note Gitee 腿被 TASK_CHROME_PLUGIN_SKIP_GITEE_RELEASE=1 显式跳过" >&2
+    ;;
+  failed)
+    echo "publish-dist-zip: ERROR Gitee 发布失败；GitHub 侧已发布，见上方错误" >&2
+    ;;
+  *)
+    echo "publish-dist-zip: ERROR Gitee 腿结果未知（rc=${gitee_rc}）" >&2
+    ;;
+esac
+exit "$gitee_rc"

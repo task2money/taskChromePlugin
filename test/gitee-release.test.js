@@ -8,6 +8,16 @@ const path = require('node:path');
 const { execFileSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
+// 本测会在 pre-commit 里跑。父进程的 GIT_INDEX_FILE 等指向插件暂存区，
+// 临时仓库的 git 若沿用会去解析并不存在的对象。
+const GIT_ENV = (() => {
+  const env = { ...process.env };
+  for (const key of ['GIT_INDEX_FILE', 'GIT_DIR', 'GIT_WORK_TREE', 'GIT_PREFIX',
+    'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES']) {
+    delete env[key];
+  }
+  return env;
+})();
 const {
   parseGiteeRemote,
   redact,
@@ -137,17 +147,7 @@ describe('localNotes', () => {
   it('比较链接指向 Gitee', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gitee-notes-'));
     try {
-      const git = (args) => {
-        const env = { ...process.env };
-        // 本测会在 pre-commit 里跑。父进程的 GIT_INDEX_FILE 指向插件暂存区，
-        // 临时仓库提交时会去解析并不存在的对象。
-        delete env.GIT_INDEX_FILE;
-        delete env.GIT_DIR;
-        delete env.GIT_PREFIX;
-        delete env.GIT_OBJECT_DIRECTORY;
-        delete env.GIT_ALTERNATE_OBJECT_DIRECTORIES;
-        return execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', env });
-      };
+      const git = (args) => execFileSync('git', ['-C', dir, ...args], { encoding: 'utf8', env: GIT_ENV });
       git(['init', '-b', 'main']);
       git(['config', 'user.email', 't@example.com']);
       git(['config', 'user.name', 't']);
@@ -178,6 +178,47 @@ describe('localNotes', () => {
 describe('publish-gitee-release.sh', () => {
   const sh = fs.readFileSync(path.join(ROOT, 'scripts/publish-gitee-release.sh'), 'utf8');
 
+  // A scratch checkout of just the script (+ the parser it calls), so the
+  // remote/token branches run without touching the real repository config.
+  function scratchRepo({ remote } = {}) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gitee-release-'));
+    fs.mkdirSync(path.join(dir, 'scripts'));
+    fs.copyFileSync(path.join(ROOT, 'scripts/publish-gitee-release.sh'),
+      path.join(dir, 'scripts/publish-gitee-release.sh'));
+    // gitee-release.js requires these two at load time.
+    for (const dep of ['gitee-release.js', 'release-highlights.js']) {
+      fs.copyFileSync(path.join(ROOT, 'scripts', dep), path.join(dir, 'scripts', dep));
+    }
+    // The publish path is faked: no network, no real tag retarget.
+    fs.writeFileSync(path.join(dir, 'scripts/retarget-release-tag.sh'), '#!/usr/bin/env bash\nexit 0\n');
+    fs.chmodSync(path.join(dir, 'scripts/retarget-release-tag.sh'), 0o755);
+    fs.mkdirSync(path.join(dir, 'shim'));
+    fs.writeFileSync(path.join(dir, 'shim/node'),
+      '#!/bin/sh\ncase "$1" in\n  -e) printf \'ljy-ruandao task-chrome-plugin\' ;;\n'
+      + '  -p) printf \'1.8.276\' ;;\nesac\nexit 0\n');
+    fs.chmodSync(path.join(dir, 'shim/node'), 0o755);
+    execFileSync('git', ['init', '-q', dir], { env: GIT_ENV });
+    execFileSync('git', ['-C', dir, '-c', 'user.email=t@example.com', '-c', 'user.name=t',
+      'commit', '-q', '--allow-empty', '-m', 'init'], { env: GIT_ENV });
+    if (remote) execFileSync('git', ['-C', dir, 'remote', 'add', 'gitee', remote], { env: GIT_ENV });
+    return dir;
+  }
+
+  function runScript(dir, env = {}) {
+    try {
+      const out = execFileSync('bash', [path.join(dir, 'scripts/publish-gitee-release.sh')], {
+        // GIT_ENV：pre-commit 传下来的 GIT_DIR 会让 scratch 仓里的脚本读到
+        // 插件仓的 remote/HEAD，no-remote 用例就永远走不到。
+        env: { ...GIT_ENV, GITEE_ACCESS_TOKEN: '', ...env },
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      return { code: 0, out };
+    } catch (err) {
+      return { code: err.status, out: String(err.stdout || ''), err: String(err.stderr || '') };
+    }
+  }
+
   it('跳过开关生效，且脚本不回显令牌', () => {
     assert.match(sh, /TASK_CHROME_PLUGIN_SKIP_GITEE_RELEASE/);
     assert.match(sh, /overlay_conf_file/);
@@ -186,14 +227,56 @@ describe('publish-gitee-release.sh', () => {
       env: { ...process.env, TASK_CHROME_PLUGIN_SKIP_GITEE_RELEASE: '1' },
       encoding: 'utf8',
     });
-    assert.equal(out, '');
+    assert.equal(out.trim(), 'GITEE_RELEASE_STATUS=skipped-explicit');
   });
 
-  it('dist 发布在 GitHub 之后调用 Gitee', () => {
+  it('没有 gitee remote 时报 SKIPPED 并以 3 退出', () => {
+    const dir = scratchRepo();
+    const { code, out, err } = runScript(dir);
+    assert.equal(code, 3);
+    assert.match(err, /SKIPPED: no gitee remote/);
+    assert.match(err, /ensure-gitee-mirror\.sh/);
+    assert.match(out, /GITEE_RELEASE_STATUS=skipped-no-remote/);
+  });
+
+  it('有 remote 但没有令牌时以 3 退出并给出状态', () => {
+    const dir = scratchRepo({ remote: 'git@gitee.com:ljy-ruandao/task-chrome-plugin' });
+    const { code, out, err } = runScript(dir);
+    assert.equal(code, 3);
+    assert.match(err, /缺少 Gitee 私人令牌/);
+    assert.match(out, /GITEE_RELEASE_STATUS=skipped-no-token/);
+  });
+
+  it('没有 .crx 时也能走完发布（bash 3.2 空数组不再 unbound variable）', () => {
+    // 自 v1.8.26 起 dist/ 里没有 .crx，CRX 参数数组恒为空。macOS 的
+    // /bin/bash 3.2 在 set -u 下展开空数组会直接退出，Gitee 腿曾因此在
+    // 调 API 之前就死掉（只留下 "unbound variable"）。
+    const dir = scratchRepo({ remote: 'git@gitee.com:ljy-ruandao/task-chrome-plugin' });
+    const { code, out, err } = runScript(dir, {
+      GITEE_ACCESS_TOKEN: 'token-for-test',
+      PATH: `${path.join(dir, 'shim')}:${process.env.PATH}`,
+    });
+    assert.equal(code, 0, err);
+    assert.match(out, /GITEE_RELEASE_STATUS=published/);
+  });
+
+  it('空 CRX 参数使用 bash 3.2 安全展开', () => {
+    assert.match(sh, /\$\{CRX_ARGS\[@\]\+"\$\{CRX_ARGS\[@\]\}"\}/);
+    assert.doesNotMatch(sh, /"\$\{CRX_ARG\[@\]\}"/);
+  });
+
+  it('tag 移动失败只告警，不把已发布的 Release 判为失败', () => {
+    assert.match(sh, /if ! bash "\$ROOT\/scripts\/retarget-release-tag\.sh"/);
+    assert.match(sh, /published-tag-drift/);
+  });
+
+  it('dist 发布在 GitHub 之后调用 Gitee，并汇总两端状态', () => {
     const dist = fs.readFileSync(path.join(ROOT, 'scripts/publish-dist-zip.sh'), 'utf8');
     const ghAt = dist.indexOf('publish-github-release.sh');
     const giteeAt = dist.indexOf('publish-gitee-release.sh');
     assert.ok(ghAt > 0 && giteeAt > ghAt);
+    assert.match(dist, /publish-dist-zip: SUMMARY github=published gitee=\$\{gitee_status\}/);
+    assert.match(dist, /exit "\$gitee_rc"/);
   });
 });
 
