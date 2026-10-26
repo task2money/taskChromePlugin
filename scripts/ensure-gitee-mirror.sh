@@ -18,11 +18,14 @@
 #   bash scripts/ensure-gitee-mirror.sh            # 幂等补齐配置
 #   bash scripts/ensure-gitee-mirror.sh --check    # 只校验，缺失则 exit 1
 #   bash scripts/ensure-gitee-mirror.sh --sync     # 补齐后再推 main 与全部 tag
+#   bash scripts/ensure-gitee-mirror.sh --sync-https  # 同上，但走 HTTPS + 令牌（本机无 Gitee SSH key 时）
 #   bash scripts/ensure-gitee-mirror.sh --no-pushurl  # 只补 remote，不加 pushurl
 #
 # 环境变量:
 #   TASK_CHROME_PLUGIN_GITEE_URL          覆盖镜像 URL（自测用）
 #   TASK_CHROME_PLUGIN_SKIP_GITEE_PUSHURL=1  不追加 origin 的第二条 pushurl
+#   GITEE_ACCESS_TOKEN                    --sync-https 用；缺省时读 conf-local 的 token
+#                                         （经 GIT_ASKPASS 传给 git，不写入 remote 配置）
 set -euo pipefail
 
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
@@ -35,14 +38,16 @@ cd "$REPO_ROOT"
 MIRROR_URL="${TASK_CHROME_PLUGIN_GITEE_URL:-git@gitee.com:ljy-ruandao/task-chrome-plugin}"
 CHECK=0
 SYNC=0
+SYNC_HTTPS=0
 WANT_PUSHURL=1
 for arg in "$@"; do
   case "$arg" in
     --check) CHECK=1 ;;
     --sync) SYNC=1 ;;
+    --sync-https) SYNC=1; SYNC_HTTPS=1 ;;
     --no-pushurl) WANT_PUSHURL=0 ;;
     -h|--help)
-      sed -n '2,25p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,28p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
@@ -157,7 +162,71 @@ if [ "$CHANGED" -eq 0 ]; then
 fi
 
 # ── 3) 可选：把当前 refs 补推到 Gitee ────────────────────────────────────────
+# --sync-https：本机没有 Gitee SSH key 时，用 conf-local 的令牌走 HTTPS。
+# 令牌只经 GIT_ASKPASS 传给 git（临时文件 0700、退出即删），不写进 remote
+# 配置、不出现在 argv 里。只推 main：tag 由 Release 流程按 target_commitish
+# 创建，重复推已有 tag 只会得到一堆 non-fast-forward。
+gitee_token() {
+  [ -n "${GITEE_ACCESS_TOKEN:-}" ] && return 0
+  local meta conf
+  meta="$(cd "$REPO_ROOT/.." && pwd)"
+  conf="$meta/conf/chrome/task-chrome-plugin/config.yaml"
+  if [ -f "$meta/runAll/scripts/conf_local.py" ] && [ -f "$conf" ]; then
+    GITEE_ACCESS_TOKEN="$(
+      PYTHONPATH="$meta/runAll/scripts${PYTHONPATH:+:$PYTHONPATH}" python3 - "$conf" <<'PY'
+import sys
+from pathlib import Path
+from conf_local import overlay_conf_file
+data = overlay_conf_file(Path(sys.argv[1]))
+token = data.get("token") if isinstance(data, dict) else ""
+sys.stdout.write(token.strip() if isinstance(token, str) else "")
+PY
+    )"
+    export GITEE_ACCESS_TOKEN
+  fi
+}
+
+sync_https() {
+  local rest owner repo askpass
+  case "$MIRROR_URL" in
+    git@gitee.com:*) rest="${MIRROR_URL#git@gitee.com:}" ;;
+    https://gitee.com/*) rest="${MIRROR_URL#https://gitee.com/}" ;;
+    *)
+      echo "ensure-gitee-mirror: ERROR --sync-https 只支持 gitee.com 镜像地址（${MIRROR_URL}）" >&2
+      return 1
+      ;;
+  esac
+  rest="${rest%.git}"
+  owner="${rest%%/*}"
+  repo="${rest#*/}"
+  gitee_token
+  if [ -z "${GITEE_ACCESS_TOKEN:-}" ]; then
+    echo "ensure-gitee-mirror: ERROR 缺少 Gitee 令牌（导出 GITEE_ACCESS_TOKEN，或写 conf-local/chrome/task-chrome-plugin/config.yaml 的 token）" >&2
+    return 1
+  fi
+  askpass="$(mktemp "${TMPDIR:-/tmp}/gitee-askpass.XXXXXX")"
+  chmod 700 "$askpass"
+  # shellcheck disable=SC2064
+  trap "rm -f '$askpass'" EXIT
+  cat > "$askpass" <<SH
+#!/bin/sh
+case "\$1" in
+  Username*) echo "$owner" ;;
+  Password*) printf '%s' "\${GITEE_ACCESS_TOKEN:-}" ;;
+esac
+SH
+  echo "ensure-gitee-mirror: pushing main → https://gitee.com/${owner}/${repo}（令牌经 GIT_ASKPASS）" >&2
+  env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
+    GIT_ASKPASS="$askpass" GIT_TERMINAL_PROMPT=0 \
+    git -c http.proxy= -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=60 \
+    push "https://gitee.com/$owner/$repo.git" main
+}
+
 if [ "$SYNC" -eq 1 ]; then
-  echo "ensure-gitee-mirror: pushing main + tags → gitee" >&2
-  git push gitee main --tags
+  if [ "$SYNC_HTTPS" -eq 1 ]; then
+    sync_https
+  else
+    echo "ensure-gitee-mirror: pushing main + tags → gitee" >&2
+    git push gitee main --tags
+  fi
 fi

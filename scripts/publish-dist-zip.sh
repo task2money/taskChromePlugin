@@ -63,9 +63,9 @@ case "$gitee_status" in
   published-tag-drift)
     echo "publish-dist-zip: WARN Gitee Release 已发布但 tag ref 未移动；按 tag 检出可能不是本次 zip" >&2
     ;;
-  skipped-no-remote|skipped-no-token)
+  skipped-no-remote|skipped-no-token|skipped-mirror-behind)
     echo "publish-dist-zip: WARN 本次只在 GitHub 发布：$gitee_status" >&2
-    echo "publish-dist-zip: WARN 修好 Gitee 配置后执行 bash scripts/ensure-gitee-mirror.sh && bash scripts/publish-gitee-release.sh" >&2
+    echo "publish-dist-zip: WARN 修好 Gitee 配置后执行 bash scripts/ensure-gitee-mirror.sh --sync-https && bash scripts/publish-gitee-release.sh" >&2
     ;;
   skipped-explicit)
     echo "publish-dist-zip: note Gitee 腿被 TASK_CHROME_PLUGIN_SKIP_GITEE_RELEASE=1 显式跳过" >&2

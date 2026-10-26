@@ -182,6 +182,82 @@ describe('ensure-gitee-mirror.sh', () => {
     }
   });
 
+  it('--sync-https 走 HTTPS + GIT_ASKPASS，令牌不进 argv', () => {
+    const dir = makeRepo();
+    const log = path.join(dir, 'git-calls.log');
+    const shim = path.join(dir, 'bin');
+    fs.mkdirSync(shim);
+    const realGit = execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim();
+    // 只截 push；config/remote 等仍交给真实 git，断言才能落在 .git/config 上。
+    fs.writeFileSync(path.join(shim, 'git'), `#!/bin/sh
+for a in "$@"; do
+  if [ "$a" = "push" ]; then
+    printf '%s\\n' "$@" >> "$GIT_CALL_LOG"
+    echo "GIT_ASKPASS=\${GIT_ASKPASS:-}" >> "$GIT_CALL_LOG"
+    exit 0
+  fi
+done
+exec "${realGit}" "$@"
+`);
+    fs.chmodSync(path.join(shim, 'git'), 0o755);
+    try {
+      const result = runMirror(dir, ['--sync-https'], {
+        PATH: `${shim}:${process.env.PATH}`,
+        GIT_CALL_LOG: log,
+        GITEE_ACCESS_TOKEN: 'test-token-value',
+      });
+      assert.equal(result.status, 0, result.stderr);
+      const calls = fs.readFileSync(log, 'utf8');
+      assert.match(calls, /https:\/\/gitee\.com\/ljy-ruandao\/task-chrome-plugin-test\.git/);
+      assert.match(calls, /GIT_ASKPASS=\S+/);
+      assert.doesNotMatch(calls, /test-token-value/);
+      assert.doesNotMatch(calls, /--tags/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('--sync-https 没有令牌时退出 1，不尝试推送', () => {
+    // 把脚本复制到隔离的 meta 树：$ROOT/.. 下没有 conf-local，令牌只能来自环境。
+    const meta = fs.mkdtempSync(path.join(os.tmpdir(), 'plugin-gitee-meta-'));
+    const repo = path.join(meta, 'taskChromePlugin');
+    fs.mkdirSync(path.join(repo, 'scripts'), { recursive: true });
+    fs.copyFileSync(SCRIPT, path.join(repo, 'scripts', 'ensure-gitee-mirror.sh'));
+    git(repo, ['init', '-b', 'main']);
+    fs.writeFileSync(path.join(repo, 'a.txt'), '1\n');
+    git(repo, ['add', '-A']);
+    git(repo, ['commit', '-m', 'init']);
+    try {
+      const result = spawnSync('bash', [path.join(repo, 'scripts', 'ensure-gitee-mirror.sh'), '--sync-https'], {
+        cwd: repo,
+        encoding: 'utf8',
+        env: gitEnv({
+          TASK_CHROME_PLUGIN_GITEE_URL: MIRROR,
+          GITEE_ACCESS_TOKEN: '',
+          PATH: `${path.dirname(execFileSync('sh', ['-c', 'command -v git'], { encoding: 'utf8' }).trim())}:${process.env.PATH}`,
+        }),
+      });
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(String(result.stderr), /缺少 Gitee 令牌/);
+    } finally {
+      fs.rmSync(meta, { recursive: true, force: true });
+    }
+  });
+
+  it('--sync-https 对非 gitee.com 镜像地址报错', () => {
+    const dir = makeRepo();
+    try {
+      const result = runMirror(dir, ['--sync-https'], {
+        TASK_CHROME_PLUGIN_GITEE_URL: 'git@example.com:x/y.git',
+        GITEE_ACCESS_TOKEN: 'test-token-value',
+      });
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /只支持 gitee\.com/);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('未知参数退出 2，不静默执行', () => {
     const dir = makeRepo();
     try {

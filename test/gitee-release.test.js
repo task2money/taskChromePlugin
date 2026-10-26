@@ -24,6 +24,7 @@ const {
   isAbsentRelease,
   syncRelease,
   tagSha,
+  commitExists,
   localNotes,
 } = require('../scripts/gitee-release.js');
 
@@ -174,6 +175,29 @@ describe('tagSha', () => {
   });
 });
 
+describe('commitExists', () => {
+  it('200 表示已在镜像，404 表示镜像落后', async () => {
+    const input = { owner: 'o', repo: 'r', sha: 'abc', token: 't' };
+    assert.equal(await commitExists(input, async () => ({ status: 200, body: {} })), true);
+    assert.equal(await commitExists(input, async () => ({ status: 404, body: { message: 'not found' } })), false);
+  });
+
+  it('其它状态抛出，由调用方决定是否放行', async () => {
+    await assert.rejects(
+      () => commitExists({ owner: 'o', repo: 'r', sha: 'abc', token: 't' },
+        async () => ({ status: 500, body: {} })),
+      /commit lookup failed: HTTP 500/,
+    );
+  });
+
+  it('缺令牌时抛 MISSING_TOKEN', async () => {
+    await assert.rejects(
+      () => commitExists({ owner: 'o', repo: 'r', sha: 'abc', token: '' }, async () => ({ status: 200 })),
+      (err) => err.code === 'MISSING_TOKEN',
+    );
+  });
+});
+
 describe('localNotes', () => {
   it('比较链接指向 Gitee', () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gitee-notes-'));
@@ -226,7 +250,11 @@ describe('publish-gitee-release.sh', () => {
     fs.mkdirSync(path.join(dir, 'shim'));
     fs.writeFileSync(path.join(dir, 'shim/node'),
       '#!/bin/sh\ncase "$1" in\n  -e) printf \'ljy-ruandao task-chrome-plugin\' ;;\n'
-      + '  -p) printf \'1.8.276\' ;;\nesac\nexit 0\n');
+      + '  -p) printf \'1.8.276\' ;;\n'
+      + '  *) case "$2" in\n'
+      + '       commit-exists) printf \'%s\' "${SHIM_COMMIT_EXISTS:-yes}" ;;\n'
+      + '     esac ;;\n'
+      + 'esac\nexit 0\n');
     fs.chmodSync(path.join(dir, 'shim/node'), 0o755);
     execFileSync('git', ['init', '-q', dir], { env: GIT_ENV });
     execFileSync('git', ['-C', dir, '-c', 'user.email=t@example.com', '-c', 'user.name=t',
@@ -289,6 +317,26 @@ describe('publish-gitee-release.sh', () => {
     });
     assert.equal(code, 0, err);
     assert.match(out, /GITEE_RELEASE_STATUS=published/);
+  });
+
+  it('镜像缺少本次提交时以 3 退出并给出同步提示', () => {
+    const dir = scratchRepo({ remote: 'git@gitee.com:ljy-ruandao/task-chrome-plugin' });
+    const { code, out, err } = runScript(dir, {
+      GITEE_ACCESS_TOKEN: 'token-for-test',
+      PATH: `${path.join(dir, 'shim')}:${process.env.PATH}`,
+      SHIM_COMMIT_EXISTS: 'no',
+    });
+    assert.equal(code, 3, err);
+    assert.match(err, /gitee mirror lacks commit/);
+    assert.match(err, /--sync-https/);
+    assert.match(out, /GITEE_RELEASE_STATUS=skipped-mirror-behind/);
+  });
+
+  it('镜像检查通过后才调用发布（检查错误时放行）', () => {
+    assert.match(sh, /commit-exists/);
+    assert.match(sh, /skipped-mirror-behind/);
+    // 检查本身失败（非 "no"）不能阻断发布：只认字符串 no。
+    assert.match(sh, /if \[ "\$MIRROR_HAS_COMMIT" = "no" \]/);
   });
 
   it('空 CRX 参数使用 bash 3.2 安全展开', () => {

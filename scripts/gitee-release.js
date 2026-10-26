@@ -194,6 +194,24 @@ async function tagSha({ owner, repo, tag, token }, request) {
   return null;
 }
 
+// 发布前确认本次提交已在 Gitee 镜像里。镜像落后时，创建 Release 的校验
+// 报错与「镜像没同步」无关，排障要反推一大圈（OPT-20261027-001）。
+async function commitExists({ owner, repo, sha, token }, request) {
+  if (!token) {
+    const err = new Error('missing gitee token');
+    err.code = 'MISSING_TOKEN';
+    throw err;
+  }
+  const res = await request({
+    method: 'GET',
+    path: `/repos/${owner}/${repo}/commits/${sha}`,
+    token,
+  });
+  if (res.status === 200) return true;
+  if (res.status === 404) return false;
+  throw new Error(`commit lookup failed: HTTP ${res.status}`);
+}
+
 async function giteeRequest({ method, path: apiPath, token, form, file }) {
   const url = new URL(`${API}${apiPath}`);
   url.searchParams.set('access_token', token);
@@ -288,10 +306,25 @@ async function tagShaFromCli(argv, env, request) {
   process.stdout.write(`${sha || ''}\n`);
 }
 
+async function commitExistsFromCli(argv, env, request) {
+  const args = parseArgs(argv);
+  const exists = await commitExists({
+    owner: args.owner,
+    repo: args.repo,
+    sha: args.sha,
+    token: String(env.GITEE_ACCESS_TOKEN || '').trim(),
+  }, request);
+  process.stdout.write(`${exists ? 'yes' : 'no'}\n`);
+}
+
 async function main(argv, env) {
   const cmd = argv[0];
   if (cmd === 'tag-sha') {
     await tagShaFromCli(argv.slice(1), env, giteeRequest);
+    return;
+  }
+  if (cmd === 'commit-exists') {
+    await commitExistsFromCli(argv.slice(1), env, giteeRequest);
     return;
   }
   if (cmd !== 'publish') throw new Error(`unknown command ${cmd || ''}`);
@@ -316,5 +349,6 @@ module.exports = {
   isAbsentRelease,
   syncRelease,
   tagSha,
+  commitExists,
   publishFromCli,
 };

@@ -14,9 +14,10 @@
 #   GITEE_RELEASE_STATUS=skipped-explicit      显式跳过（TASK_CHROME_PLUGIN_SKIP_GITEE_RELEASE=1）
 #   GITEE_RELEASE_STATUS=skipped-no-remote     没有 gitee remote（跑 scripts/ensure-gitee-mirror.sh）
 #   GITEE_RELEASE_STATUS=skipped-no-token      没有令牌
+#   GITEE_RELEASE_STATUS=skipped-mirror-behind 镜像仓库缺少本次提交（先 --sync-https）
 #   GITEE_RELEASE_STATUS=failed                Gitee API 发布失败
 #
-# 退出码: 0 = 已发布或显式跳过；1 = 发布失败；3 = 配置缺失（no-remote / no-token）。
+# 退出码: 0 = 已发布或显式跳过；1 = 发布失败；3 = 配置缺失（no-remote / no-token / mirror-behind）。
 # 配置缺失单独一个码，便于调用方区分「没配」与「发失败」，同时不让 GitHub 侧已成功的
 # 发布被当作整体失败重试。
 set -euo pipefail
@@ -88,6 +89,18 @@ TARGET="$(git rev-parse HEAD)"
 CRX_ARGS=()
 if [ -f "$CRX" ]; then
   CRX_ARGS=(--crx "$CRX")
+fi
+
+# 镜像落后于 origin 时，创建 Release 的校验失败与本因无关，只能从报错反推。
+# 发布前确认本次提交已在镜像里；查不到（网络/权限）则放行，别让检查本身
+# 变成新的阻塞点（OPT-20261027-001）。
+MIRROR_HAS_COMMIT="$(node "$ROOT/scripts/gitee-release.js" commit-exists \
+  --owner "$OWNER" --repo "$REPO" --sha "$TARGET" 2>/dev/null || true)"
+if [ "$MIRROR_HAS_COMMIT" = "no" ]; then
+  echo "publish-gitee-release: SKIPPED: gitee mirror lacks commit ${TARGET} — the mirror is behind origin." >&2
+  echo "publish-gitee-release: fix: bash scripts/ensure-gitee-mirror.sh --sync-https（或 git push gitee main），然后重跑本脚本。" >&2
+  status skipped-mirror-behind
+  exit 3
 fi
 
 # 发布脚本是开发机一次性调用，不跟随 shell 代理（与业务进程直连约定一致）。
