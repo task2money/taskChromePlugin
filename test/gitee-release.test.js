@@ -23,6 +23,7 @@ const {
   redact,
   isAbsentRelease,
   syncRelease,
+  tagSha,
   localNotes,
 } = require('../scripts/gitee-release.js');
 
@@ -140,6 +141,36 @@ describe('syncRelease', () => {
     assert.equal(result.created, false);
     assert.ok(calls.some((line) => line.startsWith('DELETE ')));
     assert.ok(calls.some((line) => line.includes('/attach_files') && line.startsWith('GET ')));
+  });
+});
+
+describe('tagSha', () => {
+  const page = (n) => Array.from({ length: n }, (_, i) => ({ name: `v0.0.${i}`, commit: { sha: 'a' } }));
+
+  it('翻页找到 tag 的提交', async () => {
+    const pages = [page(100), [{ name: 'v1.8.276', commit: { sha: 'deadbeef' } }]];
+    const calls = [];
+    const sha = await tagSha({ owner: 'o', repo: 'r', tag: 'v1.8.276', token: 't' }, async (req) => {
+      calls.push(req.path);
+      const n = Number(new URL(`https://x${req.path}`).searchParams.get('page'));
+      return { status: 200, body: pages[n - 1] };
+    });
+    assert.equal(sha, 'deadbeef');
+    assert.equal(calls.length, 2);
+    assert.match(calls[0], /^\/repos\/o\/r\/tags\?per_page=100&page=1$/);
+  });
+
+  it('没有该 tag 时返回 null', async () => {
+    const sha = await tagSha({ owner: 'o', repo: 'r', tag: 'v9.9.9', token: 't' },
+      async () => ({ status: 200, body: page(3) }));
+    assert.equal(sha, null);
+  });
+
+  it('缺令牌时抛 MISSING_TOKEN', async () => {
+    await assert.rejects(
+      () => tagSha({ owner: 'o', repo: 'r', tag: 'v1', token: '' }, async () => ({ status: 200, body: [] })),
+      (err) => err.code === 'MISSING_TOKEN',
+    );
   });
 });
 
@@ -265,7 +296,10 @@ describe('publish-gitee-release.sh', () => {
     assert.doesNotMatch(sh, /"\$\{CRX_ARG\[@\]\}"/);
   });
 
-  it('tag 移动失败只告警，不把已发布的 Release 判为失败', () => {
+  it('tag 已指向本次提交时不再 push，移动失败只告警', () => {
+    // API 说 tag 已就位 → 不再尝试 git push（否则缺推送权限会报假漂移）。
+    assert.match(sh, /tag-sha/);
+    assert.match(sh, /REMOTE_TAG_SHA/);
     assert.match(sh, /if ! bash "\$ROOT\/scripts\/retarget-release-tag\.sh"/);
     assert.match(sh, /published-tag-drift/);
   });

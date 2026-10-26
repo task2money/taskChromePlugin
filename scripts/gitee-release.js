@@ -168,6 +168,32 @@ async function syncRelease(input, request) {
   };
 }
 
+// Gitee 的 v5 API 没有「按名字取单个 tag」的端点（/tags/{name} 与
+// /git/refs/... 均 404），只能翻页找。发布脚本用它在尝试 git push 之前
+// 确认 tag ref 是否已经指向目标提交：Gitee 创建 Release 时会按
+// target_commitish 建 tag，此时再走一遍 git push 只会得到假的「漂移」。
+async function tagSha({ owner, repo, tag, token }, request) {
+  if (!token) {
+    const err = new Error('missing gitee token');
+    err.code = 'MISSING_TOKEN';
+    throw err;
+  }
+  const perPage = 100;
+  for (let page = 1; page <= 20; page += 1) {
+    const res = await request({
+      method: 'GET',
+      path: `/repos/${owner}/${repo}/tags?per_page=${perPage}&page=${page}`,
+      token,
+    });
+    if (res.status !== 200) throw new Error(`list tags failed: HTTP ${res.status}`);
+    const list = Array.isArray(res.body) ? res.body : [];
+    const hit = list.find((item) => item && item.name === tag);
+    if (hit && hit.commit && hit.commit.sha) return hit.commit.sha;
+    if (list.length < perPage) return null;
+  }
+  return null;
+}
+
 async function giteeRequest({ method, path: apiPath, token, form, file }) {
   const url = new URL(`${API}${apiPath}`);
   url.searchParams.set('access_token', token);
@@ -251,8 +277,23 @@ async function publishFromCli(argv, env, request) {
   }, request);
 }
 
+async function tagShaFromCli(argv, env, request) {
+  const args = parseArgs(argv);
+  const sha = await tagSha({
+    owner: args.owner,
+    repo: args.repo,
+    tag: args.tag,
+    token: String(env.GITEE_ACCESS_TOKEN || '').trim(),
+  }, request);
+  process.stdout.write(`${sha || ''}\n`);
+}
+
 async function main(argv, env) {
   const cmd = argv[0];
+  if (cmd === 'tag-sha') {
+    await tagShaFromCli(argv.slice(1), env, giteeRequest);
+    return;
+  }
   if (cmd !== 'publish') throw new Error(`unknown command ${cmd || ''}`);
   const result = await publishFromCli(argv.slice(1), env, giteeRequest);
   process.stderr.write(`gitee-release: OK ${result.url}\n`);
@@ -274,5 +315,6 @@ module.exports = {
   localNotes,
   isAbsentRelease,
   syncRelease,
+  tagSha,
   publishFromCli,
 };

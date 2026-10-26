@@ -111,7 +111,13 @@ fi
 # 令牌能发布 Release 但推送被拒时，资产已上线，只有 tag ref 未移动：此时不能把
 # 整个发布判为失败（GitHub 侧已成功，重跑也不会改变），改为响亮告警 + 专用状态。
 TAG_DRIFT=0
-if git remote get-url gitee >/dev/null 2>&1; then
+# 先问 API：Gitee 创建 Release 时会按 target_commitish 建 tag，新版本发布后
+# tag 通常已经就位。此时还去 git push 只会因缺推送权限报一次假的「漂移」。
+REMOTE_TAG_SHA="$(node "$ROOT/scripts/gitee-release.js" tag-sha \
+  --owner "$OWNER" --repo "$REPO" --tag "v${VERSION}" 2>/dev/null || true)"
+if [ "$REMOTE_TAG_SHA" = "$TARGET" ]; then
+  : # tag ref 已指向本次提交
+elif git remote get-url gitee >/dev/null 2>&1; then
   if ! bash "$ROOT/scripts/retarget-release-tag.sh" --remote gitee --tag "v${VERSION}" --target "$TARGET"; then
     TAG_DRIFT=1
     echo "publish-gitee-release: WARN gitee tag v${VERSION} 未移动（无推送权限？）。Release 资产已发布，但按 tag 检出的树可能不是本次 zip。" >&2
