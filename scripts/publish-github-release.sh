@@ -20,6 +20,13 @@ if ! command -v gh >/dev/null 2>&1; then
   exit 0
 fi
 
+# OPT-20261026-007: gh keyring 凭据失效时回退到 git credential（仅进程内）。
+# shellcheck source=gh-auth.sh
+. "$ROOT/scripts/gh-auth.sh"
+if ! ensure_gh_auth; then
+  exit 1
+fi
+
 VERSION="$(node -p "require('./manifest.json').version")"
 TAG="v${VERSION}"
 ZIP="$ROOT/dist/task-chrome-plugin-v${VERSION}.zip"
