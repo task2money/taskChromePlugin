@@ -43,6 +43,17 @@ rt_enter_repo() {
     fi
 }
 
+# ── hook 注入的 git 环境变量（子仓抽测隔离） ────────────────────────────────
+# 当 `.git` 是文件（monorepo 的每个子仓都是如此）时，git 给 hook 导出**绝对
+# 路径**的 GIT_DIR/GIT_INDEX_FILE。测试进程继承后，任何 `git -C <临时目录>`
+# 都会忽略临时目录、转而操作本仓的 gitdir：`git init` 把 core.bare 改回 true，
+# 随后的 `git add -A` 报 "core.bare and core.worktree do not make sense"
+# （2026-10-27 deploy_by_jenkins 提交实测，6 个临时仓用例全红）。运行测例前
+# 剥掉这些变量，让子进程按 cwd 自行发现仓库（本仓仍可经 `.git` 文件发现）。
+rt_scrub_git_env() {
+    unset GIT_DIR GIT_INDEX_FILE GIT_WORK_TREE GIT_COMMON_DIR GIT_OBJECT_DIRECTORY
+}
+
 # ── core.bare 自愈守卫（OPT-20260806-059） ───────────────────────────────────
 # 背景: 2026-08-06 runAll 子仓 pre-commit 期间 .git/modules/runAll/config 出现
 #       `bare = true`，导致后续 git 命令全部报 "must run in a worktree"（现场
@@ -233,16 +244,22 @@ rt_go_dir_has_tests() {
 # KAFKA_SKIP_NETTEST=1: 双保险——即使 third_party 排除规则失效或他处直接
 # 运行 kafka-go 库测试，也跳过需要真实 broker 的 nettest 集成用例，
 # 阻止自动创建 kafka-go-* 无意义命名 topics（kafka-go 库测试自带门控）。
+# rt_go_timeout 返回传给 `go test -timeout` 的内部超时（OPT-20260919-002）。
+#
+# go test 默认注入 10m，而夜检给 taskCloudService 的外部预算已放宽到 900s
+# （OPT-20260917-008）：内部闹钟比外部预算先到，把「慢但在推进」的运行当成
+# 挂死杀掉（`panic: test timed out after 10m0s`）。内部超时只需大于外部预算，
+# 真正的上限始终由外层 timeout 兜底 —— 与各仓 .githooks/lib 的既有取值一致。
+rt_go_timeout() {
+    printf '%s' "${PRECOMMIT_GO_TIMEOUT:-45m}"
+}
+
 rt_go_run_dir() {
     local dir="$1" output
+    rt_scrub_git_env
     export KAFKA_SKIP_NETTEST=1
-    # 与各仓 .githooks/lib/random_test_runner.sh 对齐（OPT-20260919-002）：
-    # go test 默认注入的 10m 内部闹钟会早于外部预算触发 —— 夜检给
-    # taskCloudService 的预算已放宽到 900s（OPT-20260917-008），却仍以
-    # `panic: test timed out after 10m0s` 被杀，即「预算是够的、闹钟定早了」。
-    # 内部超时只需大于外部预算，真正的上限始终由外层 timeout 兜底；
-    # 可用 PRECOMMIT_GO_TIMEOUT 覆盖。
-    local go_timeout="${PRECOMMIT_GO_TIMEOUT:-45m}"
+    local go_timeout
+    go_timeout="$(rt_go_timeout)"
     if [ "$dir" = "." ]; then
         echo "Running: go test -count=1 -timeout ${go_timeout} ."
         output="$(rt_mysql_test_lock_run "go test -count=1 -timeout ${go_timeout} ." 2>&1)" || {
@@ -335,23 +352,22 @@ rt_js_project_for_file() {
     return 1
 }
 
-# rt_js_run_vitest_group <proj> <test_file>... — 同一工程合并为**一次** vitest 调用。
-# 为何必须批量：per-file vitest 实测 ~4-6s，taskFE 抽测 397 文件 ≈ 30 分钟，
-# 超 pre-commit 900s 与夜检单测例预算；整工程一次调用是分钟量级。
-# 输出：每文件一行 `RT_JS_RESULT PASS|FAIL <仓根相对路径>`（供夜检逐文件归属）；
-# 任一文件未通过或批次异常 → 非 0。
-rt_js_run_vitest_group() {
-    local proj="$1"; shift
-    local vbin json err attr list line f rel rc=0
+# rt_js_vitest_invoke <proj> <out_attr> <test_file>... — 跑一次 vitest 批次，
+# 把逐文件 `RT_JS_RESULT PASS|FAIL <仓根相对路径>` 行写入 out_attr。
+# 批次异常但报告无文件级失败（未处理异常 / 快照过期 / 收集失败）→ fail-closed
+# 记全部失败：宁可多报也不能把非 0 说成通过。返回 1 当且仅当 out_attr 内有 FAIL。
+rt_js_vitest_invoke() {
+    local proj="$1" attr="$2"; shift 2
+    local vbin json err list f rel rc=0
     if [ "$proj" = "." ]; then vbin="./node_modules/.bin/vitest"; else vbin="$proj/node_modules/.bin/vitest"; fi
     if [ ! -x "$vbin" ]; then
         # 声明了 vitest 却没装 → 拒绝回落 node --test：那正是本条要消灭的「0 用例恒绿」。
         echo "ERROR: ${proj} 声明了 vitest 依赖，但未安装（缺 ${vbin}）" >&2
         echo "       vitest 用例在 node --test 下会「0 用例恒绿」，故不回落；修复: (cd $proj && npm install)" >&2
-        for f in "$@"; do echo "RT_JS_RESULT FAIL $f"; done
+        for f in "$@"; do echo "RT_JS_RESULT FAIL $f" >> "$attr"; done
         return 1
     fi
-    json="$(mktemp)"; err="$(mktemp)"; attr="$(mktemp)"; list="$(mktemp)"
+    json="$(mktemp)"; err="$(mktemp)"; list="$(mktemp)"
     local -a rels=()
     for f in "$@"; do
         f="${f#./}"
@@ -382,13 +398,69 @@ rt_js_run_vitest_group() {
         echo "---- vitest stderr (tail) ----"
         tail -15 "$err"
     fi
+    rm -f "$json" "$err" "$list"
+    grep -q '^RT_JS_RESULT FAIL ' "$attr" && return 1
+    return 0
+}
+
+# rt_js_timeout_failed_files <attr> — 首轮因**超时**失败的文件（每行一个）。
+# 只认失败信息里的超时形态（vitest 的 "Test timed out in 15000ms"、
+# "Hook timed out ..."、"Timeout of <n>ms exceeded"）。断言失败/收集失败不重试：
+# 重试只该洗掉环境冷启动的假红，不能把真回归洗成偶发。
+rt_js_timeout_failed_files() {
+    awk '
+      /^RT_JS_RESULT / { cur = $3; failed = ($2 == "FAIL"); next }
+      failed && /timed out|Timeout of [0-9]+ ?ms/ && !seen[cur]++ { print cur }
+    ' "$1"
+}
+
+# rt_js_merge_retry <attr1> <attr2> <retried_file>... — 用 attr2 的块替换
+# attr1 中这些文件的块，避免首轮 FAIL 与重试结果并列输出（下游按文件名归属，
+# 同文件两行会让 PASS/FAIL 判定取决于读取顺序）。
+rt_js_merge_retry() {
+    local attr="$1" attr2="$2"; shift 2
+    awk -v list="$(printf '%s\n' "$@")" '
+      BEGIN { n = split(list, a, "\n"); for (i = 1; i <= n; i++) if (a[i] != "") skip[a[i]] = 1 }
+      /^RT_JS_RESULT / { s = ($3 in skip) }
+      !s { print }
+    ' "$attr"
+    cat "$attr2"
+}
+
+# rt_js_run_vitest_group <proj> <test_file>... — 同一工程合并为**一次** vitest 调用。
+# 为何必须批量：per-file vitest 实测 ~4-6s，taskFE 抽测 397 文件 ≈ 30 分钟，
+# 超 pre-commit 900s 与夜检单测例预算；整工程一次调用是分钟量级。
+# 超时类失败重试一次再判定（OPT-20261015-039）：高负载下 jsdom 冷启动会让
+# 用例整体超时（vitest 自报 environment 2662s / import 732s），单独重跑即过；
+# 这种假红不得污染 pre-commit 抽测与夜检判据（夜检 FAIL 会自动派修复）。
+# 输出：每文件一行 `RT_JS_RESULT PASS|FAIL <仓根相对路径>`（供夜检逐文件归属）；
+# 任一文件未通过或批次异常 → 非 0。
+rt_js_run_vitest_group() {
+    local proj="$1"; shift
+    rt_scrub_git_env
+    local attr merged line f retry rc=0
+    attr="$(mktemp)"
+    rt_js_vitest_invoke "$proj" "$attr" "$@" || true
+    retry="$(rt_js_timeout_failed_files "$attr")"
+    if [ -n "$retry" ]; then
+        local -a again=()
+        while IFS= read -r f; do [ -n "$f" ] && again+=("$f"); done <<< "$retry"
+        echo "WARN: ${#again[@]} 个文件首轮超时失败，单批重试一次（OPT-20261015-039）" >&2
+        local attr2
+        attr2="$(mktemp)"
+        rt_js_vitest_invoke "$proj" "$attr2" ${again[@]+"${again[@]}"} || true
+        merged="$(mktemp)"
+        rt_js_merge_retry "$attr" "$attr2" ${again[@]+"${again[@]}"} > "$merged"
+        rm -f "$attr" "$attr2"
+        attr="$merged"
+    fi
     while IFS= read -r line; do
         printf '%s\n' "$line"
         case "$line" in
             "RT_JS_RESULT FAIL "*) rc=1 ;;
         esac
     done < "$attr"
-    rm -f "$json" "$err" "$attr" "$list"
+    rm -f "$attr"
     return "$rc"
 }
 
@@ -541,6 +613,7 @@ rt_py_collect_files() {
 
 rt_py_run_file() {
     local test_file="$1"
+    rt_scrub_git_env
     if command -v python3 >/dev/null && python3 -c 'import pytest' 2>/dev/null; then
         echo "Running: python3 -m pytest $test_file -q"
         python3 -m pytest "$test_file" -q --tb=line
@@ -642,16 +715,27 @@ rt_self_test() {
     d="$(rt_go_dir_for_file "README.md" 2>/dev/null)" && { echo "  FAIL: non-go file must fail"; fails=$((fails+1)); }
 
     echo "== rt_mysql_test_lock_run (free lock → cmd runs) =="
-    local tmplock out2
+    local tmplock out2 waitf
     tmplock="$(mktemp)"
-    out2="$(RT_MYSQL_TEST_LOCK_PATH="$tmplock" rt_mysql_test_lock_run "echo RUN_OK" 2>&1)"
+    waitf="$(mktemp)"
+    out2="$(RT_MYSQL_TEST_LOCK_PATH="$tmplock" RT_LOCK_WAIT_FILE="$waitf" rt_mysql_test_lock_run "echo RUN_OK" 2>&1)"
     echo "$out2" | grep -q "RUN_OK" || { echo "  FAIL: free lock did not run cmd: $out2"; fails=$((fails+1)); }
+    if echo "$out2" | grep -qE 'RT_LOCK_WAIT_SEC=[0-9]+'; then
+        echo "  ok: RT_LOCK_WAIT_SEC emitted on free lock"
+    else
+        echo "  FAIL: missing RT_LOCK_WAIT_SEC on free lock: $out2"; fails=$((fails+1))
+    fi
+    if grep -qE '^sec=[0-9]+' "$waitf"; then
+        echo "  ok: wait file has sec="
+    else
+        echo "  FAIL: wait file missing sec=: $(cat "$waitf" 2>/dev/null)"; fails=$((fails+1))
+    fi
     if RT_MYSQL_TEST_LOCK_PATH="$tmplock" rt_mysql_test_lock_run "return 7"; then
         echo "  FAIL: expected non-zero exit from cmd"; fails=$((fails+1))
     else
         echo "  ok: non-zero exit propagates"
     fi
-    rm -f "$tmplock"
+    rm -f "$tmplock" "$waitf"
 
     echo "== rt_mysql_test_lock_run (lock held → skip, no parallel run) =="
     tmplock="$(mktemp)"
@@ -668,7 +752,8 @@ rt_self_test() {
         [ -s "$marker" ] && break
         sleep 0.1
     done
-    out3="$(RT_MYSQL_TEST_LOCK_PATH="$tmplock" RT_MYSQL_TEST_LOCK_TIMEOUT=1 rt_mysql_test_lock_run "echo MUST_NOT_RUN" 2>&1)"
+    waitf="$(mktemp)"
+    out3="$(RT_MYSQL_TEST_LOCK_PATH="$tmplock" RT_MYSQL_TEST_LOCK_TIMEOUT=1 RT_LOCK_WAIT_FILE="$waitf" rt_mysql_test_lock_run "echo MUST_NOT_RUN" 2>&1)"
     if echo "$out3" | grep -q "WARN: MySQL test lock busy"; then
         echo "  ok: skipped on busy lock"
     else
@@ -677,8 +762,41 @@ rt_self_test() {
     if echo "$out3" | grep -q "MUST_NOT_RUN"; then
         echo "  FAIL: cmd ran while lock held"; fails=$((fails+1))
     fi
+    if echo "$out3" | grep -qE 'RT_LOCK_WAIT_SEC=[0-9]+'; then
+        echo "  ok: RT_LOCK_WAIT_SEC emitted on busy lock"
+    else
+        echo "  FAIL: missing RT_LOCK_WAIT_SEC on busy lock: $out3"; fails=$((fails+1))
+    fi
     wait "$holder"
-    rm -f "$tmplock" "$marker"
+    rm -f "$tmplock" "$marker" "$waitf"
+
+    echo "== format_timeout_message (Python, OPT-20260918-003) =="
+    _sweep="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/nightly_test_sweep.py"
+    if python3 - "$_sweep" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("nightly_test_sweep", sys.argv[1])
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+assert "挂死" not in mod.format_timeout_message("./src"), "must not say 挂死 without lock-wait"
+assert "lock-wait 271s" in mod.format_timeout_message("./src", 271)
+assert mod.format_timeout_message("./src", 0).endswith("./src 被杀")
+# _read_lock_wait_sec: sec= wins; start= estimates
+from pathlib import Path
+import tempfile, time
+p = Path(tempfile.mktemp())
+p.write_text("start=1\nsec=42\n")
+assert mod._read_lock_wait_sec(p) == 42
+p.write_text(f"start={int(time.time()) - 7}\n")
+got = mod._read_lock_wait_sec(p)
+assert 6 <= got <= 9, got
+p.unlink(missing_ok=True)
+print("  ok: format_timeout_message + _read_lock_wait_sec")
+PY
+    then
+        echo "  ok: python timeout message"
+    else
+        echo "  FAIL: python timeout message"; fails=$((fails+1))
+    fi
 
     echo "== rt_mysql_test_lock_path =="
     local lp
@@ -687,6 +805,46 @@ rt_self_test() {
         */logs/.mysql-gotest.lock) echo "  ok: lock path resolved: $lp" ;;
         *) echo "  FAIL: lock path unexpected: '$lp'"; fails=$((fails+1)) ;;
     esac
+
+    echo "== rt_go_timeout (OPT-20260919-002) =="
+    # go test 默认注入的 10m 内部闹钟会早于外部预算触发：夜检给
+    # taskCloudService 的预算已放宽到 900s（OPT-20260917-008），却仍以
+    # `panic: test timed out after 10m0s` 被杀。内部超时必须 > 外部预算。
+    if [ "$(rt_go_timeout)" = "45m" ]; then
+        echo "  ok: 默认 go test 内部超时 45m"
+    else
+        echo "  FAIL: 默认 go test 内部超时 '$(rt_go_timeout)', want 45m"; fails=$((fails+1))
+    fi
+    if [ "$(PRECOMMIT_GO_TIMEOUT=12m rt_go_timeout)" = "12m" ]; then
+        echo "  ok: PRECOMMIT_GO_TIMEOUT 可覆盖"
+    else
+        echo "  FAIL: PRECOMMIT_GO_TIMEOUT 覆盖无效"; fails=$((fails+1))
+    fi
+    # 静态守卫：rt_go_run_dir 内每一处 go test 调用都必须真的带上 -timeout，
+    # 否则该分支悄悄退回 go test 默认的 10m。
+    # 只统计函数体内——若全文 grep，本行自身的模式串会被算进去，计数虚高
+    # （等于把守卫放松一格）。
+    local calls with_timeout
+    calls="$(awk '/^rt_go_run_dir\(\) \{/,/^\}/' "${BASH_SOURCE[0]}" | grep -c -- 'go test -count=1' || true)"
+    with_timeout="$(awk '/^rt_go_run_dir\(\) \{/,/^\}/' "${BASH_SOURCE[0]}" | grep -c -- 'go test -count=1 -timeout' || true)"
+    if [ "${calls:-0}" -ge 3 ] && [ "${with_timeout:-0}" -eq "${calls:-0}" ]; then
+        echo "  ok: ${with_timeout}/${calls} 处 go test 调用带 -timeout"
+    else
+        echo "  FAIL: rt_go_run_dir 内 ${with_timeout}/${calls} 处 go test 调用带 -timeout（want 全部且 ≥3）"; fails=$((fails+1))
+    fi
+
+    echo "== rt_scrub_git_env (submodule hooks export absolute GIT_DIR) =="
+    # 子仓 hook 会导出绝对路径的 GIT_DIR；测试里 git init 临时仓会改到本仓 gitdir。
+    local scrubbed
+    scrubbed="$(GIT_DIR=/bogus GIT_INDEX_FILE=/bogus GIT_WORK_TREE=/bogus \
+        bash -c 'source "$1"; rt_scrub_git_env; printf "%s/%s/%s" \
+            "${GIT_DIR-unset}" "${GIT_INDEX_FILE-unset}" "${GIT_WORK_TREE-unset}"' \
+        _ "${BASH_SOURCE[0]}")"
+    if [ "$scrubbed" = "unset/unset/unset" ]; then
+        echo "  ok: hook-injected git env removed"
+    else
+        echo "  FAIL: git env not scrubbed: $scrubbed"; fails=$((fails+1))
+    fi
 
     echo "== rt_go_collect_dirs 跳过 .gitignore 忽略的嵌套克隆 (OPT-20260926-003) =="
     # sdk 仓的 tencent/ 是「本地调试用第三方 SDK 嵌套克隆」：自带 .git、被 .gitignore
@@ -718,7 +876,7 @@ rt_self_test() {
     # 抽测与 pre-commit 于是对前端 JS 恒绿。判据必须真的把 vitest 工程的文件送进
     # vitest —— 真 vitest 依赖 node_modules/网络，故用**桩 vitest** 固定「送进去了」
     # 与「逐文件结果被正确归属」两件事。
-    local jsfix jsr jsr2 jsr3 jsout jsrc jsout2 jsrc2 jsout3 jsrc3
+    local jsfix jsr jsr2 jsr3 jsout jsrc jsout2 jsrc2 jsout3 jsrc3 jsout4 jsrc4 jsout5 jsrc5
     jsfix="$(mktemp -d)"
     trap 'rm -f "$tmp"; rm -rf "$sandbox" "$jsfix"' RETURN
     mkdir -p "$jsfix/app/src/views" "$jsfix/app/node_modules/.bin" "$jsfix/web/tests" "$jsfix/bare/src"
@@ -727,6 +885,7 @@ rt_self_test() {
     printf '{"name":"bare","dependencies":{"vitest":"^4.0.18"}}\n' > "$jsfix/bare/package.json"
     printf "import { describe, it } from 'vitest'\n" > "$jsfix/app/src/views/spa.test.js"
     printf "import { describe, it } from 'vitest'\n" > "$jsfix/app/src/views/other.test.js"
+    printf "import { describe, it } from 'vitest'\n" > "$jsfix/app/src/views/flaky.test.js"
     # 真 node:test 用例（工程内并存，必须仍走 node --test 而不是被丢给 vitest）
     cat > "$jsfix/app/src/views/legacy.test.js" <<'JS'
 import test from 'node:test'
@@ -737,7 +896,10 @@ JS
     # 桩 vitest：解析过滤参数，按 RT_STUB_FAIL/RT_STUB_OMIT 产出 JSON 报告
     cat > "$jsfix/app/node_modules/.bin/vitest" <<'STUB'
 #!/usr/bin/env bash
-printf 'CALL %s\n' "$*" >> "${RT_STUB_CALLS:-/dev/null}"
+calls="${RT_STUB_CALLS:-/dev/null}"
+prior=0
+[ -f "$calls" ] && prior="$(grep -c '^CALL ' "$calls" 2>/dev/null || true)"
+printf 'CALL %s\n' "$*" >> "$calls"
 files=()
 for a in "$@"; do
     case "$a" in run|--reporter=*) continue ;; esac
@@ -754,6 +916,13 @@ for f in ${files[@]+"${files[@]}"}; do
         *" $base "*) st=failed; overall=failed
             extra=',"assertionResults":[{"failureMessages":["AssertionError: stub 故意失败"]}]' ;;
     esac
+    # RT_STUB_TIMEOUT_ONCE：首轮以超时形态失败、重试通过（OPT-20261015-039）
+    if [ "$prior" -eq 0 ]; then
+        case " ${RT_STUB_TIMEOUT_ONCE:-} " in
+            *" $base "*) st=failed; overall=failed
+                extra=',"assertionResults":[{"failureMessages":["Error: Test timed out in 15000ms."]}]' ;;
+        esac
+    fi
     [ "$first" -eq 1 ] || printf ','
     first=0
     printf '{"name":"%s/%s","status":"%s"%s}' "$PWD" "${f#./}" "$st" "$extra"
@@ -828,6 +997,31 @@ STUB
         echo "  ok: vitest 未安装时拒跑且不回落 node --test（不制造新的恒绿）"
     else
         echo "  FAIL: vitest 未安装时回落了 node --test（rc=${jsrc3}）: $(printf '%s\n' "$jsout3" | head -3 | tr '\n' '|')"
+        fails=$((fails+1))
+    fi
+    # (7) 超时类失败：单批重试一次，重试通过即按 PASS 判定（OPT-20261015-039）
+    jsrc4=0
+    jsout4="$(cd "$jsfix" && RT_STUB_CALLS="$jsfix/calls4" RT_STUB_TIMEOUT_ONCE="flaky.test.js" \
+        rt_js_run_batch app/src/views/flaky.test.js 2>&1)" || jsrc4=$?
+    if [ "$jsrc4" -eq 0 ] \
+       && printf '%s\n' "$jsout4" | grep -qx 'RT_JS_RESULT PASS app/src/views/flaky.test.js' \
+       && [ "$(grep -c '^CALL ' "$jsfix/calls4")" -eq 2 ] \
+       && printf '%s\n' "$jsout4" | grep -q '首轮超时失败'; then
+        echo "  ok: 超时失败重试一次后按 PASS 判定（只重跑失败文件）"
+    else
+        echo "  FAIL: 超时重试未生效（rc=${jsrc4}, calls=$(grep -c '^CALL ' "$jsfix/calls4" 2>/dev/null || echo 0)）: $(printf '%s\n' "$jsout4" | head -5 | tr '\n' '|')"
+        fails=$((fails+1))
+    fi
+    # (8) 负向对照：断言失败不得重试（重试只洗环境假红，不能洗真回归）
+    jsrc5=0
+    jsout5="$(cd "$jsfix" && RT_STUB_CALLS="$jsfix/calls5" RT_STUB_FAIL="other.test.js" \
+        rt_js_run_batch app/src/views/other.test.js 2>&1)" || jsrc5=$?
+    if [ "$jsrc5" -ne 0 ] \
+       && [ "$(grep -c '^CALL ' "$jsfix/calls5")" -eq 1 ] \
+       && printf '%s\n' "$jsout5" | grep -qx 'RT_JS_RESULT FAIL app/src/views/other.test.js'; then
+        echo "  ok: 非超时失败不重试（只跑一次）"
+    else
+        echo "  FAIL: 断言失败被重试或未判失败（rc=${jsrc5}, calls=$(grep -c '^CALL ' "$jsfix/calls5" 2>/dev/null || echo 0)）"
         fails=$((fails+1))
     fi
     rm -rf "$jsfix"
