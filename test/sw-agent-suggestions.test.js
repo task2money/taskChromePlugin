@@ -80,6 +80,7 @@ function loadGenerateStack(extraSandbox = {}) {
 
   for (const rel of [
     'lib/page-advisor-site-pending.js',
+    'background/sw-page-advisor-page-trial.js',
     'background/sw-agent-suggestions.js',
   ]) {
     vm.runInContext(
@@ -431,5 +432,75 @@ describe('sw-agent-suggestions 生成并落贴', () => {
     const { sandbox, calls } = loadGenerateStack();
     await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
     assert.equal(calls[0].idempotencyKey, 'agent-key-1');
+  });
+});
+
+describe('sw-agent-suggestions 匿名每日试用', () => {
+  it('试用结果直接交回侧栏：不解析租户、不落优化贴', async () => {
+    const { sandbox, calls } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async () => ({
+        ok: true,
+        route: 'trial',
+        trial: true,
+        trialId: 'pt-1',
+        pageUrl: 'https://shop.test/p',
+        pageTitle: '商品页',
+        suggestions: [
+          { title: '改标题', summary: '首屏标题更具体', detail: '换成含卖点的标题' },
+          { title: '加对比', summary: '补对比表' },
+        ],
+        quota: { enabled: true, remaining: 2, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
+        traceId: 'trace-trial-1',
+      }),
+      resolveTenantIdForSitePending: async () => {
+        throw new Error('试用路径不该解析租户');
+      },
+    });
+
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+
+    assert.equal(resp.success, true);
+    assert.equal(resp.trial, true);
+    assert.equal(resp.trialId, 'pt-1');
+    assert.equal(resp.count, 2);
+    assert.equal(resp.quota.remaining, 2);
+    assert.equal(resp.suggestions[0].title, '改标题');
+    assert.equal(resp.traceId, 'trace-trial-1');
+    assert.equal(calls.length, 0, '试用不落贴');
+  });
+
+  it('getPageTrialQuota：读安装指纹并只读额度接口', async () => {
+    const quotaCalls = [];
+    const { sandbox } = loadGenerateStack({
+      PluginInstallFingerprint: { ensurePluginInstallFingerprint: async () => 'pf_test_9' },
+      PageAdvisorTrialAPI: {
+        getQuota: async (baseUrl, fingerprint) => {
+          quotaCalls.push([baseUrl, fingerprint]);
+          return { enabled: true, remaining: 2, daily_quota: 3 };
+        },
+      },
+    });
+
+    const resp = await sandbox.handleGetPageTrialQuota();
+
+    assert.equal(resp.success, true);
+    assert.equal(resp.quota.remaining, 2);
+    assert.deepEqual(quotaCalls, [['https://example.test', 'pf_test_9']]);
+  });
+
+  it('getPageTrialQuota：拿不到指纹时如实报错，不发请求', async () => {
+    let called = false;
+    const { sandbox } = loadGenerateStack({
+      PluginInstallFingerprint: { ensurePluginInstallFingerprint: async () => '' },
+      PageAdvisorTrialAPI: {
+        getQuota: async () => { called = true; return {}; },
+      },
+    });
+
+    const resp = await sandbox.handleGetPageTrialQuota();
+
+    assert.equal(resp.success, false);
+    assert.equal(resp.errorCode, 'PAGE_TRIAL_FINGERPRINT_UNAVAILABLE');
+    assert.equal(called, false);
   });
 });

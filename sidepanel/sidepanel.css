@@ -170,6 +170,22 @@ html[data-taskplugin-host="sidepanel"] .sp-agent-generate-row .sp-agent-prompt {
   margin: 8px 0 0;
   padding-left: 18px;
 }
+.sp-agent-trial {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--taskplugin-border);
+  border-radius: 8px;
+  background: var(--taskplugin-background);
+}
+.sp-agent-trial .hint {
+  margin: 0 0 6px;
+}
+.sp-agent-trial li span {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--taskplugin-muted-foreground);
+}
 .sp-pane[hidden] {
   display: none !important;
 }

@@ -243,6 +243,34 @@ async function runBuiltinAgentSuggestions(tabId, skill) {
  *   created?: boolean, postId?: string, taskId?: string, projectId?: string, projectName?: string,
  *   workspaceId?: string, matched?: boolean, matchedBy?: string, count?: number, links?: any[] }>}
  */
+/** 未登录时侧栏展示今日剩余试用次数；只读公开端点，不消耗额度。 */
+async function handleGetPageTrialQuota() {
+  const TrialAPI = typeof PageAdvisorTrialAPI !== 'undefined' ? PageAdvisorTrialAPI : null;
+  if (!TrialAPI || typeof TrialAPI.getQuota !== 'function') {
+    return { success: false, errorCode: 'PAGE_TRIAL_UNAVAILABLE', error: tx('paTrialUnavailable') };
+  }
+  const fingerprint = await loadPageTrialFingerprint();
+  if (!fingerprint) {
+    return {
+      success: false,
+      errorCode: 'PAGE_TRIAL_FINGERPRINT_UNAVAILABLE',
+      error: tx('paTrialFingerprintRequired'),
+    };
+  }
+  try {
+    const cfg = await Storage.getApiConfig();
+    const quota = await TrialAPI.getQuota(String(cfg?.baseUrl || ''), fingerprint);
+    return { success: true, quota };
+  } catch (e) {
+    return {
+      success: false,
+      errorCode: e?.errorCode || '',
+      error: e?.detail || e?.message || '',
+      traceId: e?.traceId || '',
+    };
+  }
+}
+
 async function handleGenerateAgentSuggestionsForActiveTab(message) {
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
@@ -261,6 +289,20 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       errorCode: result.errorCode || '',
       ...(result.traceId ? { traceId: result.traceId } : {}),
       ...(result.links ? { links: result.links } : {}),
+    };
+  }
+
+  // 匿名每日试用：结果只给侧栏看，不落优化贴（落贴要租户，登录后才有）。
+  if (result.trial || result.route === 'trial') {
+    const trialRows = agentSuggestionRows(result.suggestions);
+    return {
+      success: true,
+      trial: true,
+      trialId: String(result.trialId || '').trim(),
+      suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
+      quota: result.quota || null,
+      count: trialRows.length,
+      ...(result.traceId ? { traceId: result.traceId } : {}),
     };
   }
 

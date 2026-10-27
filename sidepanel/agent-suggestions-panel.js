@@ -12,6 +12,9 @@
   var activeId = '';
   var siteBaseUrl = '';
   var pageShownId = '';
+  // 匿名试用的结果只活在这一次面板会话里；列表刷新（登录态）时要收起。
+  var trialShown = false;
+  var trialHintSeq = 0;
   // 与下拉菜单同源的技能缓存，供点击生成时同步取用（见 bindPromptSelect）。
   var skillList = [];
   var confirmGuard = global.ClickGuard && ClickGuard.createClickGuard
@@ -62,6 +65,75 @@
     else status.removeAttribute('data-traceId');
   }
 
+  /** 试用额度的状态行：本地化重置时间，并区分「用完了」与「试用暂停」。 */
+  function trialResetLabel(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    const at = new Date(raw);
+    if (Number.isNaN(at.getTime())) return raw;
+    try {
+      return at.toLocaleString(undefined, {
+        month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+      });
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  function trialQuotaStatus(quota) {
+    if (!quota || quota.enabled === false) return tx('paTrialPaused');
+    const remaining = Number(quota.remaining);
+    const total = Number(quota.daily_quota);
+    const resetsAt = trialResetLabel(quota.resets_at);
+    if (Number.isFinite(remaining) && remaining <= 0) {
+      return tx('paTrialQuotaExhausted', { resetsAt });
+    }
+    return tx('paTrialRemaining', {
+      n: Number.isFinite(remaining) ? remaining : 0,
+      total: Number.isFinite(total) ? total : 0,
+      resetsAt,
+    });
+  }
+
+  /** 试用结果只渲染在侧栏，不生成优化贴，也不替换页面建议列表。 */
+  function renderTrialSuggestions(resp) {
+    const host = document.getElementById('sp-agent-posts');
+    const body = document.getElementById('sp-agent-body');
+    if (host) host.innerHTML = '';
+    trialShown = true;
+    trialHintSeq += 1;
+    if (!body) return;
+    const list = (Array.isArray(resp && resp.suggestions) ? resp.suggestions : []).filter(Boolean);
+    if (!list.length) {
+      body.innerHTML = '';
+      return;
+    }
+    const items = list.map((s, i) => {
+      const title = String(s?.title || '').trim();
+      const text = [String(s?.summary || '').trim(), String(s?.detail || '').trim()]
+        .filter(Boolean)
+        .join(' — ');
+      return `<li data-testid="sp-agent-trial-suggestion-${i}"><strong>${esc(title)}</strong>`
+        + (text ? `<span>${esc(text)}</span>` : '')
+        + '</li>';
+    }).join('');
+    body.innerHTML = `<div class="sp-agent-trial" data-testid="sp-agent-trial">`
+      + `<p class="hint" data-testid="sp-agent-trial-notice">${esc(tx('agentSuggestionsTrialNotice'))}</p>`
+      + `<ol class="sp-agent-suggestions">${items}</ol></div>`;
+  }
+
+  /** 未登录时读一次今日剩余额度；只读接口，不消耗次数。 */
+  async function loadTrialQuotaHint() {
+    if (!global.chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+    const seq = ++trialHintSeq;
+    try {
+      const resp = await chrome.runtime.sendMessage({ action: 'getPageTrialQuota' });
+      if (seq !== trialHintSeq || trialShown || posts.length) return;
+      if (!resp || resp.success === false || !resp.quota) return;
+      setStatus(trialQuotaStatus(resp.quota));
+    } catch (_e) { /* 额度提示失败不影响列表与生成 */ }
+  }
+
   function render() {
     const host = document.getElementById('sp-agent-posts');
     const body = document.getElementById('sp-agent-body');
@@ -70,9 +142,11 @@
     if (!Pending || !posts.length) {
       host.innerHTML = '';
       if (body) body.innerHTML = '';
+      trialShown = false;
       if (!posts.length) setStatus(tx('agentSuggestionsEmpty'));
       return;
     }
+    trialShown = false;
     setStatus('');
     host.innerHTML = Pending.buildSitePendingTabsHtml(posts, activeId, esc, siteBaseUrl);
     if (body) body.innerHTML = '';
@@ -167,7 +241,9 @@
       if (host) host.innerHTML = '';
       if (body) body.innerHTML = '';
       syncBadge(0);
-      setStatus(tx('agentSuggestionsLogin'));
+      // 未登录不再是一堵墙：提示可走每日试用，额度到了再覆盖成「还剩 N 次」。
+      setStatus(tx('agentSuggestionsTrialHint'));
+      loadTrialQuotaHint();
       return;
     }
     posts = Array.isArray(resp.items) ? resp.items : [];
@@ -319,6 +395,12 @@
         setReloadRetryVisible(resp && resp.errorCode === 'PAGE_CONTEXT_UNREACHABLE');
         return;
       }
+      if (resp.trial) {
+        renderTrialSuggestions(resp);
+        setStatus(resp.quota ? trialQuotaStatus(resp.quota) : tx('agentSuggestionsTrialHint'));
+        return;
+      }
+      trialShown = false;
       await refresh();
       if (resp.postId) {
         activeId = String(resp.postId);

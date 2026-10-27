@@ -115,9 +115,9 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   if (route === 'direct' && !directReady) {
     return { ok: false, error: tx('paDirectNeedsConfig'), errorCode: '', traceId: '' };
   }
-  if (!directReady && !sessionOk) {
-    return { ok: false, error: tx('paGuestNeedLlmOrLogin'), errorCode: '', traceId: '' };
-  }
+  // 未登录且未配本机 Key：走匿名每日试用（服务端按指纹 + IP + 全局池记账）。
+  // 试用要采集页面上下文后才能提交，故这里不提前返回。
+  const trialMode = !directReady && !sessionOk;
   if (sessionOk) {
     API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
     if (mapping.owner) API.setOwner(mapping.owner);
@@ -150,6 +150,9 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   };
   const skill = await loadSkillSafe(opts);
 
+  if (trialMode) {
+    return generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase });
+  }
   if (directReady) {
     return generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, tenantId: data.companyId || data.tenantId, opts, withSpan, onPhase });
   }

@@ -213,6 +213,9 @@ async function handleMessageRest(message, sender) {
     case 'generateAgentSuggestionsForActiveTab':
       return handleGenerateAgentSuggestionsForActiveTab(message);
 
+    case 'getPageTrialQuota':
+      return handleGetPageTrialQuota();
+
     case 'probeAgentSuggestionsChannel':
       return handleProbeAgentSuggestionsChannel();
 

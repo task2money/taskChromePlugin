@@ -23,6 +23,8 @@ const ROOT = path.join(__dirname, '..');
 const MESSAGES = {
   agentSuggestionsEmpty: '当前网页没有待处理的智能体建议',
   agentSuggestionsLogin: '登录后可查看当前网页的智能体建议',
+  agentSuggestionsTrialHint: '未登录：点「给当前网页生成建议」会消耗每日试用次数；登录后可把建议保存为优化贴。',
+  agentSuggestionsTrialNotice: '试用建议（未保存）：登录后可用自己的智能体继续生成并保存为优化贴。',
   agentSuggestionsLoadFail: '智能体建议加载失败',
   agentSuggestionsCountAria: '{n} 条待处理',
   agentSuggestionsPostCount: '{n} 条建议',
@@ -36,6 +38,9 @@ const MESSAGES = {
   agentSuggestionsReloadRetry: '刷新当前网页并重试',
   agentSuggestionsReloading: '正在刷新当前网页…',
   paContextUnreachable: '页面联系不上插件脚本，刷新当前网页即可恢复',
+  paTrialRemaining: '未登录试用：今日还可试用 {n} 次（每天 {total} 次，{resetsAt} 重置）',
+  paTrialQuotaExhausted: '未登录试用：今日次数已用完，{resetsAt} 重置；登录后可用自己的智能体额度。',
+  paTrialPaused: '未登录试用：网页优化试用已暂停，登录后可用自己的智能体。',
 };
 
 const SKILLS = {
@@ -77,6 +82,10 @@ function buildHarness({
   generateResponse, skills = SKILLS, promptSkillsApi, storage,
   probeResponse = { success: true, retryable: false },
   reloadResponse = { success: true },
+  quotaResponse = {
+    success: true,
+    quota: { enabled: true, remaining: 3, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
+  },
 } = {}) {
   const els = {};
   const document = {
@@ -126,6 +135,7 @@ function buildHarness({
           }
           if (action === 'probeAgentSuggestionsChannel') return Promise.resolve(probeResponse);
           if (action === 'reloadPageAndRetryAgentSuggestions') return Promise.resolve(reloadResponse);
+          if (action === 'getPageTrialQuota') return Promise.resolve(quotaResponse);
           return Promise.resolve({ success: true });
         },
       },
@@ -234,6 +244,62 @@ describe('侧边栏智能体建议的提示词下拉与生成按钮', () => {
 
     assert.equal(h.status(), '未登录');
     assert.equal(h.generateBtn().disabled, false);
+  });
+
+  it('匿名试用结果渲染在侧栏，状态行报剩余次数，且不重拉建议贴列表', async () => {
+    const h = buildHarness({
+      generateResponse: {
+        success: true,
+        trial: true,
+        trialId: 'pt-1',
+        count: 2,
+        suggestions: [
+          { title: '改标题', summary: '首屏标题更具体', detail: '换成含卖点的标题' },
+          { title: '加对比', summary: '补一张对比表' },
+        ],
+        quota: { enabled: true, remaining: 2, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
+      },
+    });
+    await h.context.AgentSuggestionsPanel.refresh();
+    const listCalls = h.actions().filter((a) => a === 'listSitePendingForActiveTab').length;
+
+    await h.clickGenerate();
+
+    const body = h.els['sp-agent-body'].innerHTML;
+    assert.match(body, /data-testid="sp-agent-trial"/);
+    assert.match(body, /试用建议（未保存）/);
+    assert.match(body, /改标题/);
+    assert.match(body, /补一张对比表/);
+    assert.match(h.status(), /还可试用 2 次/);
+    assert.match(h.status(), /每天 3 次/);
+    assert.equal(
+      h.actions().filter((a) => a === 'listSitePendingForActiveTab').length,
+      listCalls,
+      '试用结果不替换建议贴列表',
+    );
+    assert.equal(h.generateBtn().disabled, false);
+  });
+
+  it('未登录打开面板：提示可试用，并异步补上今日剩余额度', async () => {
+    const h = buildHarness();
+    h.setListResponse({ success: true, items: [], reason: 'not_logged_in' });
+    await h.context.AgentSuggestionsPanel.refresh();
+    assert.match(h.status(), /每日试用次数/);
+    await new Promise((r) => setTimeout(r, 0));
+    assert.match(h.status(), /还可试用 3 次/);
+  });
+
+  it('试用次数用完：状态行给重置时间，不再谎报剩余', async () => {
+    const h = buildHarness({
+      quotaResponse: {
+        success: true,
+        quota: { enabled: true, remaining: 0, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
+      },
+    });
+    h.setListResponse({ success: true, items: [], reason: 'not_logged_in' });
+    await h.context.AgentSuggestionsPanel.refresh();
+    await new Promise((r) => setTimeout(r, 0));
+    assert.match(h.status(), /今日次数已用完/);
   });
 });
 
