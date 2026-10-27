@@ -156,4 +156,22 @@ describe('page-advisor-trial-api 请求（mocked fetch）', () => {
       (err) => err.errorCode === 'PA_BASE_URL_MISSING',
     );
   });
+
+  it('匿名请求携带插件版本头（chrome 可用时；设计最后调用时间）', async () => {
+    const origChrome = globalThis.chrome;
+    globalThis.chrome = { runtime: { getManifest: () => ({ version: '1.8.282' }) } };
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return jsonResponse({ enabled: true, remaining: 1, daily_quota: 3 });
+    };
+    try {
+      await PageAdvisorTrialAPI.getQuota(BASE, 'pf_test_3');
+    } finally {
+      globalThis.chrome = origChrome;
+    }
+    assert.equal(seen.opts.headers['X-Plugin-Key'], 'chrome_extension');
+    assert.equal(seen.opts.headers['X-Plugin-Version'], '1.8.282');
+    assert.equal(seen.opts.headers.Authorization, undefined);
+  });
 });

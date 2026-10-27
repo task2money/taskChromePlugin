@@ -52,11 +52,15 @@
     const base = API.getBaseUrl();
     const token = API.getToken();
     if (!base || !token) throw new Error(tx('builtinEdgeNeedLogin', '请先登录'));
+    const seen = globalThis.APIHttp && typeof globalThis.APIHttp.pluginIdentityHeaders === 'function'
+      ? globalThis.APIHttp.pluginIdentityHeaders()
+      : {};
     const headers = {
       'Content-Type': 'application/json',
       'X-Trace-Id': (typeof crypto !== 'undefined' && crypto.randomUUID)
         ? crypto.randomUUID()
         : `plugin-${Date.now()}`,
+      ...seen,
       ...(extraHeaders || {}),
     };
     const auth = API.buildAuthorizationHeader(token);

@@ -10,7 +10,10 @@
 
   function buildAuthHeaders() {
     const token = typeof API !== 'undefined' ? API.getToken() : '';
-    const headers = { 'Content-Type': 'application/json', 'X-Trace-Id': `edge-hb-${Date.now()}` };
+    const seen = globalThis.APIHttp && typeof globalThis.APIHttp.pluginIdentityHeaders === 'function'
+      ? globalThis.APIHttp.pluginIdentityHeaders()
+      : {};
+    const headers = { 'Content-Type': 'application/json', 'X-Trace-Id': `edge-hb-${Date.now()}`, ...seen };
     if (typeof API !== 'undefined' && token) {
       const auth = API.buildAuthorizationHeader(token);
       if (auth) headers.Authorization = auth;
