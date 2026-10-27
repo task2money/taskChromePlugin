@@ -5,6 +5,9 @@
 # 环境变量:
 #   TASK_CHROME_PLUGIN_SKIP_GH_RELEASE=1  跳过（仅本地 zip）
 #   TASK_CHROME_PLUGIN_GH_REPO=owner/repo 覆盖仓库（默认推算 origin）
+#
+# 退出码: 0 = 已发布或显式跳过；1 = 发布失败；3 = 目标提交尚未推送到远端
+# （GitHub 会以 HTTP 422 拒绝该 Release；先 git push，再重跑 publish-dist-zip.sh）。
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -57,6 +60,26 @@ fi
 
 # 本版要点来自上一发布 tag 到当前提交的说明，避免每次 Release 重复同一段历史文案。
 TARGET="$(git rev-parse HEAD)"
+
+# OPT-20261027-020: post-commit 在 push 之前就发布，而 GitHub 对「目标提交不在
+# 远端」的 Release 直接返回 HTTP 422 Release.target_commitish is invalid。那种
+# 失败与「Release 配置坏了」同形，且每次正常提交都要先踩一次。先问 API 这个
+# commit 在不在仓库里：不在就以可识别状态退出（3 = 配置未就绪，与 Gitee 腿的
+# skipped-mirror-behind 同类），meta 的 SessionEnd 兜底据此保留 pending，推送
+# 后自动重跑即可发布。
+if ! GH_CHECK_ERR="$(gh api "repos/${REPO}/commits/${TARGET}" --silent 2>&1)"; then
+  # 实测：端点对「仓库里没有这个提交」返回 HTTP 422（No commit found for SHA），
+  # 不是 404；两者都按「未推送」处理。
+  if printf '%s' "$GH_CHECK_ERR" | grep -qE 'HTTP (404|422)'; then
+    echo "publish-github-release: github=skipped-commit-not-pushed" >&2
+    echo "publish-github-release: why: commit ${TARGET} is not on ${REPO}; GitHub rejects the release target with HTTP 422" >&2
+    echo "publish-github-release: run: git push origin $(git symbolic-ref --short HEAD 2>/dev/null || echo main)（然后重跑 bash scripts/publish-dist-zip.sh）" >&2
+    exit 3
+  fi
+  echo "publish-github-release: ERROR cannot verify that ${TARGET} is on ${REPO}: ${GH_CHECK_ERR}" >&2
+  exit 1
+fi
+
 NOTES="$(node "$ROOT/scripts/release-highlights.js" render \
   --tag "$TAG" \
   --repo "$REPO" \
