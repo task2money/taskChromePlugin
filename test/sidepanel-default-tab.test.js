@@ -18,7 +18,7 @@ describe('side panel default tab', () => {
     assert.match(html, /id="sp-tab-agent"/);
     assert.match(html, /data-i18n="agentSuggestionsTab"/);
     assert.match(html, /id="sp-pane-agent"[^>]*hidden/);
-    assert.match(html, /智能体建议/);
+    assert.match(html, /网页优化建议/);
     assert.match(html, /id="sp-agent-count"/);
     assert.match(html, /id="sp-agent-count"[^>]*hidden/);
     assert.match(html, /<span data-i18n="agentSuggestionsTab">/);

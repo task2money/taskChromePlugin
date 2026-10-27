@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 智能体建议页签文案（ADR-0167 后：去网址框，换成提示词下拉 + 生成按钮）。
+ * 网页优化建议页签文案（ADR-0167 后：去网址框，换成提示词下拉 + 生成按钮）。
  *
  * 生成完的状态行要把落点项目名插进去，所以中英两版的 {project} 占位符都不能漏，
  * 否则文案会原样显示花括号。
@@ -13,6 +13,11 @@ const assert = require('node:assert/strict');
 const { zh, en } = require('../lib/i18n-site-pending-tabs.js');
 
 describe('i18n-site-pending-tabs', () => {
+  it('页签标题中英都叫网页优化建议', () => {
+    assert.equal(zh.agentSuggestionsTab, '网页优化建议');
+    assert.equal(en.agentSuggestionsTab, 'Page optimization suggestions');
+  });
+
   it('落点状态行中英都有 {project} 占位符', () => {
     assert.match(zh.agentSuggestionsGeneratedInto, /\{project\}/);
     assert.match(en.agentSuggestionsGeneratedInto, /\{project\}/);
