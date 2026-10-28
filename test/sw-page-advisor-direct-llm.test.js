@@ -267,7 +267,7 @@ describe('sw-page-advisor direct LLM', () => {
     assert.equal(body.locale, 'en');
   });
 
-  it('system route posts agent_source and sku_id', async () => {
+  it('system route no longer posts agent_source and sku_id', async () => {
     const sandbox = loadSw();
     let body;
     sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
@@ -288,11 +288,12 @@ describe('sw-page-advisor direct LLM', () => {
     };
     sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({ status: 'succeeded', suggestions: [] });
     await sandbox.runPageOptimizationSuggest(1);
-    assert.equal(body.agent_source, 'system');
-    assert.equal(body.sku_id, 'sku-9');
+    assert.equal(body.agent_source, undefined);
+    assert.equal(body.sku_id, undefined);
+    assert.equal(body.prompt_skill_id, '');
   });
 
-  it('saas route posts own_provider and own_model', async () => {
+  it('saas route no longer posts own_provider and own_model', async () => {
     const sandbox = loadSw();
     let body;
     sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
@@ -314,9 +315,10 @@ describe('sw-page-advisor direct LLM', () => {
     };
     sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({ status: 'succeeded', suggestions: [] });
     await sandbox.runPageOptimizationSuggest(1);
-    assert.equal(body.own_provider, 'deepseek');
-    assert.equal(body.own_model, 'deepseek-chat');
+    assert.equal(body.own_provider, undefined);
+    assert.equal(body.own_model, undefined);
     assert.equal(body.agent_source, undefined);
+    assert.equal(body.prompt_skill_id, '');
   });
 
   it('explicit saas route calls the platform even when a local key is ready', async () => {

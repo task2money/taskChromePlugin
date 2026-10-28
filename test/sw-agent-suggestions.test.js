@@ -276,14 +276,11 @@ describe('sw-agent-suggestions builtin 路由（OPT-20261013-011）', () => {
     assert.equal(calls[0].body.page_url, 'https://shop.test/p');
   });
 
-  it('提示词：下拉选中项优先，未选时用与 Alt+Z 同源的默认加载器', async () => {
-    const selected = loadBuiltinStack();
-    await selected.sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
-    assert.equal((await selected.altZ[0].deps.loadSkill()).id, 'sk1');
-
-    const fallback = loadBuiltinStack();
-    await fallback.sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: '' });
-    assert.equal((await fallback.altZ[0].deps.loadSkill()).id, 'sys-default');
+  it('builtin 不再读本地选中 skill：一律用默认加载器，服务端提示词 id 仍随落贴上行', async () => {
+    const stack = loadBuiltinStack();
+    await stack.sandbox.handleGenerateAgentSuggestionsForActiveTab({ promptSkillId: 'ws-conv' });
+    assert.equal((await stack.altZ[0].deps.loadSkill()).id, 'sys-default');
+    assert.equal(stack.calls[0].body.prompt_skill_id, 'ws-conv');
   });
 
   it('下载中/待启用的门禁文案原样透传，不发落贴请求', async () => {
@@ -317,23 +314,31 @@ describe('sw-agent-suggestions builtin 路由（OPT-20261013-011）', () => {
 });
 
 describe('sw-agent-suggestions 生成并落贴', () => {
-  it('选中的提示词进生成核心，倾向随落贴请求上行', async () => {
+  it('选中的提示词 id 进生成核心（只传 id，不读本地 skill 正文），倾向随落贴请求上行', async () => {
     const { sandbox, calls, generateCalls } = loadGenerateStack();
-    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({
+      promptSkillId: 'ws-conv',
+      promptTendency: 'conversion',
+    });
     assert.equal(resp.success, true);
     assert.equal(generateCalls.length, 1);
     assert.equal(generateCalls[0].tabId, 7);
-    assert.equal(generateCalls[0].opts.skill.id, 'sk1');
+    assert.equal(generateCalls[0].opts.promptSkillId, 'ws-conv');
+    assert.equal(generateCalls[0].opts.skill, undefined);
+    assert.equal(generateCalls[0].opts.skillLoader, undefined);
     assert.equal(generateCalls[0].opts.attachAnchors, true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].body.prompt_tendency, 'conversion');
   });
 
-  it('没选提示词时走默认技能加载器（与 Alt+Z 同源）', async () => {
-    const { sandbox, calls, generateCalls } = loadGenerateStack();
-    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: '', promptTendency: '' });
+  it('没选提示词时用侧栏记住的选择，不再加载本地 skill', async () => {
+    const { sandbox, calls, generateCalls } = loadGenerateStack({
+      PageAdvisorPromptOptions: { loadSelectedId: async () => ' stored-id ' },
+    });
+    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ promptSkillId: '', promptTendency: '' });
+    assert.equal(generateCalls[0].opts.promptSkillId, 'stored-id');
     assert.equal(generateCalls[0].opts.skill, undefined);
-    assert.equal(typeof generateCalls[0].opts.skillLoader, 'function');
+    assert.equal(generateCalls[0].opts.skillLoader, undefined);
     assert.equal(calls[0].body.prompt_tendency, '');
   });
 
@@ -432,6 +437,59 @@ describe('sw-agent-suggestions 生成并落贴', () => {
     const { sandbox, calls } = loadGenerateStack();
     await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
     assert.equal(calls[0].idempotencyKey, 'agent-key-1');
+  });
+
+  it('pending suggestion posts prompt_skill_id and suggest_job_id from the generation', async () => {
+    const { sandbox, calls, generateCalls } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async (tabId, opts) => {
+        generateCalls.push({ tabId, opts });
+        return {
+          ok: true,
+          pageUrl: 'https://shop.test/p?utm=1#top',
+          pageTitle: '商品页',
+          suggestions: [{ id: 's1', title: '改标题', summary: '首屏标题不够具体' }],
+          jobId: 'job-42',
+          promptSkillId: 'ws-conv',
+          featureParamsSource: 'plugin_saas',
+          traceId: 'trace-1',
+          tenantId: 'ten-page',
+          workspaceId: 'ws-page',
+        };
+      },
+    });
+
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({
+      promptSkillId: 'ws-conv',
+      promptTendency: 'conversion',
+    });
+
+    assert.equal(resp.success, true);
+    assert.equal(generateCalls[0].opts.promptSkillId, 'ws-conv');
+    assert.equal(calls[0].body.prompt_skill_id, 'ws-conv');
+    assert.equal(calls[0].body.suggest_job_id, 'job-42');
+    assert.equal(calls[0].body.agent_source, undefined);
+    assert.equal(calls[0].body.sku_id, undefined);
+    assert.equal(calls[0].body.own_model, undefined);
+    assert.equal(calls[0].body.own_provider, undefined);
+  });
+
+  it('生成结果没有 jobId 时不发 suggest_job_id 键', async () => {
+    const { sandbox, calls } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async () => ({
+        ok: true,
+        pageUrl: 'https://shop.test/p',
+        pageTitle: '商品页',
+        suggestions: [{ title: '改标题' }],
+        promptSkillId: 'ws-conv',
+        featureParamsSource: 'plugin_builtin',
+        tenantId: 'ten-page',
+      }),
+    });
+
+    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ promptSkillId: 'ws-conv' });
+
+    assert.equal(calls[0].body.prompt_skill_id, 'ws-conv');
+    assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, 'suggest_job_id'), false);
   });
 });
 

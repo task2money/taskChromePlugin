@@ -59,6 +59,25 @@ async function loadAgentSuggestionSkill(skillId) {
   }
 }
 
+/**
+ * 本次生成用的提示词 id：显式给的优先，其次侧栏记住的选择；空串 = 服务端默认。
+ * 只读 id，不读本地 skill 正文——正文由服务端按 id 解析。
+ * @param {string|undefined} rawId
+ * @returns {Promise<string>}
+ */
+async function resolveAgentSuggestionPromptSkillId(rawId) {
+  const explicit = String(rawId ?? '').trim();
+  if (explicit) return explicit;
+  const Options = typeof PageAdvisorPromptOptions !== 'undefined' ? PageAdvisorPromptOptions : null;
+  if (!Options || typeof Options.loadSelectedId !== 'function') return '';
+  try {
+    return String(await Options.loadSelectedId() || '').trim();
+  } catch (e) {
+    console.warn('[taskChromePlugin] load selected prompt skill:', e?.message || e);
+    return '';
+  }
+}
+
 /** 默认提示词：与 Alt+Z 同源（本机已激活技能，缺则补拉系统目录）。 */
 async function loadAgentSuggestionDefaultSkill() {
   const cfg = await Storage.getApiConfig();
@@ -196,7 +215,7 @@ async function resolveAgentSuggestionRoute() {
  *
  * @returns {Promise<object|null>} `null` 表示「不是 builtin」，交回生成核心处理。
  */
-async function runBuiltinAgentSuggestions(tabId, skill) {
+async function runBuiltinAgentSuggestions(tabId) {
   const Prompt = typeof PageAdvisorBuiltinPrompt !== 'undefined' ? PageAdvisorBuiltinPrompt : null;
   if (!Prompt || typeof Prompt.runAltZ !== 'function') return null;
   if (await resolveAgentSuggestionRoute() !== 'builtin') return null;
@@ -208,7 +227,9 @@ async function runBuiltinAgentSuggestions(tabId, skill) {
     languageModel: globalThis.LanguageModel,
     askContext: (id) => askContentPageAdvisorContext(id),
     notify: notifyContentPageAdvisor,
-    loadSkill: () => Promise.resolve(skill || loadAgentSuggestionDefaultSkill()),
+    // 选中项现在是服务端提示词 id，没有本地正文可用；内置模型仍用默认技能，
+    // 本机内置生成链随后续任务整体下线。
+    loadSkill: () => Promise.resolve(loadAgentSuggestionDefaultSkill()),
     locale: resolvePageAdvisorLocale(),
     tx,
     onResult: (p) => { payload = p; },
@@ -238,7 +259,7 @@ async function runBuiltinAgentSuggestions(tabId, skill) {
 }
 
 /**
- * @param {{ skillId?: string, promptTendency?: string }} message
+ * @param {{ promptSkillId?: string, promptTendency?: string }} message
  * @returns {Promise<{ success: boolean, error?: string, errorCode?: string, traceId?: string,
  *   created?: boolean, postId?: string, taskId?: string, projectId?: string, projectName?: string,
  *   workspaceId?: string, matched?: boolean, matchedBy?: string, count?: number, links?: any[] }>}
@@ -276,11 +297,12 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   const tab = tabs && tabs[0];
   if (!tab?.id || !tab.url) return { success: false, error: tx('swNoActiveTab') };
 
-  const skill = await loadAgentSuggestionSkill(message?.skillId);
-  const builtin = await runBuiltinAgentSuggestions(tab.id, skill);
-  const result = builtin || await generatePageAdvisorSuggestions(tab.id, skill
-    ? { skill, attachAnchors: true }
-    : { skillLoader: () => loadAgentSuggestionDefaultSkill(), attachAnchors: true });
+  // 下拉选的是服务端提示词 id：只回传 id，不再在本地读 skill 正文。
+  const promptSkillId = await resolveAgentSuggestionPromptSkillId(message?.promptSkillId);
+  const builtin = await runBuiltinAgentSuggestions(tab.id);
+  const result = builtin
+    ? { ...builtin, promptSkillId }
+    : await generatePageAdvisorSuggestions(tab.id, { promptSkillId, attachAnchors: true });
 
   if (!result.ok) {
     return {
@@ -331,7 +353,10 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       title: copy.title,
       summary: copy.summary,
       detail: copy.detail,
-      prompt_tendency: String(skill?.tendency || message?.promptTendency || '').trim(),
+      prompt_tendency: String(message?.promptTendency || '').trim(),
+      prompt_skill_id: result.promptSkillId,
+      // 生成 job 才能让服务端把「哪个提示词生成了这贴」和 job 对上；没有 job（内置模型）就不发键。
+      ...(result.jobId !== undefined ? { suggest_job_id: result.jobId } : {}),
       suggestions: rows,
     }, idempotencyKey);
   } catch (e) {

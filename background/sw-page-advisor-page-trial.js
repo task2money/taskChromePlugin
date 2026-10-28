@@ -52,9 +52,9 @@ function pageTrialFailure(e) {
 
 /**
  * @param {{ cfg: object, page: { url: string, title: string, pageText: string, domOutline: object[] },
- *   locale: string, opts: object, withSpan: Function, onPhase: Function }} input
+ *   locale: string, opts: object, withSpan: Function, onPhase: Function, promptSkillId?: string }} input
  */
-async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase }) {
+async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId }) {
   await onPhase(tx('paTrialGenerating'));
   const fingerprint = await loadPageTrialFingerprint();
   if (!fingerprint) {
@@ -87,6 +87,8 @@ async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase
       page_text: page.pageText,
       dom_outline: page.domOutline,
       locale,
+      // 提示词正文由服务端按 id 解析；空串 = 服务端默认提示词。
+      prompt_skill_id: String(promptSkillId || '').trim(),
     }, fingerprint, idempotencyKey));
   } catch (e) {
     return pageTrialFailure(e);
@@ -124,6 +126,7 @@ async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase
     pageTitle: page.title,
     suggestions,
     jobId: '',
+    promptSkillId: String(promptSkillId || '').trim(),
     trialId: String(result?.trial_id || '').trim(),
     quota: result?.quota || null,
     model: String(result?.model || '').trim(),

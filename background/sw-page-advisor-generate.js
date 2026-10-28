@@ -73,6 +73,26 @@ function pageAdvisorFailTraceId(seed) {
 function passthroughSpan(_id, fn) { return fn(); }
 
 /**
+ * 本次生成要用的提示词 id：显式给的优先，其次侧栏记住的选择，最后空串交给服务端默认。
+ * 只读 id，不碰提示词正文——正文由服务端按 id 解析，下发 job 里也不回传正文。
+ * @param {string|undefined} rawId
+ * @returns {Promise<string>}
+ */
+async function resolvePageAdvisorPromptSkillId(rawId) {
+  const explicit = String(rawId ?? '').trim();
+  if (explicit) return explicit;
+  const Options = typeof PageAdvisorPromptOptions !== 'undefined' ? PageAdvisorPromptOptions : null;
+  if (!Options || typeof Options.loadSelectedId !== 'function') return '';
+  try {
+    return String(await Options.loadSelectedId() || '').trim();
+  } catch (e) {
+    // 读记住的选择失败不该拖垮整次生成：退回服务端默认提示词。
+    console.warn('[taskChromePlugin] load selected prompt skill:', e?.message || e);
+    return '';
+  }
+}
+
+/**
  * 三条路由之外的第四条：本机内置模型（Chrome 自带）只在页面上生成，
  * 需要下载/启用引导，侧边栏这条出口不接管它。
  */
@@ -94,10 +114,12 @@ function builtinRouteRefusal() {
  *   skill?: object|null,
  *   skillLoader?: () => Promise<object|null>,
  *   attachAnchors?: boolean,
+ *   promptSkillId?: string,
  * }} [opts]
  * @returns {Promise<{ ok: true, pageUrl: string, pageTitle: string, suggestions: any[],
  *   jobId: string, featureParamsSource: string, traceId: string,
- *   tenantId?: string, workspaceId?: string }
+ *   tenantId?: string, workspaceId?: string, promptSkillId?: string,
+ *   promptFallback?: boolean }
  *   | { ok: false, error: string, errorCode: string, traceId: string, links?: any[] }>}
  */
 async function generatePageAdvisorSuggestions(tabId, opts = {}) {
@@ -149,14 +171,32 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     domOutline: Array.isArray(data.domOutline) ? data.domOutline : [],
   };
   const skill = await loadSkillSafe(opts);
+  const selectedPromptId = await resolvePageAdvisorPromptSkillId(opts.promptSkillId);
 
-  if (trialMode) {
-    return generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase });
+  const runOnce = async (promptSkillId) => {
+    if (trialMode) {
+      return generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId });
+    }
+    if (directReady) {
+      return generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, tenantId: data.companyId || data.tenantId, opts, withSpan, onPhase });
+    }
+    return generateViaPlatform({ tabId, route, cfg, data, page, locale, llmCfg, opts, withSpan, onPhase, promptSkillId });
+  };
+
+  let result = await runOnce(selectedPromptId);
+  // 服务端不认这个提示词（目录被删/跨空间选错）时回退服务端默认提示词，只重试一次。
+  // 没有发过 id 时重试也不会改变结果，故不重试。
+  if (!result.ok && result.errorCode === 'invalid_prompt_skill' && selectedPromptId) {
+    console.warn('[taskChromePlugin] page_advisor_prompt_invalid_fallback', {
+      promptSkillId: selectedPromptId,
+      tabId,
+    });
+    result = await runOnce('');
+    if (result && typeof result === 'object') result.promptFallback = true;
   }
-  if (directReady) {
-    return generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, tenantId: data.companyId || data.tenantId, opts, withSpan, onPhase });
-  }
-  return generateViaPlatform({ tabId, route, cfg, data, page, locale, llmCfg, opts, withSpan, onPhase });
+  // 直连本机模型不经过服务端提示词，但落贴时仍要记录本次选中的 id。
+  if (result?.ok && result.promptSkillId === undefined) result.promptSkillId = selectedPromptId;
+  return result;
 }
 
 /** 提示词是可选增强：取不到就按无提示词生成，别让整次生成失败。 */
@@ -223,7 +263,7 @@ async function generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, te
   };
 }
 
-async function generateViaPlatform({ tabId, route, cfg, data, page, locale, llmCfg, opts, withSpan, onPhase }) {
+async function generateViaPlatform({ tabId, route, cfg, data, page, locale, llmCfg, opts, withSpan, onPhase, promptSkillId }) {
   const scope = await resolvePlatformScope(data);
   if (!scope.workspaceId || !scope.tenantId) {
     return { ok: false, error: tx('paSelectWorkspaceAltZ'), errorCode: '', traceId: '' };
@@ -256,16 +296,9 @@ async function generateViaPlatform({ tabId, route, cfg, data, page, locale, llmC
     screenshot_url: screenshotUrl || '',
     dom_outline: page.domOutline,
     locale,
+    // 提示词正文由服务端按 id 解析；空串 = 服务端默认提示词。
+    prompt_skill_id: String(promptSkillId || '').trim(),
   }));
-  if (route === 'system') {
-    body.agent_source = 'system';
-    body.sku_id = String(llmCfg.systemSkuId || '').trim();
-  } else if (route === 'saas') {
-    const ownModel = String(llmCfg.ownModel || '').trim();
-    const ownProvider = String(llmCfg.ownProvider || '').trim();
-    if (ownModel) body.own_model = ownModel;
-    if (ownProvider) body.own_provider = ownProvider;
-  }
 
   let created;
   try {
@@ -343,6 +376,7 @@ async function generateViaPlatform({ tabId, route, cfg, data, page, locale, llmC
     workspaceId: scope.workspaceId,
     suggestions,
     jobId,
+    promptSkillId: String(promptSkillId || '').trim(),
     featureParamsSource: job?.feature_params_source || '',
     traceId: createTraceId,
   };

@@ -194,12 +194,31 @@ async function loadDirectLlmSkill(sessionOk) {
 }
 
 /**
+ * 本次 Alt+Z 生成用的提示词 id：显式给的优先，其次侧栏记住的选择；空串 = 服务端默认。
+ * @param {string|undefined} rawId
+ * @returns {Promise<string>}
+ */
+async function resolvePageAdvisorRunPromptSkillId(rawId) {
+  const explicit = String(rawId ?? '').trim();
+  if (explicit) return explicit;
+  const Options = typeof PageAdvisorPromptOptions !== 'undefined' ? PageAdvisorPromptOptions : null;
+  if (!Options || typeof Options.loadSelectedId !== 'function') return '';
+  try {
+    return String(await Options.loadSelectedId() || '').trim();
+  } catch (e) {
+    console.warn('[taskChromePlugin] load selected prompt skill:', e?.message || e);
+    return '';
+  }
+}
+
+/**
  * Alt+Z 主流程（await 轮询以保持 MV3 SW 存活，上限 PAGE_ADVISOR_POLL_MAX_MS）。
  * 生成本身走 `generatePageAdvisorSuggestions`（与侧边栏「生成建议」共用），
  * 这里只把结果画到当前页面。
  * @param {number} tabId
+ * @param {{ promptSkillId?: string }} [opts]
  */
-async function runPageOptimizationSuggest(tabId) {
+async function runPageOptimizationSuggest(tabId, opts = {}) {
   if (typeof setPageAdvisorWaterfallTab === 'function') setPageAdvisorWaterfallTab(tabId);
   await Storage.migrateStaleTokenExpiryOnce();
   const cfg = await Storage.getApiConfig();
@@ -209,21 +228,10 @@ async function runPageOptimizationSuggest(tabId) {
   const command = consumePageAdvisorSuggestCommand();
   const timingRun = beginPageAdvisorTimingRun(route, command);
   const withSpan = bindPageAdvisorWithSpan(timingRun);
-
-  if (route === 'builtin' && globalThis.LanguageModel && PageAdvisorBuiltinPrompt?.runAltZ) {
-    await PageAdvisorBuiltinPrompt.runAltZ(tabId, {
-      languageModel: globalThis.LanguageModel,
-      askContext: (id) => withSpan('capture', () => askContentPageAdvisorContext(id)),
-      notify: wrapBuiltinAdvisorNotify(notifyContentPageAdvisor, withSpan, timingRun),
-      loadSkill: () => withSpan('prompt', () => loadDirectLlmSkill(sessionOk)),
-      locale: resolvePageAdvisorLocale(),
-      tx,
-      withSpan,
-    });
-    return;
-  }
+  const promptSkillId = await resolvePageAdvisorRunPromptSkillId(opts.promptSkillId);
 
   const result = await generatePageAdvisorSuggestions(tabId, {
+    promptSkillId,
     withSpan,
     onPhase: (message) => notifyContentPageAdvisor(tabId, { ok: true, phase: 'loading', message }),
     skillLoader: () => withSpan('prompt', () => loadDirectLlmSkill(sessionOk)),

@@ -721,18 +721,19 @@ test('内容脚本源码不引用 LanguageModel', () => {
   }
 });
 
-test('Service Worker 在访客门闩之前处理 builtin', () => {
+test('builtin 由生成核心在访客门闩之前处理（Alt+Z 入口不再分流）', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const sw = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor.js'), 'utf8');
   const core = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor-generate.js'), 'utf8');
-  const builtinAt = sw.indexOf("route === 'builtin'");
-  const callAt = sw.indexOf('generatePageAdvisorSuggestions(tabId');
+  assert.equal(sw.includes("route === 'builtin'"), false, 'Alt+Z 入口不再自带 runAltZ 分支');
+  assert.ok(sw.indexOf('generatePageAdvisorSuggestions(tabId') > 0);
+  const builtinAt = core.indexOf("route === 'builtin'");
   const guestAt = core.indexOf('!directReady && !sessionOk');
   assert.ok(builtinAt > 0);
   assert.ok(guestAt > 0);
-  // builtin 在入口就返回，访客门闩在生成核心里，故 builtin 分支必须先于核心调用点。
-  assert.ok(callAt > builtinAt, 'builtin 必须先于生成核心调用点分流');
+  // 生成核心对 builtin 直接拒绝，且拒绝先于试用门闩。
+  assert.ok(builtinAt < guestAt, 'builtin 拒绝必须先于试用门闩');
   assert.match(sw, /withTimeout\(p, 12000/);
 });
 
