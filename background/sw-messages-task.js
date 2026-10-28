@@ -222,6 +222,9 @@ async function handleMessageRest(message, sender) {
     case 'reloadPageAndRetryAgentSuggestions':
       return handleReloadActiveTabAndRetry();
 
+    case 'claimPageTrialPost':
+      return handleClaimPageTrialPost(message);
+
     case 'confirmSitePendingSuggestion':
       return handleConfirmSitePendingSuggestion(message);
 

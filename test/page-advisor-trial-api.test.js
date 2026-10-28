@@ -157,6 +157,64 @@ describe('page-advisor-trial-api 请求（mocked fetch）', () => {
     );
   });
 
+  it('GET 匿名帖：路径按帖 id 拼、带只读令牌头，不带 Authorization', async () => {
+    let seen;
+    globalThis.fetch = async (url, opts) => {
+      seen = { url: String(url), opts };
+      return jsonResponse({
+        post_id: 'post-1',
+        title: '把 CTA 提到首屏',
+        suggestions: [{ id: 's1', title: '移动 CTA', dom_id: 'hero-cta' }],
+        claim_status: 'open',
+        expires_at: '2026-11-04T09:00:00Z',
+      });
+    };
+
+    const view = await PageAdvisorTrialAPI.getPost(BASE, 'post-1', 'tok-1', 'pf_test_4');
+
+    assert.equal(seen.url, `${BASE}/api/page-advisor/v1/page-trials/posts/post-1/`);
+    assert.equal(seen.opts.method, 'GET');
+    assert.equal(seen.opts.headers['X-View-Token'], 'tok-1');
+    assert.equal(seen.opts.headers['X-Plugin-Fingerprint'], 'pf_test_4');
+    assert.equal(seen.opts.headers.Authorization, undefined);
+    assert.equal(seen.opts.body, undefined);
+    assert.equal(view.title, '把 CTA 提到首屏');
+  });
+
+  it('GET 匿名帖：帖 id 参与路径编码；缺令牌本地拒绝', async () => {
+    let seen = '';
+    globalThis.fetch = async (url) => {
+      seen = String(url);
+      return jsonResponse({ post_id: 'a/b' });
+    };
+    await PageAdvisorTrialAPI.getPost(BASE, 'a/b', 'tok-1', 'pf_1');
+    assert.equal(seen, `${BASE}/api/page-advisor/v1/page-trials/posts/a%2Fb/`);
+
+    let called = false;
+    globalThis.fetch = async () => {
+      called = true;
+      return jsonResponse({});
+    };
+    await assert.rejects(
+      () => PageAdvisorTrialAPI.getPost(BASE, 'post-1', '  ', 'pf_1'),
+      (err) => err.errorCode === 'PAGE_TRIAL_POST_TOKEN_MISSING',
+    );
+    assert.equal(called, false, '缺令牌不得发请求');
+  });
+
+  it('GET 匿名帖：已领取/过期是 410，错令牌是 404（原样上抛状态码）', async () => {
+    globalThis.fetch = async () => jsonResponse({ error_code: 'page_trial_post_claimed' }, 410);
+    await assert.rejects(
+      () => PageAdvisorTrialAPI.getPost(BASE, 'post-1', 'tok-1', 'pf_1'),
+      (err) => err.status === 410 && err.errorCode === 'page_trial_post_claimed',
+    );
+    globalThis.fetch = async () => jsonResponse({ error_code: 'page_trial_post_not_found' }, 404);
+    await assert.rejects(
+      () => PageAdvisorTrialAPI.getPost(BASE, 'post-1', 'bad', 'pf_1'),
+      (err) => err.status === 404 && err.errorCode === 'page_trial_post_not_found',
+    );
+  });
+
   it('匿名请求携带插件版本头（chrome 可用时；设计最后调用时间）', async () => {
     const origChrome = globalThis.chrome;
     globalThis.chrome = { runtime: { getManifest: () => ({ version: '1.8.282' }) } };

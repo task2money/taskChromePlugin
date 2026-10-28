@@ -121,7 +121,7 @@ async function refreshSitePendingForTab(tabId, pageUrl, opts = {}) {
     pageUrl: url,
     items,
   });
-  return { ok: true, count: items.length, items };
+  return { ok: true, count: items.length, items, reason: collected.reason || '' };
 }
 
 /**
@@ -138,9 +138,19 @@ async function collectSitePendingForUrl(pageUrl) {
   if (!url || Pending?.isSkippableNavigationUrl?.(url)) {
     return { ok: true, skipped: true, items: [] };
   }
+  // 匿名入口是本机的，登录与否都要先取：未登录时它就是全部列表。
+  const anonymousItems = typeof collectAnonymousPendingForUrl === 'function'
+    ? await collectAnonymousPendingForUrl(url)
+    : [];
   const tenant = await resolveTenantIdForSitePending();
   if (!tenant.ok) {
-    return { ok: true, skipped: true, reason: tenant.reason, items: [] };
+    return {
+      ok: true,
+      reason: tenant.reason,
+      items: anonymousItems,
+      pageUrl: url,
+      anonymousOnly: true,
+    };
   }
   const tenantIds = Pending?.tenantIdsForSitePending
     ? Pending.tenantIdsForSitePending(tenant.workspaces, tenant.tenantId)
@@ -177,6 +187,14 @@ async function collectSitePendingForUrl(pageUrl) {
       error: lastErr?.message || tx('swPendingFetchFailed'),
       traceId: lastErr?.traceId || '',
     };
+  }
+  // 登录用户的列表在前，本机匿名入口补在后面（同 id 去重）。
+  const seen = new Set(items.map((item) => String(item?.id || '')));
+  for (const item of anonymousItems) {
+    const id = String(item?.id || '');
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    items.push(item);
   }
   return {
     ok: true,

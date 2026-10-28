@@ -23,6 +23,9 @@
   var dismissGuard = global.ClickGuard && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 300 })
     : null;
+  var claimGuard = global.ClickGuard && ClickGuard.createClickGuard
+    ? ClickGuard.createClickGuard({ debounceMs: 400 })
+    : null;
 
   function esc(value) {
     return String(value ?? '')
@@ -183,6 +186,70 @@
     host.querySelectorAll('.taskplugin-page-advisor-site-dismiss').forEach((btn) => {
       btn.addEventListener('click', () => { mark('dismiss', btn); });
     });
+    host.querySelectorAll('.taskplugin-page-advisor-site-claim').forEach((btn) => {
+      btn.addEventListener('click', () => { claim(btn); });
+    });
+  }
+
+  /** 未登录点「领取」：按弹窗同一条 OAuth 入口打开授权页。 */
+  async function openClaimLogin() {
+    try {
+      const cfg = global.Storage && typeof global.Storage.getApiConfig === 'function'
+        ? await global.Storage.getApiConfig()
+        : null;
+      const baseUrl = String(cfg?.baseUrl || '').trim();
+      if (!baseUrl) return;
+      await chrome.runtime.sendMessage({ action: 'oauthStart', baseUrl });
+    } catch (e) {
+      console.warn('[taskChromePlugin] claim login open failed:', e?.message || e);
+    }
+  }
+
+  /**
+   * 「领取任务贴」：把匿名帖归到登录用户名下（服务端复制到其落点项目）。
+   * 令牌由后台按帖 id 从本地入口取，不进 DOM；成功后列表刷新成自己的帖子。
+   */
+  async function claim(btn) {
+    const postId = String(btn.getAttribute('data-post-id') || '').trim();
+    if (!claimGuard || !postId) return;
+    await claimGuard.run(async () => {
+      btn.disabled = true;
+      btn.setAttribute('aria-busy', 'true');
+      setStatus(tx('paSiteClaiming'));
+      let resp = null;
+      try {
+        resp = await chrome.runtime.sendMessage({ action: 'claimPageTrialPost', postId });
+      } catch (e) {
+        setStatus(e?.message || tx('paSiteClaimFail'));
+        btn.disabled = false;
+        btn.setAttribute('aria-busy', 'false');
+        return;
+      }
+      btn.disabled = false;
+      btn.setAttribute('aria-busy', 'false');
+      if (!resp || !resp.success) {
+        // 未登录：领取需要归属到用户项目，直接把 OAuth 页打开（与弹窗同一入口）。
+        if (resp && resp.errorCode === 'not_logged_in') {
+          setStatus(tx('paSiteClaimLoginOpening'));
+          await openClaimLogin();
+          return;
+        }
+        setStatus((resp && resp.error) || tx('paSiteClaimFail'));
+        // 入口已作废（错令牌 / 已被领取 / 已过期）：本地也删掉，别让死按钮留着。
+        const status = Number(resp && resp.status);
+        if (status === 404 || status === 410) {
+          const Pending = global.PageAdvisorSitePending;
+          posts = Pending ? Pending.sitePendingPostsAfterMark(posts, postId) : posts;
+          activeId = Pending ? Pending.pickSitePendingPostId(posts, activeId) : activeId;
+          syncBadge(posts.length);
+          render();
+        }
+        return;
+      }
+      const project = String(resp.projectName || '').trim();
+      setStatus(tx('paSiteClaimDone', project ? { project } : ''));
+      chrome.runtime.sendMessage({ action: 'refreshSitePendingForActiveTab' }).catch(() => {});
+    });
   }
 
   async function mark(action, btn) {
@@ -233,24 +300,17 @@
       render();
       return;
     }
-    if (resp.reason === 'not_logged_in') {
-      posts = [];
-      activeId = '';
-      const host = document.getElementById('sp-agent-posts');
-      const body = document.getElementById('sp-agent-body');
-      if (host) host.innerHTML = '';
-      if (body) body.innerHTML = '';
-      syncBadge(0);
-      // 未登录不再是一堵墙：提示可走每日试用，额度到了再覆盖成「还剩 N 次」。
-      setStatus(tx('agentSuggestionsTrialHint'));
-      loadTrialQuotaHint();
-      return;
-    }
     posts = Array.isArray(resp.items) ? resp.items : [];
     const Pending = global.PageAdvisorSitePending;
     activeId = Pending ? Pending.pickSitePendingPostId(posts, activeId) : '';
     syncBadge(posts.length);
     render();
+    if (resp.reason === 'not_logged_in') {
+      // 未登录不再是一堵墙：本机匿名优化贴照常列出，提示可走每日试用；
+      // 有帖子时额度提示不抢占状态行（loadTrialQuotaHint 自带守卫）。
+      setStatus(tx('agentSuggestionsTrialHint'));
+      loadTrialQuotaHint();
+    }
   }
 
   /**
@@ -396,6 +456,18 @@
         return;
       }
       if (resp.trial) {
+        // 落成匿名优化贴时与登录用户同形：列表里多一条帖子，选中即在页面显示；
+        // 只有落贴失败（无 postId）才退回「只给即时建议」的旧形态。
+        const anonymousPostId = String(resp.postId || '').trim();
+        if (anonymousPostId) {
+          trialShown = false;
+          await refresh();
+          activeId = anonymousPostId;
+          render();
+          notifyPageSelection(activeId);
+          setStatus(tx('agentSuggestionsAnonymousPosted'));
+          return;
+        }
         renderTrialSuggestions(resp);
         setStatus(resp.quota ? trialQuotaStatus(resp.quota) : tx('agentSuggestionsTrialHint'));
         return;

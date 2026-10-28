@@ -436,7 +436,7 @@ describe('sw-agent-suggestions 生成并落贴', () => {
 });
 
 describe('sw-agent-suggestions 匿名每日试用', () => {
-  it('试用结果直接交回侧栏：不解析租户、不落优化贴', async () => {
+  it('试用结果直接交回侧栏：不解析租户、不落会员帖', async () => {
     const { sandbox, calls } = loadGenerateStack({
       generatePageAdvisorSuggestions: async () => ({
         ok: true,
@@ -466,7 +466,50 @@ describe('sw-agent-suggestions 匿名每日试用', () => {
     assert.equal(resp.quota.remaining, 2);
     assert.equal(resp.suggestions[0].title, '改标题');
     assert.equal(resp.traceId, 'trace-trial-1');
-    assert.equal(calls.length, 0, '试用不落贴');
+    assert.equal(calls.length, 0, '试用不走会员建帖接口');
+  });
+
+  it('试用已落匿名帖：把 postId 交给侧栏选中，令牌不出现', async () => {
+    const { sandbox, calls } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async () => ({
+        ok: true,
+        route: 'trial',
+        trial: true,
+        trialId: 'pt-2',
+        suggestions: [{ title: '改标题', summary: '首屏标题更具体' }],
+        anonymousPost: { postId: 'post-9', pageUrl: 'https://shop.test/p', expiresAt: '2026-11-04T09:00:00Z' },
+        traceId: 'trace-trial-2',
+      }),
+    });
+
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+
+    assert.equal(resp.success, true);
+    assert.equal(resp.trial, true);
+    assert.equal(resp.postId, 'post-9');
+    assert.equal(resp.anonymous, true);
+    assert.equal(resp.count, 1);
+    assert.equal(resp.anonymousPost, undefined, '只回 id，不回令牌');
+    assert.equal(calls.length, 0);
+  });
+
+  it('试用落贴失败：仍给建议，并带 postError 供侧栏降级', async () => {
+    const { sandbox } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async () => ({
+        ok: true,
+        route: 'trial',
+        trial: true,
+        suggestions: [{ title: '改标题' }],
+        anonymousPost: null,
+        postError: 'unavailable',
+      }),
+    });
+
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
+
+    assert.equal(resp.success, true);
+    assert.equal(resp.postId, undefined);
+    assert.equal(resp.postError, 'unavailable');
   });
 
   it('getPageTrialQuota：读安装指纹并只读额度接口', async () => {

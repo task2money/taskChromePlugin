@@ -292,9 +292,11 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     };
   }
 
-  // 匿名每日试用：结果只给侧栏看，不落优化贴（落贴要租户，登录后才有）。
+  // 匿名每日试用：帖子落在系统项目，访问入口由本地保存（v233）；
+  // 落贴失败才退回「只给即时建议」的旧形态。
   if (result.trial || result.route === 'trial') {
     const trialRows = agentSuggestionRows(result.suggestions);
+    const anonymousPostId = String(result.anonymousPost?.postId || '').trim();
     return {
       success: true,
       trial: true,
@@ -302,6 +304,8 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       suggestions: Array.isArray(result.suggestions) ? result.suggestions : [],
       quota: result.quota || null,
       count: trialRows.length,
+      ...(anonymousPostId ? { postId: anonymousPostId, anonymous: true } : {}),
+      ...(result.postError ? { postError: String(result.postError) } : {}),
       ...(result.traceId ? { traceId: result.traceId } : {}),
     };
   }

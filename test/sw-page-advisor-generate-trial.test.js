@@ -32,6 +32,7 @@ function loadStack(extra = {}) {
   };
   const sandbox = {
     console,
+    URL,
     setTimeout,
     clearTimeout,
     Storage: {
@@ -75,6 +76,7 @@ function loadStack(extra = {}) {
   for (const rel of [
     'lib/api-http.js',
     'lib/page-advisor-fail-trace-id.js',
+    'lib/page-advisor-anon-posts.js',
     'lib/page-advisor-timing.js',
     'background/sw-page-advisor-timing-run.js',
     'background/sw-page-advisor-generate.js',
@@ -201,5 +203,79 @@ describe('generatePageAdvisorSuggestions 匿名试用路由', () => {
     assert.equal(result.ok, false);
     assert.equal(result.errorCode, 'PAGE_TRIAL_EMPTY');
     assert.equal(result.traceId, 'trace-empty');
+  });
+});
+
+describe('generatePageAdvisorSuggestions 试用落贴（v233）', () => {
+  const postRef = {
+    post_id: 'post-1',
+    view_token: 'tok-view-1',
+    page_url: 'https://shop.test/p',
+    expires_at: '2026-11-04T09:00:00Z',
+  };
+
+  function captureStorage() {
+    const store = {};
+    return {
+      store,
+      local: {
+        get: async (key) => ({ [key]: store[key] }),
+        set: async (items) => { Object.assign(store, items); },
+      },
+    };
+  }
+
+  it('服务端给了匿名帖入口：存本地并随结果带回 postId', async () => {
+    const storage = captureStorage();
+    const { sandbox } = loadStack({
+      trialAPI: {
+        suggest: async () => ({
+          trial_id: 'pt-post',
+          suggestions: [{ id: 's1', title: '改标题', summary: '标题太泛', detail: '换成含卖点的标题' }],
+          post: postRef,
+          trace_id: 'trace-post',
+        }),
+      },
+      sandbox: {
+        chrome: { storage: { local: storage.local }, tabs: { query: async () => [{ id: 7 }] } },
+        attachSuggestionAnchors: (rows) => rows.map((s) => ({ ...s, dom_id: 'hero-cta' })),
+      },
+    });
+
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {});
+
+    assert.equal(result.ok, true);
+    assert.equal(result.anonymousPost.postId, 'post-1');
+    assert.equal(result.anonymousPost.expiresAt, '2026-11-04T09:00:00Z');
+    const saved = storage.store.pa_anon_posts_v1;
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].post_id, 'post-1');
+    assert.equal(saved[0].view_token, 'tok-view-1');
+    // 与生成/查询同口径的去参数网址
+    assert.equal(saved[0].page_url, 'https://shop.test/p');
+    assert.equal(saved[0].title, '改标题');
+    assert.equal(saved[0].suggestions[0].dom_id, 'hero-cta', '本地快照保留页面锚点');
+  });
+
+  it('落贴失败（无 post 字段）：照旧返回建议，只是没有入口', async () => {
+    const storage = captureStorage();
+    const { sandbox } = loadStack({
+      trialAPI: {
+        suggest: async () => ({
+          trial_id: 'pt-nopost',
+          suggestions: [{ id: 's1', title: '改标题' }],
+          post_error: 'unavailable',
+          trace_id: 'trace-nopost',
+        }),
+      },
+      sandbox: { chrome: { storage: { local: storage.local }, tabs: { query: async () => [{ id: 7 }] } } },
+    });
+
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {});
+
+    assert.equal(result.ok, true);
+    assert.equal(result.anonymousPost, null);
+    assert.equal(result.postError, 'unavailable');
+    assert.equal(storage.store.pa_anon_posts_v1, undefined, '没有入口就不写本地');
   });
 });

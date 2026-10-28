@@ -19,6 +19,7 @@ const {
   sitePendingPostsAfterMark,
   agentSuggestionTabBadge,
   nextSitePendingPageAction,
+  isAnonymousPost,
 } = require('../lib/page-advisor-site-pending.js');
 
 describe('PageAdvisorSitePending helpers', () => {
@@ -219,4 +220,38 @@ describe('PageAdvisorSitePending helpers', () => {
     assert.equal(refreshed.postId, 'a');
   });
 
+});
+
+describe('PageAdvisorSitePending 匿名帖（v233）', () => {
+  it('匿名帖只给「领取任务贴」按钮，不给采纳/废弃，并打匿名标记', () => {
+    const anon = {
+      id: 'a1',
+      post_id: 'a1',
+      title: '匿名建议',
+      owner_kind: 'anonymous',
+      confirm_status: 'pending',
+      suggestions: [{ id: 's1', title: '建议' }],
+      claim_status: 'open',
+    };
+    assert.equal(isAnonymousPost(anon), true);
+    assert.equal(isAnonymousPost({ anonymous: true }), true);
+    assert.equal(isAnonymousPost({ owner_kind: 'member' }), false);
+
+    const html = buildSitePendingTabsHtml([anon], 'a1', (s) => s);
+    assert.match(html, /taskplugin-page-advisor-site-claim/);
+    assert.match(html, /data-post-id="a1"/);
+    assert.match(html, /领取任务贴/);
+    assert.doesNotMatch(html, /site-confirm/);
+    assert.doesNotMatch(html, /site-dismiss/);
+    assert.match(html, /匿名/);
+  });
+
+  it('登录用户自己的帖保持采纳/废弃，不出现领取按钮', () => {
+    const member = { id: 'm1', title: '会员建议', tenant_id: 't1' };
+    const html = buildSitePendingTabsHtml([member], 'm1', (s) => s);
+    assert.match(html, /site-confirm/);
+    assert.match(html, /site-dismiss/);
+    assert.doesNotMatch(html, /site-claim/);
+    assert.doesNotMatch(html, /匿名/);
+  });
 });
