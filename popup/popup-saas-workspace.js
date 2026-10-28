@@ -1,34 +1,23 @@
-/** Popup：仅在「调用平台后端」下显示工作空间；未登录为「请先登录」占位。 */
+/** Popup：网页优化设置区只保留工作空间；仅登录后显示，未登录整块隐藏。 */
 (function () {
   const Lib = () => (typeof PopupSaasWorkspaceMenu !== 'undefined' ? PopupSaasWorkspaceMenu : null);
-  const row = () => document.querySelector('#popupSaasWorkspaceRow');
-  const selectEl = () => document.querySelector('#popupSaasWorkspace');
-  const statusEl = () => document.querySelector('#popupSaasWorkspaceStatus');
-  const retryEl = () => document.querySelector('#popupSaasWorkspaceRetry');
+  const sectionEl = () => document.querySelector('#pageAdvisorWorkspaceSection');
+  const selectEl = () => document.querySelector('#popupPageAdvisorWorkspace');
+  const statusEl = () => document.querySelector('#popupPageAdvisorWorkspaceStatus');
+  const retryEl = () => document.querySelector('#popupPageAdvisorWorkspaceRetry');
   let suppress = false;
   let loadGen = 0;
   let loggedIn = false;
-  let routeMode = 'direct';
 
   // OPT-20261006-014: 重试按钮/状态条/同步点击锁统一走共用 loginGatedSelect 控制器。
   const gated = (typeof LoginGatedSelect !== 'undefined')
     ? LoginGatedSelect.createRetryController({
       retryEl,
       statusEl,
-      warnLabel: 'popup saas workspace',
+      warnLabel: 'popup page advisor workspace',
       load: () => loadMenu(),
     })
     : null;
-
-  function setRetryVisible(visible) { if (gated) gated.setRetryVisible(visible); }
-
-  /** 智能体下拉按工作空间所属租户取数，工作空间一变就要重拉（否则两栏跨租户不一致）。 */
-  function reloadAgentMenu() {
-    if (typeof window !== 'undefined' && window.PopupSystemSku
-      && typeof window.PopupSystemSku.loadMenu === 'function') {
-      window.PopupSystemSku.loadMenu().catch(() => {});
-    }
-  }
 
   function clearStatus() { if (gated) gated.clearStatus(); }
 
@@ -45,15 +34,16 @@
 
   function resolveMode() {
     const lib = Lib();
-    if (lib) return lib.saasWorkspaceUiMode(loggedIn, routeMode);
-    if (routeMode !== 'saas') return 'hidden';
-    return loggedIn ? 'menu' : 'login_required';
+    if (lib && typeof lib.pageAdvisorWorkspaceUiMode === 'function') {
+      return lib.pageAdvisorWorkspaceUiMode(loggedIn);
+    }
+    return loggedIn ? 'menu' : 'hidden';
   }
 
-  function applyRowVisibility(mode) {
+  function applySectionVisibility(mode) {
     const lib = Lib();
-    const target = row();
-    if (lib) {
+    const target = sectionEl();
+    if (lib && typeof lib.applySaasWorkspaceRow === 'function') {
       lib.applySaasWorkspaceRow(target, mode);
       return;
     }
@@ -61,26 +51,6 @@
     const visible = mode !== 'hidden';
     target.hidden = !visible;
     if (target.style) target.style.display = visible ? '' : 'none';
-  }
-
-  function renderLoginPlaceholder() {
-    const sel = selectEl();
-    if (!sel) return;
-    suppress = true;
-    try {
-      sel.replaceChildren();
-      const empty = document.createElement('option');
-      empty.value = '';
-      empty.textContent = (typeof tx === 'function')
-        ? tx('paSaasWorkspaceNeedLogin')
-        : '-- 请先登录 --';
-      sel.appendChild(empty);
-      sel.value = '';
-      sel.disabled = true;
-    } finally {
-      suppress = false;
-    }
-    setRetryVisible(false);
   }
 
   function render(menu) {
@@ -117,10 +87,9 @@
     // 自动选中（平台默认工作空间 / 唯一空间）记 auto，手动切换记手选（见 change 处理器）。
     if (menu.persist && menu.selectedId) {
       persist(menu.selectedId, { manual: menu.source === 'manual' });
-      console.info('[taskChromePlugin] saas workspace auto-selected', {
+      console.info('[taskChromePlugin] page advisor workspace auto-selected', {
         source: menu.source, workspaceId: menu.selectedId, options: menu.options.length,
       });
-      reloadAgentMenu();
     }
   }
 
@@ -184,41 +153,31 @@
 
   function refreshUi() {
     const mode = resolveMode();
-    applyRowVisibility(mode);
+    applySectionVisibility(mode);
     if (mode === 'hidden') {
+      // 未登录：丢弃在途加载结果并清掉上一次的失败态，整区不可见。
       loadGen += 1;
       clearStatus();
-      return;
-    }
-    if (mode === 'login_required') {
-      loadGen += 1;
-      clearStatus();
-      renderLoginPlaceholder();
       return;
     }
     loadMenu().catch((e) => showError(e));
   }
 
-  function setLoggedIn(next) {
+  /** 登录态入口（页面/登录流程共用；setLoggedIn 为既有调用方保留）。 */
+  function syncLoggedIn(next) {
     loggedIn = Boolean(next);
-    refreshUi();
-  }
-
-  function syncRoute(nextRoute) {
-    const value = String(nextRoute || '');
-    routeMode = (value === 'saas' || value === 'system' || value === 'builtin') ? value : 'direct';
     refreshUi();
   }
 
   function bind() {
     const retryBtn = retryEl();
-    if (retryBtn && retryBtn.dataset.saasWorkspaceRetryBound !== '1') {
-      retryBtn.dataset.saasWorkspaceRetryBound = '1';
+    if (retryBtn && retryBtn.dataset.pageAdvisorWorkspaceRetryBound !== '1') {
+      retryBtn.dataset.pageAdvisorWorkspaceRetryBound = '1';
       retryBtn.addEventListener('click', retry);
     }
     const sel = selectEl();
-    if (!sel || sel.dataset.saasWorkspaceBound === '1') return;
-    sel.dataset.saasWorkspaceBound = '1';
+    if (!sel || sel.dataset.pageAdvisorWorkspaceBound === '1') return;
+    sel.dataset.pageAdvisorWorkspaceBound = '1';
     // Anti-Replay-OK: ui-only local chrome.storage write, no HTTP mutation.
     sel.addEventListener('change', () => {
       if (suppress) return;
@@ -226,11 +185,15 @@
       if (!id) return;
       // 用户手动切换：记手选，之后平台默认不再覆盖（除非该工作空间消失）。
       persist(id, { manual: true });
-      reloadAgentMenu();
     });
   }
 
-  window.PopupSaasWorkspace = { setLoggedIn, syncRoute, loadMenu };
+  window.PopupSaasWorkspace = {
+    syncLoggedIn,
+    // popup-auth.js 的登录流程仍调用 setLoggedIn；两者同一实现。
+    setLoggedIn: syncLoggedIn,
+    loadMenu,
+  };
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', bind);

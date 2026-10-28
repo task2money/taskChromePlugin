@@ -3,7 +3,7 @@
 /**
  * OPT-20260928-004：工作空间下拉加载失败后就地重试。
  *
- * 此前 getWorkspaces 失败只把错误写进 #popupSaasWorkspaceStatus，用户必须关掉再
+ * 此前 getWorkspaces 失败只把错误写进 #popupPageAdvisorWorkspaceStatus，用户必须关掉再
  * 打开弹窗才能再拉一次。这里用最小假 DOM 真跑 popup/popup-saas-workspace.js 的
  * IIFE，断言：失败才出现重试按钮、点它会再发一次 getWorkspaces、同一 tick 连点
  * 只发一次（同步点击锁）、成功后按钮收回。
@@ -27,6 +27,7 @@ function makeElement(tag = 'div') {
     value: '',
     hidden: false,
     disabled: false,
+    style: { display: '' },
     dataset: {},
     listeners: {},
     replaceChildren(...nodes) {
@@ -49,12 +50,12 @@ function makeElement(tag = 'div') {
 
 function setup() {
   const nodes = {
-    '#popupSaasWorkspaceRow': makeElement('div'),
-    '#popupSaasWorkspace': makeElement('select'),
-    '#popupSaasWorkspaceStatus': makeElement('p'),
-    '#popupSaasWorkspaceRetry': makeElement('button'),
+    '#pageAdvisorWorkspaceSection': makeElement('section'),
+    '#popupPageAdvisorWorkspace': makeElement('select'),
+    '#popupPageAdvisorWorkspaceStatus': makeElement('p'),
+    '#popupPageAdvisorWorkspaceRetry': makeElement('button'),
   };
-  nodes['#popupSaasWorkspaceRetry'].hidden = true;
+  nodes['#popupPageAdvisorWorkspaceRetry'].hidden = true;
 
   const sent = [];
   const console_ = { warn() {}, log() {}, error() {} };
@@ -101,63 +102,57 @@ function workspaceCalls(sent) {
   return sent.filter((m) => m && m.action === 'getWorkspaces');
 }
 
-/** 进入 saas 菜单态。 */
-function enterSaas(sandbox, loggedIn) {
-  sandbox.window.PopupSaasWorkspace.setLoggedIn(loggedIn);
-  sandbox.window.PopupSaasWorkspace.syncRoute('saas');
+/** 切换登录态（登录后设置区可见并加载工作空间）。 */
+function enterLoggedIn(sandbox, loggedIn) {
+  sandbox.window.PopupSaasWorkspace.syncLoggedIn(loggedIn);
 }
 
 describe('Popup 工作空间下拉失败重试（OPT-20260928-004）', () => {
   it('加载成功不显示重试按钮', async () => {
     const { sandbox, nodes, sent } = setup();
-    enterSaas(sandbox, true);
+    enterLoggedIn(sandbox, true);
     await tick();
     assert.equal(workspaceCalls(sent).length, 1);
-    assert.equal(nodes['#popupSaasWorkspaceRetry'].hidden, true);
-    assert.equal(nodes['#popupSaasWorkspaceStatus'].textContent, '');
+    assert.equal(nodes['#popupPageAdvisorWorkspaceRetry'].hidden, true);
+    assert.equal(nodes['#popupPageAdvisorWorkspaceStatus'].textContent, '');
   });
 
-  it('非 saas 路由不拉工作空间；切到 saas 才加载', async () => {
+  it('未登录不拉取；登录后才加载工作空间', async () => {
     const { sandbox, nodes, sent } = setup();
-    sandbox.window.PopupSaasWorkspace.setLoggedIn(true);
     await tick();
-    assert.equal(workspaceCalls(sent).length, 0, 'direct 默认不得 getWorkspaces');
-    sandbox.window.PopupSaasWorkspace.syncRoute('direct');
-    await tick();
-    assert.equal(workspaceCalls(sent).length, 0);
-    sandbox.window.PopupSaasWorkspace.syncRoute('saas');
+    assert.equal(workspaceCalls(sent).length, 0, '未登录不得 getWorkspaces');
+    sandbox.window.PopupSaasWorkspace.syncLoggedIn(true);
     await tick();
     assert.equal(workspaceCalls(sent).length, 1);
-    assert.equal(nodes['#popupSaasWorkspace'].disabled, false);
+    assert.equal(nodes['#popupPageAdvisorWorkspace'].disabled, false);
   });
 
-  it('saas 未登录显示请先登录占位，不发 getWorkspaces', async () => {
+  it('未登录整区隐藏，不发 getWorkspaces', async () => {
     const { sandbox, nodes, sent } = setup();
-    enterSaas(sandbox, false);
+    enterLoggedIn(sandbox, false);
     await tick();
     assert.equal(workspaceCalls(sent).length, 0);
-    assert.equal(nodes['#popupSaasWorkspace'].disabled, true);
-    assert.equal(nodes['#popupSaasWorkspace'].childNodes[0].textContent, 'paSaasWorkspaceNeedLogin');
-    assert.equal(nodes['#popupSaasWorkspaceRetry'].hidden, true);
+    assert.equal(nodes['#pageAdvisorWorkspaceSection'].hidden, true);
+    assert.equal(nodes['#popupPageAdvisorWorkspaceRetry'].hidden, true);
   });
 
   it('失败后出现重试按钮，点它会再发一次 getWorkspaces 并恢复成功态', async () => {
     const { sandbox, nodes, sent } = setup();
     sandbox.__respond = () => Promise.resolve({ success: false, error: 'boom', traceId: 't1' });
 
-    enterSaas(sandbox, true);
+    enterLoggedIn(sandbox, true);
     await tick();
     assert.equal(workspaceCalls(sent).length, 1);
-    assert.equal(nodes['#popupSaasWorkspaceRetry'].hidden, false, '失败后应给出重试入口');
-    assert.match(nodes['#popupSaasWorkspaceStatus'].textContent, /boom/);
+    assert.equal(nodes['#popupPageAdvisorWorkspaceRetry'].hidden, false, '失败后应给出重试入口');
+    assert.match(nodes['#popupPageAdvisorWorkspaceStatus'].textContent, /boom/);
 
     // 网络恢复后再点重试，应当就地重拉而不是要求用户重开弹窗
     sandbox.__respond = () => Promise.resolve({ success: true, data: [] });
-    nodes['#popupSaasWorkspaceRetry'].click();
+    nodes['#popupPageAdvisorWorkspaceRetry'].click();
     await tick();
     assert.equal(workspaceCalls(sent).length, 2, '重试必须真的再发一次 getWorkspaces');
-    assert.equal(nodes['#popupSaasWorkspaceRetry'].hidden, true, '成功后重试按钮收回');
-    assert.equal(nodes['#popupSaasWorkspaceStatus'].textContent, '');
+    assert.equal(nodes['#popupPageAdvisorWorkspaceRetry'].hidden, true, '成功后重试按钮收回');
+    assert.equal(nodes['#popupPageAdvisorWorkspaceStatus'].textContent, '');
   });
 
   it('同一 tick 连点重试只发一次（同步点击锁）', async () => {
@@ -167,10 +162,10 @@ describe('Popup 工作空间下拉失败重试（OPT-20260928-004）', () => {
       new Promise((resolve) => {
         pending.push(resolve);
       });
-    enterSaas(sandbox, true);
+    enterLoggedIn(sandbox, true);
     await tick();
 
-    const retryBtn = sandbox.document.querySelector('#popupSaasWorkspaceRetry');
+    const retryBtn = sandbox.document.querySelector('#popupPageAdvisorWorkspaceRetry');
     // 先让首次加载失败
     for (const resolve of pending) resolve({ success: false, error: 'boom' });
     pending = [];
@@ -197,13 +192,13 @@ describe('Popup 工作空间下拉失败重试（OPT-20260928-004）', () => {
   it('未登录时收起重试按钮，不残留上一次失败态', async () => {
     const { sandbox, nodes } = setup();
     sandbox.__respond = () => Promise.resolve({ success: false, error: 'boom' });
-    enterSaas(sandbox, true);
+    enterLoggedIn(sandbox, true);
     await tick();
-    assert.equal(nodes['#popupSaasWorkspaceRetry'].hidden, false);
+    assert.equal(nodes['#popupPageAdvisorWorkspaceRetry'].hidden, false);
 
-    sandbox.window.PopupSaasWorkspace.setLoggedIn(false);
-    assert.equal(nodes['#popupSaasWorkspaceRetry'].hidden, true);
-    assert.equal(nodes['#popupSaasWorkspaceStatus'].textContent, '');
-    assert.equal(nodes['#popupSaasWorkspace'].disabled, true);
+    sandbox.window.PopupSaasWorkspace.syncLoggedIn(false);
+    assert.equal(nodes['#pageAdvisorWorkspaceSection'].hidden, true);
+    assert.equal(nodes['#popupPageAdvisorWorkspaceRetry'].hidden, true);
+    assert.equal(nodes['#popupPageAdvisorWorkspaceStatus'].textContent, '');
   });
 });

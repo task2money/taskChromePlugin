@@ -57,7 +57,7 @@ describe('Popup 区域说明收在 ! 内（默认折叠）', () => {
   it('每个 float-ball-hint（冲突告警除外）都在未展开的 ! details 里', () => {
     const html = popupHtml();
     const hints = hintStarts(html);
-    assert.ok(hints.length >= 4, `应至少有 4 处区域说明，实际 ${hints.length}`);
+    assert.ok(hints.length >= 1, `应至少有 1 处区域说明，实际 ${hints.length}`);
     const bad = hints.filter((h) => {
       if (EXEMPT_I18N.has(h.i18n)) return false;
       return !insideBangDetails(html, h.index);
@@ -71,7 +71,7 @@ describe('Popup 区域说明收在 ! 内（默认折叠）', () => {
 
   it('每个区域说明段落都带稳定标识 data-region-help（OPT-20260922-014）', () => {
     const hints = hintStarts(popupHtml()).filter((h) => !EXEMPT_I18N.has(h.i18n));
-    assert.ok(hints.length >= 4, `应至少有 4 处区域说明，实际 ${hints.length}`);
+    assert.ok(hints.length >= 1, `应至少有 1 处区域说明，实际 ${hints.length}`);
     const missing = hints.filter((h) => !h.hasRegionHelpAttr);
     assert.deepEqual(
       missing.map((h) => h.i18n || h.tag),
@@ -80,15 +80,13 @@ describe('Popup 区域说明收在 ! 内（默认折叠）', () => {
     );
   });
 
-  it('Auto-innovate / Skill 标题行均有 !', () => {
+  it('工作空间区无展开说明；交付区标题仍有 !', () => {
     const html = popupHtml();
-    for (const id of [
-      'pageAdvisorLlmSection',
-      'pageAdvisorSkillSection',
-    ]) {
-      const m = html.match(new RegExp(`id="${id}"[\\s\\S]*?<\\/section>`));
-      assert.ok(m, `缺少 ${id}`);
-      assert.match(m[0], /<summary[^>]*>!<\/summary>/, `${id} 须有 !`);
-    }
+    const ws = html.match(/id="pageAdvisorWorkspaceSection"[\s\S]*?<\/section>/)[0];
+    assert.doesNotMatch(ws, /<details|<summary/);
+    assert.doesNotMatch(html, /id="pageAdvisorLlmSection"/);
+    assert.doesNotMatch(html, /id="pageAdvisorSkillSection"/);
+    const delivery = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
+    assert.match(delivery, /<summary[^>]*>!<\/summary>/);
   });
 });

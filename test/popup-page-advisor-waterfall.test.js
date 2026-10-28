@@ -30,16 +30,18 @@ describe('popup page-advisor waterfall host', () => {
     assert.equal(typeof PopupWf.SLOTS, 'undefined');
   });
 
-  it('popup.html 把打开完整管理放在内置模型后面，且没有刷新和耗时条', () => {
+  it('popup.html 不再有内置模型控件与耗时条', () => {
     const html = fs.readFileSync(path.join(__dirname, '..', 'popup', 'popup.html'), 'utf8');
-    const builtinAt = html.indexOf('id="popupLlmRouteBuiltin"');
-    const openAt = html.indexOf('id="btnOpenBuiltinFullMgmt"');
-    const downloadAt = html.indexOf('id="btnDownloadBuiltinModel"');
-    assert.ok(builtinAt >= 0 && openAt > builtinAt && downloadAt > openAt);
-    assert.doesNotMatch(html, /id="btnRefreshBuiltinStatus"/);
-    assert.doesNotMatch(html, /id="pageAdvisorWaterfall"/);
+    for (const id of [
+      'popupLlmRouteBuiltin',
+      'btnOpenBuiltinFullMgmt',
+      'btnDownloadBuiltinModel',
+      'btnRefreshBuiltinStatus',
+      'pageAdvisorWaterfall',
+    ]) {
+      assert.doesNotMatch(html, new RegExp(`\\bid="${id}"`), `#${id} 属已删除的调用方式区块`);
+    }
     assert.doesNotMatch(html, /data-i18n="paWfHelp"/);
-    assert.match(html, /popup-waterfall\.js/);
   });
 
   it('sidepanel.html 不再放刷新按钮和耗时条', () => {

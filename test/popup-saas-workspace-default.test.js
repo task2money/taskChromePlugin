@@ -114,6 +114,7 @@ function makeElement(tag = 'div') {
     value: '',
     hidden: false,
     disabled: false,
+    style: { display: '' },
     dataset: {},
     listeners: {},
     replaceChildren(...nodes) {
@@ -136,12 +137,12 @@ function makeElement(tag = 'div') {
 
 function setup({ lastId = '', manual = null, rows = [], writeFail = null } = {}) {
   const nodes = {
-    '#popupSaasWorkspaceRow': makeElement('div'),
-    '#popupSaasWorkspace': makeElement('select'),
-    '#popupSaasWorkspaceStatus': makeElement('p'),
-    '#popupSaasWorkspaceRetry': makeElement('button'),
+    '#pageAdvisorWorkspaceSection': makeElement('section'),
+    '#popupPageAdvisorWorkspace': makeElement('select'),
+    '#popupPageAdvisorWorkspaceStatus': makeElement('p'),
+    '#popupPageAdvisorWorkspaceRetry': makeElement('button'),
   };
-  nodes['#popupSaasWorkspaceRetry'].hidden = true;
+  nodes['#popupPageAdvisorWorkspaceRetry'].hidden = true;
 
   const writes = [];
   const sent = [];
@@ -174,7 +175,6 @@ function setup({ lastId = '', manual = null, rows = [], writeFail = null } = {})
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
-  sandbox.window.PopupSystemSku = undefined;
 
   vm.createContext(sandbox);
   vm.runInContext(
@@ -193,9 +193,8 @@ function setup({ lastId = '', manual = null, rows = [], writeFail = null } = {})
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
 
-async function enterSaas(sandbox) {
-  sandbox.window.PopupSaasWorkspace.setLoggedIn(true);
-  sandbox.window.PopupSaasWorkspace.syncRoute('saas');
+async function enterLoggedIn(sandbox) {
+  sandbox.window.PopupSaasWorkspace.syncLoggedIn(true);
   await tick();
   await tick();
 }
@@ -203,24 +202,25 @@ async function enterSaas(sandbox) {
 describe('平台默认工作空间：弹窗下拉（真 DOM 片段）', () => {
   it('登录后自动选中默认工作空间并以 auto 落盘', async () => {
     const { sandbox, nodes, writes } = setup({ rows: THREE });
-    await enterSaas(sandbox);
-    assert.equal(nodes['#popupSaasWorkspace'].value, 'ws-b');
+    await enterLoggedIn(sandbox);
+    assert.equal(nodes['#popupPageAdvisorWorkspace'].value, 'ws-b');
+    assert.equal(nodes['#pageAdvisorWorkspaceSection'].hidden, false);
     assert.deepEqual(writes, [{ id: 'ws-b', manual: false }]);
   });
 
   it('用户手选的工作空间不被默认覆盖，也不重复落盘', async () => {
     const { sandbox, nodes, writes } = setup({ lastId: 'ws-c', manual: true, rows: THREE });
-    await enterSaas(sandbox);
-    assert.equal(nodes['#popupSaasWorkspace'].value, 'ws-c');
+    await enterLoggedIn(sandbox);
+    assert.equal(nodes['#popupPageAdvisorWorkspace'].value, 'ws-c');
     assert.deepEqual(writes, []);
   });
 
   it('手动切换工作空间记为手选，后续不再被默认覆盖', async () => {
     const { sandbox, nodes, writes } = setup({ lastId: 'ws-b', manual: false, rows: THREE });
-    await enterSaas(sandbox);
-    assert.equal(nodes['#popupSaasWorkspace'].value, 'ws-b');
-    nodes['#popupSaasWorkspace'].value = 'ws-a';
-    nodes['#popupSaasWorkspace'].fire('change');
+    await enterLoggedIn(sandbox);
+    assert.equal(nodes['#popupPageAdvisorWorkspace'].value, 'ws-b');
+    nodes['#popupPageAdvisorWorkspace'].value = 'ws-a';
+    nodes['#popupPageAdvisorWorkspace'].fire('change');
     await tick();
     assert.deepEqual(writes, [{ id: 'ws-a', manual: true }]);
   });
@@ -232,16 +232,18 @@ describe('平台默认工作空间：弹窗下拉（真 DOM 片段）', () => {
       { id: 'ws-c', name: 'C', is_default: true },
     ];
     const { sandbox, nodes, writes } = setup({ lastId: 'ws-b', manual: false, rows });
-    await enterSaas(sandbox);
-    assert.equal(nodes['#popupSaasWorkspace'].value, 'ws-c');
+    await enterLoggedIn(sandbox);
+    assert.equal(nodes['#popupPageAdvisorWorkspace'].value, 'ws-c');
     assert.deepEqual(writes, [{ id: 'ws-c', manual: false }]);
   });
 
-  it('未登录占位不写 storage；direct 路由不加载', async () => {
-    const { sandbox, nodes, writes } = setup({ rows: THREE });
-    sandbox.window.PopupSaasWorkspace.syncRoute('direct');
+  it('未登录整区隐藏，不拉工作空间、不写 storage', async () => {
+    const { sandbox, nodes, sent, writes } = setup({ rows: THREE });
+    sandbox.window.PopupSaasWorkspace.syncLoggedIn(false);
     await tick();
-    assert.equal(nodes['#popupSaasWorkspace'].value, '');
+    assert.equal(nodes['#pageAdvisorWorkspaceSection'].hidden, true);
+    assert.equal(nodes['#popupPageAdvisorWorkspace'].value, '');
+    assert.deepEqual(sent, []);
     assert.deepEqual(writes, []);
   });
 });

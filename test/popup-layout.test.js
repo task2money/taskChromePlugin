@@ -56,13 +56,13 @@ describe('Popup 无悬浮球开关跨 tab 扇出', () => {
 });
 
 describe('Popup 未登录：登录入口置顶并可折叠', () => {
-  it('T1 #loginSection 紧随 header，且在智能体区之前', () => {
+  it('T1 #loginSection 紧随 header，且在工作空间区之前', () => {
     const headerEnd = popupHtml.indexOf('</header>');
     const loginIdx = popupHtml.indexOf('id="loginSection"');
-    const llmIdx = popupHtml.indexOf('id="pageAdvisorLlmSection"');
-    assert.ok(headerEnd > 0 && loginIdx > 0 && llmIdx > 0, '缺少 header / login / LLM 锚点');
+    const workspaceIdx = popupHtml.indexOf('id="pageAdvisorWorkspaceSection"');
+    assert.ok(headerEnd > 0 && loginIdx > 0 && workspaceIdx > 0, '缺少 header / login / workspace 锚点');
     assert.ok(loginIdx > headerEnd, '登录区必须在 </header> 之后');
-    assert.ok(loginIdx < llmIdx, '登录区必须在 #pageAdvisorLlmSection 之前（最上方功能区）');
+    assert.ok(loginIdx < workspaceIdx, '登录区必须在 #pageAdvisorWorkspaceSection 之前（最上方功能区）');
   });
 
   it('T2 顶栏 ⚠️ 未登录旁有 #btnToggleLogin；登录区默认折叠', () => {
@@ -98,23 +98,16 @@ describe('Popup 面板布局', () => {
     assert.match(popupCss, /width:\s*300px/, 'popup.css body 宽度应收窄为 300px');
   });
 
-  it('调用方式去掉 fieldset 线框，长文案仍上下排列', () => {
-    const sideCss = read('popup/popup-sidepanel.css');
-    assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,120}border:\s*0/);
-    assert.match(popupCss, /#popupLlmRouteField[\s\S]{0,160}min-inline-size:\s*0/);
-    assert.match(popupCss, /#popupLlmRouteField \.llm-route-option[\s\S]{0,80}display:\s*flex/);
-    const llm = popupHtml.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
-    assert.match(llm, /<fieldset[^>]*id="popupLlmRouteField"/);
-    assert.match(llm, /直连我的 Key（不上传，换浏览器需要重新设置）/);
-    assert.match(llm, /调用平台后端/);
-    const saasCss = read('popup/popup-saas-workspace.css');
-    assert.match(saasCss, /\.llm-route-saas-line\s*\{[^}]*display:\s*flex/);
-    assert.match(saasCss, /#popupSaasWorkspaceRow\[hidden\]\s*\{[^}]*display:\s*none\s*!important/);
+  it('工作空间区不再有调用方式 fieldset；下拉/状态/重试同处 form-row', () => {
+    const section = popupHtml.match(/id="pageAdvisorWorkspaceSection"[\s\S]*?<\/section>/)[0];
+    assert.doesNotMatch(section, /popupLlmRouteField/);
+    assert.doesNotMatch(popupHtml, /popupLlmRouteField/);
+    assert.doesNotMatch(popupHtml, /popupLlmRouteSaas/);
+    const row = section.match(/<div class="form-row">[\s\S]*?<\/div>/)[0];
+    assert.match(row, /id="popupPageAdvisorWorkspace"/);
+    assert.match(row, /id="popupPageAdvisorWorkspaceStatus"/);
+    assert.match(row, /id="popupPageAdvisorWorkspaceRetry"/);
     assert.match(popupHtml, /popup-saas-workspace\.css/);
-    assert.match(
-      sideCss,
-      /html\[data-taskplugin-host="sidepanel"\] #popupLlmRouteField \.llm-route-option/,
-    );
   });
 
   it('转发目标选项 flex-wrap 水平平铺，! 紧跟图例且不另占空行', () => {
@@ -148,27 +141,6 @@ describe('Popup 面板布局', () => {
     assert.match(popupHtml, /popup-content-prefix\.css/);
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
     assert.doesNotMatch(brand, /data-i18n="extTitle"/);
-  });
-
-  // OPT-20261006-020：平台后端下拉保持单条自有智能体，另加一行说明由平台按层解析。
-  it('智能体区说明自有智能体由平台按层解析，且随数据行一起显隐', () => {
-    const llm = popupHtml.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
-    const resolveRow = llm.match(/id="popupLlmSystemSkuRow"[\s\S]*?<\/div>/)[0];
-    assert.match(resolveRow, /id="popupLlmSystemSkuResolveHint"/);
-    assert.match(resolveRow, /data-i18n="paLlmOwnAgentResolvedHint"/);
-    // 说明必须落在数据行内，才能随登录门控（applyGatedRow 隐藏行）一起隐去
-    const hintIdx = resolveRow.indexOf('popupLlmSystemSkuResolveHint');
-    const selectIdx = resolveRow.indexOf('id="popupLlmSystemSku"');
-    assert.ok(hintIdx > selectIdx, '解析说明应排在下拉之后');
-  });
-
-  it('已保存的 Skill 去掉 fieldset 线框，图例仍保留新建按钮', () => {
-    assert.match(popupCss, /#popupSkillSavedField\s*\{[^}]*border:\s*0/);
-    assert.match(popupCss, /#popupSkillSavedField\s*\{[^}]*min-inline-size:\s*0/);
-    const skill = popupHtml.match(/id="pageAdvisorSkillSection"[\s\S]*?<\/section>/)[0];
-    assert.match(skill, /<fieldset[^>]*id="popupSkillSavedField"/);
-    assert.match(skill, /id="btnSkillNew"/);
-    assert.match(skill, /popup-skill-saved-legend/);
   });
 
   it('快捷键说明默认收起：#shortcutsBody 初始 display:none，内容保留', () => {

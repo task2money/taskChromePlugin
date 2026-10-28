@@ -84,173 +84,23 @@
       </fieldset>
     </section>
 
-    <!-- 自动创新直连智能体（本机 API Key，缩短 Idea 等待） -->
-    <section id="pageAdvisorLlmSection" class="section" style="display:none">
+    <!-- 网页优化设置：登录后只选择工作空间；生成与提示词均由平台后端决定。 -->
+    <section id="pageAdvisorWorkspaceSection" class="section" style="display:none">
       <div class="advisor-defaults-heading llm-section-heading">
-        <h3>🤖 <span data-i18n="paLlmSectionTitle">自动创新智能体</span> <kbd class="llm-shortcut" data-i18n="altZDefaults">Alt+Shift+Z</kbd></h3>
-        <details class="region-help">
-          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paLlmSectionHint">在本区选择调用方式。直连我的 Key 不上传，换浏览器需要重新设置。未选择时默认调用平台后端。密钥只保存在本机，直连时可在下拉菜单切换已保存的多组 Key。快捷键见标题旁 Alt+Shift+Z，整页快捷键走同一调用方式。「已保存的 Key」下拉旁点「设置」新增或修改一组。点「测试连通性」用当前填写的 Base URL、模型和 API Key 发一次最短请求，不改已保存的 Key。</p>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="altZHint">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。登录后可在「调用平台后端」后面同一行选择工作空间；项目仍在页内浮窗选择，浮窗收起后沿用上次选择。</p>
-        </details>
-        <!-- Anti-Replay-OK: external navigation -->
-        <a id="lnkIdleMarket" class="heading-sm" target="_blank" rel="noopener noreferrer" data-i18n="paLlmIdleMarket" hidden>闲置集市</a>
-      </div>
-      <fieldset class="form-row" id="popupLlmRouteField">
-        <legend data-i18n="paLlmRouteLegend">调用方式</legend>
-        <label class="llm-route-option">
-          <input type="radio" name="popupLlmRoute" id="popupLlmRouteDirect" value="direct">
-          <span data-i18n="paLlmRouteDirect">直连我的 Key（不上传，换浏览器需要重新设置）</span>
-        </label>
-        <div class="llm-route-saas-line">
-          <label class="llm-route-option">
-            <input type="radio" name="popupLlmRoute" id="popupLlmRouteSaas" value="saas" checked>
-            <span data-i18n="paLlmRouteSaas">调用平台后端</span>
-            <!-- Anti-Replay-OK: real href to tenant page-advisor settings -->
-            <a id="lnkPageAdvisorSettings" class="saas-settings-link" hidden href="" target="_blank" rel="noopener noreferrer" data-testid="popup-page-advisor-settings" data-i18n="paLlmSaasSettingsLink">网页设置</a>
-          </label>
-          <div class="form-row" id="popupSaasWorkspaceRow" hidden style="display:none">
-            <label for="popupSaasWorkspace" data-i18n="paSaasWorkspaceLabel">工作空间</label>
-            <select id="popupSaasWorkspace" class="form-select" data-testid="popup-saas-workspace"></select>
-            <p id="popupSaasWorkspaceStatus" class="hint" aria-live="polite"></p>
-            <!-- 加载失败时才出现；点它就地重拉，不必关掉再打开弹窗（OPT-20260928-004） -->
-            <button type="button" id="popupSaasWorkspaceRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-saas-workspace-retry">重试</button>
-          </div>
-        </div>
-        <div class="form-row" id="popupLlmSystemSkuRow" hidden style="display:none">
-          <p id="popupLlmSystemLoginHint" class="hint" hidden data-i18n="paLlmSystemNeedLogin">请先登录后再选择平台智能体</p>
-          <label for="popupLlmSystemSku" data-i18n="paLlmPlatformAgent">智能体</label>
-          <select id="popupLlmSystemSku" class="form-select" data-testid="popup-system-sku" hidden></select>
-          <!-- OPT-20261006-020：自有智能体仍单条展示，说明由平台按层解析，用户无需（也无法）点名某一层 -->
-          <p id="popupLlmSystemSkuResolveHint" class="hint" data-i18n="paLlmOwnAgentResolvedHint">自有智能体由平台按「工作空间 → 公司 → 个人」解析后列出</p>
-          <p id="popupLlmSystemSkuStatus" class="hint" aria-live="polite"></p>
-          <button type="button" id="popupLlmSystemSkuRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-system-sku-retry">重试</button>
-        </div>
-        <div class="llm-route-builtin-line">
-          <label class="llm-route-option" id="popupLlmRouteBuiltinWrap" hidden>
-            <input type="radio" name="popupLlmRoute" id="popupLlmRouteBuiltin" value="builtin">
-            <span data-i18n="paLlmRouteBuiltin">使用浏览器内置模型</span>
-          </label>
-          <!-- Anti-Replay-OK: ui-only — tell sidepanel shell to switch tab -->
-          <button type="button" id="btnOpenBuiltinFullMgmt" class="btn btn-sm" data-i18n="paBuiltinOpenFull" hidden>打开完整管理</button>
-        </div>
-        <p id="popupBuiltinStatus" hidden aria-live="polite"></p>
-        <progress id="popupBuiltinProgress" class="builtin-progress" max="100" value="0" hidden></progress>
-        <div id="popupBuiltinBasicMgmt" class="builtin-basic-mgmt" hidden>
-          <div class="btn-row builtin-basic-actions">
-            <button type="button" id="btnDownloadBuiltinModel" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
-            <button type="button" id="btnCancelBuiltinDownload" class="btn btn-sm" data-i18n="paBuiltinCancelDownload" hidden>取消下载</button>
-          </div>
-        </div>
-        <button type="button" id="btnDownloadBuiltinModelPopup" class="btn btn-sm" data-i18n="paBuiltinDownload" hidden>下载模型</button>
-      </fieldset>
-      <div class="form-row" id="popupLlmProfileRow">
-        <label for="popupLlmProfileSelect" data-i18n="paLlmProfileLabel">已保存的 Key</label>
-        <div class="llm-profile-select-with-settings">
-          <select id="popupLlmProfileSelect" class="form-select"></select>
-          <!-- Anti-Replay-OK: ui-only toggle of local API key fields -->
-          <button type="button" id="btnToggleLlmSettings" class="btn btn-sm btn-primary" aria-controls="pageAdvisorLlmFields" aria-expanded="false" data-i18n-aria-label="paLlmSettingsAria" aria-label="打开智能体 API Key 设置">⚙️ <span data-i18n="paLlmSettings">设置</span></button>
-        </div>
-      </div>
-      <div id="pageAdvisorLlmFields" style="display:none" hidden>
-        <div class="form-row">
-          <label for="popupLlmProfileName" data-i18n="paLlmProfileName">名称</label>
-          <input type="text" id="popupLlmProfileName" class="form-input" maxlength="48" data-i18n-placeholder="paLlmProfileNamePh" placeholder="例如 DeepSeek" autocomplete="off">
-        </div>
-        <div class="form-row">
-          <label for="popupLlmBaseUrl" data-i18n="paLlmBaseUrl">API Base URL</label>
-          <input type="url" id="popupLlmBaseUrl" class="form-input" data-i18n-placeholder="paLlmBaseUrlPh" placeholder="https://api.deepseek.com/v1" autocomplete="off">
-        </div>
-        <div class="form-row">
-          <label for="popupLlmModel" data-i18n="paLlmModel">模型</label>
-          <input type="text" id="popupLlmModel" class="form-input" data-i18n-placeholder="paLlmModelPh" placeholder="deepseek-chat" autocomplete="off">
-        </div>
-        <div class="form-row">
-          <label for="popupLlmApiKey" data-i18n="paLlmApiKey">API Key</label>
-          <input type="password" id="popupLlmApiKey" class="form-input" data-i18n-placeholder="paLlmApiKeyPh" placeholder="sk-…" autocomplete="off">
-        </div>
-        <div class="btn-row llm-config-actions">
-          <button type="button" id="btnSaveLlmConfig" class="btn btn-sm btn-primary">💾 <span data-i18n="paLlmSave">保存智能体配置</span></button>
-          <button type="button" id="btnTestLlmConnectivity" class="btn btn-sm" data-testid="btn-test-llm-connectivity">🔌 <span data-i18n="paLlmTest">测试连通性</span></button>
-          <button type="button" id="btnExportLlmCallLedger" class="btn btn-sm" data-testid="btn-export-llm-call-ledger">📤 <span data-i18n="paLlmLedgerExport">导出调用记录</span></button>
-          <button type="button" id="btnClearLlmCallLedger" class="btn btn-sm" data-testid="btn-clear-llm-call-ledger">🧹 <span data-i18n="paLlmLedgerClear">清空调用记录</span></button>
-          <button type="button" id="btnDeleteLlmProfile" class="btn btn-sm btn-danger" hidden>🗑 <span data-i18n="paLlmProfileDelete">删除这一组</span></button>
-        </div>
-      </div>
-      <p id="popupLlmStatus" class="hint" aria-live="polite"></p>
-    </section>
-
-    <section id="pageAdvisorSkillSection" class="section" style="display:none">
-      <div class="advisor-defaults-heading llm-section-heading">
-        <h3>📝 <span data-i18n="paSkillSectionTitle">提示词 Skill</span>
-          <!-- Anti-Replay-OK: external navigation to the public prompt market -->
-          <a id="lnkPromptMarket" class="heading-sm" target="_blank" rel="noopener noreferrer" data-i18n="paSkillPromptMarket" hidden>提示词集市</a>
+        <h3>🏢 <span data-i18n="paWorkspaceSectionTitle">工作空间</span>
+          <!-- Anti-Replay-OK: external navigation to tenant page-advisor settings -->
+          <a id="lnkPageAdvisorSettings" class="saas-settings-link" hidden href="" target="_blank" rel="noopener noreferrer" data-testid="popup-page-advisor-settings" data-i18n="paLlmSaasSettingsLink">网页设置</a>
         </h3>
-        <details class="region-help">
-          <summary class="region-help-mark" data-i18n-aria-label="regionHelpToggleAria" aria-label="功能说明">!</summary>
-          <p class="float-ball-hint" data-region-help="1" data-i18n="paSkillSectionHint">点「设置」管理 Skill。已保存的 Skill 先选择类别（无障碍/转化/性能/SEO/自定义），再直接选择该类别里的技能。想自定义时点「新建」。未登录也会预埋自动创新这一条技能（只读，默认选中）。每条可只存本机，或同步到指定工作空间（该空间成员可见可改）。选中后仅在直连智能体时追加到系统提示（Alt+Z 整页与 Alt+Shift+Z 区域都走直连）；API Key 仍只保存在本机。云端回退与创建任务不会带上 Skill。</p>
-        </details>
-        <button type="button" id="btnToggleSkillSettings" class="btn btn-sm btn-primary heading-sm" aria-controls="pageAdvisorSkillFields" aria-expanded="false" data-i18n-aria-label="paSkillSettingsAria" aria-label="打开提示词 Skill 管理">⚙️ <span data-i18n="paSkillSettings">设置</span></button>
       </div>
-      <p id="popupSkillActiveSummary" class="hint"></p>
-      <div id="pageAdvisorSkillFields" style="display:none" hidden>
-        <div
-          id="popupSkillConflict"
-          class="form-row skill-conflict"
-          role="alertdialog"
-          aria-live="assertive"
-          style="display:none"
-        >
-          <p class="float-ball-hint" data-i18n="paSkillConflictTitle">另一台设备已修改 Skill，请选择保留哪一份</p>
-          <div class="flex gap-2">
-            <button type="button" id="btnSkillConflictKeepLocal" class="btn btn-sm" data-i18n="paSkillConflictKeepLocal">保留本机并覆盖云端</button>
-            <button type="button" id="btnSkillConflictUseCloud" class="btn btn-sm btn-primary" data-i18n="paSkillConflictUseCloud">使用云端版本</button>
-          </div>
-        </div>
-        <fieldset class="form-row" id="popupSkillSavedField">
-          <legend class="popup-skill-saved-legend">
-            <span data-i18n="paSkillListLabel">已保存的 Skill</span>
-            <button type="button" id="btnSkillNew" class="btn btn-sm" data-i18n="paSkillNew">新建</button>
-          </legend>
-          <div id="popupSkillList" role="radiogroup" data-i18n-aria-label="paSkillListLabel"></div>
-        </fieldset>
-        <dialog id="popupSkillDeleteConfirm" class="popup-skill-delete-dialog">
-          <p id="popupSkillDeleteConfirmMsg"></p>
-          <div class="flex gap-2">
-            <button type="button" id="btnSkillDeleteCancel" class="btn btn-sm" data-i18n="paSkillDeleteCancel">取消</button>
-            <button type="button" id="btnSkillDeleteConfirm" class="btn btn-sm btn-danger" data-i18n="paSkillDeleteConfirmOk">确认删除</button>
-          </div>
-        </dialog>
-        <div id="popupSkillEditor" style="display:none" hidden>
-          <div class="form-row">
-            <label for="popupSkillTitle" data-i18n="paSkillTitle">名称</label>
-            <input type="text" id="popupSkillTitle" class="form-input" maxlength="80" autocomplete="off">
-          </div>
-          <div class="form-row">
-            <label for="popupSkillTendency" data-i18n="paSkillTendency">类别</label>
-            <input type="text" id="popupSkillTendency" class="form-input" list="popupSkillTendencyList" maxlength="32" autocomplete="off" data-i18n-title="paSkillTendencyHint">
-            <datalist id="popupSkillTendencyList">
-              <option value="a11y" data-i18n="paSkillTendencyA11y">无障碍</option>
-              <option value="conversion" data-i18n="paSkillTendencyConversion">转化</option>
-              <option value="perf" data-i18n="paSkillTendencyPerf">性能</option>
-              <option value="seo" data-i18n="paSkillTendencySeo">SEO</option>
-              <option value="custom" data-i18n="paSkillTendencyCustom">自定义</option>
-            </datalist>
-          </div>
-          <div class="form-row">
-            <label for="popupSkillSyncTarget" data-i18n="paSkillSyncTarget">存储位置</label>
-            <select id="popupSkillSyncTarget" class="form-select"></select>
-          </div>
-          <div class="form-row">
-            <label for="popupSkillBody" data-i18n="paSkillBody">提示词</label>
-            <textarea id="popupSkillBody" class="form-input" rows="4" maxlength="8000"></textarea>
-            <p id="popupSkillLinkNotice" class="hint" role="note" hidden></p>
-          </div>
-          <input type="hidden" id="popupSkillEditingId" value="">
-          <button type="button" id="btnSkillSave" class="btn btn-sm btn-primary" data-i18n="paSkillSave">保存 Skill</button>
-        </div>
+      <p class="hint" data-i18n="paWorkspaceSectionHint">网页优化建议由平台后端生成；选择工作空间后，提示词目录会合并该空间的自定义提示词。</p>
+      <div class="form-row">
+        <label for="popupPageAdvisorWorkspace" data-i18n="paSaasWorkspaceLabel">工作空间</label>
+        <select id="popupPageAdvisorWorkspace" class="form-select" data-testid="popup-page-advisor-workspace"></select>
+        <p id="popupPageAdvisorWorkspaceStatus" class="hint" aria-live="polite"></p>
+        <!-- 加载失败时才出现；点它就地重拉，不必关掉再打开弹窗（OPT-20260928-004） -->
+        <button type="button" id="popupPageAdvisorWorkspaceRetry" class="btn btn-sm" hidden data-i18n="paSaasWorkspaceRetry" data-testid="popup-page-advisor-workspace-retry">重试</button>
       </div>
-      <p id="popupSkillStatus" class="hint" aria-live="polite"></p>
+      <p class="hint" data-i18n="paAltZHintShort">Alt+Z 采集整页生成建议；Alt+Shift+Z 先点选区域再生成。</p>
     </section>
 
     <!-- 加载中 -->
@@ -376,7 +226,6 @@
   <script src="../lib/i18n-ui-messages.js"></script>
   <script src="../lib/i18n-panel-messages.js"></script>
   <script src="../lib/i18n-popup-messages.js"></script>
-  <script src="../lib/i18n-llm-route.js"></script>
   <script src="../lib/i18n-locale-messages.js"></script>
   <script src="../lib/i18n-skill-browse-messages.js"></script>
   <script src="../lib/i18n-tx.js"></script>
@@ -401,7 +250,6 @@
   <script src="../lib/workspace-list.js"></script>
   <script src="../lib/popup-login-gated-select.js"></script>
   <script src="../lib/popup-saas-workspace.js"></script>
-  <script src="../lib/popup-system-sku.js"></script>
   <script src="../lib/page-advisor-locale-prompt.js"></script>
   <script src="../lib/page-advisor-builtin-runtime.js"></script>
   <script src="../lib/page-advisor-builtin-language.js"></script>
@@ -410,31 +258,17 @@
   <script src="../lib/page-advisor-builtin-prompt.js"></script>
   <script src="../lib/page-advisor-builtin-enable.js"></script>
   <script src="popup-builtin-mgmt.js"></script>
-  <script src="../lib/page-advisor-llm-config.js"></script>
-  <script src="../lib/popup-llm-settings-ui.js"></script>
-  <script src="../lib/page-advisor-preset-skills.js"></script>
-  <script src="../lib/page-advisor-prompt-skill-catalog.js"></script>
-  <script src="../lib/page-advisor-prompt-skills.js"></script>
-  <script src="../lib/page-advisor-skill-draft.js"></script>
   <script src="../lib/page-advisor-api.js"></script>
   <script src="../lib/click-guard.js"></script>
-  <script src="../lib/llm-call-ledger.js"></script>
   <script src="../lib/page-advisor-llm-probe.js"></script>
   <script src="../lib/page-advisor-timing.js"></script>
   <script src="../lib/page-advisor-waterfall-view.js"></script>
   <script src="../lib/page-advisor-builtin-last-run.js"></script>
-  <script src="popup-llm-ledger.js"></script>
-  <script src="popup-llm-config.js"></script>
   <script src="../lib/deeplink-core.js"></script>
   <script src="../lib/page-advisor-delivery.js"></script>
   <script src="popup-delivery.js"></script>
   <script src="popup-waterfall.js"></script>
-  <script src="popup-prompt-skill-ui.js"></script>
-  <script src="popup-prompt-skill-session.js"></script>
-  <script src="popup-prompt-skill-cloud.js"></script>
-  <script src="popup-prompt-skills.js"></script>
   <script src="popup-saas-workspace.js"></script>
-  <script src="popup-system-sku.js"></script>
   <script src="popup-auth.js"></script>
   <script src="popup-auth-badge.js"></script>
   <script src="popup-shortcut.js"></script>

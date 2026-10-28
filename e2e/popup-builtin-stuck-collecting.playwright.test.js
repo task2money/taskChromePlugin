@@ -1,5 +1,6 @@
 /**
- * Popup 内置模型：session 卡在采集中时，刷新/下载必须立刻改状态行。
+ * Popup 内置模型控件已随「调用方式」删除：session 卡在采集中、浏览器又有可用
+ * LanguageModel 时，popup 也不得再出现内置模型控件，其余区域照常可用。
  *
  * 运行：bash e2e/popup-builtin-stuck-collecting.playwright.test.js.sh
  */
@@ -16,7 +17,6 @@ function loadPlaywrightTest() {
 
 const { test, expect } = loadPlaywrightTest();
 const POPUP_URL = pathToFileURL(path.join(__dirname, '..', 'popup', 'popup.html')).href;
-const COLLECTING = '正在采集页面并生成优化建议';
 
 async function installStub(page) {
   await page.addInitScript(() => {
@@ -106,22 +106,22 @@ async function installStub(page) {
   });
 }
 
-test.describe('Popup 内置模型卡住采集中', () => {
-  test('选中内置模型后离开采集中文案，下载点击继续显示进度', async ({ page }) => {
+test.describe('Popup 无内置模型控件（session 卡在采集中）', () => {
+  test('session 卡在采集中也不出现内置模型控件，其余区域照常可用', async ({ page }) => {
     await installStub(page);
     await page.goto(POPUP_URL);
-    await expect(page.locator('#popupLlmRouteBuiltinWrap')).toBeVisible({ timeout: 15000 });
-    await page.locator('#popupLlmRouteBuiltin').check();
-    const status = page.locator('#popupBuiltinStatus');
-    await expect(page.locator('#btnRefreshBuiltinStatus')).toHaveCount(0);
-    await expect(page.locator('#pageAdvisorWaterfall')).toHaveCount(0);
-    await expect(status).toBeVisible({ timeout: 10000 });
-    await expect(status).not.toContainText(COLLECTING);
-    await expect(status).toContainText(/尚未下载/);
-    await expect(page.locator('#btnDownloadBuiltinModel')).toBeVisible();
-
-    await page.locator('#btnDownloadBuiltinModel').click();
-    await expect(status).toContainText(/下载|download/i);
-    await expect(status).not.toContainText(COLLECTING);
+    await expect(page.locator('#shortcutsSection')).toBeVisible({ timeout: 15000 });
+    for (const id of [
+      'popupLlmRouteBuiltinWrap',
+      'popupLlmRouteBuiltin',
+      'popupBuiltinStatus',
+      'btnDownloadBuiltinModel',
+      'btnRefreshBuiltinStatus',
+      'pageAdvisorWaterfall',
+    ]) {
+      await expect(page.locator(`#${id}`)).toHaveCount(0);
+    }
+    await expect(page.locator('#pageAdvisorLlmSection')).toHaveCount(0);
+    await expect(page.locator('#pageAdvisorWorkspaceSection')).toBeHidden();
   });
 });

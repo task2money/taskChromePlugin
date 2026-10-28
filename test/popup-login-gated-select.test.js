@@ -4,8 +4,8 @@
  * OPT-20261006-014：共用「登录门闩下拉」模块。
  *
  * 工作空间下拉与系统智能体 SKU 下拉共用显隐模式、行可见性、请先登录占位与
- * 失败重试控制器（含同步点击锁）。这里断言共用实现本身，以及两处 lib 的委托
- * 与 popup.html / service-worker 的加载顺序。
+ * 失败重试控制器（含同步点击锁）。这里断言共用实现本身，以及工作空间 lib 的
+ * 委托与 popup.html / service-worker 的加载顺序。
  */
 
 const { describe, it } = require('node:test');
@@ -102,19 +102,16 @@ describe('登录门闩下拉共用模块（OPT-20261006-014）', () => {
     assert.equal(retryBtn.hidden, true, '成功后重试按钮收回');
   });
 
-  it('两处 lib 委托共用实现，popup.html / service-worker 先加载共用模块', () => {
+  it('工作空间 lib 委托共用实现，popup.html / service-worker 先加载共用模块', () => {
     const wsLib = fs.readFileSync(path.join(ROOT, 'lib/popup-saas-workspace.js'), 'utf8');
-    const skuLib = fs.readFileSync(path.join(ROOT, 'lib/popup-system-sku.js'), 'utf8');
     assert.match(wsLib, /require\('\.\/popup-login-gated-select\.js'\)/);
-    assert.match(wsLib, /loginGatedUiMode/);
-    assert.match(skuLib, /require\('\.\/popup-login-gated-select\.js'\)/);
-    assert.match(skuLib, /applyLoginGate/);
+    assert.match(wsLib, /Gated\.applyGatedRow/);
 
     const html = fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
     const shared = html.indexOf('../lib/popup-login-gated-select.js');
     assert.ok(shared >= 0, 'popup.html 应加载共用模块');
     assert.ok(shared < html.indexOf('../lib/popup-saas-workspace.js'));
-    assert.ok(shared < html.indexOf('../lib/popup-system-sku.js'));
+    assert.doesNotMatch(html, /lib\/popup-system-sku\.js/);
 
     const sw = fs.readFileSync(path.join(ROOT, 'background/service-worker.js'), 'utf8');
     const swShared = sw.indexOf("'../lib/popup-login-gated-select.js'");
@@ -122,8 +119,6 @@ describe('登录门闩下拉共用模块（OPT-20261006-014）', () => {
     assert.ok(swShared < sw.indexOf("'../lib/popup-system-sku.js'"));
 
     const wsUi = fs.readFileSync(path.join(ROOT, 'popup/popup-saas-workspace.js'), 'utf8');
-    const skuUi = fs.readFileSync(path.join(ROOT, 'popup/popup-system-sku.js'), 'utf8');
     assert.match(wsUi, /LoginGatedSelect\.createRetryController/);
-    assert.match(skuUi, /LoginGatedSelect\.createRetryController/);
   });
 });

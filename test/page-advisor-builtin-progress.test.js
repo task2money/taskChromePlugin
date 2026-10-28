@@ -103,9 +103,9 @@ test('heartbeat 探测 available 后写就绪', async () => {
   }
 });
 
-test('popup 与侧栏挂载解压进度条', () => {
+test('解压进度条只在侧栏挂载，popup 随内置模型控件删除', () => {
   const popup = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
   const side = fs.readFileSync(path.join(__dirname, '../sidepanel/sidepanel.html'), 'utf8');
-  assert.match(popup, /id="popupBuiltinProgress"/);
   assert.match(side, /id="spBuiltinProgress"/);
+  assert.doesNotMatch(popup, /id="popupBuiltinProgress"/);
 });

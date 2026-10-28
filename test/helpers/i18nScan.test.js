@@ -60,9 +60,16 @@ describe('i18nScan loadPageInjectedMessageTables（扩展页按入口注入）',
     assert.equal(panelTables.en.paLlmRouteLegend, undefined);
   });
 
-  it('popup.html 注入了 i18n-llm-route → 其表可取 paLlmRouteLegend', () => {
+  it('popup.html 不再注入 i18n-llm-route → 其表无 paLlmRouteLegend', () => {
+    // 调用方式区块已从 popup 删除，popup.html 不再加载该文案包。
     const popupTables = loadPageInjectedMessageTables('popup/popup.html');
-    assert.equal(typeof popupTables['zh-CN'].paLlmRouteLegend, 'string');
-    assert.equal(typeof popupTables.en.paLlmRouteLegend, 'string');
+    assert.equal(popupTables['zh-CN'].paLlmRouteLegend, undefined);
+    assert.equal(popupTables.en.paLlmRouteLegend, undefined);
+  });
+
+  it('sidepanel.html 注入了 i18n-llm-route → 其表可取 paLlmRouteLegend', () => {
+    const sidepanelTables = loadPageInjectedMessageTables('sidepanel/sidepanel.html');
+    assert.equal(typeof sidepanelTables['zh-CN'].paLlmRouteLegend, 'string');
+    assert.equal(typeof sidepanelTables.en.paLlmRouteLegend, 'string');
   });
 });

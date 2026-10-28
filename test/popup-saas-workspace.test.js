@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * 仅选择「调用平台后端」时显示工作空间行；未登录显示「请先登录」占位；direct/builtin 隐藏。
+ * 网页优化设置区：仅登录可见的工作空间下拉。
+ * 调用方式 / 直连 Key / 内置模型 / 智能体 / 提示词 Skill 已从 popup 删除。
  */
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
@@ -10,7 +11,7 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const {
-  saasWorkspaceUiMode,
+  pageAdvisorWorkspaceUiMode,
   saasWorkspaceVisible,
   buildSaasWorkspaceMenu,
   applySaasWorkspaceRow,
@@ -20,77 +21,50 @@ function popupHtml() {
   return fs.readFileSync(path.join(ROOT, 'popup/popup.html'), 'utf8');
 }
 
-function llmSection() {
-  const html = popupHtml();
-  const m = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/);
-  assert.ok(m, '缺少 pageAdvisorLlmSection');
-  return m[0];
-}
-
-describe('Popup 平台后端工作空间下拉', () => {
-  it('下拉紧挨在「调用平台后端」之后，且默认隐藏', () => {
-    const llm = llmSection();
-    const saas = llm.indexOf('id="popupLlmRouteSaas"');
-    const row = llm.indexOf('id="popupSaasWorkspaceRow"');
-    const profile = llm.indexOf('id="popupLlmProfileRow"');
-    const sku = llm.indexOf('id="popupLlmSystemSkuRow"');
-    const builtin = llm.indexOf('id="popupLlmRouteBuiltin"');
-    assert.ok(saas >= 0, '缺少调用平台后端单选');
-    assert.ok(row > saas, '工作空间下拉应在调用平台后端之后');
-    assert.ok(sku > row, '工作空间下拉应在智能体下拉之前，避免落到区块底部');
-    assert.ok(builtin > row, '工作空间下拉应在内置模型选项之前');
-    assert.match(llm, /class="llm-route-saas-line"[\s\S]*id="popupLlmRouteSaas"[\s\S]*id="popupSaasWorkspaceRow"/);
-    assert.ok(profile > row, '工作空间下拉应在已保存 Key 之前');
-    assert.match(llm, /id="popupSaasWorkspace"/);
-    assert.match(llm, /data-i18n="paSaasWorkspaceLabel"/);
-    assert.match(llm, /id="popupSaasWorkspaceRow"[^>]*\bhidden\b/);
-    assert.match(llm, /id="popupSaasWorkspaceRow"[^>]*style="display:none"/);
-    assert.doesNotMatch(llm, /id="pageAdvisorDefaultsSection"/);
-    assert.doesNotMatch(llm, /id="popupDefaultWorkspace"/);
+describe('Popup 网页优化设置区：工作空间', () => {
+  it('只有工作空间区；旧调用方式 / Skill 区与控件已删除', () => {
+    const html = popupHtml();
+    assert.doesNotMatch(html, /id="pageAdvisorLlmSection"/);
+    assert.doesNotMatch(html, /id="pageAdvisorSkillSection"/);
+    assert.doesNotMatch(html, /id="popupLlmRouteSaas"/);
+    assert.doesNotMatch(html, /id="popupSaasWorkspaceRow"/);
+    const m = html.match(/id="pageAdvisorWorkspaceSection"[\s\S]*?<\/section>/);
+    assert.ok(m, '缺少 pageAdvisorWorkspaceSection');
+    const section = m[0];
+    assert.match(section, /id="popupPageAdvisorWorkspace"/);
+    assert.match(section, /id="popupPageAdvisorWorkspaceStatus"/);
+    assert.match(section, /id="popupPageAdvisorWorkspaceRetry"[^>]*\bhidden\b/);
+    assert.match(section, /data-i18n="paSaasWorkspaceLabel"/);
+    assert.match(html, /id="pageAdvisorWorkspaceSection"[^>]*style="display:none"/);
   });
 
-  it('popup.html 加载菜单纯函数与弹窗控制器；登录态与路由切换均接线', () => {
+  it('popup.html 先加载纯函数再加载控制器；登录流程经 setLoggedIn 驱动', () => {
     const html = popupHtml();
-    const libAt = html.indexOf('../lib/popup-saas-workspace.js');
-    const uiAt = html.indexOf('popup-saas-workspace.js');
-    const authAt = html.indexOf('popup-auth.js');
+    const libAt = html.indexOf('<script src="../lib/popup-saas-workspace.js"></script>');
+    const uiAt = html.indexOf('<script src="popup-saas-workspace.js"></script>');
+    const authAt = html.indexOf('<script src="popup-auth.js"></script>');
     assert.ok(libAt >= 0 && uiAt > libAt && authAt > uiAt);
     const auth = fs.readFileSync(path.join(ROOT, 'popup/popup-auth.js'), 'utf8');
-    const loginFn = auth.slice(auth.indexOf('function showLoginUI'), auth.indexOf('function showTokenExpiredUI'));
-    const loggedFn = auth.slice(auth.indexOf('function showLoggedInUI'), auth.indexOf('function refreshPopupLocaleFromProfile'));
-    const expiredFn = auth.slice(auth.indexOf('function showTokenExpiredUI'), auth.indexOf('function refreshPopupLocaleFromProfile'));
-    assert.match(auth, /function setLoginGatedModules/);
-    assert.match(loginFn, /setLoginGatedModules\(false\)/);
-    assert.match(loggedFn, /setLoginGatedModules\(true\)/);
-    assert.match(expiredFn, /setLoginGatedModules\(false\)/);
     assert.match(auth, /PopupSaasWorkspace\?\.setLoggedIn/);
-    const llmCfg = fs.readFileSync(path.join(ROOT, 'popup/popup-llm-config.js'), 'utf8');
-    assert.match(llmCfg, /syncSaasWorkspaceRow/);
-    assert.match(llmCfg, /PopupSaasWorkspace\.syncRoute/);
+    assert.doesNotMatch(html, /lib\/popup-system-sku\.js/);
+    assert.doesNotMatch(html, /popup-llm-config\.js/);
   });
 
-  it('uiMode：仅 saas 显示；未登录为 login_required；已登录为 menu', () => {
-    assert.equal(saasWorkspaceUiMode(false, 'direct'), 'hidden');
-    assert.equal(saasWorkspaceUiMode(true, 'direct'), 'hidden');
-    assert.equal(saasWorkspaceUiMode(false, 'builtin'), 'hidden');
-    assert.equal(saasWorkspaceUiMode(true, 'builtin'), 'hidden');
-    assert.equal(saasWorkspaceUiMode(false, 'saas'), 'login_required');
-    assert.equal(saasWorkspaceUiMode(true, 'saas'), 'menu');
-    assert.equal(saasWorkspaceUiMode(true, 'system'), 'menu');
-    assert.equal(saasWorkspaceUiMode(false, 'system'), 'login_required');
-    assert.equal(saasWorkspaceVisible(false, 'saas'), true);
-    assert.equal(saasWorkspaceVisible(true, 'direct'), false);
-    assert.equal(saasWorkspaceVisible(true, 'saas'), true);
+  it('uiMode：未登录 hidden，登录后 menu', () => {
+    assert.equal(pageAdvisorWorkspaceUiMode(false), 'hidden');
+    assert.equal(pageAdvisorWorkspaceUiMode(true), 'menu');
+    assert.equal(saasWorkspaceVisible(false), false);
+    assert.equal(saasWorkspaceVisible(true), true);
+    assert.notEqual(pageAdvisorWorkspaceUiMode(false), 'login_required');
+    assert.notEqual(pageAdvisorWorkspaceUiMode(true), 'login_required');
 
     const row = { hidden: false, style: { display: '' } };
     applySaasWorkspaceRow(row, 'hidden');
     assert.equal(row.hidden, true);
     assert.equal(row.style.display, 'none');
-    applySaasWorkspaceRow(row, 'login_required');
-    assert.equal(row.hidden, false);
-    assert.equal(row.style.display, '');
     applySaasWorkspaceRow(row, 'menu');
     assert.equal(row.hidden, false);
+    assert.equal(row.style.display, '');
   });
 
   it('恢复上次工作空间；仅一个空间时自动选中并要求落盘', () => {
@@ -120,28 +94,20 @@ describe('Popup 平台后端工作空间下拉', () => {
     assert.equal(already.persist, false);
   });
 
-  it('切换工作空间后重载智能体下拉（含自动选中默认工作空间那一次）', () => {
+  it('手动切换只记手选，不再重载智能体下拉', () => {
     const src = fs.readFileSync(path.join(ROOT, 'popup/popup-saas-workspace.js'), 'utf8');
-    assert.match(src, /function reloadAgentMenu\(\)[\s\S]*?PopupSystemSku\.loadMenu\(\)/);
-    assert.match(src, /sel\.addEventListener\('change'[\s\S]*?persist\(id, \{ manual: true \}\);[\s\S]*?reloadAgentMenu\(\);/);
-    assert.match(src, /if \(menu\.persist && menu\.selectedId\) \{[\s\S]*?reloadAgentMenu\(\);/);
+    assert.doesNotMatch(src, /reloadAgentMenu/);
+    assert.doesNotMatch(src, /PopupSystemSku/);
+    assert.match(src, /sel\.addEventListener\('change'[\s\S]*?persist\(id, \{ manual: true \}\);/);
   });
 
-  it('文案：工作空间 + 请先登录占位；altZHint 指向调用平台后端', () => {
-    const { I18N_SCRIPT_RELS } = require('./helpers/txRuntime.js');
-    const merged = { zh: {}, en: {} };
-    for (const rel of I18N_SCRIPT_RELS) {
-      const mod = require(path.join('..', rel));
-      if (!mod || !mod.zh || !mod.en) continue;
-      Object.assign(merged.zh, mod.zh);
-      Object.assign(merged.en, mod.en);
-    }
-    assert.equal(merged.zh.paSaasWorkspaceLabel, '工作空间');
-    assert.equal(merged.en.paSaasWorkspaceLabel, 'Workspace');
-    assert.equal(merged.zh.paSaasWorkspaceNeedLogin, '-- 请先登录 --');
-    assert.equal(merged.en.paSaasWorkspaceNeedLogin, '-- Sign in first --');
-    assert.match(merged.zh.altZHint, /调用平台后端/);
-    assert.match(merged.en.altZHint, /Platform backend/);
-    assert.doesNotMatch(merged.zh.altZHint, /此处的默认工作空间/);
+  it('文案：工作空间 / 重试 / 未登录占位在 popup 文案包（zh + en）', () => {
+    const { zh, en } = require('../lib/i18n-popup-messages.js');
+    assert.equal(zh.paSaasWorkspaceLabel, '工作空间');
+    assert.equal(en.paSaasWorkspaceLabel, 'Workspace');
+    assert.equal(zh.paSaasWorkspaceRetry, '重试');
+    assert.equal(en.paSaasWorkspaceRetry, 'Retry');
+    assert.equal(zh.paSaasWorkspaceNeedLogin, '-- 请先登录 --');
+    assert.equal(en.paSaasWorkspaceNeedLogin, '-- Sign in first --');
   });
 });

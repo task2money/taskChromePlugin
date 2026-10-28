@@ -448,10 +448,9 @@ describe('page-advisor-delivery', () => {
     assert.doesNotMatch(brand.slice(detailsStart, detailsEnd), /\bopen\b/);
   });
 
-  it('转发目标区块不重复品牌标题，且不在自动创新智能体内', () => {
+  it('转发目标区块不重复品牌标题，且旧智能体区已删除', () => {
     const html = fs.readFileSync(path.join(__dirname, '../popup/popup.html'), 'utf8');
     const brand = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];
-    const llm = html.match(/id="pageAdvisorLlmSection"[\s\S]*?<\/section>/)[0];
     assert.match(brand, /id="popupDeliveryTargetField"/);
     assert.match(brand, /data-i18n="paDeliveryLegend"/);
     assert.match(brand, />转发目标</);
@@ -464,11 +463,10 @@ describe('page-advisor-delivery', () => {
     assert.doesNotMatch(brand, /data-i18n="extTitle"/);
     assert.doesNotMatch(brand, /天天赚钱/);
     assert.match(brand, /class="region-help"/);
-    assert.doesNotMatch(llm, /id="popupDeliveryTargetField"/);
-    assert.doesNotMatch(llm, /data-i18n="paDeliveryHint"/);
+    assert.doesNotMatch(html, /id="pageAdvisorLlmSection"/);
     const brandIdx = html.indexOf('id="pluginDeliverySection"');
-    const llmIdx = html.indexOf('id="pageAdvisorLlmSection"');
-    assert.ok(brandIdx >= 0 && llmIdx > brandIdx, '品牌转发目标区应在智能体区之前');
+    const wsIdx = html.indexOf('id="pageAdvisorWorkspaceSection"');
+    assert.ok(brandIdx >= 0 && wsIdx > brandIdx, '品牌转发目标区应在网页优化设置之前');
   });
 
   it('Alt+X 确认路径按送达渠道转发（IDE 不写任务描述）', () => {

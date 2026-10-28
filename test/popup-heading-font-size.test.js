@@ -1,11 +1,10 @@
 'use strict';
 
 /**
- * OPT-20260927-001：标题行登录/技能按钮与「闲置集市」链接共用同一个 10px 字号类。
+ * OPT-20260927-001：标题行按钮共用同一个 10px 字号类。
  *
- * 此前链接用小行内 `font-size:10px` 对齐按钮，行内值与样式表各改各的，
- * 标题行字号会漂移。现在字号只由 .heading-sm 提供一处定义，两组元素共用。
- * LLM「设置」已移到「已保存的 Key」下拉旁，不再使用 heading-sm。
+ * 字号只由 .heading-sm 提供一处定义。随调用方式/提示词 Skill 区块删除，
+ * 标题行只剩登录按钮；旧标题里的集市/技能设置链接已不存在。
  */
 
 const { describe, it } = require('node:test');
@@ -40,23 +39,11 @@ describe('Popup 标题行字号由 .heading-sm 单点提供', () => {
     assert.ok(headingAt > btnSmAt, '.heading-sm 必须在 .btn-sm 之后，否则被其 11px 覆盖');
   });
 
-  it('登录/技能按钮与集市链接带 heading-sm；LLM 设置在下拉旁不带', () => {
-    for (const id of ['btnToggleLogin', 'btnToggleSkillSettings', 'lnkIdleMarket', 'lnkPromptMarket']) {
-      assert.match(tagFor(id), /\bclass="[^"]*\bheading-sm\b/, `#${id} 缺少 heading-sm 类`);
+  it('登录按钮带 heading-sm；已删区块的标题行链接不再出现在 popup.html', () => {
+    assert.match(tagFor('btnToggleLogin'), /\bclass="[^"]*\bheading-sm\b/, '#btnToggleLogin 缺少 heading-sm 类');
+    for (const id of ['btnToggleSkillSettings', 'lnkIdleMarket', 'lnkPromptMarket', 'btnToggleLlmSettings']) {
+      assert.doesNotMatch(popupHtml, new RegExp(`\\bid="${id}"`), `#${id} 属已删除区块，不应再出现`);
     }
-    assert.doesNotMatch(tagFor('btnToggleLlmSettings'), /\bheading-sm\b/,
-      '#btnToggleLlmSettings 已移出标题行，不应再带 heading-sm');
-  });
-
-  it('闲置集市链接不再用行内字号，按钮规则也不再自带 font-size', () => {
-    assert.doesNotMatch(tagFor('lnkIdleMarket'), /style=/, '#lnkIdleMarket 不得再有行内 style');
-    assert.doesNotMatch(popupCss, /#btnToggleSkillSettings[^{]*\{[^}]*font-size/,
-      '技能设置按钮规则里的 font-size 应只由 .heading-sm 提供');
-  });
-
-  it('链接的不换行与不收缩改由 popup.css 规则承担', () => {
-    assert.match(popupCss, /#lnkIdleMarket\s*\{[^}]*white-space:\s*nowrap/);
-    assert.match(popupCss, /#lnkIdleMarket\s*\{[^}]*flex-shrink:\s*0/);
   });
 
   it('popup-guide.css 已挂到 popup.html，且在 popup.css 之后、浅色层之前', () => {
