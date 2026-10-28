@@ -84,6 +84,12 @@ describe('侧栏柔和表面', () => {
     assert.match(panelCss, /\.btn-danger \{[^}]*border-color:\s*var\(--taskplugin-border\)/);
   });
 
+  it('页签文字比正文字号更小，仍保留 44px 触控高度', () => {
+    const tab = ruleBodies(shellCss, '.sp-tab');
+    assert.match(tab, /font-size:\s*12px/);
+    assert.match(tab, /min-height:\s*44px/);
+  });
+
   it('页签选中态与壳层都是白底，字色是暗金', () => {
     const tab = ruleBodies(shellCss, '.sp-tab[aria-selected="true"]');
     assert.match(tab, /color:\s*var\(--taskplugin-accent-ink\)/);

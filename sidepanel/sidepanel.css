@@ -28,7 +28,7 @@ html, body {
   border: 1px solid var(--taskplugin-border);
   background: var(--taskplugin-muted);
   color: var(--taskplugin-muted-foreground);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   border-radius: 999px;
