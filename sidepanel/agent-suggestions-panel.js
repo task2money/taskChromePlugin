@@ -2,8 +2,9 @@
  * 侧边栏「智能体建议」：只放当前网页的建议贴，并按需为当前网页生成一条。
  *
  * 列表固定跟随当前网页（不再有网址框与查询按钮，ADR-0167）。用户能选的是
- * 提示词（本机 prompt skills 多选一），点「给当前网页生成建议」后由后台生成并
- * 落到域名所属项目（没绑定则默认项目），落点项目名由后台回报。
+ * 提示词（服务端目录多选一，选中值记忆在 `pageAdvisorSelectedPromptId`），
+ * 点「给当前网页生成建议」后由后台生成并落到域名所属项目（没绑定则默认项目），
+ * 落点项目名由后台回报。
  */
 (function initAgentSuggestionsPanel(global) {
   'use strict';
@@ -15,8 +16,11 @@
   // 匿名试用的结果只活在这一次面板会话里；列表刷新（登录态）时要收起。
   var trialShown = false;
   var trialHintSeq = 0;
-  // 与下拉菜单同源的技能缓存，供点击生成时同步取用（见 bindPromptSelect）。
-  var skillList = [];
+  // 下拉当前渲染的服务端条目：生成时只用它把选中项的 tendency 一并回传。
+  var promptSkills = [];
+  // 下拉加载序号：工作空间连续切换 / 重试时只认最后一次响应。
+  var promptLoadSeq = 0;
+  var promptWorkspaceListener = null;
   var confirmGuard = global.ClickGuard && ClickGuard.createClickGuard
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
@@ -48,6 +52,28 @@
 
   function reloadRetryButton() {
     return document.getElementById('sp-agent-reload-retry');
+  }
+
+  function promptStatusEl() {
+    return document.getElementById('sp-agent-prompt-status');
+  }
+
+  function promptRetryButton() {
+    return document.getElementById('sp-agent-prompt-retry');
+  }
+
+  function promptOptionsApi() {
+    return global.PageAdvisorPromptOptions || null;
+  }
+
+  function setPromptStatus(text) {
+    const el = promptStatusEl();
+    if (el) el.textContent = text || '';
+  }
+
+  function setPromptRetryVisible(visible) {
+    const btn = promptRetryButton();
+    if (btn) btn.hidden = !visible;
   }
 
   /**
@@ -313,68 +339,166 @@
     }
   }
 
+  /** 默认项文案：有默认标题时「默认 · 标题」，目录没给标题时退回通用「默认提示词」。 */
+  function promptDefaultLabel(defaultTitle) {
+    const title = String(defaultTitle || '').trim();
+    return title ? tx('paPromptDefaultOption', { title }) : tx('agentSuggestionsPromptDefault');
+  }
+
+  /** 选项正文：标题 + 审计/工作空间标记（`<option>` 只能放纯文本，标记拼进文案）。 */
+  function promptOptionLabel(skill) {
+    let label = String(skill.title || skill.id || '');
+    if (String(skill.runtime || '') === 'audit') label += ' · ' + tx('paPromptAuditBadge');
+    if (skill.readonly === false) label += ' · ' + tx('paPromptWorkspaceBadge');
+    return label;
+  }
+
   /**
-   * 本机文档空着时补上系统预埋，否则下拉只剩「默认提示词」一项，等于没得选。
-   * 必须落盘：生成时后台按 id 回本机文档取正文（sw-agent-suggestions.js），
-   * 只在下拉里显示而不落盘的项，选中后会悄悄退回默认提示词。
-   * 本机已有条目就交给 popup 的目录同步去做，这里不抢。
+   * 渲染服务端目录：首项是默认项（value=''），其余按服务端顺序，跳过与默认 id 重复的条目。
+   * 只画元数据，提示词正文从不进入 DOM。
    */
-  async function seedSystemCatalog(store) {
-    const Skills = global.PageAdvisorPromptSkills;
-    if (!Skills || typeof Skills.applySystemCatalogDefault !== 'function') return store;
-    if (Array.isArray(store?.skills) && store.skills.length) return store;
+  function renderPromptOptions(skills, defaultSkillId, defaultTitle) {
+    const sel = promptSelect();
+    if (!sel) return [];
+    const list = (Array.isArray(skills) ? skills : [])
+      .filter((skill) => skill && String(skill.id || '').trim());
+    const defaultId = String(defaultSkillId || '').trim();
+    const defaultSkill = list.find((skill) => String(skill.id) === defaultId) || null;
+    const title = String(defaultTitle || '').trim() || String(defaultSkill?.title || '');
+    const html = [`<option value="">${esc(promptDefaultLabel(title))}</option>`];
+    list.forEach((skill) => {
+      const id = String(skill.id).trim();
+      if (defaultId && id === defaultId) return;
+      html.push(`<option value="${esc(id)}">${esc(promptOptionLabel(skill))}</option>`);
+    });
+    sel.innerHTML = html.join('');
+    promptSkills = list;
+    return list;
+  }
+
+  async function readStoredPromptId() {
+    const api = promptOptionsApi();
+    if (!api || typeof api.loadSelectedId !== 'function') return '';
     try {
-      const lastWs = global.Storage && typeof global.Storage.getLastWorkspace === 'function'
-        ? String(await global.Storage.getLastWorkspace() || '').trim()
-        : '';
-      const rec = Skills.applySystemCatalogDefault(
-        store,
-        { skills: typeof Skills.bundledPresetSkills === 'function' ? Skills.bundledPresetSkills() : [] },
-        lastWs || 'local',
-      );
-      if (rec?.action === 'applied' && typeof Skills.saveToStorage === 'function') {
-        await Skills.saveToStorage(rec.store, global.Storage || null);
-      }
-      return rec?.store || store;
-    } catch (e) {
-      console.warn('[taskChromePlugin] seed prompt skills:', e?.message || e);
-      return store;
+      return String(await api.loadSelectedId() || '').trim();
+    } catch (_e) {
+      return '';
     }
   }
 
-  async function loadPromptStore() {
-    const Skills = global.PageAdvisorPromptSkills;
-    if (!Skills || typeof Skills.loadFromStorage !== 'function') {
-      return { skills: [], activeSkillId: '' };
-    }
+  function persistPromptId(id) {
+    const api = promptOptionsApi();
+    if (!api || typeof api.saveSelectedId !== 'function') return;
     try {
-      return await seedSystemCatalog(await Skills.loadFromStorage());
-    } catch (e) {
-      console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
-      return { skills: [], activeSkillId: '' };
-    }
+      const pending = api.saveSelectedId(String(id || '').trim());
+      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+    } catch (_e) { /* 选择记忆失败不影响本次生成（仍按下拉当前值发） */ }
   }
 
-  function plainSkillOptions(skills) {
-    return skills.map((s) => `<option value="${esc(s.id)}">${esc(s.title || s.id)}</option>`).join('');
+  function bindPromptChange() {
+    const sel = promptSelect();
+    if (!sel || sel.dataset.promptBound === '1') return;
+    sel.dataset.promptBound = '1';
+    sel.addEventListener('change', () => {
+      persistPromptId(sel.value);
+    });
   }
 
   /**
-   * 选择不落盘：这是「这一次生成用哪条提示词」，与工作空间级激活技能
-   * （PageAdvisorPromptSkills 的 activeSkillId，ALT+Z 直连用）是两回事。
+   * 选中值取持久化记忆；记忆里的 id 不在新列表里时回落默认项并清掉记忆，
+   * 免得用户以为选中了某条提示词、实际回传的是失效 id。
+   * 默认 id 只由首项代表（它没有独立 option），因此也不属于「可选中项」。
+   */
+  function applyPromptSelection(sel, list, storedId, defaultSkillId) {
+    if (!sel) return '';
+    const defaultId = String(defaultSkillId || '').trim();
+    const present = new Set((Array.isArray(list) ? list : [])
+      .map((skill) => String(skill.id))
+      .filter((id) => id && id !== defaultId));
+    const current = String(sel.value || '').trim();
+    const stored = String(storedId || '').trim();
+    const keep = (current && present.has(current)) ? current
+      : (stored && present.has(stored) ? stored : '');
+    sel.value = keep;
+    if (!keep && stored) persistPromptId('');
+    return keep;
+  }
+
+  /**
+   * 提示词下拉的数据源是后台消息 `loadPageAdvisorPromptOptions`（服务端目录）。
+   * 加载失败只影响下拉：状态行报错 + 露出重试，列表与生成按钮照常可用。
+   * 调用方不 await 本函数：目录要打网络，不能拖住建议列表。
    */
   async function bindPromptSelect() {
     const sel = promptSelect();
     if (!sel) return;
-    const store = await loadPromptStore();
-    const skills = (Array.isArray(store?.skills) ? store.skills : []).filter((s) => s && s.id);
-    const active = String(store?.activeSkillId || '');
-    const keep = sel.value || active;
-    sel.innerHTML = `<option value="">${esc(tx('agentSuggestionsPromptDefault'))}</option>`
-      + plainSkillOptions(skills);
-    sel.value = skills.some((s) => s.id === keep) ? keep : '';
-    // 点生成时要同步拿到技能正文与倾向，故随下拉一起缓存，别在点击里再读一次 storage。
-    skillList = skills;
+    bindPromptChange();
+    const seq = ++promptLoadSeq;
+    const stored = await readStoredPromptId();
+    let resp = null;
+    try {
+      resp = await chrome.runtime.sendMessage({ action: 'loadPageAdvisorPromptOptions' });
+    } catch (_e) {
+      resp = null;
+    }
+    if (seq !== promptLoadSeq) return; // 工作空间连续切换 / 重试：只认最后一次响应
+    if (!resp || resp.ok === false || resp.success === false) {
+      renderPromptOptions([], '', '');
+      setPromptStatus(tx('paPromptLoadFailed'));
+      setPromptRetryVisible(true);
+      return;
+    }
+    const list = renderPromptOptions(resp.skills, resp.defaultSkillId, resp.defaultTitle);
+    applyPromptSelection(sel, list, stored, resp.defaultSkillId);
+    setPromptStatus('');
+    setPromptRetryVisible(false);
+  }
+
+  function bindPromptRetryButton() {
+    const btn = promptRetryButton();
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => { bindPromptSelect().catch(() => {}); });
+  }
+
+  /** 工作空间切了，合并列表的缓存 key 也变了：先清缓存，再按新空间重拉。 */
+  function resetPromptOptionsCache() {
+    const api = promptOptionsApi();
+    if (!api || typeof api.resetCache !== 'function') return;
+    try { api.resetCache(); } catch (_e) { /* 清缓存失败不挡重拉 */ }
+  }
+
+  function removePromptWorkspaceListener() {
+    if (!promptWorkspaceListener) return;
+    try {
+      if (global.chrome && chrome.storage && chrome.storage.onChanged
+        && typeof chrome.storage.onChanged.removeListener === 'function') {
+        chrome.storage.onChanged.removeListener(promptWorkspaceListener);
+      }
+    } catch (_e) { /* 卸载路径不抛 */ }
+    promptWorkspaceListener = null;
+  }
+
+  /**
+   * 工作空间切换（`lastWorkspaceId`）后提示词目录跟着换：清缓存并重拉。
+   * 监听在页面 unload 时移除，避免扩展页销毁后仍留着回调。
+   */
+  function ensurePromptWorkspaceListener() {
+    if (promptWorkspaceListener) return;
+    if (!global.chrome || !chrome.storage || !chrome.storage.onChanged
+      || typeof chrome.storage.onChanged.addListener !== 'function') return;
+    promptWorkspaceListener = (changes, area) => {
+      if (area && area !== 'local') return;
+      if (!changes || !Object.prototype.hasOwnProperty.call(changes, 'lastWorkspaceId')) return;
+      resetPromptOptionsCache();
+      // Anti-Replay-OK: 只重读下拉数据源，不写 storage、不触发生成
+      bindPromptSelect().catch(() => {});
+    };
+    chrome.storage.onChanged.addListener(promptWorkspaceListener);
+    const target = typeof global.addEventListener === 'function'
+      ? global
+      : (global.window && typeof global.window.addEventListener === 'function' ? global.window : null);
+    if (target) target.addEventListener('unload', removePromptWorkspaceListener);
   }
 
   function bindGenerateButton() {
@@ -434,8 +558,11 @@
     const btn = generateButton();
     if (!btn || btn.dataset.busy === '1') return;
     const sel = promptSelect();
-    const skillId = String((sel && sel.value) || '').trim();
-    const skill = skillList.find((s) => s && String(s.id) === skillId) || null;
+    const selectedId = String((sel && sel.value) || '').trim();
+    // 只回传当前列表里的 id：下拉值被外部写脏时按默认提示词处理。
+    const skill = selectedId
+      ? (promptSkills.find((s) => s && String(s.id) === selectedId) || null)
+      : null;
 
     btn.dataset.busy = '1';
     btn.disabled = true;
@@ -446,7 +573,7 @@
       // Anti-Replay-OK: 生成由后台带 Idempotency-Key 发一次；这里只挡住重复点击
       const resp = await chrome.runtime.sendMessage({
         action: 'generateAgentSuggestionsForActiveTab',
-        skillId: skill ? String(skill.id) : '',
+        promptSkillId: skill ? String(skill.id) : '',
         promptTendency: skill ? String(skill.tendency || '') : '',
       });
       if (!resp || resp.success === false) {
@@ -504,7 +631,10 @@
    */
   async function refresh(opts) {
     await rememberSiteBase();
-    await bindPromptSelect();
+    // 下拉数据源要打网络：不 await，失败/延迟都不挡建议列表。
+    bindPromptSelect().catch(() => {});
+    bindPromptRetryButton();
+    ensurePromptWorkspaceListener();
     bindGenerateButton();
     bindReloadRetryButton();
     // 探测不挡列表：等它回来再决定要不要露出刷新入口。

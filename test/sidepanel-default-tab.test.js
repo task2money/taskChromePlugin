@@ -45,7 +45,9 @@ describe('side panel default tab', () => {
     assert.match(panel, /listSitePendingForActiveTab/);
     assert.match(panel, /refreshSitePendingForActiveTab/);
     assert.match(panel, /generateAgentSuggestionsForActiveTab/);
-    assert.match(panel, /PageAdvisorPromptSkills/);
+    // 提示词下拉的数据源已改为服务端目录（Task 12）：本机 prompt skills 不再被面板读取。
+    assert.match(panel, /loadPageAdvisorPromptOptions/);
+    assert.match(panel, /PageAdvisorPromptOptions/);
     assert.match(panel, /selectAgentSuggestionPost/);
     assert.doesNotMatch(panel, /buildSitePendingPostBodyHtml/);
     assert.doesNotMatch(panel, /agentSuggestionsIncludeQuery/);

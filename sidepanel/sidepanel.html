@@ -112,6 +112,8 @@
           </label>
           <button type="button" class="btn btn-primary sp-agent-generate" id="sp-agent-generate" data-testid="sp-agent-generate" data-i18n="agentSuggestionsGenerate">给当前网页生成建议</button>
         </div>
+        <p id="sp-agent-prompt-status" class="hint" aria-live="polite" data-testid="sp-agent-prompt-status"></p>
+        <button type="button" class="btn" id="sp-agent-prompt-retry" data-testid="sp-agent-prompt-retry" data-i18n="paPromptRetry" hidden>重试</button>
         <button type="button" class="btn sp-agent-reload-retry" id="sp-agent-reload-retry" data-testid="sp-agent-reload-retry" data-i18n="agentSuggestionsReloadRetry" hidden>刷新当前网页并重试</button>
         <p id="sp-agent-status" class="hint" aria-live="polite" data-testid="sp-agent-status"></p>
         <div id="sp-agent-posts" data-testid="sp-agent-posts"></div>
@@ -158,9 +160,10 @@
   <script src="builtin-model-panel.js"></script>
   <script src="sidepanel-edge-sell-boot.js"></script>
   <script src="../lib/task-detail-href.js"></script>
-  <!-- 提示词下拉的数据源：本机 prompt skills。顺序即依赖：预埋表 → 目录 → 本机文档。
-       浏览器里没有 require，`page-advisor-prompt-skills.js` 顶部的 require 守卫不会生效，
-       少一个脚本标签 `PageAdvisorPromptSkills` 就是 undefined，下拉只剩「默认提示词」一项。 -->
+  <!-- 提示词下拉的数据源已改为服务端目录：面板发后台消息 loadPageAdvisorPromptOptions，
+       选中值经 PageAdvisorPromptOptions 记忆（pageAdvisorSelectedPromptId）。
+       下面三个本机 prompt skills 脚本只等 Task 15 统一删除，本页不再读取。 -->
+  <script src="../lib/page-advisor-prompt-options.js"></script>
   <script src="../lib/page-advisor-preset-skills.js"></script>
   <script src="../lib/page-advisor-prompt-skill-catalog.js"></script>
   <script src="../lib/page-advisor-prompt-skills.js"></script>
