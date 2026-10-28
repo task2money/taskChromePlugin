@@ -49,7 +49,6 @@ const ALL_MESSAGE_RELS = [
   'lib/i18n-ui-messages.js',
   'lib/i18n-panel-messages.js',
   'lib/i18n-popup-messages.js',
-  'lib/i18n-llm-route.js',
   'lib/i18n-locale-messages.js',
   'lib/i18n-site-pending-tabs.js',
   'lib/i18n-skill-browse-messages.js',
@@ -115,7 +114,7 @@ function pageScriptsFromHtml(htmlRel) {
 /**
  * 仅加载某个扩展页 HTML 实际注入的文案包（i18n* 但非 i18n-tx.js）。
  * 与 loadContentScriptMessageTables 同理，但取词入口是页面 <script src> 而非 manifest：
- * 防止「全表有键、本页未注入 → 页面显示裸 key」（如 panel.html 未加载 i18n-llm-route.js）。
+ * 防止「全表有键、本页未注入 → 页面显示裸 key」（如 panel.html 未加载 i18n-site-pending-tabs.js）。
  */
 function loadPageInjectedMessageTables(htmlRel) {
   const scripts = pageScriptsFromHtml(htmlRel);

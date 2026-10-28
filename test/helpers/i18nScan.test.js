@@ -20,7 +20,7 @@ const {
 } = require('./i18nScan.js');
 
 describe('i18nScan loadContentScriptMessageTables', () => {
-  it('cs0 注入包含 i18n-llm-route 时 paDeliverAgain* 可取词', () => {
+  it('cs0 注入 popup 文案包后 paDeliverAgain* 可取词', () => {
     const tables = loadContentScriptMessageTables();
     assert.equal(typeof tables['zh-CN'].paDeliverAgainAll, 'string');
     assert.equal(typeof tables.en.paDeliverAgainAll, 'string');
@@ -36,10 +36,13 @@ describe('i18nScan loadContentScriptMessageTables', () => {
     assert.deepEqual(checkTxKeys(rel, src, tables), []);
   });
 
-  it('manifest content_scripts#0 含 i18n-llm-route.js', () => {
+  it('manifest content_scripts#0 注入的脚本都存在且含 popup 文案包', () => {
     const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'));
     const cs0 = manifest.content_scripts[0].js;
-    assert.ok(cs0.includes('lib/i18n-llm-route.js'));
+    for (const rel of cs0) {
+      assert.ok(fs.existsSync(path.join(ROOT, rel)), `${rel} 不存在`);
+    }
+    assert.ok(cs0.includes('lib/i18n-popup-messages.js'));
   });
 });
 
@@ -52,24 +55,24 @@ describe('i18nScan loadPageInjectedMessageTables（扩展页按入口注入）',
     assert.ok(!scripts.some((rel) => rel.startsWith('../')), '脚本路径未归一化');
   });
 
-  it('panel.html 未注入 i18n-llm-route → 其表中无 paLlmRouteLegend', () => {
-    // 这条差异是本门禁的存在理由：全量表里 paLlmRouteLegend 有键，
-    // 但 panel 页面脚本一旦取词它就会渲染裸 key——旧门禁用全量表验不出。
+  it('panel.html 未注入侧栏建议贴文案包 → 其表中无 agentSuggestionsTab', () => {
+    // 这条差异是本门禁的存在理由：全量表里有该键，但 panel 页面脚本一旦取词
+    // 它就会渲染裸 key——旧门禁用全量表验不出。
     const panelTables = loadPageInjectedMessageTables('panel/panel.html');
-    assert.equal(panelTables['zh-CN'].paLlmRouteLegend, undefined);
-    assert.equal(panelTables.en.paLlmRouteLegend, undefined);
+    assert.equal(panelTables['zh-CN'].agentSuggestionsTab, undefined);
+    assert.equal(panelTables.en.agentSuggestionsTab, undefined);
+    const sideTables = loadPageInjectedMessageTables('sidepanel/sidepanel.html');
+    assert.equal(sideTables['zh-CN'].agentSuggestionsTab, '网页优化');
+    assert.equal(sideTables.en.agentSuggestionsTab, 'Page optimization');
   });
 
-  it('popup.html 不再注入 i18n-llm-route → 其表无 paLlmRouteLegend', () => {
-    // 调用方式区块已从 popup 删除，popup.html 不再加载该文案包。
-    const popupTables = loadPageInjectedMessageTables('popup/popup.html');
-    assert.equal(popupTables['zh-CN'].paLlmRouteLegend, undefined);
-    assert.equal(popupTables.en.paLlmRouteLegend, undefined);
-  });
-
-  it('sidepanel.html 注入了 i18n-llm-route → 其表可取 paLlmRouteLegend', () => {
-    const sidepanelTables = loadPageInjectedMessageTables('sidepanel/sidepanel.html');
-    assert.equal(typeof sidepanelTables['zh-CN'].paLlmRouteLegend, 'string');
-    assert.equal(typeof sidepanelTables.en.paLlmRouteLegend, 'string');
+  it('侧栏与弹窗都注入 popup 文案包，且注入脚本文件存在', () => {
+    for (const html of ['popup/popup.html', 'sidepanel/sidepanel.html']) {
+      const scripts = pageScriptsFromHtml(html);
+      assert.ok(scripts.includes('lib/i18n-popup-messages.js'), `${html} 未注入 popup 文案包`);
+      for (const rel of scripts) {
+        assert.ok(fs.existsSync(path.join(ROOT, rel)), `${html} 注入的 ${rel} 不存在`);
+      }
+    }
   });
 });

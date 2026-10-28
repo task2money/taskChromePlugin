@@ -108,12 +108,6 @@ async function installChromeStub(page, options = {}) {
               },
             };
           }
-          if (msg?.action === 'getSystemAgents') {
-            return {
-              success: true,
-              data: { items: [{ id: 'sku-a', name: '系统甲' }, { id: 'sku-b', name: '系统乙' }] },
-            };
-          }
           return { success: true };
         },
         lastError: null,

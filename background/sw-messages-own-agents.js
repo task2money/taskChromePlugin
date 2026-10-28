@@ -22,57 +22,9 @@ async function resolveTenantWorkspaceFromMessage(message) {
   return { tenantId, workspaceId };
 }
 
+// 自有智能体下拉随本地提示词 / 直连链一并下线；保留消息契约，旧页面不会等超时。
 async function handleGetOwnAgents(message) {
   await initApiFromMessage(message);
-  const resolved = await resolveTenantWorkspaceFromMessage(message);
-  const tenantId = resolved.tenantId;
-  const workspaceId = resolved.workspaceId;
-  const Menu = (typeof PopupSystemSkuMenu !== 'undefined') ? PopupSystemSkuMenu : null;
-  const collect = Menu && typeof Menu.collectOwnAgentOptions === 'function'
-    ? (payload) => Menu.collectOwnAgentOptions(payload)
-    : () => [];
-  const pickData = (resp) => (resp && typeof resp === 'object' && resp.data) ? resp.data : resp;
-  if (tenantId && workspaceId && typeof API.getWorkspaceFeatureParamsSummary === 'function') {
-    try {
-      const ws = await API.getWorkspaceFeatureParamsSummary(tenantId, workspaceId);
-      const own = collect(pickData(ws));
-      if (own.length) {
-        console.info('[taskChromePlugin] own agents from workspace', {
-          tenantId, workspaceId, count: own.length,
-        });
-        return { success: true, data: pickData(ws) };
-      }
-    } catch (e) {
-      console.warn('[taskChromePlugin] workspace own agents skipped', {
-        message: e?.message || '', traceId: e?.traceId || '',
-      });
-    }
-  }
-  if (tenantId && typeof API.getCompanyFeatureParamsSummary === 'function') {
-    try {
-      const co = await API.getCompanyFeatureParamsSummary(tenantId);
-      const own = collect(pickData(co));
-      if (own.length) {
-        console.info('[taskChromePlugin] own agents from company', { tenantId, count: own.length });
-        return { success: true, data: pickData(co) };
-      }
-    } catch (e) {
-      console.warn('[taskChromePlugin] company own agents skipped', {
-        message: e?.message || '', traceId: e?.traceId || '',
-      });
-    }
-  }
-  if (typeof API.getPersonalFeatureParamsConfigs === 'function') {
-    const personal = await API.getPersonalFeatureParamsConfigs();
-    const items = Array.isArray(personal) ? personal : (personal?.results || personal?.data || personal?.items || []);
-    for (const item of items) {
-      const own = collect(item);
-      if (own.length) {
-        console.info('[taskChromePlugin] own agents from personal', { count: own.length });
-        return { success: true, data: item };
-      }
-    }
-  }
   return { success: true, data: { providers: [] } };
 }
 
@@ -117,37 +69,4 @@ async function handleGetTenantAgentPref(message) {
     }
   }
   return { success: true, data };
-}
-
-async function overlayPageAdvisorTenantPref(llmCfg, tenantId) {
-  const cfg = llmCfg && typeof llmCfg === 'object' ? llmCfg : {};
-  const tid = String(tenantId || '').trim();
-  if (!tid) return cfg;
-  try {
-    const res = await handleGetTenantAgentPref({ tenantId: tid });
-    if (!res || res.success === false || !res.data) return cfg;
-    const Menu = (typeof PopupSystemSkuMenu !== 'undefined') ? PopupSystemSkuMenu : null;
-    if (!Menu || typeof Menu.mergeLlmCfgWithTenantPref !== 'function') return cfg;
-    const merged = Menu.mergeLlmCfgWithTenantPref(cfg, res.data);
-    if (typeof PageAdvisorLlmConfig !== 'undefined'
-      && typeof PageAdvisorLlmConfig.saveToStorage === 'function') {
-      await PageAdvisorLlmConfig.saveToStorage({
-        routeMode: merged.routeMode,
-        systemSkuId: merged.systemSkuId,
-        ownProvider: merged.ownProvider,
-        ownModel: merged.ownModel,
-        profileAction: 'route-only',
-      }).catch(() => {});
-    }
-    console.info('[taskChromePlugin] overlay tenant agent pref', {
-      tenantId: tid,
-      mode: res.data.mode || '',
-    });
-    return merged;
-  } catch (e) {
-    console.warn('[taskChromePlugin] tenant agent pref overlay skipped', {
-      message: e?.message || '', traceId: e?.traceId || '',
-    });
-    return cfg;
-  }
 }

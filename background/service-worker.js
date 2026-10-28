@@ -15,7 +15,6 @@ importScripts(
   '../lib/i18n-panel-messages.js',
   '../lib/i18n-popup-messages.js',
   '../lib/i18n-site-pending-tabs.js',
-  '../lib/i18n-llm-route.js',
   '../lib/i18n-tx.js',
   '../lib/i18n-hardware-stock-messages.js',
   '../lib/runtime-config.values.js',
@@ -44,25 +43,19 @@ importScripts(
   '../lib/page-advisor-api.js',
   '../lib/page-advisor-trial-api.js',
   '../lib/page-advisor-fail-trace-id.js',
-  '../lib/page-advisor-llm-config.js',
-  '../lib/page-advisor-preset-skills.js',
-  '../lib/page-advisor-prompt-skill-catalog.js',
-  '../lib/page-advisor-prompt-skills.js',
   '../lib/page-advisor-locale-prompt.js',
   '../lib/page-advisor-anchor.js',
-  '../lib/llm-call-ledger.js',
-  '../lib/page-advisor-llm-client.js',
   '../lib/page-advisor-timing.js',
   '../lib/page-advisor-builtin-runtime.js',
   '../lib/page-advisor-builtin-language.js',
   '../lib/page-advisor-builtin-fit.js',
   '../lib/page-advisor-hardware-tier.js',
   '../lib/page-advisor-builtin-progress.js',
-  '../lib/page-advisor-builtin-suggest.js',
   '../lib/page-advisor-builtin-prompt.js',
   '../lib/page-advisor-builtin-enable.js',
   '../lib/page-advisor-defaults.js',
   '../lib/page-advisor-prompt-options.js',
+  '../lib/page-advisor-legacy-cleanup.js',
   '../lib/page-advisor-site-pending.js',
   // v233：匿名优化贴的本地访问入口（试用落贴后刷新页面仍可看、可领取）。
   '../lib/page-advisor-anon-posts.js',
@@ -83,7 +76,6 @@ importScripts(
   // OPT-20261014-037：Alt+Z 平台默认工作空间解析复用弹窗同一实现
   // （lib/page-advisor-defaults.js 经 PopupSaasWorkspaceMenu 取 SSOT）。
   '../lib/popup-saas-workspace.js',
-  '../lib/popup-system-sku.js',
   './sw-messages-own-agents.js',
   './sw-messages-session.js',
   './sw-messages-task.js',
@@ -154,7 +146,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.runtime.onInstalled.addListener(() => {
   whenI18nReady()
-    .then(() => {
+    .then(async () => {
+      // 直连 Key / 内置生成 / 本地提示词三链下线：安装或升级时清掉旧存储。
+      if (typeof PageAdvisorLegacyCleanup !== 'undefined'
+        && typeof PageAdvisorLegacyCleanup.cleanupLegacyStorage === 'function') {
+        await PageAdvisorLegacyCleanup.cleanupLegacyStorage();
+      }
       if (globalThis.PluginInstallFingerprint?.ensurePluginInstallFingerprint) {
         return PluginInstallFingerprint.ensurePluginInstallFingerprint(chrome.storage.local);
       }
@@ -200,6 +197,11 @@ chrome.commands.onCommand.addListener(async (command) => {
     await whenI18nReady();
     await Storage.migrateStaleTokenExpiryOnce();
     await Storage.purgeLegacyFloatBallStorageOnce();
+    // 旧链存储清理属于尽力而为：失败只告警，不阻断启动。
+    if (typeof PageAdvisorLegacyCleanup !== 'undefined'
+      && typeof PageAdvisorLegacyCleanup.cleanupLegacyStorage === 'function') {
+      await PageAdvisorLegacyCleanup.cleanupLegacyStorage();
+    }
     const cfg = await Storage.getApiConfig();
     const mapping = await Storage.getEndpointMapping();
     const cred = await Storage.getCredentials();

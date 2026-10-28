@@ -111,12 +111,11 @@ describe('登录门闩下拉共用模块（OPT-20261006-014）', () => {
     const shared = html.indexOf('../lib/popup-login-gated-select.js');
     assert.ok(shared >= 0, 'popup.html 应加载共用模块');
     assert.ok(shared < html.indexOf('../lib/popup-saas-workspace.js'));
-    assert.doesNotMatch(html, /lib\/popup-system-sku\.js/);
 
     const sw = fs.readFileSync(path.join(ROOT, 'background/service-worker.js'), 'utf8');
     const swShared = sw.indexOf("'../lib/popup-login-gated-select.js'");
     assert.ok(swShared >= 0, 'service-worker 应 importScripts 共用模块');
-    assert.ok(swShared < sw.indexOf("'../lib/popup-system-sku.js'"));
+    assert.ok(swShared < sw.indexOf("'../lib/popup-saas-workspace.js'"));
 
     const wsUi = fs.readFileSync(path.join(ROOT, 'popup/popup-saas-workspace.js'), 'utf8');
     assert.match(wsUi, /LoginGatedSelect\.createRetryController/);

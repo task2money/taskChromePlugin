@@ -219,7 +219,6 @@
   /** 通知依赖登录态的 Popup 模块（工作空间行等）。 */
   function setLoginGatedModules(loggedIn) {
     window.PopupSaasWorkspace?.setLoggedIn?.(loggedIn);
-    window.PopupSystemSku?.setLoggedIn?.(loggedIn);
   }
 
   function setPluginDeliverySectionVisible(visible) {
@@ -264,18 +263,6 @@
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'none';
     setPluginDeliverySectionVisible(true);
-    if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
-      window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
-    }
-    if (window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig) {
-      window.PopupPageAdvisorLlm.loadPageAdvisorLlmConfig();
-    }
-    if (window.PopupPageAdvisorSkills?.setSkillSectionVisible) {
-      window.PopupPageAdvisorSkills.setSkillSectionVisible(true);
-    }
-    if (window.PopupPageAdvisorSkills?.loadSkills) {
-      window.PopupPageAdvisorSkills.loadSkills();
-    }
     setLoginGatedModules(false);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
@@ -345,12 +332,6 @@
     if (shortcutsSec) shortcutsSec.style.display = 'block';
     if (reqSec) reqSec.style.display = 'block';
     setPluginDeliverySectionVisible(true);
-    if (window.PopupPageAdvisorLlm?.setLlmSectionVisible) {
-      window.PopupPageAdvisorLlm.setLlmSectionVisible(true);
-    }
-    if (window.PopupPageAdvisorSkills?.setSkillSectionVisible) {
-      window.PopupPageAdvisorSkills.setSkillSectionVisible(true);
-    }
     setLoginGatedModules(true);
     setPopupGuideVisible(true);
     mountPopupUserGuide();
@@ -470,12 +451,6 @@
       const results = await Promise.allSettled([
         loadTrackingConfig(),
         loadCapturedRequests(),
-        window.PopupPageAdvisorLlm?.loadPageAdvisorLlmConfig
-          ? window.PopupPageAdvisorLlm.loadPageAdvisorLlmConfig()
-          : Promise.resolve(),
-        window.PopupPageAdvisorSkills?.loadSkills
-          ? window.PopupPageAdvisorSkills.loadSkills()
-          : Promise.resolve(),
       ]);
       for (const r of results) {
         if (r.status === 'rejected') {

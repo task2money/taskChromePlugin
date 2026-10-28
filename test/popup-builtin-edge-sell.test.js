@@ -38,7 +38,7 @@ describe('Popup / 侧栏 本机模型出售', () => {
     const sp = sidepanelHtml();
     assert.match(sp, /id="sp-tab-builtin"[^>]*data-i18n="paBuiltinTab"/);
     assert.doesNotMatch(sp, /id="sp-tab-builtin"[^>]*\bhidden\b/);
-    assert.match(sp, /data-i18n="paBuiltinTab"[^>]*>本机模型</);
+    assert.match(sp, /data-i18n="paBuiltinTab"[^>]*>本机模型（边缘算力）</);
     const sec = edgeSellSection();
     assert.match(sec, /id="builtinEdgeSellSection"[^>]*(?:\bhidden\b|style="display:none")/);
     assert.match(sec, /<select[^>]*id="builtinEdgeProjectId"/);

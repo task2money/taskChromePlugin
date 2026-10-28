@@ -33,13 +33,17 @@ describe('service-worker', () => {
     assert.ok(watchdog > enableLib);
   });
 
-  it('importScripts 含 popup-system-sku 与 getOwnAgents', () => {
+  it('importScripts 含旧链清理模块，且每个植入脚本都存在', () => {
     const sw = fs.readFileSync(path.join(__dirname, '..', 'background/service-worker.js'), 'utf8');
-    const menu = sw.indexOf('../lib/popup-system-sku.js');
+    const cleanup = sw.indexOf('../lib/page-advisor-legacy-cleanup.js');
     const own = sw.indexOf('./sw-messages-own-agents.js');
     const session = sw.indexOf('./sw-messages-session.js');
-    assert.ok(menu >= 0);
-    assert.ok(own > menu);
+    assert.ok(cleanup >= 0, 'missing legacy cleanup import');
+    assert.ok(own > cleanup);
     assert.ok(session > own);
+    const block = sw.slice(sw.indexOf('importScripts('), sw.indexOf(');', sw.indexOf('importScripts(')));
+    for (const m of block.matchAll(/'([^']+\.js)'/g)) {
+      assert.ok(fs.existsSync(path.join(__dirname, '../background', m[1])), `${m[1]} 不存在`);
+    }
   });
 });

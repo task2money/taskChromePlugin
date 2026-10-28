@@ -22,7 +22,6 @@ const I18N_SCRIPTS = [
   '../lib/i18n-panel-messages.js',
   '../lib/i18n-popup-messages.js',
   '../lib/i18n-site-pending-tabs.js',
-  '../lib/i18n-llm-route.js',
   '../lib/i18n-tx.js',
 ];
 

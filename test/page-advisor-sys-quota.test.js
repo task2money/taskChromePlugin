@@ -30,7 +30,7 @@ describe('系统智能体次数用尽引导', () => {
   });
 
   it('新增 i18n 键中英齐备', () => {
-    const i18n = read('lib/i18n-llm-route.js');
+    const i18n = read('lib/i18n-popup-messages.js');
     for (const key of ['paSysQuotaExhausted', 'paBuySystemAgent']) {
       const hits = i18n.match(new RegExp(`${key}:`, 'g')) || [];
       assert.ok(hits.length >= 2, `${key} 需中英双语，实际 ${hits.length}`);

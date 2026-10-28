@@ -2,7 +2,7 @@
 
 /**
  * 回归：IDE 转发目标下底栏按钮须显示「发送到 {name}」，不得显示裸 key。
- * 根因曾是 content_scripts 未注入 i18n-llm-route.js。
+ * 文案键随 popup 文案包注入 content_scripts（旧 LLM 路由文案包已删除）。
  */
 
 const { describe, it, before } = require('node:test');
@@ -31,7 +31,7 @@ describe('applyPageAdvisorDeliveryButtonLabels i18n', () => {
     i18n.setLocale('zh-CN');
   });
 
-  it('deliver 底栏取词键与 i18n-llm-route 一致，且不得回退成裸 key', () => {
+  it('deliver 底栏取词键与 popup 文案包一致，且不得回退成裸 key', () => {
     const deliverSrc = fs.readFileSync(
       path.join(ROOT, 'content/float-page-advisor-deliver.js'),
       'utf8',
@@ -44,5 +44,22 @@ describe('applyPageAdvisorDeliveryButtonLabels i18n', () => {
     assert.notEqual(labelOne, 'paDeliverAgainOne');
     assert.match(labelAll, /Claude/);
     assert.match(labelOne, /Claude/);
+  });
+
+  it('送达说明与分批提示保留原文（搬迁后内容不变）', () => {
+    assert.equal(
+      i18n.t('paDeliverBatched', { count: 3, name: 'Cursor' }),
+      '已把建议分成 3 批打开 Cursor，每批都可单独应用。',
+    );
+    assert.match(i18n.t('paDeliveryHint'), /「转发目标」一次只选一个/);
+    assert.match(i18n.t('paDeliveryHint'), /正文超过深链 URL 上限时不截断/);
+
+    i18n.setLocale('en');
+    assert.equal(
+      i18n.t('paDeliverBatched', { count: 3, name: 'Cursor' }),
+      'Opened Cursor in 3 batches. Apply each batch on its own.',
+    );
+    assert.match(i18n.t('paDeliveryHint'), /forwarded in batches/);
+    i18n.setLocale('zh-CN');
   });
 });

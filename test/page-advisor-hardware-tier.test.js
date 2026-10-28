@@ -6,7 +6,6 @@ const assert = require('node:assert/strict');
 
 const HW = require('../lib/page-advisor-hardware-tier.js');
 const Fit = require('../lib/page-advisor-builtin-fit.js');
-const Suggest = require('../lib/page-advisor-builtin-suggest.js');
 
 describe('PageAdvisorHardwareTier', () => {
   it('按 deviceMemory 估算档位，未知按中档', () => {
@@ -42,11 +41,5 @@ describe('PageAdvisorHardwareTier', () => {
     assert.equal(Fit.inputBudget(1000, 0), 650);
     assert.equal(Fit.inputBudget(0, 0.5), Infinity);
     assert.equal(Fit.inputBudget(10, 0.5), 256);
-  });
-
-  it('suggest.resolveHardwareTier 优先 opts.hardwareTier', () => {
-    assert.equal(Suggest.resolveHardwareTier({ hardwareTier: 'low' }), 'low');
-    assert.equal(Suggest.resolveHardwareTier({ hardwareTier: 'HIGH' }), 'high');
-    assert.equal(Suggest.resolveHardwareTier({ hardwareTier: 'weird' }), 'mid');
   });
 });

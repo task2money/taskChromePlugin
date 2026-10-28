@@ -1,5 +1,5 @@
 /**
- * 生成建议的核心：为某个标签页跑完「取页面 → 选路由 → 出建议」。
+ * 生成建议的核心：为某个标签页跑完「取页面 → 提交平台 → 出建议」。
  *
  * 两个出口共用它：Alt+Z 把结果画到页面上（`background/sw-page-advisor.js`），
  * 侧边栏「给当前网页生成建议」把结果落成优化贴（`background/sw-agent-suggestions.js`）。
@@ -93,26 +93,11 @@ async function resolvePageAdvisorPromptSkillId(rawId) {
 }
 
 /**
- * 三条路由之外的第四条：本机内置模型（Chrome 自带）只在页面上生成，
- * 需要下载/启用引导，侧边栏这条出口不接管它。
- */
-function builtinRouteRefusal() {
-  return {
-    ok: false,
-    error: tx('agentSuggestionsGenerateBuiltin'),
-    errorCode: 'AGENT_SUGGESTIONS_BUILTIN_ROUTE',
-    traceId: '',
-  };
-}
-
-/**
  * @param {number} tabId
  * @param {{
  *   onPhase?: (message: string) => void|Promise<void>,
  *   withSpan?: (id: string, fn: () => Promise<any>) => Promise<any>,
  *   onLlmSpan?: (id: string, startAbs: number, endAbs: number, status: string) => void,
- *   skill?: object|null,
- *   skillLoader?: () => Promise<object|null>,
  *   attachAnchors?: boolean,
  *   promptSkillId?: string,
  * }} [opts]
@@ -131,15 +116,10 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   const cred = await Storage.getCredentials();
   const expired = cfg.token ? await Storage.isTokenExpired() : false;
   const sessionOk = !!(cfg.token && !expired);
-  let { llmCfg, directReady, route } = await loadPageAdvisorDirectReady();
 
-  if (route === 'builtin') return builtinRouteRefusal();
-  if (route === 'direct' && !directReady) {
-    return { ok: false, error: tx('paDirectNeedsConfig'), errorCode: '', traceId: '' };
-  }
-  // 未登录且未配本机 Key：走匿名每日试用（服务端按指纹 + IP + 全局池记账）。
+  // 未登录走匿名每日试用（服务端按指纹 + IP + 全局池记账）；登录后走平台后端。
   // 试用要采集页面上下文后才能提交，故这里不提前返回。
-  const trialMode = !directReady && !sessionOk;
+  const trialMode = !sessionOk;
   if (sessionOk) {
     API.init(cfg.baseUrl, cfg.token, mapping, cred.userId || '');
     if (mapping.owner) API.setOwner(mapping.owner);
@@ -170,17 +150,13 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     pageText: String(data.pageText || ''),
     domOutline: Array.isArray(data.domOutline) ? data.domOutline : [],
   };
-  const skill = await loadSkillSafe(opts);
   const selectedPromptId = await resolvePageAdvisorPromptSkillId(opts.promptSkillId);
 
   const runOnce = async (promptSkillId) => {
     if (trialMode) {
       return generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId });
     }
-    if (directReady) {
-      return generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, tenantId: data.companyId || data.tenantId, opts, withSpan, onPhase });
-    }
-    return generateViaPlatform({ tabId, route, cfg, data, page, locale, llmCfg, opts, withSpan, onPhase, promptSkillId });
+    return generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId });
   };
 
   let result = await runOnce(selectedPromptId);
@@ -197,85 +173,10 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   return result;
 }
 
-/** 提示词是可选增强：取不到就按无提示词生成，别让整次生成失败。 */
-async function loadSkillSafe(opts) {
-  if (typeof opts.skillLoader !== 'function') return opts.skill || null;
-  try {
-    return await opts.skillLoader();
-  } catch (e) {
-    console.warn('[taskChromePlugin] load prompt skills:', e?.message || e);
-    return null;
-  }
-}
-
-async function generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, tenantId, opts, withSpan, onPhase }) {
-  await onPhase(tx('paDirectLlmGenerating'));
-  let suggestions;
-  try {
-    suggestions = await withSpan('network', () => PageAdvisorLLM.suggest(llmCfg, {
-      url: page.url,
-      title: page.title,
-      pageText: page.pageText,
-      domOutline: page.domOutline,
-    }, {
-      skill,
-      locale,
-      onSpan: typeof opts.onLlmSpan === 'function' ? opts.onLlmSpan : undefined,
-    }));
-  } catch (e) {
-    // OPT-20260922-035: 把用户看到的 traceId best-effort 送到观测口，
-    // 让 Loki 能按同一 ID 重建直连失败现场（未登录/无 tenant 由 lib 内部跳过）。
-    const traceId = (typeof APIHttp !== 'undefined' && APIHttp.newRequestTraceId)
-      ? String(APIHttp.newRequestTraceId() || '').trim()
-      : `page-advisor-direct-${Date.now()}`;
-    if (typeof PageAdvisorAPI !== 'undefined'
-      && typeof PageAdvisorAPI.reportDirectLlmFailure === 'function') {
-      await PageAdvisorAPI.reportDirectLlmFailure({
-        sessionOk: !!sessionOk,
-        tenantId,
-        err: e,
-        traceId,
-        model: llmCfg?.model,
-        apiKey: llmCfg?.apiKey,
-      });
-    }
-    return {
-      ok: false,
-      error: e?.message || tx('paGenerateFailed'),
-      errorCode: 'PLUGIN_DIRECT_LLM_FAILED',
-      traceId,
-    };
-  }
-  return {
-    ok: true,
-    route: 'direct',
-    pageUrl: page.url,
-    pageTitle: page.title,
-    tenantId: String(tenantId || '').trim(),
-    suggestions: opts.attachAnchors && typeof attachSuggestionAnchors === 'function'
-      ? attachSuggestionAnchors(suggestions, page.domOutline)
-      : suggestions,
-    jobId: '',
-    // 直连本机模型不使用服务端提示词：落贴不得冒领下拉选中的 id（否则帖会被归因到
-    // 一个并没有产生它的提示词，甚至因 id 失效让整次成功生成白丢）。
-    promptSkillId: '',
-    featureParamsSource: 'plugin_direct',
-    traceId: '',
-  };
-}
-
-async function generateViaPlatform({ tabId, route, cfg, data, page, locale, llmCfg, opts, withSpan, onPhase, promptSkillId }) {
+async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId }) {
   const scope = await resolvePlatformScope(data);
   if (!scope.workspaceId || !scope.tenantId) {
     return { ok: false, error: tx('paSelectWorkspaceAltZ'), errorCode: '', traceId: '' };
-  }
-  if ((route === 'saas' || route === 'system')
-    && typeof overlayPageAdvisorTenantPref === 'function') {
-    llmCfg = await overlayPageAdvisorTenantPref(llmCfg, scope.tenantId);
-    route = (typeof PageAdvisorLlmConfig !== 'undefined'
-      && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
-      ? PageAdvisorLlmConfig.resolveRoute(llmCfg)
-      : route;
   }
 
   let screenshotUrl = '';
@@ -370,7 +271,7 @@ async function generateViaPlatform({ tabId, route, cfg, data, page, locale, llmC
 
   return {
     ok: true,
-    route,
+    route: 'saas',
     pageUrl: body.page_url,
     pageTitle: page.title,
     tenantId: scope.tenantId,

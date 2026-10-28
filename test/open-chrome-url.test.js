@@ -83,7 +83,7 @@ describe('sidepanel / popup load OpenChromeUrl', () => {
 
   it('i18n warns that wrong internals params can brick the on-device model', () => {
     const src = fs.readFileSync(
-      path.join(ROOT, 'lib', 'i18n-llm-route.js'),
+      path.join(ROOT, 'lib', 'i18n-popup-messages.js'),
       'utf8',
     );
     assert.match(

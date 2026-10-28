@@ -302,50 +302,6 @@ async function handleMessage(message, sender) {
         return { success: false, error: e.message, traceId: e.traceId || '' };
       }
 
-    case 'getSystemAgents':
-      try {
-        await initApiFromMessage(message);
-        let tenantId = String(message.companyId || message.tenantId || '').trim();
-        if (!tenantId) {
-          const list = await API.getWorkspaces();
-          const rows = Array.isArray(list) ? list : [];
-          let lastId = '';
-          try {
-            lastId = String((await Storage.getLastWorkspace()) || '');
-          } catch (_) { /* 无上次工作空间 */ }
-          // OPT-20261014-037：无匹配 → 平台默认工作空间 → 才退回 rows[0]
-          const hit = PageAdvisorDefaults.pickWorkspaceEntry(rows, lastId);
-          tenantId = String(hit?.company_id || hit?.companyId || '').trim();
-        }
-        if (!tenantId || typeof PageAdvisorAPI === 'undefined'
-          || typeof PageAdvisorAPI.listTenantSystemAgents !== 'function') {
-          return { success: true, data: { items: [] } };
-        }
-        const data = await PageAdvisorAPI.listTenantSystemAgents(tenantId);
-        // OPT-20261006-021: 贴合计费配额剩余量，供 popup 显示「剩余 (N+M) 次」。
-        // 配额拉取失败不影响智能体列表（不显示剩余，而非显示 0）。
-        try {
-          if (PageAdvisorAPI.getTenantBillingQuotas) {
-            const quotas = await PageAdvisorAPI.getTenantBillingQuotas(tenantId);
-            const Merge = (typeof PopupSystemSkuMenu !== 'undefined'
-              && typeof PopupSystemSkuMenu.mergeSystemSkuRemaining === 'function')
-              ? PopupSystemSkuMenu.mergeSystemSkuRemaining
-              : null;
-            const items = Array.isArray(data && data.items) ? data.items : [];
-            if (Merge) {
-              data.items = Merge(items, quotas && quotas.sys_auto_innovate_skus);
-            }
-          }
-        } catch (e) {
-          console.warn('[taskChromePlugin] system agent quotas skipped', {
-            message: e?.message || '', traceId: e?.traceId || '',
-          });
-        }
-        return { success: true, data };
-      } catch (e) {
-        return { success: false, error: e.message, traceId: e.traceId || '' };
-      }
-
     case 'getOwnAgents':
       try {
         return await handleGetOwnAgents(message);

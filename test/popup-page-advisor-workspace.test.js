@@ -6,7 +6,7 @@
  * - 旧「调用方式 / 直连 Key / 浏览器内置模型 / 提示词 Skill」设置区整块删除；
  * - 登录后只显示工作空间下拉（复用 PopupSaasWorkspace 的默认选择 / 手选持久化）；
  * - 未登录整个设置区不出现，也不再显示「请先登录」占位行；
- * - 工作空间文案随 popup 文案包（i18n-popup-messages.js）加载，不再依赖 i18n-llm-route.js。
+ * - 工作空间文案随 popup 文案包（i18n-popup-messages.js）加载，不再依赖旧 LLM 路由文案包。
  */
 
 const { describe, it } = require('node:test');
@@ -51,28 +51,10 @@ describe('popup.html：设置区只剩工作空间', () => {
     assert.match(html, /data-i18n="paSaasWorkspaceLabel"/);
   });
 
-  it('被删 UI 的脚本不再加载，工作空间模块仍各加载一次', () => {
+  it('工作空间模块各加载一次，且 popup.html 注入的脚本都存在', () => {
     const html = popupHtml();
-    const removed = [
-      'popup-prompt-skill-ui.js',
-      'popup-prompt-skill-session.js',
-      'popup-prompt-skill-cloud.js',
-      'popup-prompt-skills.js',
-      'popup-llm-ledger.js',
-      'popup-llm-config.js',
-      'popup-llm-settings-ui.js',
-      'popup-system-sku.js',
-      'page-advisor-llm-config.js',
-      'llm-call-ledger.js',
-      'page-advisor-preset-skills.js',
-      'page-advisor-prompt-skill-catalog.js',
-      'page-advisor-prompt-skills.js',
-      'page-advisor-skill-draft.js',
-      'i18n-llm-route.js',
-    ];
-    for (const rel of removed) {
-      const re = new RegExp(`src="[^"]*${rel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}"`);
-      assert.doesNotMatch(html, re, `${rel} 仍被 popup.html 加载`);
+    for (const m of html.matchAll(/<script src="([^"]+)"/g)) {
+      assert.ok(fs.existsSync(path.join(ROOT, 'popup', m[1])), `popup.html 注入的 ${m[1]} 不存在`);
     }
     assert.equal((html.match(/src="\.\.\/lib\/popup-saas-workspace\.js"/g) || []).length, 1);
     assert.equal((html.match(/src="popup-saas-workspace\.js"/g) || []).length, 1);
@@ -90,7 +72,7 @@ describe('工作空间显隐纯函数', () => {
 });
 
 describe('i18n：工作空间文案随 popup 文案包加载', () => {
-  it('新键与从 i18n-llm-route.js 搬迁的键在 zh/en 双表齐备', () => {
+  it('新键与搬迁过来的键在 zh/en 双表齐备', () => {
     const { zh, en } = require('../lib/i18n-popup-messages.js');
     const keys = [
       'paWorkspaceSectionTitle',
@@ -151,7 +133,6 @@ function setup({ lastId = '', manual = null, rows = ROWS } = {}) {
 
   const writes = [];
   const sent = [];
-  let systemSkuCalls = 0;
   const sandbox = {
     document: {
       readyState: 'complete',
@@ -180,12 +161,6 @@ function setup({ lastId = '', manual = null, rows = ROWS } = {}) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.self = sandbox;
-  sandbox.window.PopupSystemSku = {
-    loadMenu() {
-      systemSkuCalls += 1;
-      return Promise.resolve();
-    },
-  };
 
   vm.createContext(sandbox);
   vm.runInContext(
@@ -199,7 +174,7 @@ function setup({ lastId = '', manual = null, rows = ROWS } = {}) {
     { filename: 'popup-saas-workspace.js' },
   );
   vm.runInContext(fs.readFileSync(MODULE, 'utf8'), sandbox, { filename: MODULE });
-  return { sandbox, nodes, writes, sent, systemSkuCalls: () => systemSkuCalls };
+  return { sandbox, nodes, writes, sent };
 }
 
 const tick = () => new Promise((resolve) => setImmediate(resolve));
@@ -233,8 +208,8 @@ describe('工作空间设置区显隐与渲染', () => {
     assert.equal(nodes['#popupPageAdvisorWorkspace'].value, 'ws-b');
   });
 
-  it('渲染工作空间并持久化手选（不再联动智能体下拉）', async () => {
-    const { sandbox, nodes, writes, systemSkuCalls } = setup({ lastId: 'ws-b', manual: true });
+  it('渲染工作空间并持久化手选', async () => {
+    const { sandbox, nodes, writes } = setup({ lastId: 'ws-b', manual: true });
     sandbox.window.PopupSaasWorkspace.syncLoggedIn(true);
     await tick();
     await tick();
@@ -246,7 +221,6 @@ describe('工作空间设置区显隐与渲染', () => {
     nodes['#popupPageAdvisorWorkspace'].fire('change');
     await tick();
     assert.deepEqual(writes, [{ id: 'ws-a', manual: true }]);
-    assert.equal(systemSkuCalls(), 0, '智能体选择已删除，不得再调用 PopupSystemSku.loadMenu');
   });
 
   it('未登录会丢弃仍在途的加载结果', async () => {

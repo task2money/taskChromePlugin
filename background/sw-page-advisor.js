@@ -132,24 +132,6 @@ async function notifyContentPageAdvisor(tabId, payload) {
   }
 }
 
-async function loadPageAdvisorDirectReady() {
-  let llmCfg = { apiKey: '', baseUrl: '', model: '' };
-  if (typeof PageAdvisorLlmConfig !== 'undefined' && PageAdvisorLlmConfig.loadFromStorage) {
-    try {
-      llmCfg = await PageAdvisorLlmConfig.loadFromStorage();
-    } catch (e) {
-      console.warn('[taskChromePlugin] load page-advisor LLM config:', e?.message || e);
-    }
-  }
-  const hasCfg = typeof PageAdvisorLlmConfig !== 'undefined';
-  const route = (hasCfg && typeof PageAdvisorLlmConfig.resolveRoute === 'function')
-    ? PageAdvisorLlmConfig.resolveRoute(llmCfg) : 'saas';
-  const keyReady = hasCfg && PageAdvisorLlmConfig.isDirectLlmReady(llmCfg)
-    && typeof PageAdvisorLLM !== 'undefined' && typeof PageAdvisorLLM.suggest === 'function';
-  const directReady = route === 'direct' && keyReady;
-  return { llmCfg, route, directReady };
-}
-
 function resolvePageAdvisorLocale() {
   try {
     if (typeof AidevpushI18n !== 'undefined' && typeof AidevpushI18n.getLocale === 'function') {
@@ -158,39 +140,6 @@ function resolvePageAdvisorLocale() {
     }
   } catch (_) { /* ignore */ }
   return 'zh-CN';
-}
-
-async function loadDirectLlmSkill(sessionOk) {
-  if (typeof PageAdvisorPromptSkills === 'undefined'
-    || typeof PageAdvisorPromptSkills.loadFromStorage !== 'function') {
-    return null;
-  }
-  const store = await PageAdvisorPromptSkills.loadFromStorage();
-  const existing = PageAdvisorPromptSkills.getActive(store);
-  if (existing) return existing;
-  if (!sessionOk) return null;
-  if (typeof PageAdvisorAPI === 'undefined'
-    || typeof PageAdvisorAPI.getSystemPromptSkills !== 'function') {
-    return null;
-  }
-  const catalog = await PageAdvisorAPI.getSystemPromptSkills();
-  const live = (catalog && catalog.skills) || [];
-  const lastWs = (typeof Storage !== 'undefined' && typeof Storage.getLastWorkspace === 'function')
-    ? String(await Storage.getLastWorkspace() || '').trim()
-    : '';
-  const rec = PageAdvisorPromptSkills.applySystemCatalogDefault(
-    store,
-    live.length ? catalog : { skills: [] },
-    lastWs || PageAdvisorPromptSkills.SYNC_LOCAL,
-    { overlayExisting: live.length > 0 },
-  );
-  if (rec.action !== 'applied') return null;
-  await PageAdvisorPromptSkills.saveToStorage(rec.store);
-  const active = PageAdvisorPromptSkills.getActive(rec.store);
-  if (active) {
-    console.info('[taskChromePlugin] direct LLM applying system catalog skill', active.title);
-  }
-  return active;
 }
 
 /**
@@ -221,12 +170,9 @@ async function resolvePageAdvisorRunPromptSkillId(rawId) {
 async function runPageOptimizationSuggest(tabId, opts = {}) {
   if (typeof setPageAdvisorWaterfallTab === 'function') setPageAdvisorWaterfallTab(tabId);
   await Storage.migrateStaleTokenExpiryOnce();
-  const cfg = await Storage.getApiConfig();
-  const expired = cfg.token ? await Storage.isTokenExpired() : false;
-  const sessionOk = !!(cfg.token && !expired);
-  const { route } = await loadPageAdvisorDirectReady();
   const command = consumePageAdvisorSuggestCommand();
-  const timingRun = beginPageAdvisorTimingRun(route, command);
+  // 生成已收敛为平台后端一条链；瀑布图的路由标签固定按 saas 呈现。
+  const timingRun = beginPageAdvisorTimingRun('saas', command);
   const withSpan = bindPageAdvisorWithSpan(timingRun);
   const promptSkillId = await resolvePageAdvisorRunPromptSkillId(opts.promptSkillId);
 
@@ -234,7 +180,6 @@ async function runPageOptimizationSuggest(tabId, opts = {}) {
     promptSkillId,
     withSpan,
     onPhase: (message) => notifyContentPageAdvisor(tabId, { ok: true, phase: 'loading', message }),
-    skillLoader: () => withSpan('prompt', () => loadDirectLlmSkill(sessionOk)),
     onLlmSpan: (id, startAbs, endAbs, status) => {
       if (!timingRun || typeof PageAdvisorTiming === 'undefined') return;
       PageAdvisorTiming.addClosedSpan(timingRun, id, startAbs, endAbs, status);
@@ -249,7 +194,7 @@ async function runPageOptimizationSuggest(tabId, opts = {}) {
       ok: false,
       error: result.error,
       errorCode: result.errorCode || '',
-      // 本地就挡住的路由（访客未配 Key 等）没有请求可追，不硬塞空 traceId。
+      // 没有服务端请求可追的错误（如访客试用前置失败）不硬塞空 traceId。
       ...(result.traceId ? { traceId: result.traceId } : {}),
       ...(result.links ? { links: result.links } : {}),
     });

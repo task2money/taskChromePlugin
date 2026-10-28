@@ -27,16 +27,6 @@ function loadGenerateStack(extraSandbox = {}) {
       isTokenExpired: async () => false,
     },
     ClickGuard: { newIdempotencyKey: () => 'agent-key-1' },
-    PageAdvisorPromptSkills: {
-      loadFromStorage: async () => ({
-        skills: [
-          { id: 'sk1', title: '转化优先', tendency: 'conversion', content: '倾向转化' },
-          { id: 'sk2', title: '可访问性', tendency: 'a11y', content: '倾向无障碍' },
-        ],
-        activeSkillId: 'sk2',
-      }),
-      getActive: (store) => (store.skills || []).find((s) => s.id === store.activeSkillId) || null,
-    },
     PageAdvisorAPI: {
       createPendingSuggestion: async (tenantId, body, idempotencyKey) => {
         calls.push({ tenantId, body, idempotencyKey });
@@ -65,7 +55,7 @@ function loadGenerateStack(extraSandbox = {}) {
           { id: 's2', title: '加对比', summary: '缺少对比', detail: '补一张对比表', target_nid: 'n9' },
         ],
         jobId: 'job-1',
-        featureParamsSource: 'plugin_direct',
+        featureParamsSource: 'plugin_saas',
         traceId: '',
         tenantId: 'ten-page',
         workspaceId: 'ws-page',
@@ -91,41 +81,6 @@ function loadGenerateStack(extraSandbox = {}) {
   }
   sandbox.PageAdvisorSitePending = sandbox.globalThis.PageAdvisorSitePending;
   return { sandbox, calls, generateCalls };
-}
-
-/**
- * builtin（本机内置模型）路由的沙箱：生成核心对 builtin 直接拒绝，出口自己驱动 runAltZ。
- * `altZResult` 就是 runAltZ 终态交给 `deps.onResult` 的那份载荷。
- */
-function loadBuiltinStack({ altZResult, ...extra } = {}) {
-  const altZ = [];
-  const result = altZResult === undefined
-    ? {
-      ok: true,
-      phase: 'done',
-      pageUrl: 'https://shop.test/p?utm=1',
-      suggestions: [
-        { id: 'b1', title: '本地模型标题', summary: '本机生成', detail: '细节一' },
-        { id: 'b2', title: '第二条', summary: '', detail: '细节二' },
-      ],
-    }
-    : altZResult;
-  const stack = loadGenerateStack({
-    LanguageModel: { availability: async () => 'available', create: async () => ({}) },
-    loadPageAdvisorDirectReady: async () => ({ route: 'builtin', directReady: false, llmCfg: {} }),
-    loadDirectLlmSkill: async () => ({ id: 'sys-default', title: '系统默认', tendency: 'system' }),
-    askContentPageAdvisorContext: async () => ({ success: true, data: { url: 'https://shop.test/p', title: '商品页' } }),
-    notifyContentPageAdvisor: async () => {},
-    resolvePageAdvisorLocale: () => 'zh-CN',
-    PageAdvisorBuiltinPrompt: {
-      runAltZ: async (tabId, deps) => {
-        altZ.push({ tabId, deps });
-        if (deps && typeof deps.onResult === 'function') deps.onResult(result);
-      },
-    },
-    ...extra,
-  });
-  return { ...stack, altZ };
 }
 
 /** 刷新重试出口的沙箱：只关心 tabs 通道与采集探针。 */
@@ -249,69 +204,6 @@ describe('sw-agent-suggestions 刷新并重试（OPT-20261013-019）', () => {
     assert.equal(resp.success, false);
     assert.equal(reloads.length, 0);
     assert.equal(pings.length, 0);
-  });
-});
-
-describe('sw-agent-suggestions builtin 路由（OPT-20261013-011）', () => {
-  it('内置模型路由由出口接管：runAltZ 的结果照常落贴，不再返回 AGENT_SUGGESTIONS_BUILTIN_ROUTE', async () => {
-    const { sandbox, calls, generateCalls, altZ } = loadBuiltinStack();
-    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
-    assert.equal(resp.success, true);
-    assert.equal(resp.count, 2);
-    // 生成核心不参与 builtin：接管以后就不该再走到它，也就不会出现那条拒绝码。
-    assert.equal(generateCalls.length, 0);
-    assert.notEqual(resp.errorCode, 'AGENT_SUGGESTIONS_BUILTIN_ROUTE');
-    assert.equal(altZ.length, 1);
-    assert.equal(altZ[0].tabId, 7);
-    assert.equal(altZ[0].deps.languageModel, sandbox.LanguageModel);
-    assert.equal(altZ[0].deps.locale, 'zh-CN');
-    assert.equal(calls.length, 1);
-    assert.equal(calls[0].body.title, '本地模型标题');
-    assert.equal(calls[0].body.detail, '1. 细节一\n2. 细节二');
-  });
-
-  it('落贴网址仍与列表同源（去查询串与片段）', async () => {
-    const { sandbox, calls } = loadBuiltinStack();
-    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
-    assert.equal(calls[0].body.page_url, 'https://shop.test/p');
-  });
-
-  it('builtin 不再读本地选中 skill，落贴也不冒领服务端提示词 id', async () => {
-    const stack = loadBuiltinStack();
-    await stack.sandbox.handleGenerateAgentSuggestionsForActiveTab({ promptSkillId: 'ws-conv' });
-    assert.equal((await stack.altZ[0].deps.loadSkill()).id, 'sys-default');
-    // 内置模型是本地生成，没有服务端提示词/job；落贴带空值，避免归因到没产生它的提示词。
-    assert.equal(stack.calls[0].body.prompt_skill_id, '');
-    assert.equal(stack.calls[0].body.suggest_job_id, '');
-  });
-
-  it('下载中/待启用的门禁文案原样透传，不发落贴请求', async () => {
-    const { sandbox, calls } = loadBuiltinStack({
-      altZResult: { ok: false, error: '内置模型下载中 62%', errorCode: 'builtin_downloading' },
-    });
-    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
-    assert.equal(resp.success, false);
-    assert.equal(resp.error, '内置模型下载中 62%');
-    assert.equal(resp.errorCode, 'builtin_downloading');
-    assert.equal(calls.length, 0);
-  });
-
-  it('拿不到内置模型时也给启用引导（不再退回生成核心的拒绝）', async () => {
-    const { sandbox, generateCalls, altZ } = loadBuiltinStack({ LanguageModel: undefined });
-    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
-    assert.equal(altZ.length, 1);
-    assert.equal(altZ[0].deps.languageModel, undefined);
-    assert.equal(generateCalls.length, 0);
-    assert.notEqual(resp.errorCode, 'AGENT_SUGGESTIONS_BUILTIN_ROUTE');
-  });
-
-  it('非 builtin 路由仍交回生成核心（接管不越界）', async () => {
-    const { sandbox, generateCalls, altZ } = loadBuiltinStack({
-      loadPageAdvisorDirectReady: async () => ({ route: 'direct', directReady: true, llmCfg: {} }),
-    });
-    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ skillId: 'sk1' });
-    assert.equal(altZ.length, 0);
-    assert.equal(generateCalls.length, 1);
   });
 });
 
@@ -475,7 +367,7 @@ describe('sw-agent-suggestions 生成并落贴', () => {
     assert.equal(calls[0].body.own_provider, undefined);
   });
 
-  it('直连/内置没有生成 job 时发送空 suggest_job_id（服务端 trim）', async () => {
+  it('没有生成 job 时发送空 suggest_job_id（服务端 trim）', async () => {
     const { sandbox, calls } = loadGenerateStack({
       generatePageAdvisorSuggestions: async () => ({
         ok: true,
@@ -484,7 +376,7 @@ describe('sw-agent-suggestions 生成并落贴', () => {
         suggestions: [{ title: '改标题' }],
         promptSkillId: '',
         jobId: '',
-        featureParamsSource: 'plugin_builtin',
+        featureParamsSource: 'plugin_saas',
         tenantId: 'ten-page',
       }),
     });

@@ -17,7 +17,6 @@ const {
   capturePageContextForElements,
   captureDomOutline,
 } = require('../lib/page-context.js');
-const { buildPageAdvisorPrompt } = require('../lib/page-advisor-llm-client.js');
 
 const NID_ATTR = 'data-taskplugin-nid';
 
@@ -249,12 +248,11 @@ describe('page-context capturePageContextForElements', () => {
 });
 
 /**
- * OPT-20261007-006：DOM 大纲整段进 LLM 提示（buildPageAdvisorPrompt 直接
- * JSON.stringify(page.domOutline)）。html_snippet / label 这类富信息有助于模型把建议
- * 锚到正确节点，但逐节点长度必须封顶 —— class 密集页面能把 200 节点大纲撑到上百万
- * 字符，token 成本随页面结构无界膨胀。
+ * OPT-20261007-006：DOM 大纲整段随页面上下文提交（JSON.stringify(page.domOutline)）。
+ * html_snippet / label 这类富信息有助于模型把建议锚到正确节点，但逐节点长度必须封顶
+ * —— class 密集页面能把 200 节点大纲撑到上百万字符，token 成本随页面结构无界膨胀。
  */
-describe('DOM 大纲进 LLM 提示的长度控制', () => {
+describe('DOM 大纲进提示的长度控制', () => {
   const savedAnchor = globalThis.pageAdvisorDomAnchor;
   afterEach(() => {
     if (savedAnchor === undefined) delete globalThis.pageAdvisorDomAnchor;
@@ -336,12 +334,7 @@ describe('DOM 大纲进 LLM 提示的长度控制', () => {
     const outline = captureDomOutline(fakeNidRoot(nodes), MAX_DOM_OUTLINE_NODES);
     assert.equal(outline.length, MAX_DOM_OUTLINE_NODES);
 
-    const prompt = buildPageAdvisorPrompt({
-      url: 'https://x',
-      title: 't',
-      pageText: 'p',
-      domOutline: outline,
-    });
+    const payload = JSON.stringify(outline);
     // 每节点：5 个 label 级字段 + 2 个 aria 级字段 + html_snippet + text，另留 JSON 键名余量。
     const perNodeBudget = 240
       + MAX_OUTLINE_HTML_SNIPPET_CHARS
@@ -349,6 +342,6 @@ describe('DOM 大纲进 LLM 提示的长度控制', () => {
       + MAX_OUTLINE_ARIA_CHARS * 2
       + 80;
     const budget = MAX_DOM_OUTLINE_NODES * perNodeBudget;
-    assert.ok(prompt.length <= budget, `prompt=${prompt.length} budget=${budget}`);
+    assert.ok(payload.length <= budget, `payload=${payload.length} budget=${budget}`);
   });
 });

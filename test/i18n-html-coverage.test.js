@@ -134,7 +134,6 @@ const MESSAGE_PACKS = [
   'lib/i18n-popup-messages.js',
   'lib/i18n-locale-messages.js',
   'lib/i18n-site-pending-tabs.js',
-  'lib/i18n-llm-route.js',
   'lib/i18n-skill-browse-messages.js',
   'lib/i18n-hardware-stock-messages.js',
   'lib/i18n-version-messages.js',

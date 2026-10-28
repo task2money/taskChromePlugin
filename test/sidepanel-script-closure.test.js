@@ -3,11 +3,10 @@
 /**
  * 侧边栏宿主页的脚本清单闭合：页面脚本用到的模块，`sidepanel.html` 必须真的加载了它。
  *
- * 背景（ADR-0167 回归）：提示词下拉的数据源是 `lib/page-advisor-prompt-skills.js`，
- * 而 `sidepanel.html` 漏了这三个 <script>。「假 DOM + 手工注入模块」的单测看不见宿主页
- * 到底加载了什么，于是漏脚本时全绿、真机上下拉只剩「默认提示词」一项拉不下来。
- * 这里把判据锚在真实要求上（页面脚本引用的模块 → 宿主页必须加载其定义文件），
- * 而不是锚在文件名清单上：以后再加页面脚本，只要引用了没加载的模块就会红。
+ * 背景（ADR-0167 回归）：提示词下拉曾漏加载本机文档模块，漏脚本时单测全绿、
+ * 真机上下拉只剩「默认提示词」一项。现在下拉数据源为服务端目录
+ * （`lib/page-advisor-prompt-options.js` + 后台消息 loadPageAdvisorPromptOptions），
+ * 判据不变：页面脚本引用的模块，宿主页必须加载其定义文件。
  */
 
 const { describe, it } = require('node:test');
@@ -74,7 +73,7 @@ describe('侧边栏宿主页脚本清单闭合', () => {
   const loaded = loadedScripts();
 
   it('模块表与加载清单都非空（判据本身没失效）', () => {
-    assert.ok(owners.has('PageAdvisorPromptSkills'), '模块表应含 PageAdvisorPromptSkills');
+    assert.ok(owners.has('PageAdvisorPromptOptions'), '模块表应含 PageAdvisorPromptOptions');
     assert.ok(loaded.size > 20, `sidepanel.html 应加载多个脚本，实际 ${loaded.size}`);
   });
 
@@ -96,18 +95,15 @@ describe('侧边栏宿主页脚本清单闭合', () => {
     assert.deepEqual([...new Set(missing)], []);
   });
 
-  it('提示词下拉的三个依赖按依赖序排在宿主页里', () => {
+  it('提示词下拉依赖排在面板脚本之前，且宿主页脚本文件都存在', () => {
     const html = fs.readFileSync(HTML, 'utf8');
-    const presetAt = html.indexOf('../lib/page-advisor-preset-skills.js');
-    const catalogAt = html.indexOf('../lib/page-advisor-prompt-skill-catalog.js');
-    const skillsAt = html.indexOf('../lib/page-advisor-prompt-skills.js');
+    const optionsAt = html.indexOf('../lib/page-advisor-prompt-options.js');
     const panelAt = html.indexOf('agent-suggestions-panel.js');
-    assert.ok(presetAt >= 0, '预埋技能表应在宿主页');
-    assert.ok(catalogAt >= 0, '系统目录模块应在宿主页');
-    assert.ok(skillsAt >= 0, '本机文档模块应在宿主页');
+    assert.ok(optionsAt >= 0, '服务端提示词选项模块应在宿主页');
     assert.ok(panelAt >= 0, '面板脚本应在宿主页');
-    assert.ok(presetAt < catalogAt, '预埋表先于目录');
-    assert.ok(catalogAt < skillsAt, '目录先于本机文档模块');
-    assert.ok(skillsAt < panelAt, '本机文档模块先于面板脚本（面板初始化即读它）');
+    assert.ok(optionsAt < panelAt, '提示词选项模块先于面板脚本（面板初始化即读它）');
+    for (const m of html.matchAll(/<script\s+src="([^"]+)"/g)) {
+      assert.ok(fs.existsSync(path.resolve(SIDEPANEL_DIR, m[1])), `${m[1]} 不存在`);
+    }
   });
 });

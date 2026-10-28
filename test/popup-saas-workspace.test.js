@@ -46,8 +46,9 @@ describe('Popup 网页优化设置区：工作空间', () => {
     assert.ok(libAt >= 0 && uiAt > libAt && authAt > uiAt);
     const auth = fs.readFileSync(path.join(ROOT, 'popup/popup-auth.js'), 'utf8');
     assert.match(auth, /PopupSaasWorkspace\?\.setLoggedIn/);
-    assert.doesNotMatch(html, /lib\/popup-system-sku\.js/);
-    assert.doesNotMatch(html, /popup-llm-config\.js/);
+    for (const m of html.matchAll(/<script src="([^"]+)"/g)) {
+      assert.ok(fs.existsSync(path.join(ROOT, 'popup', m[1])), `popup.html 注入的 ${m[1]} 不存在`);
+    }
   });
 
   it('uiMode：未登录 hidden，登录后 menu', () => {
@@ -97,7 +98,6 @@ describe('Popup 网页优化设置区：工作空间', () => {
   it('手动切换只记手选，不再重载智能体下拉', () => {
     const src = fs.readFileSync(path.join(ROOT, 'popup/popup-saas-workspace.js'), 'utf8');
     assert.doesNotMatch(src, /reloadAgentMenu/);
-    assert.doesNotMatch(src, /PopupSystemSku/);
     assert.match(src, /sel\.addEventListener\('change'[\s\S]*?persist\(id, \{ manual: true \}\);/);
   });
 

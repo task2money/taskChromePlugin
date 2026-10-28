@@ -1,8 +1,9 @@
 'use strict';
 
 /**
- * 未登录且未配置本机智能体时，「网页优化」生成走匿名每日试用：
+ * 未登录时，「网页优化」生成走匿名每日试用：
  * 提交页面上下文到公开端点，结果以 trial 路由返回（不落优化贴）。
+ * 登录后一律走平台后端（直连/内置生成链已删除）。
  */
 
 const path = require('node:path');
@@ -50,9 +51,6 @@ function loadStack(extra = {}) {
     },
     PageAdvisorTrialAPI: trial,
     ClickGuard: { newIdempotencyKey: () => 'ik-trial-1' },
-    loadPageAdvisorDirectReady: async () => (
-      extra.route || { llmCfg: { apiKey: '', baseUrl: '', model: '' }, directReady: false, route: 'saas' }
-    ),
     resolvePageAdvisorLocale: () => 'zh-CN',
     askContentPageAdvisorContext: async (tabId) => {
       calls.context.push(tabId);
@@ -92,7 +90,7 @@ function loadStack(extra = {}) {
 }
 
 describe('generatePageAdvisorSuggestions 匿名试用路由', () => {
-  it('未登录且无本机 Key：提交页面上下文到试用端点，返回 trial 结果与额度', async () => {
+  it('未登录：提交页面上下文到试用端点，返回 trial 结果与额度', async () => {
     const { sandbox, calls } = loadStack();
 
     const result = await sandbox.generatePageAdvisorSuggestions(7, {});
@@ -165,41 +163,6 @@ describe('generatePageAdvisorSuggestions 匿名试用路由', () => {
       assert.equal(result.ok, false, code);
       assert.equal(result.error, sandbox.tx(key), code);
     }
-  });
-
-  it('显式选择直连但没配 Key：仍是配置引导，不走试用', async () => {
-    const { sandbox, calls } = loadStack({
-      route: { llmCfg: {}, directReady: false, route: 'direct' },
-    });
-
-    const result = await sandbox.generatePageAdvisorSuggestions(7, {});
-
-    assert.equal(result.ok, false);
-    assert.equal(result.error, sandbox.tx('paDirectNeedsConfig'));
-    assert.equal(calls.trial.length, 0);
-    assert.equal(calls.context.length, 0, '本地就挡住，不必采集页面');
-  });
-
-  it('直连本机模型成功时结果不带服务端提示词 id（不冒领下拉选择）', async () => {
-    const { sandbox, calls } = loadStack({
-      route: {
-        llmCfg: { apiKey: 'sk-local', baseUrl: 'https://llm.test', model: 'm1' },
-        directReady: true,
-        route: 'direct',
-      },
-      sandbox: {
-        PageAdvisorPromptOptions: { loadSelectedId: async () => 'stored-id' },
-        PageAdvisorLLM: { suggest: async () => [{ id: 's1', title: '本机结果' }] },
-      },
-    });
-
-    const result = await sandbox.generatePageAdvisorSuggestions(7, {});
-
-    assert.equal(result.ok, true);
-    assert.equal(result.route, 'direct');
-    assert.equal(result.jobId, '');
-    assert.equal(result.promptSkillId, '', '直连不经过服务端提示词，不得回填记住的 id');
-    assert.equal(calls.trial.length, 0);
   });
 
   it('读不到安装指纹：如实报错，不发试用请求', async () => {

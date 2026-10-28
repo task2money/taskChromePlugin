@@ -19,7 +19,7 @@
       <button type="button" class="sp-tab" id="sp-tab-agent" role="tab" aria-selected="false" aria-controls="sp-pane-agent" data-testid="sp-tab-agent"><span data-i18n="agentSuggestionsTab">网页优化</span><span id="sp-agent-count" class="sp-agent-count" hidden data-testid="sp-agent-count"></span></button>
       <button type="button" class="sp-tab" id="sp-tab-create" role="tab" aria-selected="false" aria-controls="sp-pane-create" data-i18n="spTabCreate">创建任务</button>
       <button type="button" class="sp-tab" id="sp-tab-settings" role="tab" aria-selected="true" aria-controls="sp-pane-settings" data-i18n="spTabSettings">设置</button>
-      <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" data-i18n="paBuiltinTab" data-testid="sp-tab-builtin">本机模型</button>
+      <button type="button" class="sp-tab" id="sp-tab-builtin" role="tab" aria-selected="false" aria-controls="sp-pane-builtin" data-i18n="paBuiltinTab" data-testid="sp-tab-builtin">本机模型（边缘算力）</button>
     </div>
     <div id="sp-pane-create" class="sp-pane" role="tabpanel" hidden></div>
     <div id="sp-pane-settings" class="sp-pane" role="tabpanel">
@@ -27,7 +27,7 @@
     </div>
     <div id="sp-pane-builtin" class="sp-pane" role="tabpanel" hidden data-testid="sp-pane-builtin">
       <section class="section builtin-full-panel" id="spBuiltinPanel">
-        <h3 data-i18n="paBuiltinTab">本机模型</h3>
+        <h3 data-i18n="paBuiltinTab">本机模型（边缘算力）</h3>
         <p id="spBuiltinStatus" class="hint" aria-live="polite"></p>
         <progress id="spBuiltinProgress" class="builtin-progress" max="100" value="0" hidden></progress>
         <div class="btn-row">
@@ -127,7 +127,6 @@
   <script src="../lib/i18n-panel-messages.js"></script>
   <script src="../lib/i18n-popup-messages.js"></script>
   <script src="../lib/i18n-site-pending-tabs.js"></script>
-  <script src="../lib/i18n-llm-route.js"></script>
   <script src="../lib/i18n-tx.js"></script>
   <script src="../lib/page-advisor-timing.js"></script>
   <script src="../lib/page-advisor-waterfall-view.js"></script>
@@ -160,13 +159,9 @@
   <script src="builtin-model-panel.js"></script>
   <script src="sidepanel-edge-sell-boot.js"></script>
   <script src="../lib/task-detail-href.js"></script>
-  <!-- 提示词下拉的数据源已改为服务端目录：面板发后台消息 loadPageAdvisorPromptOptions，
-       选中值经 PageAdvisorPromptOptions 记忆（pageAdvisorSelectedPromptId）。
-       下面三个本机 prompt skills 脚本只等 Task 15 统一删除，本页不再读取。 -->
+  <!-- 提示词下拉的数据源为服务端目录：面板发后台消息 loadPageAdvisorPromptOptions，
+       选中值经 PageAdvisorPromptOptions 记忆（pageAdvisorSelectedPromptId）。 -->
   <script src="../lib/page-advisor-prompt-options.js"></script>
-  <script src="../lib/page-advisor-preset-skills.js"></script>
-  <script src="../lib/page-advisor-prompt-skill-catalog.js"></script>
-  <script src="../lib/page-advisor-prompt-skills.js"></script>
   <script src="../lib/page-advisor-site-pending.js"></script>
   <script src="agent-suggestions-panel.js"></script>
   <script src="sidepanel.js"></script>

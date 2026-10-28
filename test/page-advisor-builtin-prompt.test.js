@@ -109,113 +109,6 @@ test('Skill 放不下时省略，放得下时保留', async () => {
   assert.equal(String(kept.prompt).includes('SKILLBODY'), true);
 });
 
-test('available 时解析建议且不发起 fetch；schema 被拒绝则去掉约束再试', async () => {
-  require('../lib/page-advisor-llm-client.js');
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = () => { throw new Error('builtin must not fetch'); };
-  const prompts = [];
-  const session = {
-    inputQuota: 100000,
-    measureInputUsage: (text) => String(text).length,
-    async prompt(text, opts) {
-      prompts.push(opts || null);
-      if (opts && opts.responseConstraint) throw new Error('schema rejected');
-      return '[{"id":"s1","title":"标题","summary":"摘要","detail":"详情","category":"ux","target_nid":"n1","anchor_text":"按钮"}]';
-    },
-    destroy() { prompts.push('destroy'); },
-  };
-  let createOpts = null;
-  const model = {
-    async availability() { return 'available'; },
-    async params() { return { defaultTopK: 3, maxTemperature: 1 }; },
-    async create(opts) {
-      createOpts = opts;
-      return session;
-    },
-  };
-  try {
-    const out = await builtin.suggest(model, {
-      url: 'https://example.test',
-      title: '页',
-      pageText: '按钮',
-      domOutline: [{ nid: 'n1', tag: 'button', text: '按钮' }],
-    }, { locale: 'zh-CN', skill: null });
-    assert.equal(out.suggestions.length, 1);
-    assert.equal(out.suggestions[0].title, '标题');
-    assert.equal(createOpts.temperature, 0.3);
-    assert.equal(createOpts.topK, 3);
-    assert.equal(prompts.filter((item) => item && item.responseConstraint).length, 1);
-    assert.equal(prompts.some((item) => item && !item.responseConstraint && item.expectedInputs), true);
-    assert.equal(prompts.includes('destroy'), true);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-});
-
-test('downloading 的 Alt+Z 不 create，错误码与尚未下载区分', async () => {
-  let created = 0;
-  const model = {
-    async availability() { return 'downloading'; },
-    async create() {
-      created += 1;
-      return { destroy() {} };
-    },
-  };
-  await assert.rejects(
-    () => builtin.suggest(model, { pageText: 'x', domOutline: [] }, { allowCreate: false }),
-    (err) => err.code === 'builtin_downloading' && err.availability === 'downloading',
-  );
-  assert.equal(created, 0);
-});
-
-test('runAltZ 在 downloading 100% 时与设置页同一句，不说尚未下载', async () => {
-  const runtime = require('../lib/page-advisor-builtin-runtime.js');
-  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
-  const prevChrome = globalThis.chrome;
-  const bag = {
-    [runtime.STORAGE_KEY]: {
-      phase: 'downloading',
-      availability: 'downloading',
-      downloadPct: 100,
-      updatedAt: Date.now(),
-    },
-  };
-  globalThis.PageAdvisorBuiltinRuntime = runtime;
-  globalThis.chrome = {
-    storage: {
-      session: {
-        async get(key) { return { [key]: bag[key] }; },
-        async set(next) { Object.assign(bag, next); },
-      },
-    },
-  };
-  const notes = [];
-  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
-  try {
-    await builtin.runAltZ(1, {
-      languageModel: {
-        async availability() { return 'downloading'; },
-        async create() { throw new Error('should not create'); },
-      },
-      askContext: async () => ({
-        success: true,
-        data: { url: 'https://example.test', title: 't', pageText: 'p', domOutline: [] },
-      }),
-      notify: async (_tab, payload) => { notes.push(payload); },
-      tx,
-      locale: 'zh-CN',
-    });
-  } finally {
-    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
-    globalThis.chrome = prevChrome;
-  }
-  const failed = notes.find((item) => item && item.ok === false);
-  assert.ok(failed);
-  assert.equal(failed.error, 'paBuiltinDownloadNeedEnable:100');
-  assert.notEqual(failed.error, 'paBuiltinNeedsDownload');
-  assert.equal(failed.errorCode, 'builtin_downloading');
-});
-
 test('Prompt API 的 downloadprogress.loaded 为 0..1 时按百分比上报', async () => {
   const progress = [];
   const downloadModel = {
@@ -381,20 +274,8 @@ test('解压期间 availability 变 available 则结束启用并进入就绪', a
   }
 });
 
-test('downloadable 的 Alt+Z 不 create；设置允许时才 create', async () => {
+test('downloadable 时 startDownload 才 create 并上报进度', async () => {
   let created = 0;
-  const model = {
-    async availability() { return 'downloadable'; },
-    async create() {
-      created += 1;
-      return { inputQuota: 100, async prompt() { return '[]'; }, destroy() {} };
-    },
-  };
-  await assert.rejects(
-    () => builtin.suggest(model, { pageText: 'x', domOutline: [] }, { allowCreate: false }),
-    (err) => err.code === 'builtin_needs_download',
-  );
-  assert.equal(created, 0);
   const progress = [];
   const downloadModel = {
     async availability() { return 'downloadable'; },
@@ -465,73 +346,6 @@ test('startDownload 在 await availability 之前就必须调用 create（保留
   await assert.rejects(() => pending);
 });
 
-test('askContext 挂起时 runAltZ 超时并通知失败', async () => {
-  const { withTimeout } = require('../lib/async-timeout.js');
-  globalThis.withTimeout = withTimeout;
-  globalThis.tx = (key) => key;
-  const notes = [];
-  const started = Date.now();
-  await builtin.runAltZ(1, {
-    languageModel: {
-      async availability() { return 'available'; },
-      async create() { throw new Error('should not create'); },
-    },
-    askContext: () => new Promise(() => {}),
-    askContextTimeoutMs: 40,
-    notify: async (_tab, payload) => { notes.push(payload); },
-    tx: (key) => key,
-    locale: 'zh-CN',
-  });
-  assert.ok(Date.now() - started < 2000);
-  const failed = notes.find((item) => item && item.ok === false);
-  assert.ok(failed);
-  assert.equal(failed.errorCode, 'PLUGIN_BUILTIN_CONTEXT');
-});
-
-test('内置失败通知不含页面原文', async () => {
-  const secret = '页面机密原文-不应出现';
-  const notes = [];
-  await builtin.runAltZ(1, {
-    languageModel: {
-      async availability() { return 'unavailable'; },
-      async create() { throw new Error('should not create'); },
-    },
-    askContext: async () => ({
-      success: true,
-      data: { url: 'https://example.test', title: 't', pageText: secret, domOutline: [] },
-    }),
-    notify: async (_tab, payload) => { notes.push(payload); },
-    tx: (key) => key,
-    locale: 'zh-CN',
-  });
-  const failed = notes.find((item) => item && item.ok === false);
-  assert.ok(failed);
-  assert.equal(JSON.stringify(failed).includes(secret), false);
-  assert.equal(JSON.stringify(failed).includes('apiKey'), false);
-});
-
-test('采集返回非 success 时透传具体文案，而不是退化成笼统「无法读取」', async () => {
-  const notes = [];
-  await builtin.runAltZ(1, {
-    languageModel: {
-      async availability() { return 'available'; },
-      async create() { throw new Error('should not create'); },
-    },
-    askContext: async () => ({
-      success: false,
-      errorCode: 'PAGE_CONTEXT_UNREACHABLE',
-      error: '刷新当前网页后重试。',
-    }),
-    notify: async (_tab, payload) => { notes.push(payload); },
-    tx: (key) => key,
-    locale: 'zh-CN',
-  });
-  const failed = notes.find((item) => item && item.ok === false);
-  assert.ok(failed, `应有失败通知：${JSON.stringify(notes)}`);
-  assert.equal(failed.error, '刷新当前网页后重试。');
-  assert.equal(failed.errorCode, 'PLUGIN_BUILTIN_CONTEXT');
-});
-
 test('startDownload 100% 后超时 abort（enableTimeoutMs）', async () => {
   const runtime = require('../lib/page-advisor-builtin-runtime.js');
   const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
@@ -578,7 +392,7 @@ test('startDownload 100% 后超时 abort（enableTimeoutMs）', async () => {
   }
 });
 
-test('abandonEnable 后 runAltZ 提示尚未启用（T4）', async () => {
+test('abandonEnable 中止进行中的启用并写回快照（T4）', async () => {
   const runtime = require('../lib/page-advisor-builtin-runtime.js');
   const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
   const prevChrome = globalThis.chrome;
@@ -612,101 +426,16 @@ test('abandonEnable 后 runAltZ 提示尚未启用（T4）', async () => {
   };
   const pending = builtin.startDownload(hanging, 'zh-CN', {});
   await new Promise((r) => setTimeout(r, 15));
-  assert.equal(builtin.abandonEnable(), true);
-  await assert.rejects(() => pending);
-  const notes = [];
-  const tx = (k, vars) => (vars && vars.pct != null ? `${k}:${vars.pct}` : k);
   try {
-    await builtin.runAltZ(1, {
-      languageModel: {
-        async availability() { return 'downloading'; },
-        async create() { throw new Error('should not create'); },
-      },
-      askContext: async () => ({
-        success: true,
-        data: { url: 'https://example.test', title: 't', pageText: 'p', domOutline: [] },
-      }),
-      notify: async (_tab, payload) => { notes.push(payload); },
-      tx,
-      locale: 'zh-CN',
-      enablePollMs: 0,
-    });
+    assert.equal(builtin.abandonEnable(), true);
+    await assert.rejects(() => pending);
+    const done = bag[runtime.STORAGE_KEY];
+    assert.equal(done.downloadInFlight, false);
+    assert.match(String(done.lastErrorCode), /enable_orphaned|download_aborted/);
   } finally {
     globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
     globalThis.chrome = prevChrome;
   }
-  const failed = notes.find((item) => item && item.ok === false);
-  assert.ok(failed);
-  assert.equal(failed.error, 'paBuiltinDownloadNeedEnable:100');
-  assert.match(String(failed.errorCode), /builtin_downloading|builtin_needs_download/);
-});
-
-test('inFlight 未超时 runAltZ 等到 available 后给出建议（T5）', async () => {
-  const runtime = require('../lib/page-advisor-builtin-runtime.js');
-  require('../lib/page-advisor-builtin-enable.js');
-  const prevRuntime = globalThis.PageAdvisorBuiltinRuntime;
-  const prevLlm = globalThis.PageAdvisorLLM;
-  const prevChrome = globalThis.chrome;
-  const bag = {
-    [runtime.STORAGE_KEY]: {
-      phase: 'downloading',
-      availability: 'downloading',
-      downloadPct: 100,
-      downloadInFlight: true,
-      enableStartedAt: Date.now(),
-      updatedAt: Date.now(),
-    },
-  };
-  globalThis.PageAdvisorBuiltinRuntime = runtime;
-  globalThis.PageAdvisorLLM = {
-    parseSuggestionsJSON: () => [{ id: '1', title: 't', summary: 's' }],
-    buildChatMessages: (page) => [{ role: 'user', content: page.pageText }],
-  };
-  globalThis.chrome = {
-    storage: {
-      session: {
-        async get(key) { return { [key]: bag[key] }; },
-        async set(next) { Object.assign(bag, next); },
-      },
-    },
-  };
-  let probes = 0;
-  const notes = [];
-  try {
-    await builtin.runAltZ(1, {
-      languageModel: {
-        async availability() {
-          probes += 1;
-          return probes < 2 ? 'downloading' : 'available';
-        },
-        async create() {
-          return {
-            inputQuota: 8000,
-            measureInputUsage: (text) => String(text || '').length,
-            async prompt() { return '[]'; },
-            destroy() {},
-          };
-        },
-      },
-      askContext: async () => ({
-        success: true,
-        data: { url: 'https://example.test', title: 't', pageText: 'p', domOutline: [] },
-      }),
-      notify: async (_tab, payload) => { notes.push(payload); },
-      tx: (k, vars) => k + (vars && vars.sec != null ? `:${vars.sec}` : ''),
-      locale: 'zh-CN',
-      enablePollMs: 10,
-      enableTimeoutMs: 2000,
-    });
-  } finally {
-    globalThis.PageAdvisorBuiltinRuntime = prevRuntime;
-    globalThis.PageAdvisorLLM = prevLlm;
-    globalThis.chrome = prevChrome;
-  }
-  const done = notes.find((item) => item && item.ok === true && item.phase === 'done');
-  assert.ok(done, JSON.stringify(notes));
-  assert.equal(done.suggestions.length, 1);
-  assert.ok(probes >= 2);
 });
 
 test('内容脚本源码不引用 LanguageModel', () => {
@@ -721,19 +450,17 @@ test('内容脚本源码不引用 LanguageModel', () => {
   }
 });
 
-test('builtin 由生成核心在访客门闩之前处理（Alt+Z 入口不再分流）', () => {
+test('生成核心只保留平台后端与匿名试用，不再有直连/内置分流', () => {
   const fs = require('node:fs');
   const path = require('node:path');
   const sw = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor.js'), 'utf8');
   const core = fs.readFileSync(path.join(__dirname, '../background/sw-page-advisor-generate.js'), 'utf8');
   assert.equal(sw.includes("route === 'builtin'"), false, 'Alt+Z 入口不再自带 runAltZ 分支');
+  assert.equal(sw.includes("route === 'direct'"), false);
   assert.ok(sw.indexOf('generatePageAdvisorSuggestions(tabId') > 0);
-  const builtinAt = core.indexOf("route === 'builtin'");
-  const guestAt = core.indexOf('!directReady && !sessionOk');
-  assert.ok(builtinAt > 0);
-  assert.ok(guestAt > 0);
-  // 生成核心对 builtin 直接拒绝，且拒绝先于试用门闩。
-  assert.ok(builtinAt < guestAt, 'builtin 拒绝必须先于试用门闩');
+  assert.equal(core.includes("route === 'builtin'"), false);
+  assert.equal(core.includes("route === 'direct'"), false);
+  assert.match(core, /const trialMode = !sessionOk;/);
   assert.match(sw, /withTimeout\(p, 12000/);
 });
 
@@ -851,39 +578,4 @@ test('OPT-20261003-019: Service Worker 认识 builtinDownloadCancel 广播', () 
   const sw = fs.readFileSync(path.join(__dirname, '../background/sw-messages-session.js'), 'utf8');
   assert.match(sw, /case 'builtinDownloadCancel'/);
   assert.match(sw, /relayed: true/);
-});
-
-test('suggest 接受 {output} 对象；空 JSON 抛 builtin_empty', async () => {
-  require('../lib/page-advisor-llm-client.js');
-  const okSession = {
-    inputQuota: 8000,
-    async measureInputUsage(text) { return String(text || '').length; },
-    async prompt() { return { output: '[{"id":"s1","title":"T","summary":"S"}]' }; },
-    destroy() {},
-  };
-  const okModel = {
-    async availability() { return 'available'; },
-    async create() { return okSession; },
-  };
-  const ok = await builtin.suggest(okModel, {
-    url: 'https://example.test', title: 't', pageText: 'hi', domOutline: [],
-  }, { locale: 'en' });
-  assert.equal(ok.suggestions.length, 1);
-
-  const badSession = {
-    inputQuota: 8000,
-    async measureInputUsage(text) { return String(text || '').length; },
-    async prompt() { return 'not-json'; },
-    destroy() {},
-  };
-  const badModel = {
-    async availability() { return 'available'; },
-    async create() { return badSession; },
-  };
-  await assert.rejects(
-    () => builtin.suggest(badModel, {
-      url: 'https://example.test', title: 't', pageText: 'hi', domOutline: [],
-    }, { locale: 'en' }),
-    (err) => err && err.code === 'builtin_empty',
-  );
 });
