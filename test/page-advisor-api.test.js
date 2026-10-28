@@ -402,7 +402,12 @@ describe('page-advisor wiring contracts', () => {
     assert.ok(manifest.content_scripts[0].js.includes('content/float-page-advisor-region.js'));
     assert.ok(manifest.content_scripts[0].js.includes('lib/page-advisor-preview.js'));
     assert.ok(manifest.content_scripts[0].css.includes('content/content-region.css'));
-    assert.match(manifest.version, /^1\.8\.(2[9]|[3-9]\d|\d{3,})$/);
+    // 版本号只需越过 1.8.28（1.8.29+/1.9.x/…）；按数值比较，别再写死小版本段。
+    const [major, minor, patch] = manifest.version.split('.').map((n) => Number(n));
+    assert.ok(
+      major > 1 || (major === 1 && (minor > 8 || (minor === 8 && patch >= 29))),
+      `manifest version ${manifest.version} must be > 1.8.28`,
+    );
   });
 
   it('SW imports page-advisor and handles command', () => {

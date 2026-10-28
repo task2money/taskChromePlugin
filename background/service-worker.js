@@ -62,6 +62,7 @@ importScripts(
   '../lib/page-advisor-builtin-prompt.js',
   '../lib/page-advisor-builtin-enable.js',
   '../lib/page-advisor-defaults.js',
+  '../lib/page-advisor-prompt-options.js',
   '../lib/page-advisor-site-pending.js',
   // v233：匿名优化贴的本地访问入口（试用落贴后刷新页面仍可看、可领取）。
   '../lib/page-advisor-anon-posts.js',
@@ -96,6 +97,7 @@ importScripts(
   './sw-page-advisor-delivery.js',
   './sw-page-advisor-commands.js',
   './sw-page-advisor-pending.js',
+  './sw-page-advisor-prompts.js',
   './sw-agent-suggestions.js',
   './sw-builtin-edge-tunnel.js',
   './sw-builtin-enable-watchdog.js',
