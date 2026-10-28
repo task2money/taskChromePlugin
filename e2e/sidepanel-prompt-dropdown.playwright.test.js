@@ -1,12 +1,12 @@
 /**
- * 侧栏「提示词」下拉能拉下来：拉出的列表里真的有本机提示词（ADR-0167）。
+ * 侧栏「提示词」下拉的数据源是服务端目录（Task 12）。
  *
- * 背景：下拉菜单由 `sidepanel/agent-suggestions-panel.js` 按
- * `PageAdvisorPromptSkills.loadFromStorage()` 填。既有单测在 vm 里把
- * `PageAdvisorPromptSkills` 直接注进假 DOM 上下文，宿主页面到底有没有加载这个模块
- * 它看不见——`sidepanel.html` 漏掉脚本时用例照样全绿，用户看到的是只剩
- * 「默认提示词」一项的死下拉。这里把真实的 `sidepanel.html` 当普通扩展页加载
- * （假 chrome，真 DOM），补上「宿主真的把提示词画进下拉」这一段。
+ * 背景：下拉菜单由 `sidepanel/agent-suggestions-panel.js` 发后台消息
+ * `loadPageAdvisorPromptOptions` 填充；选项来自 `{ok, skills, defaultSkillId, defaultTitle}`
+ * 的投影，选中值记忆在 `pageAdvisorSelectedPromptId`，生成消息带 `promptSkillId`。
+ * 既有单测在 vm 里用假 DOM，宿主页面到底有没有加载 `page-advisor-prompt-options.js`
+ * 它看不见；这里把真实的 `sidepanel.html` 当普通扩展页加载（假 chrome，真 DOM），
+ * 补上「宿主真的把服务端目录画进下拉、默认项/标记/顺序/生成字段都对」这一段。
  *
  * 运行：bash e2e/sidepanel-prompt-dropdown.playwright.test.js.sh
  */
@@ -24,34 +24,42 @@ function loadPlaywrightTest() {
 const { test, expect } = loadPlaywrightTest();
 const SIDEPANEL_URL = pathToFileURL(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html')).href;
 
-const TENANT = '884588082601422848';
 const ACTIVE_TAB_ID = 1;
 
-/** 登录后本机应有的一批提示词（工作空间同步下来的自定义技能）。 */
-const STORED_SKILLS = [
-  { id: 'sku-seo', title: 'SEO 标题优化', tendency: 'seo', body: '正文 SEO' },
-  { id: 'sku-cvr', title: '转化率提升', tendency: 'conversion', body: '正文转化' },
-];
+/** 后台 loadPageAdvisorPromptOptions 的返回形状（真实服务端目录的投影）。 */
+const SERVER_PROMPTS = {
+  ok: true,
+  defaultSkillId: 'seo-default',
+  defaultTitle: '默认 SEO',
+  skills: [
+    {
+      id: 'seo-default', title: '默认 SEO', tendency: 'seo', runtime: 'rewrite', source: 'catalog', readonly: true,
+    },
+    {
+      id: 'seo-audit', title: '审计', tendency: 'seo', runtime: 'audit', source: 'catalog', readonly: true,
+    },
+    {
+      id: 'ws-conv', title: '转化', tendency: 'conversion', runtime: 'rewrite', source: 'workspace', readonly: false,
+    },
+  ],
+  partialError: false,
+};
 
-/** 系统目录预埋（`lib/page-advisor-preset-skills.js` 的 BUNDLED_TENDENCIES）。 */
-const BUNDLED_ID = 'sys_default_auto_innovate';
-const BUNDLED_TITLE = '系统默认自动创新';
-const DEFAULT_OPTION = '默认提示词';
+const DEFAULT_OPTION = '默认 · 默认 SEO';
 
 /**
- * 假 chrome：给侧边栏脚本喂一份 `chrome.storage.local`（提示词就存在这里），
- * 并把出站消息暴露到 window 供用例断言。
+ * 假 chrome：给侧边栏脚本喂一份 `chrome.storage.local`（选中值记忆存在这里），
+ * 并按真实契约回答 `loadPageAdvisorPromptOptions`；出站消息暴露到 window 供用例断言。
  *
  * @param {import('@playwright/test').Page} page
- * @param {{ skills?: object[], activeSkillId?: string }} seed
+ * @param {{ promptOptions?: object, selectedId?: string }} seed
  */
 async function installStub(page, seed = {}) {
-  await page.addInitScript(({ skills, activeSkillId, tabId }) => {
+  await page.addInitScript(({ promptOptions, selectedId, tabId }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const localStore = {
       'aidevpush.locale': 'zh-CN',
-      ...(skills && skills.length ? { pageAdvisorPromptSkills: skills } : {}),
-      ...(activeSkillId ? { pageAdvisorActiveSkillId: activeSkillId } : {}),
+      ...(selectedId ? { pageAdvisorSelectedPromptId: selectedId } : {}),
     };
     const sessionStore = {};
     const storageListeners = [];
@@ -86,6 +94,7 @@ async function installStub(page, seed = {}) {
     // Anti-Replay-OK: 测试桩，非业务写路径
     const reply = (message) => {
       const action = message && message.action;
+      if (action === 'loadPageAdvisorPromptOptions') return promptOptions;
       if (action === 'listSitePendingForActiveTab' || action === 'refreshSitePendingForActiveTab') {
         return { success: true, items: [], count: 0, tabId };
       }
@@ -95,7 +104,7 @@ async function installStub(page, seed = {}) {
 
     window.chrome = {
       runtime: {
-        getManifest: () => ({ version: '1.8.261', content_scripts: [{ js: [] }] }),
+        getManifest: () => ({ version: '1.9.2', content_scripts: [{ js: [] }] }),
         getURL: (p) => p,
         id: 'test-ext',
         lastError: null,
@@ -132,8 +141,8 @@ async function installStub(page, seed = {}) {
       i18n: { getMessage: () => '' },
     };
   }, {
-    skills: seed.skills || [],
-    activeSkillId: seed.activeSkillId || '',
+    promptOptions: seed.promptOptions || SERVER_PROMPTS,
+    selectedId: seed.selectedId || '',
     tabId: ACTIVE_TAB_ID,
   });
 }
@@ -145,54 +154,69 @@ async function promptOptions(page) {
 }
 
 test.describe('侧栏提示词下拉', () => {
-  test('宿主页真的加载了提示词模块，下拉拉出的是本机提示词而不是只有默认项', async ({ page }) => {
-    await installStub(page, { skills: STORED_SKILLS, activeSkillId: 'sku-cvr' });
+  test('宿主页加载了服务端选项模块，下拉按目录顺序渲染默认项与条目', async ({ page }) => {
+    await installStub(page);
     await page.goto(SIDEPANEL_URL);
     await page.locator('#sp-tab-agent').click();
     await expect(page.locator('#sp-pane-agent')).toBeVisible();
 
-    // 宿主页把提示词模块挂上了 window（漏挂脚本时这里是 undefined，下拉必然死）。
-    const hasModule = await page.evaluate(() => typeof window.PageAdvisorPromptSkills === 'object'
-      && typeof window.PageAdvisorPromptSkills.loadFromStorage === 'function');
+    // 宿主页把 PageAdvisorPromptOptions 挂上了 window（漏挂脚本时这里是 undefined，
+    // 选中值记忆/清缓存都会静默失效）。
+    const hasModule = await page.evaluate(() => typeof window.PageAdvisorPromptOptions === 'object'
+      && typeof window.PageAdvisorPromptOptions.loadSelectedId === 'function');
     expect(hasModule).toBe(true);
 
+    await expect(page.locator('#sp-agent-prompt option')).toHaveCount(3);
     const opts = await promptOptions(page);
-    const labels = opts.map((o) => o.label);
-    // 默认项在首位，且本机两条提示词都在。
-    expect(labels[0]).toBe(DEFAULT_OPTION);
-    expect(labels).toContain('SEO 标题优化');
-    expect(labels).toContain('转化率提升');
-    expect(opts.find((o) => o.label === 'SEO 标题优化').value).toBe('sku-seo');
+    // 首项是默认项：value 为空，文案带服务端给的默认标题。
+    expect(opts[0]).toEqual({ value: '', label: DEFAULT_OPTION });
+    // 其余按服务端顺序渲染；默认 id 的重复项不再出现第二条。
+    expect(opts.map((o) => o.value)).toEqual(['', 'seo-audit', 'ws-conv']);
+    expect(opts.filter((o) => o.value === 'seo-default')).toHaveLength(0);
+    expect(opts.filter((o) => o.label.startsWith('默认 SEO'))).toHaveLength(0);
+    // 审计条目带「审计」标记，工作空间自定义带「工作空间」标记。
+    expect(opts.find((o) => o.value === 'seo-audit').label).toContain('审计');
+    expect(opts.find((o) => o.value === 'ws-conv').label).toContain('工作空间');
   });
 
-  test('本机一条提示词都没有时，下拉至少还有系统默认那条，不是死的', async ({ page }) => {
-    await installStub(page, {});
+  test('服务端目录为空时下拉只有默认项，不是死的也不算失败', async ({ page }) => {
+    await installStub(page, {
+      promptOptions: { ok: true, skills: [], defaultSkillId: '', defaultTitle: '', partialError: false },
+    });
     await page.goto(SIDEPANEL_URL);
     await page.locator('#sp-tab-agent').click();
 
+    await expect(page.locator('#sp-agent-prompt option')).toHaveCount(1);
     const opts = await promptOptions(page);
-    const labels = opts.map((o) => o.label);
-    expect(labels[0]).toBe(DEFAULT_OPTION);
-    expect(labels).toContain(BUNDLED_TITLE);
+    expect(opts).toEqual([{ value: '', label: '默认提示词' }]);
+    // 空目录是成功响应：不报错、不露重试。
+    await expect(page.locator('#sp-agent-prompt-status')).toHaveText('');
+    await expect(page.locator('#sp-agent-prompt-retry')).toBeHidden();
   });
 
-  test('选中一条提示词后点生成，消息带上这条提示词而不是退回默认', async ({ page }) => {
-    await installStub(page, { skills: STORED_SKILLS, activeSkillId: 'sku-cvr' });
+  test('选中工作空间提示词后点生成，消息带 promptSkillId 与 tendency', async ({ page }) => {
+    await installStub(page);
     await page.goto(SIDEPANEL_URL);
     await page.locator('#sp-tab-agent').click();
+    await expect(page.locator('#sp-agent-prompt option[value="ws-conv"]')).toHaveCount(1);
 
     // 用真实的用户操作选中（不直接写 value），顺带证明下拉里的项可被选中。
-    await page.selectOption('#sp-agent-prompt', 'sku-seo');
+    await page.selectOption('#sp-agent-prompt', 'ws-conv');
     await page.locator('#sp-agent-generate').click();
 
     await expect.poll(async () => page.evaluate(() => {
       const m = (window.__sent || []).find((x) => x && x.action === 'generateAgentSuggestionsForActiveTab');
-      return m ? { skillId: m.skillId, promptTendency: m.promptTendency } : null;
-    })).toEqual({ skillId: 'sku-seo', promptTendency: 'seo' });
+      return m ? { promptSkillId: m.promptSkillId, promptTendency: m.promptTendency } : null;
+    })).toEqual({ promptSkillId: 'ws-conv', promptTendency: 'conversion' });
+
+    const gen = await page.evaluate(() => (window.__sent || [])
+      .find((x) => x && x.action === 'generateAgentSuggestionsForActiveTab'));
+    // 本机 skillId 字段已退役，不再随生成消息发出。
+    expect('skillId' in gen).toBe(false);
   });
 
   test('点一下下拉只派发一次 click，不会被外层 label 顶回来又立刻收起', async ({ page }) => {
-    await installStub(page, { skills: STORED_SKILLS });
+    await installStub(page);
     await page.goto(SIDEPANEL_URL);
     await page.locator('#sp-tab-agent').click();
 

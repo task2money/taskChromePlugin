@@ -90,6 +90,10 @@ async function installStub(page, posts) {
       if (action === 'dismissSitePendingSuggestion' || action === 'confirmSitePendingSuggestion') {
         return { success: true, suggestionId: message.suggestionId, tenantId: message.tenantId };
       }
+      if (action === 'loadPageAdvisorPromptOptions') {
+        // Task 12：下拉数据源改为服务端目录；空目录是合法成功响应，面板只画默认项。
+        return { ok: true, skills: [], defaultSkillId: '', defaultTitle: '', partialError: false };
+      }
       if (action === 'getSidePanelOpenIntent') return { which: 'agent' };
       return {};
     };
@@ -225,11 +229,14 @@ test.describe('侧栏智能体建议', () => {
     await expect(generate).toBeEnabled();
 
     // 通道契约：请求确实带着 action 与提示词选择发出，且只发一次。
+    // Task 12 起提示词选择走服务端目录，字段是 promptSkillId（默认项为空串）；
+    // 本机 skillId 已退役，不应再出现在生成消息上。
     const calls = await page.evaluate(() => (window.__sent || [])
       .filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab')
-      .map((m) => ({ skillId: m.skillId, promptTendency: m.promptTendency })));
+      .map((m) => ({ promptSkillId: m.promptSkillId, promptTendency: m.promptTendency, skillId: m.skillId })));
     expect(calls).toHaveLength(1);
-    expect(typeof calls[0].skillId).toBe('string');
+    expect(typeof calls[0].promptSkillId).toBe('string');
+    expect(calls[0].skillId).toBeUndefined();
   });
 
   test('点开智能体建议页签，标记一帖后该帖从列表消失', async ({ page }) => {

@@ -355,6 +355,17 @@ describe('侧栏提示词下拉改为服务端目录', () => {
     assert.deepEqual(optionValues(h.promptSelect().innerHTML), ['', 'ws-conv'], '重试成功后恢复服务端条目');
   });
 
+  it('响应形状不对（{} / {skills:null}）按失败处理：状态行 + 重试，不是空目录', async () => {
+    for (const bad of [{}, { skills: null }]) {
+      const h = buildHarness({ promptOptions: bad });
+      await h.refresh();
+
+      assert.equal(h.promptStatus(), '提示词加载失败，请重试', `畸形响应 ${JSON.stringify(bad)} 要报错`);
+      assert.equal(h.promptRetryBtn().hidden, false, '畸形响应露出重试入口');
+      assert.deepEqual(optionValues(h.promptSelect().innerHTML), [''], '畸形响应下拉只保留默认项');
+    }
+  });
+
   it('生成消息带 promptSkillId/promptTendency；默认项与列表外 id 一律为空', async () => {
     const h = buildHarness();
     await h.refresh();

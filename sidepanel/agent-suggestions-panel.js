@@ -442,7 +442,10 @@
       resp = null;
     }
     if (seq !== promptLoadSeq) return; // 工作空间连续切换 / 重试：只认最后一次响应
-    if (!resp || resp.ok === false || resp.success === false) {
+    // `{}` / `{skills:null}` 这类形状不对的响应不能当「服务端没有提示词」：
+    // 那会把失败画成空目录且不给重试，用户无从分辨。只有带数组 skills 的响应才算成功。
+    const usable = !!resp && resp.ok !== false && resp.success !== false && Array.isArray(resp.skills);
+    if (!usable) {
       renderPromptOptions([], '', '');
       setPromptStatus(tx('paPromptLoadFailed'));
       setPromptRetryVisible(true);

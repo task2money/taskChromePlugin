@@ -33,6 +33,10 @@ describe('side panel default tab', () => {
     assert.ok(promptAt >= 0, 'prompt dropdown present');
     assert.ok(generateAt > promptAt, 'generate button sits after the prompt dropdown');
     assert.match(html, /id="sp-agent-prompt"[^>]*data-i18n-aria-label="agentSuggestionsPromptLabel"/);
+    // 服务端目录加载失败时给用户看的出口：状态行 + 重试按钮（Task 12）。
+    // fake-DOM 单测会凭空 getElementById 造出元素，删掉页面里的真实节点也照样绿，这里钉住 HTML。
+    assert.match(html, /id="sp-agent-prompt-status"/);
+    assert.match(html, /id="sp-agent-prompt-retry"/);
     assert.match(html, /data-i18n="agentSuggestionsGenerate"/);
     assert.match(html, /id="sp-pane-create"[^>]*hidden/);
     assert.match(html, /side-panel-bridge\.js/);
