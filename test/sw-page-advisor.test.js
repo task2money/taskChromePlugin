@@ -337,4 +337,40 @@ describe('sw-page-advisor failed job traceId (lib wiring)', () => {
     assert.equal(wf[0].msg.run.status, 'running');
     assert.ok((wf[0].msg.run.spans || []).some((s) => s.id === 'capture'));
   });
+
+  it('未显式给 promptSkillId 时把记住的选择上送平台 body（显式参数优先）', async () => {
+    const bodies = [];
+    const sandbox = loadSwPageAdvisorStack({
+      PageAdvisorPromptOptions: { loadSelectedId: async () => '  stored-prompt  ' },
+    });
+    sandbox.chrome.tabs.sendMessage = async (_tabId, msg) => {
+      if (msg.action === 'getPageAdvisorContext') {
+        return {
+          success: true,
+          data: {
+            url: 'https://example.test/page',
+            title: 'T',
+            pageText: 'x',
+            domOutline: [],
+            workspaceId: 'ws1',
+            companyId: 'ten1',
+          },
+        };
+      }
+      return undefined;
+    };
+    sandbox.PageAdvisorAPI.createSuggestJob = async (_tenantId, body) => {
+      bodies.push(body);
+      return { job_id: 'job-p', trace_id: 't' };
+    };
+    sandbox.PageAdvisorAPI.pollSuggestJob = async () => ({ status: 'succeeded', suggestions: [] });
+
+    await sandbox.runPageOptimizationSuggest(1);
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].prompt_skill_id, 'stored-prompt');
+
+    await sandbox.runPageOptimizationSuggest(1, { promptSkillId: ' explicit ' });
+    assert.equal(bodies.length, 2);
+    assert.equal(bodies[1].prompt_skill_id, 'explicit');
+  });
 });

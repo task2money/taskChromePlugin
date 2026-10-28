@@ -180,6 +180,28 @@ describe('generatePageAdvisorSuggestions 匿名试用路由', () => {
     assert.equal(calls.context.length, 0, '本地就挡住，不必采集页面');
   });
 
+  it('直连本机模型成功时结果不带服务端提示词 id（不冒领下拉选择）', async () => {
+    const { sandbox, calls } = loadStack({
+      route: {
+        llmCfg: { apiKey: 'sk-local', baseUrl: 'https://llm.test', model: 'm1' },
+        directReady: true,
+        route: 'direct',
+      },
+      sandbox: {
+        PageAdvisorPromptOptions: { loadSelectedId: async () => 'stored-id' },
+        PageAdvisorLLM: { suggest: async () => [{ id: 's1', title: '本机结果' }] },
+      },
+    });
+
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {});
+
+    assert.equal(result.ok, true);
+    assert.equal(result.route, 'direct');
+    assert.equal(result.jobId, '');
+    assert.equal(result.promptSkillId, '', '直连不经过服务端提示词，不得回填记住的 id');
+    assert.equal(calls.trial.length, 0);
+  });
+
   it('读不到安装指纹：如实报错，不发试用请求', async () => {
     const { sandbox, calls } = loadStack({ fingerprint: '' });
 

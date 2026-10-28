@@ -194,8 +194,6 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     result = await runOnce('');
     if (result && typeof result === 'object') result.promptFallback = true;
   }
-  // 直连本机模型不经过服务端提示词，但落贴时仍要记录本次选中的 id。
-  if (result?.ok && result.promptSkillId === undefined) result.promptSkillId = selectedPromptId;
   return result;
 }
 
@@ -258,6 +256,9 @@ async function generateViaDirectLlm({ llmCfg, page, locale, skill, sessionOk, te
       ? attachSuggestionAnchors(suggestions, page.domOutline)
       : suggestions,
     jobId: '',
+    // 直连本机模型不使用服务端提示词：落贴不得冒领下拉选中的 id（否则帖会被归因到
+    // 一个并没有产生它的提示词，甚至因 id 失效让整次成功生成白丢）。
+    promptSkillId: '',
     featureParamsSource: 'plugin_direct',
     traceId: '',
   };

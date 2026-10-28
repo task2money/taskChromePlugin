@@ -276,11 +276,13 @@ describe('sw-agent-suggestions builtin 路由（OPT-20261013-011）', () => {
     assert.equal(calls[0].body.page_url, 'https://shop.test/p');
   });
 
-  it('builtin 不再读本地选中 skill：一律用默认加载器，服务端提示词 id 仍随落贴上行', async () => {
+  it('builtin 不再读本地选中 skill，落贴也不冒领服务端提示词 id', async () => {
     const stack = loadBuiltinStack();
     await stack.sandbox.handleGenerateAgentSuggestionsForActiveTab({ promptSkillId: 'ws-conv' });
     assert.equal((await stack.altZ[0].deps.loadSkill()).id, 'sys-default');
-    assert.equal(stack.calls[0].body.prompt_skill_id, 'ws-conv');
+    // 内置模型是本地生成，没有服务端提示词/job；落贴带空值，避免归因到没产生它的提示词。
+    assert.equal(stack.calls[0].body.prompt_skill_id, '');
+    assert.equal(stack.calls[0].body.suggest_job_id, '');
   });
 
   it('下载中/待启用的门禁文案原样透传，不发落贴请求', async () => {
@@ -473,14 +475,15 @@ describe('sw-agent-suggestions 生成并落贴', () => {
     assert.equal(calls[0].body.own_provider, undefined);
   });
 
-  it('生成结果没有 jobId 时不发 suggest_job_id 键', async () => {
+  it('直连/内置没有生成 job 时发送空 suggest_job_id（服务端 trim）', async () => {
     const { sandbox, calls } = loadGenerateStack({
       generatePageAdvisorSuggestions: async () => ({
         ok: true,
         pageUrl: 'https://shop.test/p',
         pageTitle: '商品页',
         suggestions: [{ title: '改标题' }],
-        promptSkillId: 'ws-conv',
+        promptSkillId: '',
+        jobId: '',
         featureParamsSource: 'plugin_builtin',
         tenantId: 'ten-page',
       }),
@@ -488,8 +491,9 @@ describe('sw-agent-suggestions 生成并落贴', () => {
 
     await sandbox.handleGenerateAgentSuggestionsForActiveTab({ promptSkillId: 'ws-conv' });
 
-    assert.equal(calls[0].body.prompt_skill_id, 'ws-conv');
-    assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, 'suggest_job_id'), false);
+    assert.equal(calls[0].body.prompt_skill_id, '');
+    assert.equal(Object.prototype.hasOwnProperty.call(calls[0].body, 'suggest_job_id'), true);
+    assert.equal(calls[0].body.suggest_job_id, '');
   });
 });
 

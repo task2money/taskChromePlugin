@@ -122,14 +122,3 @@ async function notifyPageAdvisorDone(tabId, payload, withSpan, timingRun) {
   finishPageAdvisorTiming(timingRun, true, payload.traceId || '');
 }
 
-function wrapBuiltinAdvisorNotify(notify, withSpan, timingRun) {
-  return async function timedNotify(tabId, payload) {
-    if (payload && payload.ok && payload.phase === 'done') {
-      return notifyPageAdvisorDone(tabId, payload, withSpan, timingRun);
-    }
-    if (payload && payload.ok === false) {
-      finishPageAdvisorTiming(timingRun, false, payload.traceId || '');
-    }
-    return notify(tabId, payload);
-  };
-}

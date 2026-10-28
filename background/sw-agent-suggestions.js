@@ -301,7 +301,8 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   const promptSkillId = await resolveAgentSuggestionPromptSkillId(message?.promptSkillId);
   const builtin = await runBuiltinAgentSuggestions(tab.id);
   const result = builtin
-    ? { ...builtin, promptSkillId }
+    // 内置模型在本地生成，不使用服务端提示词；落贴不得冒领下拉选中的 id。
+    ? { ...builtin, promptSkillId: '' }
     : await generatePageAdvisorSuggestions(tab.id, { promptSkillId, attachAnchors: true });
 
   if (!result.ok) {
@@ -354,8 +355,9 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       summary: copy.summary,
       detail: copy.detail,
       prompt_tendency: String(message?.promptTendency || '').trim(),
+      // 只有服务端提示词路由才带 id；直连/内置固定 ''，服务端按默认提示词处理。
       prompt_skill_id: result.promptSkillId,
-      // 生成 job 才能让服务端把「哪个提示词生成了这贴」和 job 对上；没有 job（内置模型）就不发键。
+      // 直连/内置没有生成 job，固定发空串（服务端会 trim），不伪造 job 关联。
       ...(result.jobId !== undefined ? { suggest_job_id: result.jobId } : {}),
       suggestions: rows,
     }, idempotencyKey);
