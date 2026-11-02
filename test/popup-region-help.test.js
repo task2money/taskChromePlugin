@@ -80,10 +80,19 @@ describe('Popup 区域说明收在 ! 内（默认折叠）', () => {
     );
   });
 
-  it('工作空间区无展开说明；交付区标题仍有 !', () => {
+  it('工作空间说明收在标题旁 ! 内，交付区标题仍有 !', () => {
     const html = popupHtml();
     const ws = html.match(/id="pageAdvisorWorkspaceSection"[\s\S]*?<\/section>/)[0];
-    assert.doesNotMatch(ws, /<details|<summary/);
+    assert.match(ws, /<details[^>]*class="region-help"/);
+    assert.match(ws, /<summary[^>]*>!<\/summary>/);
+    assert.match(
+      ws,
+      /<p class="float-ball-hint"[^>]*data-region-help="1"[^>]*data-i18n="paWorkspaceSectionHint"/,
+      '工作空间说明须作为 ! 内的提示段落，而不是常显 <p class="hint">',
+    );
+    assert.doesNotMatch(ws, /<p class="hint"[^>]*data-i18n="paWorkspaceSectionHint"/);
+    const hintPos = html.indexOf('data-i18n="paWorkspaceSectionHint"');
+    assert.ok(insideBangDetails(html, hintPos), '工作空间说明须位于未展开的 ! details 内');
     assert.doesNotMatch(html, /id="pageAdvisorLlmSection"/);
     assert.doesNotMatch(html, /id="pageAdvisorSkillSection"/);
     const delivery = html.match(/id="pluginDeliverySection"[\s\S]*?<\/section>/)[0];

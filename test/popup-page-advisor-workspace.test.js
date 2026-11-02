@@ -51,6 +51,18 @@ describe('popup.html：设置区只剩工作空间', () => {
     assert.match(html, /data-i18n="paSaasWorkspaceLabel"/);
   });
 
+  it('工作空间说明默认收在 ! 内，不再常显', () => {
+    const html = popupHtml();
+    const section = html.match(/id="pageAdvisorWorkspaceSection"[\s\S]*?<\/section>/)[0];
+    assert.match(section, /<summary[^>]*>!<\/summary>/);
+    assert.doesNotMatch(section, /<p class="hint"[^>]*data-i18n="paWorkspaceSectionHint"/);
+    const open = section.lastIndexOf('<details', section.indexOf('paWorkspaceSectionHint'));
+    const close = section.lastIndexOf('</details>', section.indexOf('paWorkspaceSectionHint'));
+    assert.ok(open > close, 'paWorkspaceSectionHint 须位于 details 内');
+    const detailsTag = section.slice(open, section.indexOf('>', open) + 1);
+    assert.doesNotMatch(detailsTag, /\bopen\b/, '工作空间 ! 默认不得展开');
+  });
+
   it('工作空间模块各加载一次，且 popup.html 注入的脚本都存在', () => {
     const html = popupHtml();
     for (const m of html.matchAll(/<script src="([^"]+)"/g)) {

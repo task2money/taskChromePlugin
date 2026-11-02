@@ -344,6 +344,19 @@ test.describe('Popup 面板布局', () => {
     })).toBe('ws-a|true');
   });
 
+  test('工作空间说明默认收在 ! 内，点击后再展开', async ({ page }) => {
+    await installChromeStub(page, { token: 'at_e2e_ws', username: 'ada' });
+    await page.goto(POPUP_URL);
+    const section = page.locator('#pageAdvisorWorkspaceSection');
+    await expect(section).toBeVisible({ timeout: 10000 });
+    const hint = section.locator('[data-region-help]');
+    await expect(hint).toBeHidden();
+    await expect(hint).toContainText('网页优化建议由平台后端生成');
+    await expect(hint).toContainText('提示词目录会合并该空间的自定义提示词');
+    await section.locator('summary.region-help-mark').click();
+    await expect(hint).toBeVisible();
+  });
+
   test('区域说明默认收在 ! 内，点击后再展开', async ({ page }) => {
     await installChromeStub(page);
     await page.goto(POPUP_URL);
