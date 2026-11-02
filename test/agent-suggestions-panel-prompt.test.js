@@ -43,6 +43,9 @@ const MESSAGES = {
   agentSuggestionsProgressPosting: '正在保存优化贴…',
   agentSuggestionsProgressDone: '生成完成',
   agentSuggestionsProgressFailed: '生成失败',
+  agentSuggestionsProgressElapsed: '已用 {time}',
+  agentSuggestionsProgressEta: '约剩 {time}',
+  agentSuggestionsProgressAlmost: '即将完成',
   agentSuggestionsGeneratedInto: '已在「{project}」创建优化贴',
   agentSuggestionsPostedExisting: '「{project}」里已有当前网页的优化贴',
   agentSuggestionsGenerateFail: '生成建议失败',
@@ -115,6 +118,7 @@ function buildHarness({
   initialSelectedId = '',
   probeResponse = { success: true, retryable: false },
   reloadResponse = { success: true },
+  progressResponse = { success: true, progress: null },
   quotaResponse = {
     success: true,
     quota: { enabled: true, remaining: 3, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
@@ -201,6 +205,8 @@ function buildHarness({
           if (action === 'probeAgentSuggestionsChannel') return Promise.resolve(probeResponse);
           if (action === 'reloadPageAndRetryAgentSuggestions') return Promise.resolve(reloadResponse);
           if (action === 'getPageTrialQuota') return Promise.resolve(quotaResponse);
+          if (action === 'getAgentSuggestionsProgress') return Promise.resolve(progressResponse);
+          if (action === 'clearAgentSuggestionsProgress') return Promise.resolve({ success: true });
           return Promise.resolve({ success: true });
         },
       },
@@ -235,6 +241,11 @@ function buildHarness({
   // 进度模型与侧栏同源：阶段起点/上限、心跳都走真实实现。
   vm.runInContext(
     fs.readFileSync(path.join(ROOT, 'lib', 'agent-suggestions-progress.js'), 'utf8'),
+    context,
+  );
+  // 列表渲染与选中逻辑走真实实现：恢复进度后要能选中刷新出来的新帖。
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'lib', 'page-advisor-site-pending.js'), 'utf8'),
     context,
   );
   const resetCalls = { count: 0 };
@@ -284,6 +295,7 @@ function buildHarness({
     progressBox() { return document.getElementById('sp-agent-progress'); },
     progressBar() { return document.getElementById('sp-agent-progress-bar'); },
     progressStage() { return document.getElementById('sp-agent-progress-stage').textContent; },
+    progressElapsed() { return document.getElementById('sp-agent-progress-elapsed').textContent; },
     progressPct() { return document.getElementById('sp-agent-progress-pct').textContent; },
     async clickGenerate() {
       const btn = document.getElementById('sp-agent-generate');
@@ -485,6 +497,7 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.progressBox().hidden, false, '点生成后立即显示进度条');
     assert.equal(h.progressStage(), '正在采集当前网页…');
     assert.equal(h.progressPct(), '8%');
+    assert.equal(h.progressElapsed(), '已用 00:00 · 约剩 00:30', '点击即给出已耗时与预计剩余');
     const gen = h.sent.filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab').pop();
     assert.ok(gen.progressRunId, '生成消息带本次 runId');
 
@@ -515,6 +528,86 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.status(), '已在「默认项目」创建优化贴');
   });
 
+  it('已耗时随时间推进；预计剩余为估算值，超时改「即将完成」', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const h = buildHarness({ generateResponse: gate });
+    await h.refresh();
+
+    const pending = h.clickGenerate();
+    await new Promise((resolve) => setTimeout(resolve, 1150));
+    assert.match(h.progressElapsed(), /^已用 00:01 · 约剩 00:(28|29)$/, '已耗时每秒推进，剩余时间同步递减');
+
+    release({ success: true, created: true, projectName: '默认项目' });
+    await pending;
+    assert.doesNotMatch(h.progressElapsed(), /约剩|即将完成/, '终态不再显示倒计时');
+  });
+
+  it('关闭侧栏再打开：恢复后台进度，完成广播后刷新列表、选中新帖并收起', async () => {
+    const h = buildHarness({
+      progressResponse: {
+        success: true,
+        progress: {
+          tabId: 7,
+          runId: 'run-restored',
+          stage: 'generating',
+          percent: 62,
+          startedAt: Date.now() - 45000,
+        },
+      },
+    });
+    h.setListResponse({ success: true, items: [{ id: '1001', tenant_id: '1', title: '建议一' }] });
+    await h.refresh();
+
+    assert.equal(h.progressBox().hidden, false, '重开后继续显示未完成的进度');
+    assert.equal(h.progressStage(), '模型正在生成建议…');
+    assert.equal(h.progressPct(), '62%');
+    assert.equal(h.progressElapsed(), '已用 00:45 · 即将完成', '沿用后台记下的开始时间，超时不倒计时成负数');
+
+    const listCalls = h.actions().filter((a) => a === 'listSitePendingForActiveTab').length;
+    h.emitRuntimeMessage({
+      action: 'agentSuggestionsProgress',
+      runId: 'run-restored',
+      progress: { stage: 'done', percent: 100 },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    assert.equal(h.progressBox().hidden, true, '完成后收起进度');
+    assert.equal(h.status(), '生成完成');
+    assert.ok(
+      h.actions().filter((a) => a === 'listSitePendingForActiveTab').length > listCalls,
+      '侧栏关着时生成完的新帖要重新拉出来',
+    );
+    assert.ok(h.actions().includes('selectAgentSuggestionPost'), '刷新后把选中的帖子显示到页面');
+    assert.ok(h.actions().includes('clearAgentSuggestionsProgress'), '收起时清掉会话快照');
+  });
+
+  it('关闭侧栏再打开：收到失败终态时如实报错并收起', async () => {
+    const h = buildHarness({
+      progressResponse: {
+        success: true,
+        progress: {
+          tabId: 7,
+          runId: 'run-failed',
+          stage: 'generating',
+          percent: 55,
+          startedAt: Date.now() - 10000,
+        },
+      },
+    });
+    await h.refresh();
+
+    h.emitRuntimeMessage({
+      action: 'agentSuggestionsProgress',
+      runId: 'run-failed',
+      progress: { stage: 'failed', percent: 100 },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    assert.equal(h.progressBox().hidden, true);
+    assert.equal(h.status(), '生成建议失败');
+  });
+
   it('生成失败收起进度条并保留错误文案', async () => {
     const h = buildHarness({ generateResponse: { success: false, error: '未登录' } });
     await h.refresh();
@@ -522,6 +615,7 @@ describe('侧栏生成按钮与试用回归', () => {
 
     assert.equal(h.progressBox().hidden, true, '失败后不留着做了一半的进度条');
     assert.equal(h.status(), '未登录');
+    assert.ok(h.actions().includes('clearAgentSuggestionsProgress'), '失败收起时清掉会话快照');
   });
 
   it('卸载时移除进度消息监听', async () => {

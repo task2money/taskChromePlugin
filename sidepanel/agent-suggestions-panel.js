@@ -37,6 +37,9 @@
   var progressRunId = '';
   var progressStage = '';
   var progressPercent = 0;
+  // 进度起点与来源：重开侧栏续显时沿用后台记下的开始时间。
+  var progressStartedAt = 0;
+  var progressResumed = false;
   var AGENT_SUGGESTIONS_PROGRESS_TICK_MS = 500;
   var AGENT_SUGGESTIONS_PROGRESS_HIDE_MS = 900;
 
@@ -108,6 +111,7 @@
       box: document.getElementById('sp-agent-progress'),
       bar: document.getElementById('sp-agent-progress-bar'),
       stage: document.getElementById('sp-agent-progress-stage'),
+      elapsed: document.getElementById('sp-agent-progress-elapsed'),
       pct: document.getElementById('sp-agent-progress-pct'),
     };
   }
@@ -126,18 +130,50 @@
     return key ? tx(key) : '';
   }
 
+  /** mm:ss：倒计时与已耗时共用，跨语言不需要翻译单位。 */
+  function formatProgressDuration(ms) {
+    const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+    const minutes = Math.floor(total / 60);
+    const seconds = total % 60;
+    return String(minutes).padStart(2, '0') + ':' + String(seconds).padStart(2, '0');
+  }
+
+  /**
+   * 已耗时常驻；未终态时补一个按 30s 基准估算的剩余时长，超时改「即将完成」。
+   * 只是体验提示，不参与进度百分比，也不假装服务端给出了真实剩余时间。
+   */
+  function progressTimingLabel() {
+    const started = Number(progressStartedAt);
+    if (started <= 0) return '';
+    const elapsed = Math.max(0, Date.now() - started);
+    let text = tx('agentSuggestionsProgressElapsed', { time: formatProgressDuration(elapsed) });
+    const P = global.AgentSuggestionsProgress;
+    const terminal = P ? P.isTerminal(progressStage) : false;
+    if (terminal) return text;
+    const remaining = P && typeof P.remainingMs === 'function'
+      ? P.remainingMs(elapsed)
+      : Math.max(0, 30000 - elapsed);
+    text += ' · ' + (remaining > 0
+      ? tx('agentSuggestionsProgressEta', { time: formatProgressDuration(remaining) })
+      : tx('agentSuggestionsProgressAlmost'));
+    return text;
+  }
+
   function renderProgress() {
     const els = progressEls();
     if (!els.box) return;
     els.box.hidden = false;
+    const stageLabel = progressStageLabel(progressStage);
     if (els.bar) {
       els.bar.value = progressPercent;
       if (typeof els.bar.setAttribute === 'function') {
         els.bar.setAttribute('value', String(progressPercent));
         els.bar.setAttribute('aria-valuenow', String(progressPercent));
+        els.bar.setAttribute('aria-valuetext', `${stageLabel} ${progressPercent}%`.trim());
       }
     }
-    if (els.stage) els.stage.textContent = progressStageLabel(progressStage);
+    if (els.stage) els.stage.textContent = stageLabel;
+    if (els.elapsed) els.elapsed.textContent = progressTimingLabel();
     if (els.pct) els.pct.textContent = progressPercent + '%';
   }
 
@@ -155,6 +191,19 @@
     }
   }
 
+  /** 心跳：百分比在阶段上限内缓慢补位，同时推动已耗时每秒刷新。 */
+  function startProgressTicker() {
+    stopProgressTicker();
+    const tickMs = Number(AGENT_SUGGESTIONS_PROGRESS_TICK_MS);
+    progressTicker = setInterval(() => {
+      if (!progressRunId) return;
+      const P = global.AgentSuggestionsProgress;
+      const next = P ? P.tickPercent(progressPercent, progressStage) : progressPercent;
+      if (next !== progressPercent) progressPercent = next;
+      renderProgress();
+    }, tickMs > 0 ? tickMs : 500);
+  }
+
   /**
    * 点生成后立刻显示进度条：采集阶段的起点百分比先落地，
    * 之后由后台上报推进，心跳在阶段上限内缓慢补位。
@@ -167,16 +216,52 @@
     progressRunId = String(runId || '');
     progressStage = 'capture';
     progressPercent = Progress ? Progress.stagePercent('capture') : 8;
+    progressStartedAt = Date.now();
+    progressResumed = false;
     renderProgress();
-    const tickMs = Number(AGENT_SUGGESTIONS_PROGRESS_TICK_MS);
-    progressTicker = setInterval(() => {
-      if (!progressRunId) return;
-      const P = global.AgentSuggestionsProgress;
-      const next = P ? P.tickPercent(progressPercent, progressStage) : progressPercent;
-      if (next === progressPercent) return;
-      progressPercent = next;
-      renderProgress();
-    }, tickMs > 0 ? tickMs : 500);
+    startProgressTicker();
+  }
+
+  /**
+   * 重开侧栏续显后台还在跑的生成：runId 取快照，之后的广播才能接上；
+   * 已终态（极少见，正常终态会清快照）按终态收尾。
+   */
+  function resumeProgress(snapshot) {
+    if (!snapshot) return;
+    const id = String(snapshot.runId || '').trim();
+    if (!id) return;
+    const P = global.AgentSuggestionsProgress;
+    const stage = P ? P.normalizeStage(snapshot.stage) : String(snapshot.stage || 'capture');
+    clearProgressHideTimer();
+    progressRunId = id;
+    progressStage = stage === 'idle' ? 'capture' : stage;
+    progressPercent = P ? P.percentForEvent({ stage: progressStage, percent: snapshot.percent }) : 0;
+    const started = Number(snapshot.startedAt);
+    progressStartedAt = started > 0 && started <= Date.now() ? started : Date.now();
+    progressResumed = true;
+    renderProgress();
+    if (P && P.isTerminal(progressStage)) {
+      onResumedTerminal(progressStage);
+      return;
+    }
+    startProgressTicker();
+  }
+
+  /**
+   * 侧栏关着时生成收尾了：刷新列表把新贴带出来，并让页面显示选中的那条。
+   * 广播可能比侧栏重开晚到，这里也会走到。
+   */
+  function onResumedTerminal(stage) {
+    progressResumed = false;
+    scheduleProgressHide();
+    if (stage === 'done') {
+      refresh().then(() => {
+        if (activeId) notifyPageSelection(activeId);
+        setStatus(tx('agentSuggestionsProgressDone'));
+      }).catch(() => {});
+      return;
+    }
+    setStatus(tx('agentSuggestionsGenerateFail'));
   }
 
   /** 只认本次点击的 runId：上一次生成的迟到事件不能画到新进度条上。 */
@@ -190,7 +275,10 @@
     if (Number.isFinite(pct)) {
       progressPercent = Math.max(progressPercent, Math.min(100, Math.round(pct)));
     }
-    if (P && P.isTerminal(progressStage)) stopProgressTicker();
+    if (P && P.isTerminal(progressStage)) {
+      stopProgressTicker();
+      if (progressResumed) onResumedTerminal(progressStage);
+    }
     renderProgress();
   }
 
@@ -199,12 +287,24 @@
     stopProgressTicker();
   }
 
+  /** 侧栏本地收起（成功停留后 / 失败）时清掉快照，避免下次重开续到已结束的任务。 */
+  function clearProgressSnapshot() {
+    try {
+      if (!global.chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+      const pending = chrome.runtime.sendMessage({ action: 'clearAgentSuggestionsProgress' });
+      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+    } catch (_e) { /* 清快照失败不影响收起 */ }
+  }
+
   function hideProgress() {
+    const hadRunId = !!progressRunId;
     clearProgressHideTimer();
     stopProgressTicker();
     progressRunId = '';
     progressStage = '';
     progressPercent = 0;
+    progressStartedAt = 0;
+    progressResumed = false;
     const els = progressEls();
     if (els.box) els.box.hidden = true;
     if (els.bar) {
@@ -212,8 +312,11 @@
       if (typeof els.bar.setAttribute === 'function') {
         els.bar.setAttribute('value', '0');
         els.bar.setAttribute('aria-valuenow', '0');
+        els.bar.removeAttribute('aria-valuetext');
       }
     }
+    if (els.elapsed) els.elapsed.textContent = '';
+    if (hadRunId) clearProgressSnapshot();
   }
 
   function scheduleProgressHide() {
@@ -228,6 +331,23 @@
   function onAgentSuggestionsProgressMessage(message) {
     if (!message || message.action !== 'agentSuggestionsProgress') return;
     applyProgressEvent(message.runId, message.progress);
+  }
+
+  /**
+   * 侧栏重开时问后台要当前 tab 的快照。生成中（按钮 busy）或已有本地进度时不查，
+   * 免得旧快照覆盖用户刚点下的这一次。
+   */
+  async function resumeProgressIfAny() {
+    const btn = generateButton();
+    if ((btn && btn.dataset.busy === '1') || progressRunId) return;
+    try {
+      if (!global.chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
+      const resp = await chrome.runtime.sendMessage({ action: 'getAgentSuggestionsProgress' });
+      if (!resp || resp.success === false || !resp.progress) return;
+      const current = generateButton();
+      if ((current && current.dataset.busy === '1') || progressRunId) return;
+      resumeProgress(resp.progress);
+    } catch (_e) { /* 续显失败不影响列表与生成 */ }
   }
 
   function removeProgressResources() {
@@ -802,6 +922,8 @@
     bindReloadRetryButton();
     // 探测不挡列表：等它回来再决定要不要露出刷新入口。
     probeCaptureChannel();
+    // 侧栏可能是关掉后重开的：问一次后台有没有还在跑的生成，有就续显进度。
+    resumeProgressIfAny();
     let resp;
     try {
       resp = await chrome.runtime.sendMessage({

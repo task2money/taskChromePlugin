@@ -69,6 +69,52 @@ function emitAgentSuggestionsProgress(runId, progress) {
 }
 
 /**
+ * 进度快照写 `chrome.storage.session`：侧栏关掉再打开时据此续显。
+ * 只是体验数据，任何失败都吞掉，绝不影响生成。
+ */
+function persistAgentSuggestionsProgress(tabId, runId, progress, startedAt) {
+  const Store = typeof AgentSuggestionsProgressStore !== 'undefined'
+    ? AgentSuggestionsProgressStore
+    : null;
+  const id = String(runId || '').trim();
+  const tab = Number(tabId);
+  if (!Store || !id || !Number.isInteger(tab) || tab < 0 || !progress) return;
+  const stage = String(progress.stage || '');
+  if (stage === 'done' || stage === 'failed') {
+    Store.clear(tab);
+    return;
+  }
+  Store.save(tab, {
+    runId: id,
+    stage,
+    percent: progress.percent,
+    startedAt,
+  });
+}
+
+/**
+ * 一次生成的进度出口：同一个 runId 既广播给发起点击的侧栏，也落一条会话快照。
+ * 没有 runId（Alt+Z 等旧路径）时整体 no-op。
+ */
+function createAgentSuggestionsProgressReporter(runId, tabId, startedAt) {
+  const id = String(runId || '').trim();
+  const started = Number(startedAt) > 0 ? Number(startedAt) : Date.now();
+  return {
+    enabled: !!id,
+    /** 只写快照不广播：给「点击后、首个阶段事件前」的初始进度用。 */
+    snapshot(progress) {
+      if (!id || !progress) return;
+      persistAgentSuggestionsProgress(tabId, id, progress, started);
+    },
+    report(progress) {
+      if (!id || !progress) return;
+      emitAgentSuggestionsProgress(id, progress);
+      persistAgentSuggestionsProgress(tabId, id, progress, started);
+    },
+  };
+}
+
+/**
  * 本次生成用的提示词 id：显式给的优先，其次侧栏记住的选择；空串 = 服务端默认。
  * 只读 id，不读本地 skill 正文——正文由服务端按 id 解析。
  * @param {string|undefined} rawId
@@ -230,12 +276,34 @@ async function handleGetPageTrialQuota() {
   }
 }
 
+/** 侧栏重开时读当前 tab 的进度快照；没有、已过期或存储不可用都回 null。 */
+async function handleGetAgentSuggestionsProgress() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs && tabs[0];
+  if (!tab?.id) return { success: false, reason: 'no_active_tab' };
+  const Store = typeof AgentSuggestionsProgressStore !== 'undefined'
+    ? AgentSuggestionsProgressStore
+    : null;
+  if (!Store) return { success: true, progress: null };
+  return { success: true, progress: await Store.load(tab.id) };
+}
+
+/** 侧栏收起进度（本地失败）时清快照；终态清理已由进度出口负责。 */
+async function handleClearAgentSuggestionsProgress() {
+  const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+  const tab = tabs && tabs[0];
+  if (!tab?.id) return { success: false, reason: 'no_active_tab' };
+  const Store = typeof AgentSuggestionsProgressStore !== 'undefined'
+    ? AgentSuggestionsProgressStore
+    : null;
+  if (!Store) return { success: true };
+  await Store.clear(tab.id);
+  return { success: true };
+}
+
 async function handleGenerateAgentSuggestionsForActiveTab(message) {
   // 进度只回给发起本次点击的侧栏：runId 由侧栏生成，广播时原样带回。
   const progressRunId = String(message?.progressRunId || '').trim();
-  const onProgress = progressRunId
-    ? (progress) => emitAgentSuggestionsProgress(progressRunId, progress)
-    : undefined;
 
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
@@ -243,6 +311,12 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
     return { success: false, error: tx('swNoActiveTab') };
   }
+
+  const progressStartedAt = Date.now();
+  const reporter = createAgentSuggestionsProgressReporter(progressRunId, tab.id, progressStartedAt);
+  const onProgress = reporter.enabled ? (progress) => reporter.report(progress) : undefined;
+  // 先落一条采集阶段的初始快照：侧栏此刻被关掉也还能在重开时续上。
+  reporter.snapshot({ stage: 'capture', percent: 8 });
 
   // 下拉选的是服务端提示词 id：只回传 id，不读本地 skill 正文。
   const promptSkillId = await resolveAgentSuggestionPromptSkillId(message?.promptSkillId);
@@ -253,7 +327,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   });
 
   if (!result.ok) {
-    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
+    reporter.report({ stage: 'failed', percent: 100 });
     return {
       success: false,
       error: result.error,
@@ -268,7 +342,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   if (result.trial || result.route === 'trial') {
     const trialRows = agentSuggestionRows(result.suggestions);
     const anonymousPostId = String(result.anonymousPost?.postId || '').trim();
-    emitAgentSuggestionsProgress(progressRunId, { stage: 'done', percent: 100 });
+    reporter.report({ stage: 'done', percent: 100 });
     return {
       success: true,
       trial: true,
@@ -284,7 +358,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
 
   const tenantId = await resolveAgentSuggestionTenant(result.tenantId);
   if (!tenantId) {
-    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
+    reporter.report({ stage: 'failed', percent: 100 });
     return { success: false, error: tx('agentSuggestionsLogin') };
   }
 
@@ -313,7 +387,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       suggestions: rows,
     }, idempotencyKey);
   } catch (e) {
-    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
+    reporter.report({ stage: 'failed', percent: 100 });
     return {
       success: false,
       error: e?.message || tx('agentSuggestionsGenerateFail'),
@@ -331,7 +405,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     matchedBy: String(data?.matched_by || ''),
     count: rows.length,
   });
-  emitAgentSuggestionsProgress(progressRunId, { stage: 'done', percent: 100 });
+  reporter.report({ stage: 'done', percent: 100 });
   return {
     success: true,
     created: data?.created !== false,

@@ -115,8 +115,11 @@
         <div id="sp-agent-progress" class="sp-agent-progress" data-testid="sp-agent-progress" role="group" data-i18n-aria-label="agentSuggestionsProgressAria" hidden>
           <progress id="sp-agent-progress-bar" class="sp-agent-progress-bar" max="100" value="0"></progress>
           <div class="sp-agent-progress-meta">
-            <span id="sp-agent-progress-stage" class="sp-agent-progress-stage" data-testid="sp-agent-progress-stage"></span>
-            <span id="sp-agent-progress-pct" class="sp-agent-progress-pct" data-testid="sp-agent-progress-pct">0%</span>
+            <span id="sp-agent-progress-stage" class="sp-agent-progress-stage" data-testid="sp-agent-progress-stage" aria-live="polite"></span>
+            <span class="sp-agent-progress-time">
+              <span id="sp-agent-progress-elapsed" class="sp-agent-progress-elapsed" data-testid="sp-agent-progress-elapsed" aria-hidden="true"></span>
+              <span id="sp-agent-progress-pct" class="sp-agent-progress-pct" data-testid="sp-agent-progress-pct" aria-hidden="true">0%</span>
+            </span>
           </div>
         </div>
         <p id="sp-agent-prompt-status" class="hint" aria-live="polite" data-testid="sp-agent-prompt-status"></p>

@@ -13,16 +13,37 @@ const assert = require('node:assert/strict');
 
 const ROOT = path.join(__dirname, '..');
 
+/** 让出一次宏任务：进度快照的写入/删除是后台异步动作，不阻塞生成结果。 */
+const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 function loadGenerateStack(extraSandbox = {}) {
   const calls = [];
   const generateCalls = [];
   // 侧栏进度广播：后台只负责把 runId + 阶段原样发出去。
   const progress = [];
+  // chrome.storage.session 替身：重开侧栏续显进度用的会话快照。
+  const session = { data: new Map(), removed: [] };
+  const sessionArea = {
+    async get(key) {
+      return session.data.has(key) ? { [key]: session.data.get(key) } : {};
+    },
+    async set(patch) {
+      Object.keys(patch || {}).forEach((key) => session.data.set(key, patch[key]));
+    },
+    async remove(key) {
+      const keys = Array.isArray(key) ? key : [key];
+      keys.forEach((k) => {
+        session.data.delete(k);
+        session.removed.push(k);
+      });
+    },
+  };
   const sandbox = {
     console,
     URL,
     chrome: {
       tabs: { query: async () => [{ id: 7, url: 'https://shop.test/p?utm=1#top' }] },
+      storage: { session: sessionArea },
       runtime: {
         sendMessage(message) {
           progress.push(message);
@@ -78,6 +99,7 @@ function loadGenerateStack(extraSandbox = {}) {
 
   for (const rel of [
     'lib/page-advisor-site-pending.js',
+    'lib/agent-suggestions-progress-store.js',
     'background/sw-page-advisor-page-trial.js',
     'background/sw-agent-suggestions.js',
   ]) {
@@ -88,7 +110,7 @@ function loadGenerateStack(extraSandbox = {}) {
     );
   }
   sandbox.PageAdvisorSitePending = sandbox.globalThis.PageAdvisorSitePending;
-  return { sandbox, calls, generateCalls, progress };
+  return { sandbox, calls, generateCalls, progress, session };
 }
 
 /** 刷新重试出口的沙箱：只关心 tabs 通道与采集探针。 */
@@ -260,6 +282,68 @@ describe('sw-agent-suggestions 生成并落贴', () => {
       progress.map((m) => m.runId + ':' + m.progress.stage + ':' + m.progress.percent),
       ['run-1:capture:8', 'run-1:generating:55', 'run-1:done:100'],
     );
+  });
+
+  it('生成中的进度按 tab 写会话快照；成功后清掉，侧栏重开不再续到已完成任务', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const { sandbox, session } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async (tabId, opts) => {
+        opts.onProgress({ stage: 'generating', percent: 55 });
+        await gate;
+        return {
+          ok: true,
+          pageUrl: 'https://shop.test/p',
+          pageTitle: '商品页',
+          suggestions: [{ title: '改标题' }],
+          tenantId: 'ten-page',
+        };
+      },
+    });
+
+    const pending = sandbox.handleGenerateAgentSuggestionsForActiveTab({ progressRunId: 'run-9' });
+    await tick();
+
+    const mid = await sandbox.handleGetAgentSuggestionsProgress();
+    assert.equal(mid.success, true);
+    assert.equal(mid.progress.runId, 'run-9');
+    assert.equal(mid.progress.stage, 'generating');
+    assert.equal(mid.progress.percent, 55, '重开侧栏能续上后台正在跑的进度');
+    assert.equal(mid.progress.tabId, 7);
+
+    release();
+    await pending;
+    await tick();
+
+    const finished = await sandbox.handleGetAgentSuggestionsProgress();
+    assert.equal(finished.progress, null, '终态后不再续显');
+    assert.equal(session.data.size, 0, '终态快照必须删除');
+  });
+
+  it('clearAgentSuggestionsProgress 删除当前 tab 的快照（侧栏本地收起时调用）', async () => {
+    const { sandbox, session } = loadGenerateStack();
+    await sandbox.AgentSuggestionsProgressStore.save(7, {
+      runId: 'run-clear', stage: 'generating', percent: 50,
+    });
+    assert.equal(session.data.size, 1);
+
+    const resp = await sandbox.handleClearAgentSuggestionsProgress();
+    assert.equal(resp.success, true);
+    assert.equal(session.data.size, 0);
+    assert.equal((await sandbox.handleGetAgentSuggestionsProgress()).progress, null);
+  });
+
+  it('没有 activity tab 时查进度：如实回失败，不编造快照', async () => {
+    const { sandbox } = loadGenerateStack({
+      chrome: {
+        tabs: { query: async () => [] },
+        storage: { session: { get: async () => ({}), set: async () => {}, remove: async () => {} } },
+        runtime: { sendMessage: async () => ({ ok: true }) },
+      },
+    });
+    const resp = await sandbox.handleGetAgentSuggestionsProgress();
+    assert.equal(resp.success, false);
+    assert.equal(resp.reason, 'no_active_tab');
   });
 
   it('没有 progressRunId：不广播，也不往生成核心塞进度钩子', async () => {

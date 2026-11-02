@@ -71,4 +71,13 @@ describe('agent-suggestions-progress 阶段模型', () => {
     assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 30000, expectedMs: 60000 }), 63);
     assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 60000, expectedMs: 0 }), 90);
   });
+
+  it('预计剩余时间：按 30s 基准递减，超时归零（界面显示「即将完成」）', () => {
+    assert.equal(Progress.remainingMs(0), 30000);
+    assert.equal(Progress.remainingMs(12000), 18000);
+    assert.equal(Progress.remainingMs(30000), 0);
+    assert.equal(Progress.remainingMs(45000), 0, '超时不倒计时成负数');
+    assert.equal(Progress.remainingMs(-5), 30000, '异常耗时按 0 处理');
+    assert.equal(Progress.remainingMs(10000, 60000), 50000, '可自定义预估');
+  });
 });

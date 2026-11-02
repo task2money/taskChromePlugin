@@ -125,6 +125,20 @@ progress.sp-agent-progress-bar {
   font-size: 12px;
   color: var(--taskplugin-muted-ink, #6b7280);
 }
+.sp-agent-progress-stage {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sp-agent-progress-time {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+.sp-agent-progress-elapsed,
 .sp-agent-progress-pct {
   font-variant-numeric: tabular-nums;
 }

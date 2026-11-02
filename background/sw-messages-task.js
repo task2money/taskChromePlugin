@@ -216,6 +216,12 @@ async function handleMessageRest(message, sender) {
     case 'getPageTrialQuota':
       return handleGetPageTrialQuota();
 
+    case 'getAgentSuggestionsProgress':
+      return handleGetAgentSuggestionsProgress();
+
+    case 'clearAgentSuggestionsProgress':
+      return handleClearAgentSuggestionsProgress();
+
     case 'loadPageAdvisorPromptOptions':
       return handleLoadPageAdvisorPromptOptions();
 
