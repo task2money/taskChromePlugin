@@ -49,6 +49,12 @@
 .shortcuts-title {
   display: flex; align-items: center; justify-content: space-between;
 }
+.shortcuts-title-main { display: inline-flex; align-items: center; gap: 6px; }
+/* 折叠态绑定差异徽标：只提示，不自动展开快捷键区 */
+.shortcut-diff-badge {
+  font-size: 10px; font-weight: 500; white-space: nowrap;
+  color: var(--taskplugin-warning);
+}
 .shortcuts-list { display: flex; flex-direction: column; gap: 4px; }
 .shortcut-item {
   display: flex; align-items: center; gap: 8px;

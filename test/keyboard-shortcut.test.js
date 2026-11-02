@@ -305,19 +305,40 @@ describe('键盘快捷键三层链路', () => {
     );
   });
 
-  // ── OPT-20260807-050: 绑定差异警告位于默认收起的折叠区内，检测到差异须自动展开 ──
-  it('Popup 绑定差异时自动展开快捷键折叠区（警告不被折叠区隐藏）', () => {
-    const differsIdx = popupJs.indexOf('!r.data.differs');
-    assert.ok(differsIdx !== -1, 'popup.js 缺少 differs 判定');
-    const afterDiffers = popupJs.slice(differsIdx, differsIdx + 1000);
-    assert.ok(
-      afterDiffers.includes("sec.style.display = 'block'") &&
-        afterDiffers.includes("body.style.display = 'block'"),
-      '绑定差异后未自动展开 shortcutsSection/shortcutsBody',
+  // 快捷键区默认收起（用户明确要求）：绑定差异不得自动展开折叠区，
+  // 改为在折叠标题旁点亮 ⚠️ 徽标，展开后才看到差异详情与「点此恢复」。
+  it('Popup 绑定差异不自动展开快捷键区，折叠标题显示 ⚠️ 徽标', () => {
+    const badgeTag = popupHtml.match(/<span id="shortcutDiffBadge"[^>]*>/);
+    assert.ok(badgeTag, 'popup.html 缺少折叠态差异徽标 shortcutDiffBadge');
+    assert.ok(/\bhidden\b/.test(badgeTag[0]), '差异徽标须默认隐藏');
+    const titleBlock = popupHtml.match(/<h3 class="shortcuts-title">[\s\S]*?<\/h3>/)[0];
+    assert.ok(titleBlock.includes('id="shortcutDiffBadge"'), '差异徽标须紧贴「快捷键」标题');
+
+    const fnStart = popupJs.indexOf('async function checkShortcutBindingDiff');
+    assert.ok(fnStart !== -1, 'popup.js 缺少 checkShortcutBindingDiff 函数');
+    const fnEnd = popupJs.indexOf('function escapeHtml', fnStart);
+    const diffFn = popupJs.slice(fnStart, fnEnd === -1 ? undefined : fnEnd);
+    assert.ok(diffFn.includes('!r.data.differs'), '缺少 differs 判定');
+    assert.match(diffFn, /setShortcutDiffBadge\(true\)/, '差异分支须点亮折叠标题徽标');
+    assert.ok(popupJs.includes("$('#shortcutDiffBadge')"), '缺少差异徽标渲染逻辑');
+    assert.doesNotMatch(
+      diffFn,
+      /\$\('#shortcutsBody'\)|\$\('#shortcutsSection'\)|\$\('#btnToggleShortcuts'\)/,
+      '绑定差异不得触碰快捷键折叠区（默认保持收起）',
     );
+
+    const { zh, en } = require('../lib/i18n-popup-messages.js');
+    assert.ok(zh.popupShortcutDiffBadge && en.popupShortcutDiffBadge, '缺少差异徽标文案');
     assert.ok(
-      afterDiffers.includes("toggleBtn.textContent = tx('commonCollapse')"),
-      '绑定差异后未按折叠态键 commonCollapse 同步 btnToggleShortcuts',
+      zh.popupShortcutDiffBadgeAria && en.popupShortcutDiffBadgeAria,
+      '缺少差异徽标 aria 文案',
     );
+  });
+
+  it('使用说明同步快捷键区默认收起与 ⚠️ 徽标（ai.md 双 SSOT）', () => {
+    assert.match(userGuideJs, /快捷键区默认收起/, 'lib/user-guide.js 未写明默认收起');
+    assert.match(userGuideMd, /⚠️ 徽标/, 'docs/USER_GUIDE.md 未写明差异徽标');
+    const guideEn = read('lib/user-guide-en-sections.js');
+    assert.match(guideEn, /collapsed by default/, '英文使用说明未写明默认收起');
   });
 });

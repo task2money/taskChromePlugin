@@ -145,6 +145,11 @@ describe('Popup 面板布局', () => {
 
   it('快捷键说明默认收起：#shortcutsBody 初始 display:none，内容保留', () => {
     assert.ok(popupHtml.includes('id="btnToggleShortcuts"'), '缺少「展开/收起」按钮');
+    const toggleTag = popupHtml.match(/<button id="btnToggleShortcuts"[^>]*>/)[0];
+    assert.ok(toggleTag.includes('aria-expanded="false"'), '折叠按钮初始须为 aria-expanded="false"');
+    assert.ok(toggleTag.includes('aria-controls="shortcutsBody"'), '折叠按钮须关联 shortcutsBody');
+    const badgeTag = popupHtml.match(/<span id="shortcutDiffBadge"[^>]*>/);
+    assert.ok(badgeTag && /\bhidden\b/.test(badgeTag[0]), '绑定差异徽标须默认隐藏');
     const m = popupHtml.match(/<div id="shortcutsBody"[^>]*>/);
     assert.ok(m && m[0].includes('display:none'), 'shortcutsBody 初始应折叠（点击后再展开）');
     // 折叠后内容仍完整保留在文档中

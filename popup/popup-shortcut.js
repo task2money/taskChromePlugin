@@ -124,8 +124,28 @@
   }
 
   /**
+   * 折叠态绑定差异徽标：只在「快捷键」标题旁提示，**不自动展开**折叠区
+   * （快捷键区默认处于收起状态）。展开后由 #pickShortcutDiffHint 展示详情。
+   */
+  function setShortcutDiffBadge(visible) {
+    const badge = $('#shortcutDiffBadge');
+    if (!badge) return;
+    badge.hidden = !visible;
+    if (!visible) {
+      badge.textContent = '';
+      badge.removeAttribute('title');
+      badge.removeAttribute('aria-label');
+      return;
+    }
+    badge.textContent = tx('popupShortcutDiffBadge');
+    badge.title = tx('popupShortcutDiffBadgeAria');
+    badge.setAttribute('aria-label', badge.title);
+  }
+
+  /**
    * OPT-20260806-048: 对比「浏览器实际绑定（chrome://extensions/shortcuts 手动改绑）
-   * vs 配置」，差异时展示提示与「恢复」按钮。旧浏览器/查询失败静默隐藏。
+   * vs 配置」，差异时在折叠标题旁亮 ⚠️ 徽标并在折叠区内展示提示与「恢复」按钮。
+   * 旧浏览器/查询失败静默隐藏。
    */
   async function checkShortcutBindingDiff(configured) {
     const hintEl = $('#pickShortcutDiffHint');
@@ -134,16 +154,10 @@
     hintEl.textContent = '';
     try {
       const r = await sendMessageWithTimeout({ action: 'getElementPickerShortcutStatus' }, 5000);
-      if (!r?.success || !r.data || !r.data.differs) return;
-      // OPT-20260807-050: 绑定差异警告位于默认收起的快捷键区折叠区内（#shortcutsSection/
-      // #shortcutsBody display:none），不展开即错过。检测到差异时自动展开快捷键区并同步
-      // 「收起」态，警告展示完由用户手动收起。
-      const sec = $('#shortcutsSection');
-      const body = $('#shortcutsBody');
-      const toggleBtn = $('#btnToggleShortcuts');
-      if (sec) sec.style.display = 'block';
-      if (body) body.style.display = 'block';
-      if (toggleBtn) toggleBtn.textContent = tx('commonCollapse');
+      if (!r?.success || !r.data || !r.data.differs) { setShortcutDiffBadge(false); return; }
+      // 用户要求快捷键区默认收起：差异只点亮折叠标题徽标，不展开 #shortcutsBody；
+      // 展开后用户才能看到下方差异详情与「点此恢复」。
+      setShortcutDiffBadge(true);
       const cfg = r.data.configuredBinding || configured || '';
       const act = r.data.actual || '';
       hintEl.innerHTML =
@@ -158,6 +172,7 @@
         });
       }
     } catch (e) {
+      setShortcutDiffBadge(false);
       console.warn('[TaskPlugin] 快捷键绑定差异检查失败:', e.message);
     }
   }

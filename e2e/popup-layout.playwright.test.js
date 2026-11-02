@@ -42,7 +42,7 @@ const LATEST_RELEASE_FIXTURE = {
  * options.languageModel 为真时注入 LanguageModel stub，用于断言旧「内置模型」控件已删除。
  */
 async function installChromeStub(page, options = {}) {
-  await page.addInitScript(({ installType, release, token, username, languageModel, workspaces }) => {
+  await page.addInitScript(({ installType, release, token, username, languageModel, workspaces, shortcutStatus }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     // 发布包形态：域名由打包期注入；源码树的 values 文件为空。
     globalThis.__TASKPLUGIN_RUNTIME_CONFIG__ = {
@@ -98,6 +98,10 @@ async function installChromeStub(page, options = {}) {
               ],
             };
           }
+          if (msg?.action === 'getElementPickerShortcutStatus') {
+            if (shortcutStatus) return { success: true, data: shortcutStatus };
+            return { success: true };
+          }
           if (msg?.action === 'getOwnAgents') {
             return {
               success: true,
@@ -139,6 +143,7 @@ async function installChromeStub(page, options = {}) {
     username: options.username || '',
     languageModel: !!options.languageModel,
     workspaces: options.workspaces || null,
+    shortcutStatus: options.shortcutStatus || null,
   });
 }
 
@@ -173,6 +178,39 @@ test.describe('Popup 面板布局', () => {
     await toggle.click();
     await expect(body).toBeHidden();
     await expect(toggle).toHaveText('展开');
+  });
+
+  // 用户要求：快捷键区默认收起。绑定差异只点亮折叠标题旁 ⚠️ 徽标，不得自动展开。
+  test('绑定差异不自动展开快捷键区，折叠标题显示 ⚠️ 徽标，展开后才露出恢复入口', async ({ page }) => {
+    await installChromeStub(page, {
+      shortcutStatus: {
+        configured: 'Alt+X',
+        configuredBinding: 'Alt+X',
+        actual: '',
+        differs: true,
+      },
+    });
+    await page.goto(POPUP_URL);
+
+    const toggle = page.locator('#btnToggleShortcuts');
+    const body = page.locator('#shortcutsBody');
+    const badge = page.locator('#shortcutDiffBadge');
+    await expect(toggle).toBeVisible({ timeout: 10000 });
+    await expect(badge).toBeVisible();
+    await expect(badge).toHaveText('⚠️ 绑定有变化');
+    // 默认仍收起：按钮保持「展开」，内容与差异详情都不可见
+    await expect(toggle).toHaveText('展开');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(body).toBeHidden();
+    await expect(page.locator('#pickShortcutDiffHint')).toBeHidden();
+
+    // 用户主动展开后才看到差异详情与「点此恢复」
+    await toggle.click();
+    await expect(body).toBeVisible();
+    await expect(toggle).toHaveText('收起');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(page.locator('#pickShortcutDiffHint')).toBeVisible();
+    await expect(page.locator('#btnPickShortcutRestore')).toBeVisible();
   });
 
   test('顶栏可见插件版本（来自 getManifest）', async ({ page }) => {

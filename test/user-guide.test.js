@@ -104,6 +104,17 @@ describe('UserGuide sections', () => {
     assert.match(en, /stay collapsed/);
   });
 
+  it('keyboard-shortcuts 说明快捷键区默认收起与 ⚠️ 差异徽标', () => {
+    const section = UserGuide.SECTIONS.find((s) => s.id === 'keyboard-shortcuts');
+    assert.ok(section, 'missing keyboard-shortcuts section');
+    const blob = section.steps().join('\n');
+    assert.match(blob, /快捷键区默认收起/, '中文说明未写明默认收起');
+    assert.match(blob, /⚠️ 徽标/, '中文说明未写明差异徽标');
+    const md = fs.readFileSync(path.join(__dirname, '../docs/USER_GUIDE.md'), 'utf8');
+    assert.match(md, /快捷键区默认保持收起/, 'USER_GUIDE.md 未同步默认收起');
+    assert.match(md, /⚠️ 徽标/, 'USER_GUIDE.md 未同步差异徽标');
+  });
+
   it('login 说明登录后拉取个人中心默认语言', () => {
     const login = UserGuide.SECTIONS.find((s) => s.id === 'login');
     const blob = (login.steps || []).join('\n');

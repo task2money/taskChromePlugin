@@ -54,14 +54,16 @@
       });
     }
 
-    // 快捷键说明：默认收起，点击「展开」后显示（面板更窄，说明按需展开）
+    // 快捷键说明：默认收起，只有用户点击「展开」后显示（面板更窄，说明按需展开）
     const btnToggleShortcuts = $('#btnToggleShortcuts');
     if (btnToggleShortcuts) {
       btnToggleShortcuts.addEventListener('click', () => {
         const body = $('#shortcutsBody');
         if (!body) return;
-        if (body.style.display === 'none') { body.style.display = 'block'; btnToggleShortcuts.textContent = tx('commonCollapse'); }
-        else { body.style.display = 'none'; btnToggleShortcuts.textContent = tx('expand'); }
+        const expand = body.style.display === 'none';
+        body.style.display = expand ? 'block' : 'none';
+        btnToggleShortcuts.textContent = tx(expand ? 'commonCollapse' : 'expand');
+        btnToggleShortcuts.setAttribute('aria-expanded', expand ? 'true' : 'false');
       });
     }
 
