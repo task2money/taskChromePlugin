@@ -157,6 +157,68 @@ describe('page-advisor-api createSuggestJob + poll (mocked fetch)', () => {
     assert.ok(sleeps.length >= 1);
   });
 
+  it('pollSuggestJob onPoll 每次 GET 都收到状态与耗时（含终态）', async () => {
+    let n = 0;
+    globalThis.fetch = async () => {
+      n += 1;
+      const status = n < 3 ? 'running' : 'succeeded';
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({
+          job_id: 'j1',
+          status,
+          suggestions: status === 'succeeded' ? [{ id: 's1', title: 't', detail: 'd' }] : undefined,
+        }),
+        text: async () => '',
+      };
+    };
+    const seen = [];
+    await PageAdvisorAPI.pollSuggestJob('t1', 'j1', {
+      session,
+      initialDelayMs: 1,
+      maxDelayMs: 2,
+      maxMs: 5000,
+      sleep: async () => {},
+      onPoll: (_job, meta) => seen.push(meta),
+    });
+
+    assert.deepEqual(seen.map((m) => m.status), ['running', 'running', 'succeeded'], '终态也要上报');
+    assert.ok(seen.every((m) => Number.isInteger(m.elapsedMs) && m.elapsedMs >= 0), '带已耗时');
+    assert.equal(seen[0].maxMs, 5000);
+  });
+
+  it('pollSuggestJob onPoll 抛错不打断轮询', async () => {
+    let n = 0;
+    globalThis.fetch = async () => {
+      n += 1;
+      const status = n < 2 ? 'running' : 'succeeded';
+      return {
+        ok: true,
+        status: 200,
+        headers: { get: () => 'application/json' },
+        json: async () => ({ job_id: 'j1', status }),
+        text: async () => '',
+      };
+    };
+    let polls = 0;
+    const job = await PageAdvisorAPI.pollSuggestJob('t1', 'j1', {
+      session,
+      initialDelayMs: 1,
+      maxDelayMs: 2,
+      maxMs: 5000,
+      sleep: async () => {},
+      onPoll: () => {
+        polls += 1;
+        throw new Error('观测钩子炸了');
+      },
+    });
+
+    assert.equal(job.status, 'succeeded');
+    assert.equal(polls, 2, '钩子每次都跑，异常只被吞掉');
+  });
+
   it('getAgentResourceStatus hits query workspace_id', async () => {
     let seenUrl = '';
     globalThis.fetch = async (url) => {

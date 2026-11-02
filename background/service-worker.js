@@ -59,6 +59,8 @@ importScripts(
   '../lib/page-advisor-site-pending.js',
   // v233：匿名优化贴的本地访问入口（试用落贴后刷新页面仍可看、可领取）。
   '../lib/page-advisor-anon-posts.js',
+  // 侧栏生成进度：状态 → 百分比的唯一换算处（后台 poll 与侧栏心跳共用）。
+  '../lib/agent-suggestions-progress.js',
   '../lib/plugin-version.js',
   '../lib/open-chrome-url.js',
   '../lib/plugin-version-download.js',

@@ -16,11 +16,19 @@ const ROOT = path.join(__dirname, '..');
 function loadGenerateStack(extraSandbox = {}) {
   const calls = [];
   const generateCalls = [];
+  // 侧栏进度广播：后台只负责把 runId + 阶段原样发出去。
+  const progress = [];
   const sandbox = {
     console,
     URL,
     chrome: {
       tabs: { query: async () => [{ id: 7, url: 'https://shop.test/p?utm=1#top' }] },
+      runtime: {
+        sendMessage(message) {
+          progress.push(message);
+          return Promise.resolve({ ok: true });
+        },
+      },
     },
     Storage: {
       getApiConfig: async () => ({ token: 't', baseUrl: 'https://example.test' }),
@@ -80,7 +88,7 @@ function loadGenerateStack(extraSandbox = {}) {
     );
   }
   sandbox.PageAdvisorSitePending = sandbox.globalThis.PageAdvisorSitePending;
-  return { sandbox, calls, generateCalls };
+  return { sandbox, calls, generateCalls, progress };
 }
 
 /** 刷新重试出口的沙箱：只关心 tabs 通道与采集探针。 */
@@ -223,6 +231,57 @@ describe('sw-agent-suggestions 生成并落贴', () => {
     assert.equal(generateCalls[0].opts.attachAnchors, true);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].body.prompt_tendency, 'conversion');
+  });
+
+  it('带 progressRunId：生成核心的阶段进度原样广播，收尾广播 done', async () => {
+    const { sandbox, generateCalls, progress } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async (tabId, opts) => {
+        generateCalls.push({ tabId, opts });
+        opts.onProgress({ stage: 'capture', percent: 8 });
+        opts.onProgress({ stage: 'generating', percent: 55 });
+        return {
+          ok: true,
+          pageUrl: 'https://shop.test/p',
+          pageTitle: '商品页',
+          suggestions: [{ title: '改标题' }],
+          tenantId: 'ten-page',
+        };
+      },
+    });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({
+      promptSkillId: '',
+      progressRunId: ' run-1 ',
+    });
+
+    assert.equal(resp.success, true);
+    assert.equal(generateCalls.length, 1);
+    assert.equal(typeof generateCalls[0].opts.onProgress, 'function', '带 runId 才注入进度钩子');
+    assert.deepEqual(
+      progress.map((m) => m.runId + ':' + m.progress.stage + ':' + m.progress.percent),
+      ['run-1:capture:8', 'run-1:generating:55', 'run-1:done:100'],
+    );
+  });
+
+  it('没有 progressRunId：不广播，也不往生成核心塞进度钩子', async () => {
+    const { sandbox, generateCalls, progress } = loadGenerateStack();
+    await sandbox.handleGenerateAgentSuggestionsForActiveTab({});
+
+    assert.equal(progress.length, 0);
+    assert.equal(generateCalls[0].opts.onProgress, undefined, '无 runId 的调用（如 Alt+Z）保持原样');
+  });
+
+  it('生成失败广播 failed 终态，侧栏据此收起进度条', async () => {
+    const { sandbox, progress } = loadGenerateStack({
+      generatePageAdvisorSuggestions: async () => ({ ok: false, error: '配额用尽' }),
+    });
+    await sandbox.handleGenerateAgentSuggestionsForActiveTab({ progressRunId: 'run-2' });
+
+    // 事件对象来自 vm 上下文，跨 realm 的 deepEqual 会因原型不同而误报，逐字段断言。
+    const last = progress[progress.length - 1];
+    assert.equal(last.action, 'agentSuggestionsProgress');
+    assert.equal(last.runId, 'run-2');
+    assert.equal(last.progress.stage, 'failed');
+    assert.equal(last.progress.percent, 100);
   });
 
   it('没选提示词时用侧栏记住的选择，不再加载本地 skill', async () => {

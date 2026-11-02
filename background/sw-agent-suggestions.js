@@ -46,6 +46,29 @@ function agentSuggestionRows(suggestions) {
 }
 
 /**
+ * 侧栏生成进度广播：消息只带 runId + 结构化阶段，不作为生成结果的一部分。
+ * 没有监听方（侧栏已关）或广播失败都吞掉——进度只是体验，不能影响生成。
+ * @param {string} runId
+ * @param {{stage: string, percent: number}} progress
+ */
+function emitAgentSuggestionsProgress(runId, progress) {
+  const id = String(runId || '').trim();
+  if (!id || !progress) return;
+  const runtime = typeof chrome !== 'undefined' && chrome && chrome.runtime ? chrome.runtime : null;
+  if (!runtime || typeof runtime.sendMessage !== 'function') return;
+  try {
+    const pending = runtime.sendMessage({
+      action: 'agentSuggestionsProgress',
+      runId: id,
+      progress,
+    });
+    if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+  } catch (e) {
+    console.warn('[taskChromePlugin] agent suggestions progress broadcast failed:', e?.message || e);
+  }
+}
+
+/**
  * 本次生成用的提示词 id：显式给的优先，其次侧栏记住的选择；空串 = 服务端默认。
  * 只读 id，不读本地 skill 正文——正文由服务端按 id 解析。
  * @param {string|undefined} rawId
@@ -208,15 +231,29 @@ async function handleGetPageTrialQuota() {
 }
 
 async function handleGenerateAgentSuggestionsForActiveTab(message) {
+  // 进度只回给发起本次点击的侧栏：runId 由侧栏生成，广播时原样带回。
+  const progressRunId = String(message?.progressRunId || '').trim();
+  const onProgress = progressRunId
+    ? (progress) => emitAgentSuggestionsProgress(progressRunId, progress)
+    : undefined;
+
   const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
   const tab = tabs && tabs[0];
-  if (!tab?.id || !tab.url) return { success: false, error: tx('swNoActiveTab') };
+  if (!tab?.id || !tab.url) {
+    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
+    return { success: false, error: tx('swNoActiveTab') };
+  }
 
   // 下拉选的是服务端提示词 id：只回传 id，不读本地 skill 正文。
   const promptSkillId = await resolveAgentSuggestionPromptSkillId(message?.promptSkillId);
-  const result = await generatePageAdvisorSuggestions(tab.id, { promptSkillId, attachAnchors: true });
+  const result = await generatePageAdvisorSuggestions(tab.id, {
+    promptSkillId,
+    attachAnchors: true,
+    ...(onProgress ? { onProgress } : {}),
+  });
 
   if (!result.ok) {
+    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
     return {
       success: false,
       error: result.error,
@@ -231,6 +268,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   if (result.trial || result.route === 'trial') {
     const trialRows = agentSuggestionRows(result.suggestions);
     const anonymousPostId = String(result.anonymousPost?.postId || '').trim();
+    emitAgentSuggestionsProgress(progressRunId, { stage: 'done', percent: 100 });
     return {
       success: true,
       trial: true,
@@ -245,7 +283,10 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
   }
 
   const tenantId = await resolveAgentSuggestionTenant(result.tenantId);
-  if (!tenantId) return { success: false, error: tx('agentSuggestionsLogin') };
+  if (!tenantId) {
+    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
+    return { success: false, error: tx('agentSuggestionsLogin') };
+  }
 
   const Pending = typeof PageAdvisorSitePending !== 'undefined' ? PageAdvisorSitePending : null;
   const rawUrl = String(result.pageUrl || tab.url || '');
@@ -272,6 +313,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       suggestions: rows,
     }, idempotencyKey);
   } catch (e) {
+    emitAgentSuggestionsProgress(progressRunId, { stage: 'failed', percent: 100 });
     return {
       success: false,
       error: e?.message || tx('agentSuggestionsGenerateFail'),
@@ -289,6 +331,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     matchedBy: String(data?.matched_by || ''),
     count: rows.length,
   });
+  emitAgentSuggestionsProgress(progressRunId, { stage: 'done', percent: 100 });
   return {
     success: true,
     created: data?.created !== false,

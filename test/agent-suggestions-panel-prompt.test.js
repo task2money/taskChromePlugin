@@ -35,6 +35,14 @@ const MESSAGES = {
   agentSuggestionsPromptDefault: '默认提示词',
   agentSuggestionsGenerate: '给当前网页生成建议',
   agentSuggestionsGenerating: '正在为当前网页生成建议…',
+  agentSuggestionsProgressAria: '生成建议进度',
+  agentSuggestionsProgressCapture: '正在采集当前网页…',
+  agentSuggestionsProgressSubmit: '正在提交生成任务…',
+  agentSuggestionsProgressQueued: '任务排队中…',
+  agentSuggestionsProgressGenerating: '模型正在生成建议…',
+  agentSuggestionsProgressPosting: '正在保存优化贴…',
+  agentSuggestionsProgressDone: '生成完成',
+  agentSuggestionsProgressFailed: '生成失败',
   agentSuggestionsGeneratedInto: '已在「{project}」创建优化贴',
   agentSuggestionsPostedExisting: '「{project}」里已有当前网页的优化贴',
   agentSuggestionsGenerateFail: '生成建议失败',
@@ -133,6 +141,7 @@ function buildHarness({
   if (initialSelectedId) store.pageAdvisorSelectedPromptId = initialSelectedId;
   const storageListeners = [];
   const windowListeners = {};
+  const runtimeMessageListeners = [];
 
   const Storage = {
     async get(keys) {
@@ -152,6 +161,8 @@ function buildHarness({
     URL,
     setTimeout,
     clearTimeout,
+    setInterval,
+    clearInterval,
     Storage,
     tx: (key, params) => {
       let out = MESSAGES[key] || key;
@@ -162,7 +173,16 @@ function buildHarness({
     },
     chrome: {
       runtime: {
-        onMessage: { addListener(fn) { context.__onMessage = fn; } },
+        onMessage: {
+          addListener(fn) {
+            if (!runtimeMessageListeners.includes(fn)) runtimeMessageListeners.push(fn);
+            context.__onMessage = fn;
+          },
+          removeListener(fn) {
+            const at = runtimeMessageListeners.indexOf(fn);
+            if (at >= 0) runtimeMessageListeners.splice(at, 1);
+          },
+        },
         getManifest: () => ({ content_scripts: [{ js: [] }] }),
         sendMessage(message) {
           sent.push(message);
@@ -212,6 +232,11 @@ function buildHarness({
     fs.readFileSync(path.join(ROOT, 'lib', 'page-advisor-prompt-options.js'), 'utf8'),
     context,
   );
+  // 进度模型与侧栏同源：阶段起点/上限、心跳都走真实实现。
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'lib', 'agent-suggestions-progress.js'), 'utf8'),
+    context,
+  );
   const resetCalls = { count: 0 };
   const realReset = context.PageAdvisorPromptOptions.resetCache;
   context.PageAdvisorPromptOptions.resetCache = () => {
@@ -252,6 +277,14 @@ function buildHarness({
     fireUnload() {
       (windowListeners.unload || []).slice().forEach((fn) => fn());
     },
+    emitRuntimeMessage(message) {
+      runtimeMessageListeners.slice().forEach((fn) => fn(message));
+    },
+    runtimeMessageListenerCount() { return runtimeMessageListeners.length; },
+    progressBox() { return document.getElementById('sp-agent-progress'); },
+    progressBar() { return document.getElementById('sp-agent-progress-bar'); },
+    progressStage() { return document.getElementById('sp-agent-progress-stage').textContent; },
+    progressPct() { return document.getElementById('sp-agent-progress-pct').textContent; },
     async clickGenerate() {
       const btn = document.getElementById('sp-agent-generate');
       await btn.listeners.click[0]();
@@ -440,6 +473,63 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(btn.disabled, false);
     assert.equal(h.status(), '已在「默认项目」创建优化贴');
     assert.ok(h.actions().includes('listSitePendingForActiveTab'), '生成后重拉列表');
+  });
+
+  it('生成期间显示进度条：阶段文案与百分比随后台事件推进，成功后自动收起', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const h = buildHarness({ generateResponse: gate });
+    await h.refresh();
+
+    const pending = h.clickGenerate();
+    assert.equal(h.progressBox().hidden, false, '点生成后立即显示进度条');
+    assert.equal(h.progressStage(), '正在采集当前网页…');
+    assert.equal(h.progressPct(), '8%');
+    const gen = h.sent.filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab').pop();
+    assert.ok(gen.progressRunId, '生成消息带本次 runId');
+
+    h.emitRuntimeMessage({
+      action: 'agentSuggestionsProgress',
+      runId: gen.progressRunId,
+      progress: { stage: 'generating', percent: 62 },
+    });
+    assert.equal(h.progressStage(), '模型正在生成建议…');
+    assert.equal(h.progressPct(), '62%');
+    assert.equal(h.progressBar().value, 62);
+
+    // 迟到的旧 runId 事件不能画到本次进度条上
+    h.emitRuntimeMessage({
+      action: 'agentSuggestionsProgress',
+      runId: 'stale-run',
+      progress: { stage: 'done', percent: 100 },
+    });
+    assert.equal(h.progressPct(), '62%');
+
+    release({ success: true, created: true, projectName: '默认项目' });
+    await pending;
+    assert.equal(h.progressStage(), '生成完成');
+    assert.equal(h.progressPct(), '100%');
+    // 完成后先亮一下满格，再自动收起（默认停留 900ms）。
+    await new Promise((resolve) => setTimeout(resolve, 950));
+    assert.equal(h.progressBox().hidden, true, '完成后收起进度条');
+    assert.equal(h.status(), '已在「默认项目」创建优化贴');
+  });
+
+  it('生成失败收起进度条并保留错误文案', async () => {
+    const h = buildHarness({ generateResponse: { success: false, error: '未登录' } });
+    await h.refresh();
+    await h.clickGenerate();
+
+    assert.equal(h.progressBox().hidden, true, '失败后不留着做了一半的进度条');
+    assert.equal(h.status(), '未登录');
+  });
+
+  it('卸载时移除进度消息监听', async () => {
+    const h = buildHarness();
+    await h.refresh();
+    assert.equal(h.runtimeMessageListenerCount(), 1);
+    h.fireUnload();
+    assert.equal(h.runtimeMessageListenerCount(), 0, '侧栏卸载后不再接收进度广播');
   });
 
   it('已存在的优化贴不谎报新建', async () => {

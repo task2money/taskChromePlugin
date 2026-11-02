@@ -31,6 +31,15 @@
     ? ClickGuard.createClickGuard({ debounceMs: 400 })
     : null;
 
+  // 生成进度：后台按阶段广播，本地心跳补足 poll 之间的空档。
+  var progressTicker = null;
+  var progressHideTimer = null;
+  var progressRunId = '';
+  var progressStage = '';
+  var progressPercent = 0;
+  var AGENT_SUGGESTIONS_PROGRESS_TICK_MS = 500;
+  var AGENT_SUGGESTIONS_PROGRESS_HIDE_MS = 900;
+
   function esc(value) {
     return String(value ?? '')
       .replace(/&/g, '&amp;')
@@ -92,6 +101,144 @@
     const tid = String(traceId || '').trim();
     if (tid) status.setAttribute('data-traceId', tid);
     else status.removeAttribute('data-traceId');
+  }
+
+  function progressEls() {
+    return {
+      box: document.getElementById('sp-agent-progress'),
+      bar: document.getElementById('sp-agent-progress-bar'),
+      stage: document.getElementById('sp-agent-progress-stage'),
+      pct: document.getElementById('sp-agent-progress-pct'),
+    };
+  }
+
+  function progressStageLabel(stage) {
+    const keys = {
+      capture: 'agentSuggestionsProgressCapture',
+      submit: 'agentSuggestionsProgressSubmit',
+      queued: 'agentSuggestionsProgressQueued',
+      generating: 'agentSuggestionsProgressGenerating',
+      posting: 'agentSuggestionsProgressPosting',
+      done: 'agentSuggestionsProgressDone',
+      failed: 'agentSuggestionsProgressFailed',
+    };
+    const key = keys[String(stage || '')];
+    return key ? tx(key) : '';
+  }
+
+  function renderProgress() {
+    const els = progressEls();
+    if (!els.box) return;
+    els.box.hidden = false;
+    if (els.bar) {
+      els.bar.value = progressPercent;
+      if (typeof els.bar.setAttribute === 'function') {
+        els.bar.setAttribute('value', String(progressPercent));
+        els.bar.setAttribute('aria-valuenow', String(progressPercent));
+      }
+    }
+    if (els.stage) els.stage.textContent = progressStageLabel(progressStage);
+    if (els.pct) els.pct.textContent = progressPercent + '%';
+  }
+
+  function stopProgressTicker() {
+    if (progressTicker) {
+      clearInterval(progressTicker);
+      progressTicker = null;
+    }
+  }
+
+  function clearProgressHideTimer() {
+    if (progressHideTimer) {
+      clearTimeout(progressHideTimer);
+      progressHideTimer = null;
+    }
+  }
+
+  /**
+   * 点生成后立刻显示进度条：采集阶段的起点百分比先落地，
+   * 之后由后台上报推进，心跳在阶段上限内缓慢补位。
+   * @param {string} runId
+   */
+  function startProgress(runId) {
+    clearProgressHideTimer();
+    stopProgressTicker();
+    const Progress = global.AgentSuggestionsProgress;
+    progressRunId = String(runId || '');
+    progressStage = 'capture';
+    progressPercent = Progress ? Progress.stagePercent('capture') : 8;
+    renderProgress();
+    const tickMs = Number(AGENT_SUGGESTIONS_PROGRESS_TICK_MS);
+    progressTicker = setInterval(() => {
+      if (!progressRunId) return;
+      const P = global.AgentSuggestionsProgress;
+      const next = P ? P.tickPercent(progressPercent, progressStage) : progressPercent;
+      if (next === progressPercent) return;
+      progressPercent = next;
+      renderProgress();
+    }, tickMs > 0 ? tickMs : 500);
+  }
+
+  /** 只认本次点击的 runId：上一次生成的迟到事件不能画到新进度条上。 */
+  function applyProgressEvent(runId, event) {
+    const id = String(runId || '');
+    if (!id || id !== progressRunId || !event) return;
+    const P = global.AgentSuggestionsProgress;
+    const stage = P ? P.normalizeStage(event.stage) : String(event.stage || '');
+    if (stage && stage !== 'idle') progressStage = stage;
+    const pct = P ? P.percentForEvent(event) : Number(event.percent);
+    if (Number.isFinite(pct)) {
+      progressPercent = Math.max(progressPercent, Math.min(100, Math.round(pct)));
+    }
+    if (P && P.isTerminal(progressStage)) stopProgressTicker();
+    renderProgress();
+  }
+
+  function finishProgress(stage) {
+    applyProgressEvent(progressRunId, { stage: stage || 'done', percent: 100 });
+    stopProgressTicker();
+  }
+
+  function hideProgress() {
+    clearProgressHideTimer();
+    stopProgressTicker();
+    progressRunId = '';
+    progressStage = '';
+    progressPercent = 0;
+    const els = progressEls();
+    if (els.box) els.box.hidden = true;
+    if (els.bar) {
+      els.bar.value = 0;
+      if (typeof els.bar.setAttribute === 'function') {
+        els.bar.setAttribute('value', '0');
+        els.bar.setAttribute('aria-valuenow', '0');
+      }
+    }
+  }
+
+  function scheduleProgressHide() {
+    clearProgressHideTimer();
+    const ms = Number(AGENT_SUGGESTIONS_PROGRESS_HIDE_MS);
+    progressHideTimer = setTimeout(() => {
+      progressHideTimer = null;
+      hideProgress();
+    }, ms > 0 ? ms : 0);
+  }
+
+  function onAgentSuggestionsProgressMessage(message) {
+    if (!message || message.action !== 'agentSuggestionsProgress') return;
+    applyProgressEvent(message.runId, message.progress);
+  }
+
+  function removeProgressResources() {
+    stopProgressTicker();
+    clearProgressHideTimer();
+    try {
+      if (global.chrome && chrome.runtime && chrome.runtime.onMessage
+        && typeof chrome.runtime.onMessage.removeListener === 'function') {
+        chrome.runtime.onMessage.removeListener(onAgentSuggestionsProgressMessage);
+      }
+    } catch (_e) { /* 卸载路径不抛 */ }
   }
 
   /** 试用额度的状态行：本地化重置时间，并区分「用完了」与「试用暂停」。 */
@@ -567,17 +714,23 @@
       ? (promptSkills.find((s) => s && String(s.id) === selectedId) || null)
       : null;
 
+    // 本次点击的 runId：后台进度广播原样带回，侧栏只画自己这一次。
+    const runId = `agent-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
     btn.dataset.busy = '1';
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
     setReloadRetryVisible(false);
     setStatus(tx('agentSuggestionsGenerating'));
+    startProgress(runId);
+    let succeeded = false;
     try {
       // Anti-Replay-OK: 生成由后台带 Idempotency-Key 发一次；这里只挡住重复点击
       const resp = await chrome.runtime.sendMessage({
         action: 'generateAgentSuggestionsForActiveTab',
         promptSkillId: skill ? String(skill.id) : '',
         promptTendency: skill ? String(skill.tendency || '') : '',
+        progressRunId: runId,
       });
       if (!resp || resp.success === false) {
         setStatus((resp && resp.error) || tx('agentSuggestionsGenerateFail'), resp && resp.traceId);
@@ -585,6 +738,7 @@
         setReloadRetryVisible(resp && resp.errorCode === 'PAGE_CONTEXT_UNREACHABLE');
         return;
       }
+      succeeded = true;
       if (resp.trial) {
         // 落成匿名优化贴时与登录用户同形：列表里多一条帖子，选中即在页面显示；
         // 只有落贴失败（无 postId）才退回「只给即时建议」的旧形态。
@@ -618,6 +772,12 @@
       btn.dataset.busy = '0';
       btn.disabled = false;
       btn.setAttribute('aria-busy', 'false');
+      if (succeeded) {
+        finishProgress('done');
+        scheduleProgressHide();
+      } else {
+        hideProgress();
+      }
     }
   }
 
@@ -655,6 +815,18 @@
     }
     applyItems(resp || {});
   }
+
+  // 后台生成进度：只在本次点击的 runId 上落地；其他消息不响应、不拦截。
+  if (global.chrome && chrome.runtime && chrome.runtime.onMessage
+    && typeof chrome.runtime.onMessage.addListener === 'function') {
+    chrome.runtime.onMessage.addListener(onAgentSuggestionsProgressMessage);
+  }
+  (function bindProgressUnloadCleanup() {
+    const target = typeof global.addEventListener === 'function'
+      ? global
+      : (global.window && typeof global.window.addEventListener === 'function' ? global.window : null);
+    if (target) target.addEventListener('unload', removeProgressResources);
+  })();
 
   bindGenerateButton();
 

@@ -97,6 +97,7 @@ function loadStack(extra = {}) {
   require('./helpers/txRuntime.js').installTxInSandbox(sandbox);
 
   for (const rel of [
+    'lib/agent-suggestions-progress.js',
     'background/sw-page-advisor-generate.js',
     'background/sw-page-advisor-page-trial.js',
   ]) {
@@ -155,6 +156,56 @@ describe('generatePageAdvisorSuggestions 提示词上送', () => {
     assert.equal(body.locale, 'zh-CN');
     assert.equal(body.page_title, '商品页');
     assertNoLegacyBodyKeys(body);
+  });
+});
+
+describe('generatePageAdvisorSuggestions 生成进度', () => {
+  it('平台路径按 采集→提交→排队→生成→落贴 上报，生成上限 90', async () => {
+    const events = [];
+    const { sandbox } = loadStack({
+      loggedIn: true,
+      pollSuggestJob: async (_tenantId, _jobId, opts) => {
+        opts.onPoll({ status: 'queued' }, { status: 'queued', elapsedMs: 0, maxMs: 75000 });
+        opts.onPoll({ status: 'running' }, { status: 'running', elapsedMs: 15000, maxMs: 75000 });
+        return { status: 'succeeded', suggestions: [{ id: 's1', title: '改标题' }] };
+      },
+    });
+
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {
+      promptSkillId: 'ws-conv',
+      onProgress: (event) => events.push(`${event.stage}:${event.percent}`),
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(events, [
+      'capture:8',
+      'submit:16',
+      'queued:25',
+      'queued:25',
+      'generating:63',
+      'posting:95',
+    ]);
+  });
+
+  it('匿名试用路径按 采集→提交→生成→落贴 上报（同步生成无排队阶段）', async () => {
+    const events = [];
+    const { sandbox } = loadStack();
+
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {
+      onProgress: (event) => events.push(`${event.stage}:${event.percent}`),
+    });
+
+    assert.equal(result.ok, true);
+    assert.deepEqual(events, ['capture:8', 'submit:16', 'generating:35', 'posting:95']);
+  });
+
+  it('进度回调抛错不影响生成结果', async () => {
+    const { sandbox } = loadStack({ loggedIn: true });
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {
+      promptSkillId: 'ws-conv',
+      onProgress: () => { throw new Error('进度回调炸了'); },
+    });
+    assert.equal(result.ok, true);
   });
 });
 

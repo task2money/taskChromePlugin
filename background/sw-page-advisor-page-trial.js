@@ -52,9 +52,12 @@ function pageTrialFailure(e) {
 
 /**
  * @param {{ cfg: object, page: { url: string, title: string, pageText: string, domOutline: object[] },
- *   locale: string, opts: object, withSpan: Function, onPhase: Function, promptSkillId?: string }} input
+ *   locale: string, opts: object, withSpan: Function, onPhase: Function, promptSkillId?: string,
+ *   report?: (stage: string, percent: number) => void }} input
  */
-async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId }) {
+async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId, report }) {
+  const progress = typeof report === 'function' ? report : () => {};
+  progress('submit', 16);
   await onPhase(tx('paTrialGenerating'));
   const fingerprint = await loadPageTrialFingerprint();
   if (!fingerprint) {
@@ -78,6 +81,9 @@ async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase
     ? ClickGuard.newIdempotencyKey()
     : `page-trial-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 
+  // 公开试用端点是同步请求，请求本身包含模型生成：进度直接进入生成阶段，
+  // 之后由侧栏心跳按耗时缓慢推进，终态再补 95 / 100。
+  progress('generating', 35);
   let result;
   try {
     result = await withSpan('network', () => TrialAPI.suggest(String(cfg?.baseUrl || ''), {
@@ -91,6 +97,7 @@ async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase
       prompt_skill_id: String(promptSkillId || '').trim(),
     }, fingerprint, idempotencyKey));
   } catch (e) {
+    progress('failed', 100);
     return pageTrialFailure(e);
   }
 
@@ -110,6 +117,8 @@ async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase
   if (typeof attachSuggestionAnchors === 'function') {
     suggestions = attachSuggestionAnchors(suggestions, page.domOutline);
   }
+  // 建议已拿到，剩本地保存匿名入口：落贴由服务端在本次请求内完成。
+  progress('posting', 95);
   const post = result?.post && typeof result.post === 'object' ? result.post : null;
   const anonymousPost = await rememberAnonymousTrialPost({
     post,

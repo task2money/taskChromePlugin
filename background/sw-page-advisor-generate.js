@@ -73,6 +73,26 @@ function pageAdvisorFailTraceId(seed) {
 function passthroughSpan(_id, fn) { return fn(); }
 
 /**
+ * 进度上报器：回调缺失或抛错都吞掉——进度只是体验，不能拖垮生成。
+ * 事件形状 `{ stage, percent }`，阶段定义见 lib/agent-suggestions-progress.js。
+ * @param {{ onProgress?: (event: object) => void|Promise<void> }} opts
+ * @returns {(stage: string, percent: number, extra?: object) => void}
+ */
+function progressReporter(opts) {
+  const onProgress = opts && typeof opts.onProgress === 'function' ? opts.onProgress : null;
+  return function report(stage, percent, extra) {
+    if (!onProgress) return;
+    const event = Object.assign({ stage, percent }, extra && typeof extra === 'object' ? extra : {});
+    try {
+      const pending = onProgress(event);
+      if (pending && typeof pending.catch === 'function') pending.catch(() => {});
+    } catch (_e) {
+      /* 进度上报失败绝不影响生成 */
+    }
+  };
+}
+
+/**
  * 本次生成要用的提示词 id：显式给的优先，其次侧栏记住的选择，最后空串交给服务端默认。
  * 只读 id，不碰提示词正文——正文由服务端按 id 解析，下发 job 里也不回传正文。
  * @param {string|undefined} rawId
@@ -96,6 +116,7 @@ async function resolvePageAdvisorPromptSkillId(rawId) {
  * @param {number} tabId
  * @param {{
  *   onPhase?: (message: string) => void|Promise<void>,
+ *   onProgress?: (event: { stage: string, percent: number }) => void|Promise<void>,
  *   withSpan?: (id: string, fn: () => Promise<any>) => Promise<any>,
  *   onLlmSpan?: (id: string, startAbs: number, endAbs: number, status: string) => void,
  *   attachAnchors?: boolean,
@@ -110,6 +131,7 @@ async function resolvePageAdvisorPromptSkillId(rawId) {
 async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   const withSpan = typeof opts.withSpan === 'function' ? opts.withSpan : passthroughSpan;
   const onPhase = typeof opts.onPhase === 'function' ? opts.onPhase : () => {};
+  const report = progressReporter(opts);
 
   const cfg = await Storage.getApiConfig();
   const mapping = await Storage.getEndpointMapping();
@@ -125,6 +147,7 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     if (mapping.owner) API.setOwner(mapping.owner);
   }
 
+  report('capture', 8);
   await onPhase(tx('paCollecting'));
   let ctxResp;
   try {
@@ -154,9 +177,9 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
 
   const runOnce = async (promptSkillId) => {
     if (trialMode) {
-      return generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId });
+      return generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase, promptSkillId, report });
     }
-    return generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId });
+    return generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId, report });
   };
 
   let result = await runOnce(selectedPromptId);
@@ -173,7 +196,8 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   return result;
 }
 
-async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId }) {
+async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId, report }) {
+  report('submit', 16);
   const scope = await resolvePlatformScope(data);
   if (!scope.workspaceId || !scope.tenantId) {
     return { ok: false, error: tx('paSelectWorkspaceAltZ'), errorCode: '', traceId: '' };
@@ -206,6 +230,7 @@ async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withS
   try {
     created = await withSpan('network', () => PageAdvisorAPI.createSuggestJob(scope.tenantId, body, idempotencyKey));
   } catch (e) {
+    report('failed', 100);
     return platformCreateFailure(e, cfg.baseUrl, scope.tenantId);
   }
   let createTraceId = String(created?.trace_id || created?.traceId || created?._resolvedTraceId || '').trim();
@@ -213,16 +238,31 @@ async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withS
 
   const jobId = String(created?.job_id || created?.id || '').trim();
   if (!jobId) {
+    report('failed', 100);
     return { ok: false, error: tx('paNoJobId'), errorCode: '', traceId: createTraceId };
   }
+
+  const createdStatus = String(created?.status || '').trim().toLowerCase();
+  report(createdStatus === 'running' ? 'generating' : 'queued', createdStatus === 'running' ? 35 : 25);
 
   let job;
   try {
     job = await withSpan('saas_poll', () => PageAdvisorAPI.pollSuggestJob(scope.tenantId, jobId, {
       maxMs: PAGE_ADVISOR_POLL_MAX_MS,
       seedTraceId: createTraceId,
+      // 每次 GET 回报 job 状态与已耗时：侧栏据此把「排队 / 生成」换算成百分比。
+      onPoll: (snap, meta) => {
+        const Progress = typeof AgentSuggestionsProgress !== 'undefined' ? AgentSuggestionsProgress : null;
+        const status = String(snap?.status || '');
+        const stage = Progress ? Progress.stageForJobStatus(status) : 'generating';
+        const percent = Progress
+          ? Progress.percentForPoll({ status, elapsedMs: meta && meta.elapsedMs })
+          : 40;
+        report(stage, percent);
+      },
     }));
   } catch (e) {
+    report('failed', 100);
     const timedOut = /timeout|超时|timed?\s*out/i.test(String(e?.message || e?.errorCode || ''));
     const traceId = String(e?.traceId || createTraceId || '').trim() || pageAdvisorFailTraceId('');
     return {
@@ -243,6 +283,7 @@ async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withS
 
   const status = String(job?.status || '').toLowerCase();
   if (status === 'failed' || status === 'expired') {
+    report('failed', 100);
     // LLM 402 Insufficient Balance 等失败也须带 data-traceId（约束 24）。
     const failTraceId = PageAdvisorFailTraceId.resolvePageAdvisorFailTraceId(job, createTraceId);
     if (job?.error_code === 'AGENT_RESOURCE_NOT_CONFIGURED') {
@@ -255,6 +296,9 @@ async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withS
       traceId: failTraceId,
     };
   }
+
+  // 模型已出结果，剩解析与落贴：进度到 95%，完成由落贴出口补 100%。
+  report('posting', 95);
 
   let suggestions = job?.suggestions;
   await withSpan('parse', async () => {
