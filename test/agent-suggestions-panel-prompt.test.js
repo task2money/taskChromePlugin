@@ -563,6 +563,7 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.progressStage(), '模型正在生成建议…');
     assert.equal(h.progressPct(), '62%');
     assert.equal(h.progressElapsed(), '已用 00:45 · 即将完成', '沿用后台记下的开始时间，超时不倒计时成负数');
+    assert.equal(h.generateBtn().disabled, true, '续显期间锁住生成按钮，避免重复发起');
 
     const listCalls = h.actions().filter((a) => a === 'listSitePendingForActiveTab').length;
     h.emitRuntimeMessage({
@@ -580,6 +581,7 @@ describe('侧栏生成按钮与试用回归', () => {
     );
     assert.ok(h.actions().includes('selectAgentSuggestionPost'), '刷新后把选中的帖子显示到页面');
     assert.ok(h.actions().includes('clearAgentSuggestionsProgress'), '收起时清掉会话快照');
+    assert.equal(h.generateBtn().disabled, false, '收尾后恢复生成按钮');
   });
 
   it('关闭侧栏再打开：收到失败终态时如实报错并收起', async () => {

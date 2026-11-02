@@ -40,6 +40,7 @@
   // 进度起点与来源：重开侧栏续显时沿用后台记下的开始时间。
   var progressStartedAt = 0;
   var progressResumed = false;
+  var progressTerminalHandled = false;
   var AGENT_SUGGESTIONS_PROGRESS_TICK_MS = 500;
   var AGENT_SUGGESTIONS_PROGRESS_HIDE_MS = 900;
 
@@ -218,8 +219,27 @@
     progressPercent = Progress ? Progress.stagePercent('capture') : 8;
     progressStartedAt = Date.now();
     progressResumed = false;
+    progressTerminalHandled = false;
     renderProgress();
     startProgressTicker();
+  }
+
+  /** 续显的是后台还在跑的任务：生成按钮保持锁住，避免又发起一次重复生成。 */
+  function holdGenerateButtonForResume() {
+    const btn = generateButton();
+    if (!btn) return;
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+  }
+
+  /** 只释放续显期间锁住的按钮；本地生成由 generate() 自己的 finally 负责恢复。 */
+  function releaseGenerateButtonAfterResume() {
+    const btn = generateButton();
+    if (!btn || btn.dataset.busy !== '1') return;
+    btn.dataset.busy = '0';
+    btn.disabled = false;
+    btn.setAttribute('aria-busy', 'false');
   }
 
   /**
@@ -239,6 +259,8 @@
     const started = Number(snapshot.startedAt);
     progressStartedAt = started > 0 && started <= Date.now() ? started : Date.now();
     progressResumed = true;
+    progressTerminalHandled = false;
+    holdGenerateButtonForResume();
     renderProgress();
     if (P && P.isTerminal(progressStage)) {
       onResumedTerminal(progressStage);
@@ -252,7 +274,8 @@
    * 广播可能比侧栏重开晚到，这里也会走到。
    */
   function onResumedTerminal(stage) {
-    progressResumed = false;
+    if (progressTerminalHandled) return;
+    progressTerminalHandled = true;
     scheduleProgressHide();
     if (stage === 'done') {
       refresh().then(() => {
@@ -280,6 +303,7 @@
       if (progressResumed) onResumedTerminal(progressStage);
     }
     renderProgress();
+
   }
 
   function finishProgress(stage) {
@@ -298,6 +322,7 @@
 
   function hideProgress() {
     const hadRunId = !!progressRunId;
+    const wasResumed = progressResumed;
     clearProgressHideTimer();
     stopProgressTicker();
     progressRunId = '';
@@ -305,6 +330,8 @@
     progressPercent = 0;
     progressStartedAt = 0;
     progressResumed = false;
+    progressTerminalHandled = false;
+    if (wasResumed) releaseGenerateButtonAfterResume();
     const els = progressEls();
     if (els.box) els.box.hidden = true;
     if (els.bar) {
