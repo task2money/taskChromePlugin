@@ -38,23 +38,6 @@ const T = (ms) => new Promise((r) => setTimeout(r, ms));
 const REFRESH_HINT = /刷新|Refresh/;
 const FLOAT_ROOT_SELECTOR = 'taskplugin-float-root';
 
-/** 直连 LLM 配置：让路由守卫放行，把流程推到「采集页面上下文」这一步。 */
-async function seedDirectLlmConfig(sw) {
-  return sw.evaluate(async () => {
-    await chrome.storage.local.set({
-      pageAdvisorLlmApiKey: 'e2e-key',
-      pageAdvisorLlmBaseUrl: 'http://127.0.0.1:1/v1',
-      pageAdvisorLlmModel: 'e2e-model',
-      pageAdvisorLlmRoute: 'direct',
-    });
-    const cfg = await PageAdvisorLlmConfig.loadFromStorage();
-    return {
-      route: PageAdvisorLlmConfig.resolveRoute(cfg),
-      ready: PageAdvisorLlmConfig.isDirectLlmReady(cfg),
-    };
-  });
-}
-
 /** 等一个能真正调用 chrome API 的 SW（扩展重载会换实例，旧 target 会失效）。 */
 async function waitForLiveSw(context, ms = 30_000) {
   const t0 = Date.now();
@@ -139,9 +122,6 @@ test.describe('真实扩展：页面联系不上 content script 时的生成建�
       watchSw(sw);
       const extId = new URL(sw.url()).hostname;
 
-      const seeded = await seedDirectLlmConfig(sw);
-      expect(seeded.ready, `直连配置应就绪（否则采集前的路由守卫会先返回）：${JSON.stringify(seeded)}`).toBe(true);
-
       // ---- 基线：正常页面采集成功 ----
       const page = await context.newPage();
       await page.goto(`${srv.baseURL}/popup/popup.html?advisorStale=1`);
@@ -196,7 +176,7 @@ test.describe('真实扩展：页面联系不上 content script 时的生成建�
       const recovered = await sw.evaluate((id) => askContentPageAdvisorContext(id), tabIdAfter);
       expect(recovered && recovered.success, `刷新后采集应恢复：${JSON.stringify(recovered)}`).toBe(true);
 
-      // 重跑一次生成：这次不再卡在采集上（直连 LLM 指向黑洞端口，会在网络那步失败）。
+      // 重跑一次生成：这次不再卡在采集上（未登录走匿名试用，网络/配额等失败都算已越过采集）。
       const afterRetry = await sendGenerateFromExtensionPage(extPage);
       expect(afterRetry && afterRetry.success).toBe(false);
       expect(

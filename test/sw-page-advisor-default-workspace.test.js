@@ -38,11 +38,6 @@ function loadStack({ workspaces, lastWorkspaceId, manual, fetchFails }) {
       },
     },
     PageAdvisorDefaults: realDefaults,
-    PageAdvisorLlmConfig: {
-      loadFromStorage: async () => ({ apiKey: '', baseUrl: '', model: '', routeMode: 'saas' }),
-      resolveRoute: () => 'saas',
-      isDirectLlmReady: () => false,
-    },
   };
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);

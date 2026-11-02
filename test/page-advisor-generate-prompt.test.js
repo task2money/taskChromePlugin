@@ -73,11 +73,6 @@ function loadStack(extra = {}) {
     },
     PageAdvisorPromptOptions: extra.promptOptions || { loadSelectedId: async () => '' },
     ClickGuard: { newIdempotencyKey: () => 'idem-1' },
-    loadPageAdvisorDirectReady: async () => (extra.route || {
-      llmCfg: { apiKey: '', baseUrl: '', model: '' },
-      directReady: false,
-      route: 'saas',
-    }),
     resolvePageAdvisorLocale: () => 'zh-CN',
     askContentPageAdvisorContext: async (tabId) => {
       calls.context.push(tabId);

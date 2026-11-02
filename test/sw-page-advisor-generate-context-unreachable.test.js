@@ -55,11 +55,6 @@ function loadStack(extraSandbox = {}) {
     PageAdvisorDefaults: {
       resolvePageAdvisorWorkspace: () => ({ workspaceId: 'ws1', companyId: 'ten1', source: 'test' }),
     },
-    PageAdvisorLlmConfig: {
-      loadFromStorage: async () => ({ apiKey: '', baseUrl: '', model: '', routeMode: 'saas' }),
-      resolveRoute: (cfg) => (cfg && cfg.routeMode === 'direct' ? 'direct' : 'saas'),
-      isDirectLlmReady: () => false,
-    },
     ClickGuard: { newIdempotencyKey: () => 'idem-key' },
     ...extraSandbox,
   };
