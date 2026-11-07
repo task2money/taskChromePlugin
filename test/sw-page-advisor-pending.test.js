@@ -363,6 +363,21 @@ describe('sw-page-advisor-pending 匿名优化贴', () => {
     assert.equal(sent[0].items[0].id, 'anon-1');
   });
 
+  it('尾部斜杠口径：服务端身份网址入库、标签页带尾斜杠 + accessCode 也照样列出（线上 /friend-links/）', async () => {
+    const serverUrl = 'https://www.daydaymoney.com/friend-links';
+    const { sandbox } = loadAnonStack({
+      entries: [anonEntry({ page_url: serverUrl })],
+    });
+    const result = await sandbox.refreshSitePendingForTab(
+      3,
+      'https://www.daydaymoney.com/friend-links/?accessCode=BWLQdMXxxT',
+      { force: true },
+    );
+    assert.equal(result.ok, true);
+    assert.equal(result.count, 1, '刚生成的匿名帖不得因网址口径丢失');
+    assert.equal(result.items[0].id, 'anon-1');
+  });
+
   it('读回 404 / 410：入口已作废，从本地删掉且不再列出', async () => {
     for (const status of [404, 410]) {
       const { sandbox, local } = loadAnonStack({

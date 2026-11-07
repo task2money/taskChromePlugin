@@ -28,6 +28,7 @@ const MESSAGES = {
   agentSuggestionsLogin: '登录后可查看当前网页的智能体建议',
   agentSuggestionsTrialHint: '未登录：点「给当前网页生成建议」会消耗每日试用次数；登录后可把建议保存为优化贴。',
   agentSuggestionsTrialNotice: '试用建议（未保存）：登录后可用自己的智能体继续生成并保存为优化贴。',
+  agentSuggestionsAnonymousPosted: '已生成匿名优化贴（暂存在系统项目，登录后可领取到自己的项目）',
   agentSuggestionsLoadFail: '智能体建议加载失败',
   agentSuggestionsCountAria: '{n} 条待处理',
   agentSuggestionsPostCount: '{n} 条建议',
@@ -216,7 +217,10 @@ function buildHarness({
           }
           if (action === 'probeAgentSuggestionsChannel') return Promise.resolve(probeResponse);
           if (action === 'reloadPageAndRetryAgentSuggestions') return Promise.resolve(reloadResponse);
-          if (action === 'getPageTrialQuota') return Promise.resolve(quotaResponse);
+          // 可传对象，也可传 `() => Promise` 模拟「额度回包晚于生成成功状态」的时序。
+          if (action === 'getPageTrialQuota') {
+            return typeof quotaResponse === 'function' ? quotaResponse() : Promise.resolve(quotaResponse);
+          }
           if (action === 'getAgentSuggestionsProgress') return Promise.resolve(progressResponse);
           if (action === 'clearAgentSuggestionsProgress') return Promise.resolve({ success: true });
           return Promise.resolve({ success: true });
@@ -823,6 +827,68 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.els['sp-agent-diag'].hidden, false);
     assert.match(h.els['sp-agent-diag-meta'].textContent, /post_unavailable/);
     assert.equal(h.els['sp-agent-diag-meta'].attrs['data-traceId'], 'trace-post');
+  });
+
+  it('匿名落贴成功：刷新没带回这条帖也要显示，晚到的额度回包不得盖掉成功状态', async () => {
+    const h = buildHarness({
+      generateResponse: {
+        success: true,
+        trial: true,
+        trialId: 'pt-3',
+        postId: 'anon-77',
+        traceId: 'trace-anon',
+        suggestions: [
+          { title: '改标题', summary: '首屏标题更具体', detail: '换成含卖点的标题' },
+        ],
+        quota: { enabled: true, remaining: 0, daily_quota: 3, resets_at: '2026-11-07T16:00:00Z' },
+      },
+      // 额度查询故意晚回：成功状态已经落地后它才到，旧实现会盖成「次数已用完」。
+      quotaResponse: () => new Promise((resolve) => setTimeout(() => resolve({
+        success: true,
+        quota: { enabled: true, remaining: 0, daily_quota: 3, resets_at: '2026-11-07T16:00:00Z' },
+      }), 10)),
+    });
+    h.setListResponse({ success: true, items: [], reason: 'not_logged_in' });
+    await h.refresh();
+    await h.clickGenerate();
+    await new Promise((r) => setTimeout(r, 30));
+
+    assert.equal(h.status(), '已生成匿名优化贴（暂存在系统项目，登录后可领取到自己的项目）');
+    assert.doesNotMatch(h.status(), /今日次数已用完/, '额度提示不得抢走落贴成功的状态行');
+    assert.match(h.els['sp-agent-posts'].innerHTML, /data-post-id="anon-77"/, '兜底条目让刚生成的匿名贴可见');
+    assert.equal(h.els['sp-agent-status'].attrs['data-traceId'], 'trace-anon');
+  });
+
+  it('匿名落贴成功且列表已带回这条帖：只渲染一条，不重复补条目', async () => {
+    const h = buildHarness({
+      generateResponse: {
+        success: true,
+        trial: true,
+        trialId: 'pt-4',
+        postId: 'anon-88',
+        suggestions: [{ title: '改标题', summary: '首屏标题更具体' }],
+        quota: { enabled: true, remaining: 1, daily_quota: 3, resets_at: '2026-11-07T16:00:00Z' },
+      },
+    });
+    h.setListResponse({
+      success: true,
+      items: [{
+        id: 'anon-88', post_id: 'anon-88', title: '改标题', owner_kind: 'anonymous', anonymous: true, confirm_status: 'pending',
+      }],
+      reason: 'not_logged_in',
+      pageUrl: 'https://shop.test/p',
+    });
+    await h.refresh();
+    await h.clickGenerate();
+    await new Promise((r) => setTimeout(r, 0));
+
+    const html = h.els['sp-agent-posts'].innerHTML;
+    assert.equal(
+      (html.match(/taskplugin-page-advisor-post-tab-anon-88/g) || []).length,
+      1,
+      '列表已有的帖子不再补一条',
+    );
+    assert.equal(h.status(), '已生成匿名优化贴（暂存在系统项目，登录后可领取到自己的项目）');
   });
 
   it('未登录打开面板：提示可试用，并异步补上今日剩余额度', async () => {

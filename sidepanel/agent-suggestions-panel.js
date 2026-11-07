@@ -598,6 +598,40 @@
       + `<ol class="sp-agent-suggestions">${items}</ol></div>`;
   }
 
+  /**
+   * 落贴成功但刷新列表没带回这条匿名帖（本地入口读回失败/被清、列表口径不一致）时，
+   * 用本次响应补一条同形条目：用户至少能看到刚生成的优化贴与建议，
+   * 而不是「列表为空 + 额度提示」。令牌不在生成响应里，领取仍由后台按帖 id 取。
+   * @param {{ suggestions?: object[] }} resp
+   * @param {string} postId
+   * @param {string} [pageUrl]
+   * @returns {object|null}
+   */
+  function anonymousTrialItem(resp, postId, pageUrl) {
+    const list = (Array.isArray(resp && resp.suggestions) ? resp.suggestions : []).filter(Boolean);
+    if (!list.length) return null;
+    const first = list[0] || {};
+    const details = list
+      .map((s) => String(s?.detail || s?.summary || '').trim())
+      .filter(Boolean);
+    return {
+      id: String(postId),
+      post_id: String(postId),
+      title: String(first.title || '').trim(),
+      summary: String(first.summary || '').trim(),
+      detail: details.length === 1
+        ? details[0]
+        : details.map((text, i) => `${i + 1}. ${text}`).join('\n'),
+      suggestions: list,
+      confirm_status: 'pending',
+      owner_kind: 'anonymous',
+      claim_status: 'open',
+      page_url: String(pageUrl || ''),
+      tenant_id: '',
+      anonymous: true,
+    };
+  }
+
   /** 未登录时读一次今日剩余额度；只读接口，不消耗次数。 */
   async function loadTrialQuotaHint() {
     if (!global.chrome || !chrome.runtime || typeof chrome.runtime.sendMessage !== 'function') return;
@@ -633,10 +667,18 @@
     const id = String(postId || '');
     const post = posts.find((item) => String(item.id) === id) || null;
     pageShownId = id;
+    // 匿名入口的只读令牌只留在后台存储：页面侧只需要展示字段，令牌不回传页面。
+    let pageItem = post;
+    if (post && Object.prototype.hasOwnProperty.call(post, 'view_token')) {
+      pageItem = {};
+      Object.keys(post).forEach((key) => {
+        if (key !== 'view_token') pageItem[key] = post[key];
+      });
+    }
     chrome.runtime.sendMessage({
       action: 'selectAgentSuggestionPost',
       postId: id,
-      item: post,
+      item: pageItem,
       applyToPage: true,
     }).catch(() => {});
   }
@@ -1023,6 +1065,8 @@
     setReloadRetryVisible(false);
     hideDiagnostics();
     setStatus(tx('agentSuggestionsGenerating') + ' ' + tx('agentSuggestionsGeneratingHint'));
+    // 作废此前发出的额度查询：它晚于本次生成回包时不得抢走状态行。
+    trialHintSeq += 1;
     startProgress(runId);
     let succeeded = false;
     try {
@@ -1056,11 +1100,22 @@
         const elapsedMs = progressStartedAt > 0 ? Date.now() - progressStartedAt : 0;
         if (anonymousPostId) {
           trialShown = false;
-          await refresh();
+          const listResp = await refresh();
+          // 刷新列表没带回这条匿名帖也要让它可见：用本次响应补一条，
+          // 否则列表为空，applyItems 刚发的额度查询会用「次数已用完」盖掉成功状态。
+          if (!posts.some((item) => String(item?.id || '') === anonymousPostId)) {
+            const fallback = anonymousTrialItem(resp, anonymousPostId, listResp && listResp.pageUrl);
+            if (fallback) {
+              posts = [fallback].concat(posts);
+              syncBadge(posts.length);
+            }
+          }
           activeId = anonymousPostId;
           render();
           notifyPageSelection(activeId);
           hideDiagnostics();
+          // refresh() 里新发的额度查询同样作废：终态只由这次生成的结果决定。
+          trialHintSeq += 1;
           setStatus(tx('agentSuggestionsAnonymousPosted'), resp.traceId);
           return;
         }
@@ -1144,9 +1199,11 @@
       posts = [];
       syncBadge(0);
       setStatus(tx('agentSuggestionsLoadFail'));
-      return;
+      return null;
     }
     applyItems(resp || {});
+    // 调用方（匿名落贴）需要列表回包的 pageUrl 兜底补条目。
+    return resp || null;
   }
 
   // 后台生成进度：只在本次点击的 runId 上落地；其他消息不响应、不拦截。

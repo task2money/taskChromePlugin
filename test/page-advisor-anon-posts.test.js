@@ -52,6 +52,28 @@ describe('page-advisor-anon-posts 纯函数', () => {
     assert.equal(Anon.canonicalPageUrl('not a url'), 'not a url');
   });
 
+  it('尾部斜杠折叠：服务端身份网址与标签页原样网址能对上（/friend-links/ 线上场景）', () => {
+    assert.equal(
+      Anon.canonicalPageUrl('https://www.daydaymoney.com/friend-links/'),
+      'https://www.daydaymoney.com/friend-links',
+    );
+    assert.equal(
+      Anon.canonicalPageUrl('https://www.daydaymoney.com/friend-links/?accessCode=BWLQdMXxxT'),
+      'https://www.daydaymoney.com/friend-links',
+    );
+    assert.equal(Anon.canonicalPageUrl('https://shop.test/'), 'https://shop.test/', '根路径保留斜杠');
+    assert.equal(Anon.canonicalPageUrl('https://shop.test//'), 'https://shop.test/', '多斜杠同样折到根');
+
+    // 服务端落贴存的是折叠后的身份网址；标签页带尾斜杠与 accessCode 也要命中。
+    const saved = Anon.normalizeEntry(entry({ page_url: 'https://www.daydaymoney.com/friend-links' }));
+    const rows = Anon.entriesForPageUrl(
+      [saved],
+      'https://www.daydaymoney.com/friend-links/?accessCode=BWLQdMXxxT',
+      NOW,
+    );
+    assert.deepEqual(rows.map((row) => row.post_id), ['post-1']);
+  });
+
   it('缺帖 id / 令牌 / 网址的入口一律不收', () => {
     assert.equal(Anon.normalizeEntry(null), null);
     assert.equal(Anon.normalizeEntry(entry({ post_id: '' })), null);
