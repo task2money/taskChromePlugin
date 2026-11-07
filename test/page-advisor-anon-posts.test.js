@@ -179,6 +179,20 @@ describe('page-advisor-anon-posts 纯函数', () => {
     assert.equal(Anon.entryFromTrialPost({ pageUrl: 'https://shop.test/p' }), null);
     assert.equal(Anon.entryFromTrialPost({ post: { post_id: 'p' } }), null);
   });
+
+  it('报告地址与首页试用同形：<站点>/try/<帖 id>/?k=<令牌>', () => {
+    const url = Anon.reportUrl('https://www.example.test/', entry());
+    assert.equal(url, 'https://www.example.test/try/post-1/?k=tok-1');
+    // 站点基址缺失 / 非 http(s) / 入口缺 id 或令牌：不拼地址（宁可不给入口，
+    // 也不发一个打不开或指向错误主机的链接）。
+    assert.equal(Anon.reportUrl('', entry()), '');
+    assert.equal(Anon.reportUrl('ftp://www.example.test', entry()), '');
+    assert.equal(Anon.reportUrl('https://www.example.test', null), '');
+    assert.equal(Anon.reportUrl('https://www.example.test', entry({ view_token: '' })), '');
+    // id / 令牌都按 URL 组件编码，不会把额外查询参数带进地址。
+    const encoded = Anon.reportUrl('https://www.example.test', entry({ post_id: 'a b', view_token: 't&k=1' }));
+    assert.equal(encoded, 'https://www.example.test/try/a%20b/?k=t%26k%3D1');
+  });
 });
 
 describe('page-advisor-anon-posts 本地存储', () => {

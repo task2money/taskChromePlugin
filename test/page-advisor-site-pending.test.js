@@ -246,6 +246,26 @@ describe('PageAdvisorSitePending 匿名帖（v233）', () => {
     assert.match(html, /匿名/);
   });
 
+  it('匿名帖给「查看报告」按钮，但只读令牌不进 DOM', () => {
+    const anon = {
+      id: 'a1',
+      post_id: 'a1',
+      title: '匿名建议',
+      owner_kind: 'anonymous',
+      confirm_status: 'pending',
+      suggestions: [{ id: 's1', title: '建议' }],
+      claim_status: 'open',
+      view_token: 'tok-secret',
+    };
+    const html = buildSitePendingTabsHtml([anon], 'a1', (s) => s);
+    assert.match(html, /taskplugin-page-advisor-site-report/);
+    assert.match(html, /data-post-id="a1"/);
+    assert.match(html, /查看报告/);
+    // 令牌只在后台存储里：按钮只带帖 id，由后台拼报告地址并开标签页。
+    assert.doesNotMatch(html, /tok-secret/);
+    assert.doesNotMatch(html, /view_token/);
+  });
+
   it('登录用户自己的帖保持采纳/废弃，不出现领取按钮', () => {
     const member = { id: 'm1', title: '会员建议', tenant_id: 't1' };
     const html = buildSitePendingTabsHtml([member], 'm1', (s) => s);

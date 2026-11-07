@@ -704,6 +704,27 @@
     host.querySelectorAll('.taskplugin-page-advisor-site-claim').forEach((btn) => {
       btn.addEventListener('click', () => { claim(btn); });
     });
+    host.querySelectorAll('.taskplugin-page-advisor-site-report').forEach((btn) => {
+      btn.addEventListener('click', () => { openReport(btn); });
+    });
+  }
+
+  /**
+   * 「查看报告」：后台按帖 id 从本地入口取令牌，拼 <站点>/try/<id>/?k=… 并开标签页。
+   * 令牌不进 DOM，也不经侧栏转发。
+   */
+  async function openReport(btn) {
+    const postId = String(btn.getAttribute('data-post-id') || '').trim();
+    if (!postId) return;
+    btn.disabled = true;
+    btn.setAttribute('aria-busy', 'true');
+    let resp = null;
+    try {
+      resp = await chrome.runtime.sendMessage({ action: 'openPageTrialReport', postId });
+    } catch (_e) { resp = null; }
+    btn.disabled = false;
+    btn.setAttribute('aria-busy', 'false');
+    if (!resp || resp.success === false) setStatus(tx('paSiteReportFail'));
   }
 
   /** 未登录点「领取」：按弹窗同一条 OAuth 入口打开授权页。 */
@@ -1117,6 +1138,10 @@
           // refresh() 里新发的额度查询同样作废：终态只由这次生成的结果决定。
           trialHintSeq += 1;
           setStatus(tx('agentSuggestionsAnonymousPosted'), resp.traceId);
+          // 本次生成的可读报告：与首页试用详情同形的 /try/<id>/?k=…，由后台按本地
+          // 令牌打开（令牌不进 DOM）。打不开不影响已经生成的建议与优化贴。
+          chrome.runtime.sendMessage({ action: 'openPageTrialReport', postId: anonymousPostId })
+            .catch(() => {});
           return;
         }
         renderTrialSuggestions(resp);

@@ -230,6 +230,41 @@ async function refreshAnonymousTrialPost(input) {
   return { entry: fresh, gone: false };
 }
 
+/** 报告页站点基址：打包期注入的 www 域；源码树/商店构建为空，此时不拼地址。 */
+function pageTrialReportBaseUrl() {
+  const rc = (typeof globalThis !== 'undefined' && globalThis.TaskPluginRuntimeConfig) || {};
+  return String(rc.siteBaseUrl || '').trim();
+}
+
+/**
+ * 打开一条匿名帖的网页报告：<站点>/try/<帖 id>/?k=<只读令牌>，与首页试用详情同形。
+ * 令牌只在后台从本地入口取出并交给 chrome.tabs，不进 DOM、不回传给侧栏。
+ * @param {{ postId?: string }} message
+ */
+async function handleOpenPageTrialReport(message) {
+  const Anon = typeof PageAdvisorAnonPosts !== 'undefined' ? PageAdvisorAnonPosts : null;
+  const postId = String(message?.postId || '').trim();
+  if (!Anon || !postId) return { success: false, error: tx('paSiteReportFail') };
+  let entries = [];
+  try {
+    entries = await Anon.loadEntries(null);
+  } catch (e) {
+    console.warn('[taskChromePlugin] anon_post_report_load_failed:', e?.message || e);
+  }
+  const entry = entries.find((row) => row.post_id === postId) || null;
+  if (!entry) return { success: false, error: tx('paSiteReportFail') };
+  const url = Anon.reportUrl(pageTrialReportBaseUrl(), entry);
+  if (!url) return { success: false, error: tx('paSiteReportFail') };
+  try {
+    const tab = await chrome.tabs.create({ url, active: true });
+    console.info('[taskChromePlugin] anon_post_report_opened', { postId, tabId: tab?.id });
+    return { success: true };
+  } catch (e) {
+    console.warn('[taskChromePlugin] anon_post_report_open_failed:', e?.message || e);
+    return { success: false, error: tx('paSiteReportFail') };
+  }
+}
+
 /**
  * 当前网页的匿名入口 → 侧栏条目。已关闭的入口直接从本地删掉。
  * @param {string} pageUrl

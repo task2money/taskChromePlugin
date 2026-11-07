@@ -237,6 +237,9 @@ async function handleMessageRest(message, sender) {
     case 'claimPageTrialPost':
       return handleClaimPageTrialPost(message);
 
+    case 'openPageTrialReport':
+      return handleOpenPageTrialReport(message);
+
     case 'confirmSitePendingSuggestion':
       return handleConfirmSitePendingSuggestion(message);
 
