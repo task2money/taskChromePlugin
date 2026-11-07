@@ -275,6 +275,39 @@ describe('元素拾取快捷键（默认统一 Alt+X）', () => {
       );
     });
 
+    it('macOS Option 组合字符：e.key 非字母时按物理键 e.code 还原', () => {
+      // macOS US 布局：Option+X → '≈'，Option+Z → 'Ω'，Option+Shift+Z → '¸'
+      assert.equal(
+        Storage.matchShortcutKeydown(keydown({ altKey: true, key: '≈', code: 'KeyX' }), 'Alt+X'),
+        true,
+        'Option+X 应命中 Alt+X',
+      );
+      assert.equal(
+        Storage.matchShortcutKeydown(keydown({ altKey: true, key: 'Ω', code: 'KeyZ' }), 'Alt+Z'),
+        true,
+        'Option+Z 应命中 Alt+Z',
+      );
+      assert.equal(
+        Storage.matchShortcutKeydown(
+          keydown({ altKey: true, shiftKey: true, key: '¸', code: 'KeyZ' }),
+          'Alt+Shift+Z',
+        ),
+        true,
+        'Option+Shift+Z 应命中 Alt+Shift+Z',
+      );
+      // 非 US 布局：e.key 已是合法键名但不同 → 不得让物理键覆盖字符键，避免误触
+      assert.equal(
+        Storage.matchShortcutKeydown(keydown({ altKey: true, key: 'e', code: 'KeyZ' }), 'Alt+Z'),
+        false,
+        'e.key 合法时不应用 e.code 覆盖',
+      );
+      // 物理键不同则同样不命中
+      assert.equal(
+        Storage.matchShortcutKeydown(keydown({ altKey: true, key: '≈', code: 'KeyY' }), 'Alt+X'),
+        false,
+      );
+    });
+
     it('空事件不命中', () => {
       assert.equal(Storage.matchShortcutKeydown(null, 'Alt+X'), false);
       assert.equal(Storage.matchShortcutKeydown(null, 'Ctrl+Shift+X'), false);

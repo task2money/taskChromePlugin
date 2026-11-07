@@ -193,6 +193,24 @@ function dispatchComboShortcutKey(combo) {
   })()`;
 }
 
+/**
+ * 合成真实 macOS Option 组合键：e.key 是组合字符（Option+X → '≈'、Option+Z → 'Ω'、
+ * Option+Shift+Z → '¸'），e.code 仍是物理键。修复前兜底监听只看 e.key → 全部失效。
+ */
+function dispatchMacOptionKey(composedKey, code, mods) {
+  return `(function () {
+    const ev = new KeyboardEvent('keydown', {
+      key: ${JSON.stringify(composedKey)},
+      code: ${JSON.stringify(code)},
+      altKey: ${!!mods.alt},
+      shiftKey: ${!!mods.shift},
+      bubbles: true,
+      cancelable: true,
+    });
+    document.body.dispatchEvent(ev);
+  })()`;
+}
+
 /** 切换自定义组合串：只写 storage 并触发 onChanged（不再派发跨 tab 消息） */
 function setShortcutCombo(combo) {
   return `(function () {
@@ -411,6 +429,34 @@ test.describe('快捷键页内兜底', () => {
     // 新组合 Ctrl+Alt+P 生效 → 退出选择模式
     await page.evaluate(dispatchComboShortcutKey('Ctrl+Alt+P'));
     await waitPickState(page, false);
+  });
+
+  // ── macOS Option 组合字符：真实 Mac 按键的 e.key 不是字母 ──
+  test('macOS Option 组合字符（key=≈/Ω/¸）仍按物理键命中 Alt 组合', async ({ page }) => {
+    await loadPluginIntoPage(page);
+
+    // 默认 Alt+X：真实 Mac 上 Option+X 的 e.key 是 '≈'，code 仍是 KeyX
+    await page.evaluate(dispatchMacOptionKey('≈', 'KeyX', { alt: true }));
+    await waitPickState(page, true);
+
+    await page.waitForTimeout(350);
+    await page.evaluate(dispatchMacOptionKey('≈', 'KeyX', { alt: true }));
+    await waitPickState(page, false);
+
+    // 自定义 Alt+Shift+E：Option+Shift+E 的 e.key 是 '´'（先离开 300ms 去抖窗口）
+    await page.waitForTimeout(350);
+    await page.evaluate(setShortcutCombo('Alt+Shift+E'));
+    await page.evaluate(dispatchMacOptionKey('´', 'KeyE', { alt: true, shift: true }));
+    await waitPickState(page, true);
+  });
+
+  test('e.key 本身是合法键名时不按 e.code 覆盖（避免非 US 布局误触）', async ({ page }) => {
+    await loadPluginIntoPage(page);
+
+    // key='e'（合法键名）+ code='KeyX'：不得因物理键是 X 就误触 Alt+X
+    await page.evaluate(dispatchMacOptionKey('e', 'KeyX', { alt: true }));
+    await page.waitForTimeout(100);
+    expect((await pickState(page)).on).toBe(false);
   });
 
   test('Alt+X 后 Ctrl+pointerdown 累加两元素；剥掉 ctrlKey 的 click 不结束选择', async ({ page }) => {

@@ -44,4 +44,20 @@ describe('pick-frame.js 页内兜底快捷键默认组合（统一 Alt+X）', ()
       '旧版 cmd/ctrl 迁移应与 Storage.getElementPickerShortcut 一致',
     );
   });
+
+  it('macOS Option 组合字符按物理键 e.code 还原（否则 Alt 组合在子 frame 全部失效）', () => {
+    assert.ok(
+      pickFrame.includes('shortcutKeyNameFromCode'),
+      'pick-frame 缺少 e.code → chrome.commands 键名映射',
+    );
+    assert.ok(
+      pickFrame.includes('eventShortcutKeyName'),
+      'pick-frame 缺少 keydown 键名解析（含 e.code 回退）',
+    );
+    assert.match(
+      pickFrame,
+      /const eventKey = eventShortcutKeyName\(e\)/,
+      'matchShortcut 未使用含 e.code 回退的键名解析',
+    );
+  });
 });

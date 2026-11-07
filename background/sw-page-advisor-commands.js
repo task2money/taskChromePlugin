@@ -23,6 +23,24 @@ async function handlePageOptimizationSuggestRegionCommand() {
   }
 }
 
+/**
+ * chrome.commands.getAll() 的展示串 → 规范快捷键串。
+ * macOS 上展示串用符号表示修饰键（⌥Z / ⌥⇧Z / ⌥`），直接拿 "Alt+E" 比较永远不命中，
+ * 导致旧版 Alt+E / Alt+` 绑定在 Mac 上迁移失败。
+ */
+function normalizeChromeCommandDisplay(sc) {
+  const raw = String(sc || '').trim();
+  if (!raw || !/[⌥⇧⌃⌘]/.test(raw)) return raw;
+  const mods = [];
+  if (raw.includes('⌃')) mods.push('Ctrl');
+  if (raw.includes('⌥')) mods.push('Alt');
+  if (raw.includes('⇧')) mods.push('Shift');
+  if (raw.includes('⌘')) mods.push('Command');
+  const key = raw.replace(/[⌥⇧⌃⌘\s]/g, '');
+  if (!key) return '';
+  return [...mods, key === '`' ? 'Backquote' : key].join('+');
+}
+
 async function clearLegacyPageAdvisorChromeShortcuts() {
   if (
     typeof chrome.commands?.getAll !== 'function'
@@ -46,7 +64,7 @@ async function clearLegacyPageAdvisorChromeShortcuts() {
     const commands = await chrome.commands.getAll();
     for (const [name, desired] of Object.entries(defaults)) {
       const found = (commands || []).find((c) => c && c.name === name);
-      const sc = String(found?.shortcut || '');
+      const sc = normalizeChromeCommandDisplay(found?.shortcut || '');
       if (legacy.has(sc)) {
         await chrome.commands.update({ name, shortcut: desired });
         continue;

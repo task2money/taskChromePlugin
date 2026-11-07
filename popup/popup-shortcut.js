@@ -1,6 +1,24 @@
 /** Popup 元素拾取快捷键 + OAuth 登录/登出（OPT-20260821-004 split）. */
   // ---- 元素拾取快捷键自定义（默认 Alt+X，可改任意组合）----
 
+  /** KeyboardEvent.code（物理键）→ Chrome 命令键名（无法识别返回 ''） */
+  function codeToShortcutName(code) {
+    const c = String(code || '');
+    let m = /^Key([A-Z])$/.exec(c);
+    if (m) return m[1];
+    m = /^Digit([0-9])$/.exec(c);
+    if (m) return m[1];
+    m = /^F([1-9]|1[0-2])$/.exec(c);
+    if (m) return m[0];
+    if (['Space', 'Comma', 'Period', 'Backquote', 'Home', 'End', 'PageUp',
+      'PageDown', 'Insert', 'Delete'].includes(c)) return c;
+    if (c === 'ArrowUp') return 'Up';
+    if (c === 'ArrowDown') return 'Down';
+    if (c === 'ArrowLeft') return 'Left';
+    if (c === 'ArrowRight') return 'Right';
+    return '';
+  }
+
   /** 事件键名 → Chrome 命令键名（ArrowUp→Up、,→Comma、.→Period、空格→Space） */
   function eventKeyToShortcutName(e) {
     const k = e.key || '';
@@ -9,6 +27,12 @@
     if (k === ',') return 'Comma';
     if (k === '.') return 'Period';
     if (k === '`' || e.code === 'Backquote') return 'Backquote';
+    // macOS Option+字母会输出组合字符（Alt+X → '≈'、Alt+Z → 'Ω'、Alt+Shift+Z → '¸'），
+    // 此时 e.key 不是字母；按物理键 e.code 还原，否则弹窗内无法捕获任何 Alt 组合。
+    if (k.length === 1 && k.charCodeAt(0) > 127) {
+      const fromCode = codeToShortcutName(e.code);
+      if (fromCode) return fromCode;
+    }
     return k;
   }
 

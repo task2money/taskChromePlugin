@@ -70,7 +70,7 @@ function loadFragment(options = {}) {
     'STORAGE_READ_TIMEOUT',
     'escapeHtml',
     'console',
-    `${src}\n;return { setShortcutDiffBadge, checkShortcutBindingDiff };`,
+    `${src}\n;return { setShortcutDiffBadge, checkShortcutBindingDiff, eventKeyToShortcutName };`,
   );
   const api = factory(
     $,
@@ -150,5 +150,21 @@ describe('popup-shortcut 折叠态差异徽标', () => {
       /\$\('#shortcutsBody'\)|\$\('#shortcutsSection'\)|\$\('#btnToggleShortcuts'\)/,
       '绑定差异不得触碰折叠区/展开按钮',
     );
+  });
+});
+
+describe('popup-shortcut 按键捕获（macOS Option 组合字符）', () => {
+  it('Option+字母输出组合字符时按物理键 e.code 还原', () => {
+    const { api } = loadFragment();
+    // macOS US 布局：Option+X → '≈'、Option+Z → 'Ω'、Option+Shift+Z → '¸'
+    assert.equal(api.eventKeyToShortcutName({ key: '≈', code: 'KeyX' }), 'X');
+    assert.equal(api.eventKeyToShortcutName({ key: 'Ω', code: 'KeyZ' }), 'Z');
+    assert.equal(api.eventKeyToShortcutName({ key: '¸', code: 'KeyZ' }), 'Z');
+    assert.equal(api.eventKeyToShortcutName({ key: '¡', code: 'Digit1' }), '1');
+    // 命名键同理（Option+, → '¯'，物理键仍是 Comma）
+    assert.equal(api.eventKeyToShortcutName({ key: '¯', code: 'Comma' }), 'Comma');
+    // ASCII 字符保持不变，避免非 US 布局下物理键覆盖字符键
+    assert.equal(api.eventKeyToShortcutName({ key: 'x', code: 'KeyQ' }), 'x');
+    assert.equal(api.eventKeyToShortcutName({ key: ',', code: 'KeyQ' }), 'Comma');
   });
 });

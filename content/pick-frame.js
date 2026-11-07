@@ -204,6 +204,44 @@
   }
 
   // 子 frame 内页内兜底快捷键（OPT-20260806-016）：
+  /** KeyboardEvent.code（物理键）→ chrome.commands 键名 */
+  function shortcutKeyNameFromCode(code) {
+    const c = String(code || '');
+    let m = /^Key([A-Z])$/.exec(c);
+    if (m) return m[1];
+    m = /^Digit([0-9])$/.exec(c);
+    if (m) return m[1];
+    m = /^F([1-9]|1[0-2])$/.exec(c);
+    if (m) return m[0];
+    if (['Space', 'Comma', 'Period', 'Backquote', 'Home', 'End', 'PageUp',
+      'PageDown', 'Insert', 'Delete'].includes(c)) return c;
+    if (c === 'ArrowUp') return 'Up';
+    if (c === 'ArrowDown') return 'Down';
+    if (c === 'ArrowLeft') return 'Left';
+    if (c === 'ArrowRight') return 'Right';
+    return '';
+  }
+
+  /**
+   * keydown → chrome.commands 键名：优先 e.key，e.key 无法识别时回退物理键 e.code。
+   * macOS Option+字母会输出组合字符（Option+X → '≈'），只看 e.key 会让 Alt 组合全部失效。
+   */
+  function eventShortcutKeyName(e) {
+    const raw = String(e.key || '');
+    let name = raw === ' ' ? 'Space'
+      : raw.startsWith('Arrow') ? raw.slice(5)
+        : raw === ',' ? 'Comma'
+          : raw === '.' ? 'Period'
+            : raw === '`' || raw === 'Backquote' ? 'Backquote'
+              : raw;
+    if (/^[a-z]$/i.test(name)) name = name.toUpperCase();
+    const known = /^[A-Z0-9]$/.test(name)
+      || /^F([1-9]|1[0-2])$/.test(name)
+      || ['Space', 'Comma', 'Period', 'Backquote', 'Home', 'End', 'PageUp',
+        'PageDown', 'Insert', 'Delete', 'Up', 'Down', 'Left', 'Right'].includes(name);
+    return known ? name : shortcutKeyNameFromCode(e.code);
+  }
+
   /**
    * 严格匹配快捷键组合串（与 content.js Storage.matchShortcutKeydown 同规则，
    * 内联实现避免依赖 storage.js）：组合中列出的修饰键必须按下、未列出的不得按下。
@@ -214,10 +252,8 @@
     if (parts.length < 2) return false;
     const keyName = parts[parts.length - 1];
     const mods = parts.slice(0, -1);
-    const k = String(e.key || '');
-    let eventKey = k === ' ' ? 'Space' : k.startsWith('Arrow') ? k.slice(5) : k;
-    if (eventKey === ',') eventKey = 'Comma';
-    if (eventKey === '.') eventKey = 'Period';
+    const eventKey = eventShortcutKeyName(e);
+    if (!eventKey) return false;
     const keyOk = keyName.length === 1
       ? eventKey.toUpperCase() === keyName
       : eventKey === keyName;
