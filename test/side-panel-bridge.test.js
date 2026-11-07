@@ -17,6 +17,10 @@ describe('side panel tab', () => {
     assert.equal(bridge.normalizeSidePanelTab(undefined), 'create');
   });
 
+  it('默认页签是网页优化', () => {
+    assert.equal(bridge.DEFAULT_SIDE_PANEL_TAB, 'agent');
+  });
+
   it('任务描述草稿使用固定 session 键', () => {
     assert.equal(bridge.createDescStorageKey(), 'sidePanelCreateDesc');
   });
@@ -31,24 +35,24 @@ describe('side panel tab', () => {
     assert.deepEqual(bridge.toolbarActionPanelBehavior(), { openPanelOnActionClick: true });
   });
 
-  it('图标打开切到设置，页面消息刚打开时不覆盖页签', () => {
+  it('图标打开走默认页签，页面消息刚打开时不覆盖页签', () => {
     const now = 10000;
-    assert.equal(bridge.iconOpenShouldSelectSettings(null, now), true);
-    assert.equal(bridge.iconOpenShouldSelectSettings({ kind: 'message', at: now - 100 }, now), false);
-    assert.equal(bridge.iconOpenShouldSelectSettings({ kind: 'message', at: now - 2000 }, now), true);
+    assert.equal(bridge.iconOpenShouldSelectDefaultTab(null, now), true);
+    assert.equal(bridge.iconOpenShouldSelectDefaultTab({ kind: 'message', at: now - 100 }, now), false);
+    assert.equal(bridge.iconOpenShouldSelectDefaultTab({ kind: 'message', at: now - 2000 }, now), true);
   });
 
-  it('图标打开固定设置；填入或悬浮球消息在 2 秒内保留创建页', () => {
+  it('图标打开固定默认页签；填入或悬浮球消息在 2 秒内保留其页签', () => {
     const now = 10000;
     const fresh = { kind: 'message', at: now - 100, which: 'create' };
-    assert.equal(bridge.resolveSidePanelOnShow(null, 'create', now), 'settings');
+    assert.equal(bridge.resolveSidePanelOnShow(null, 'create', now), 'agent');
     assert.equal(bridge.resolveSidePanelOnShow(fresh, 'create', now), 'create');
-    assert.equal(bridge.resolveSidePanelOnShow({ kind: 'message', at: now - 2000 }, 'create', now), 'settings');
+    assert.equal(bridge.resolveSidePanelOnShow({ kind: 'message', at: now - 2000 }, 'create', now), 'agent');
     assert.equal(bridge.resolveSidePanelIntent(fresh, null, 'settings', now), 'create');
-    assert.equal(bridge.resolveSidePanelIntent(null, null, 'create', now), 'settings');
+    assert.equal(bridge.resolveSidePanelIntent(null, null, 'create', now), 'agent');
     assert.equal(
       bridge.resolveSidePanelIntent({ kind: 'message', which: 'create', at: now - 2000 }, null, 'settings', now),
-      'settings',
+      'agent',
     );
   });
 });

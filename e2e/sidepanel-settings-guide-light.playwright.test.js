@@ -85,6 +85,10 @@ test.describe('侧栏设置 iframe 使用说明浅色层', () => {
     await installStub(page);
     await page.goto(SIDEPANEL_URL);
 
+    // 默认页签是「网页优化」；本用例只关心设置 iframe，先切到「设置」。
+    await page.locator('#sp-tab-settings').click();
+    await expect(page.locator('#sp-pane-settings')).toBeVisible();
+
     const frame = page.frameLocator('#sp-settings-frame');
 
     // popup-host.js 应据 ?host=sidepanel 给 iframe 根打上属性，浅色覆盖才生效。

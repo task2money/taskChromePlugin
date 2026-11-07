@@ -1,5 +1,5 @@
 /**
- * 浏览器侧边栏：工具栏打开「设置」，悬浮球等页面消息打开「创建任务」。
+ * 浏览器侧边栏：工具栏打开默认页签「网页优化」，悬浮球等页面消息打开「创建任务」。
  * sidePanel.open 必须在用户点击的同步栈里调用，不能先 await。
  */
 var pendingSidePanelMessage = null;
@@ -102,15 +102,15 @@ async function handleSidePanelMessage(message, sender) {
 }
 
 async function applyIconOpenTab() {
-  let which = 'settings';
+  let which = SidePanelBridge.DEFAULT_SIDE_PANEL_TAB;
   try {
     const stored = await chrome.storage.session.get(['sidePanelTab', 'sidePanelOpenSource']);
     which = sidePanelIntentWhich(stored, Date.now());
   } catch (_) {
-    which = 'settings';
+    which = SidePanelBridge.DEFAULT_SIDE_PANEL_TAB;
   }
-  if (which === 'settings') {
-    await chrome.storage.session.set({ sidePanelTab: 'settings' });
+  if (which === SidePanelBridge.DEFAULT_SIDE_PANEL_TAB) {
+    await chrome.storage.session.set({ sidePanelTab: SidePanelBridge.DEFAULT_SIDE_PANEL_TAB });
   }
   try {
     chrome.runtime.sendMessage({ action: 'sidePanelShow', which });
@@ -138,7 +138,7 @@ function installToolbarSidePanelToggle() {
   if (chrome.sidePanel.onOpened && typeof chrome.sidePanel.onOpened.addListener === 'function') {
     chrome.sidePanel.onOpened.addListener(() => {
       applyIconOpenTab().catch((e) => {
-        console.warn('[taskChromePlugin] 图标打开侧边栏切到设置失败:', e && e.message ? e.message : e);
+        console.warn('[taskChromePlugin] 图标打开侧边栏切到默认页签失败:', e && e.message ? e.message : e);
       });
     });
   }

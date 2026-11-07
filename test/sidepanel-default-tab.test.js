@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 图标打开侧边栏默认设置；只有任务描述写入非空内容才自动切到创建任务。
+ * 图标打开侧边栏默认「网页优化」；只有任务描述写入非空内容才自动切到创建任务。
  */
 
 const { describe, it } = require('node:test');
@@ -13,11 +13,15 @@ describe('side panel default tab', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html'), 'utf8');
   const js = fs.readFileSync(path.join(__dirname, '..', 'sidepanel', 'sidepanel.js'), 'utf8');
 
-  it('首屏是设置页，并加载页签判定', () => {
-    assert.match(html, /id="sp-tab-settings"[^>]*aria-selected="true"/);
+  it('首屏是网页优化页，并加载页签判定', () => {
+    assert.match(html, /id="sp-tab-agent"[^>]*aria-selected="true"/);
+    assert.match(html, /id="sp-tab-settings"[^>]*aria-selected="false"/);
     assert.match(html, /id="sp-tab-agent"/);
     assert.match(html, /data-i18n="agentSuggestionsTab"/);
-    assert.match(html, /id="sp-pane-agent"[^>]*hidden/);
+    const agentPaneTag = html.match(/<div id="sp-pane-agent"[^>]*>/);
+    assert.ok(agentPaneTag, 'agent pane present');
+    assert.doesNotMatch(agentPaneTag[0], /\bhidden\b/);
+    assert.match(html, /<div id="sp-pane-settings"[^>]*\bhidden\b/);
     assert.match(html, /<span data-i18n="agentSuggestionsTab">网页优化<\/span>/);
     assert.match(html, /<h3 data-i18n="agentSuggestionsPanelTitle">网页优化建议<\/h3>/);
     assert.match(html, /id="sp-agent-count"/);
@@ -41,6 +45,7 @@ describe('side panel default tab', () => {
     assert.match(html, /id="sp-pane-create"[^>]*hidden/);
     assert.match(html, /side-panel-bridge\.js/);
     assert.match(js, /getSidePanelOpenIntent/);
+    assert.match(js, /SidePanelBridge\.DEFAULT_SIDE_PANEL_TAB/);
     assert.match(js, /sidePanel\.onOpened/);
   });
 

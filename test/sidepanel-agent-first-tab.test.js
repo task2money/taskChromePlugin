@@ -27,7 +27,8 @@ describe('side panel tab order', () => {
     assert.match(agentButton[0], /id="sp-agent-count"/);
   });
 
-  it('首屏默认页签仍是设置（第一栏不改变图标打开行为）', () => {
-    assert.match(html, /id="sp-tab-settings"[^>]*aria-selected="true"/);
+  it('首屏默认页签就是第一栏的网页优化', () => {
+    assert.match(html, /id="sp-tab-agent"[^>]*aria-selected="true"/);
+    assert.match(html, /id="sp-tab-settings"[^>]*aria-selected="false"/);
   });
 });

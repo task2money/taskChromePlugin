@@ -40,8 +40,8 @@ const PENDING_POSTS_AFTER_QUERY = PENDING_POSTS.concat([
  * 供用例断言「点了查询确实发了一次列表请求」「页签数字随列表消息更新」。
  * 列表接口的返回值放在 `window.__items`，用例可在点击前替换，模拟服务端多了一条。
  */
-async function installStub(page, posts) {
-  await page.addInitScript(({ seedPosts, tenantId, tabId }) => {
+async function installStub(page, posts, openIntent = 'agent') {
+  await page.addInitScript(({ seedPosts, tenantId, tabId, intent }) => {
     try { localStorage.setItem('aidevpush.locale', 'zh-CN'); } catch (_) { /* ignore */ }
     const localStore = { 'aidevpush.locale': 'zh-CN' };
     const sessionStore = {};
@@ -94,7 +94,7 @@ async function installStub(page, posts) {
         // Task 12：下拉数据源改为服务端目录；空目录是合法成功响应，面板只画默认项。
         return { ok: true, skills: [], defaultSkillId: '', defaultTitle: '', partialError: false };
       }
-      if (action === 'getSidePanelOpenIntent') return { which: 'agent' };
+      if (action === 'getSidePanelOpenIntent') return { which: intent };
       return {};
     };
 
@@ -137,7 +137,7 @@ async function installStub(page, posts) {
       i18n: { getMessage: () => '' },
     };
     void tenantId;
-  }, { seedPosts: posts, tenantId: TENANT, tabId: ACTIVE_TAB_ID });
+  }, { seedPosts: posts, tenantId: TENANT, tabId: ACTIVE_TAB_ID, intent: openIntent });
 }
 
 /** 后台 SW 把列表结果广播给侧栏（`agentSuggestionsListed`）。 */
@@ -303,5 +303,16 @@ test.describe('侧栏智能体建议', () => {
     // 徽标不能是白底白字：底色必须不透明，且与文字色不同。
     expect(geometry.badgeBackground).not.toBe('rgba(0, 0, 0, 0)');
     expect(geometry.badgeBackground).not.toBe(geometry.badgeColor);
+  });
+
+  test('后台未声明打开意图时，侧栏默认落在「网页优化」页签', async ({ page }) => {
+    // 工具栏图标打开即此路径：没有页面消息，intent 为空 → 默认页签。
+    await installStub(page, PENDING_POSTS, null);
+    await page.goto(SIDEPANEL_URL);
+
+    await expect(page.locator('#sp-tab-agent')).toHaveAttribute('aria-selected', 'true');
+    await expect(page.locator('#sp-pane-agent')).toBeVisible();
+    await expect(page.locator('#sp-tab-settings')).toHaveAttribute('aria-selected', 'false');
+    await expect(page.locator('#sp-pane-settings')).toBeHidden();
   });
 });

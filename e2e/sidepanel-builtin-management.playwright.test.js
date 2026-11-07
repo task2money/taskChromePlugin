@@ -107,7 +107,7 @@ test.describe('侧栏本机模型管理', () => {
     const builtinTab = page.locator('#sp-tab-builtin');
     const settingsTab = page.locator('#sp-tab-settings');
 
-    // 侧栏壳默认停在「设置」页签
+    // 后台声明 settings 打开意图，侧栏落在「设置」页签（默认页签是网页优化）
     await expect(settingsPane).toBeVisible();
     await expect(builtinPane).toBeHidden();
     await expect(settingsTab).toHaveAttribute('aria-selected', 'true');

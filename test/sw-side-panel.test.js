@@ -37,6 +37,15 @@ describe('sw-side-panel toolbar toggle', () => {
     assert.ok(openAt > begin.indexOf('pendingSidePanelMessage'));
   });
 
+  it('工具栏图标打开落在默认页签（网页优化），不再写死设置', () => {
+    const fn = src.slice(
+      src.indexOf('async function applyIconOpenTab'),
+      src.indexOf('function sidePanelIntentWhich'),
+    );
+    assert.match(fn, /let which = SidePanelBridge\.DEFAULT_SIDE_PANEL_TAB/);
+    assert.doesNotMatch(fn, /which = 'settings'/);
+  });
+
   it('图标打开在判定页签前不删掉页面消息来源', () => {
     const fn = src.slice(
       src.indexOf('async function applyIconOpenTab'),

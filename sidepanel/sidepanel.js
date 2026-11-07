@@ -19,7 +19,16 @@
     }
     if (which === 'settings') return 'settings';
     if (which === 'builtin') return 'builtin';
+    if (which === 'agent') return 'agent';
     return 'create';
+  }
+
+  /** 没有页面消息时的默认页签（与 sidepanel.html 首屏保持一致）。 */
+  function defaultTab() {
+    if (typeof SidePanelBridge !== 'undefined' && SidePanelBridge.DEFAULT_SIDE_PANEL_TAB) {
+      return SidePanelBridge.DEFAULT_SIDE_PANEL_TAB;
+    }
+    return 'agent';
   }
 
   function showTab(which) {
@@ -158,14 +167,14 @@
   });
 
   async function applyVisibleTab() {
-    let which = 'settings';
+    let which = defaultTab();
     try {
       const intent = await chrome.runtime.sendMessage({ action: 'getSidePanelOpenIntent' });
       if (intent && (intent.which === 'create' || intent.which === 'settings' || intent.which === 'builtin' || intent.which === 'agent')) {
         which = intent.which;
       }
     } catch (_) {
-      which = 'settings';
+      which = defaultTab();
     }
     showTab(which);
     if (which === 'settings' || which === 'builtin') {
