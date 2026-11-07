@@ -23,3 +23,13 @@ describe('user-guide-en-sections', () => {
     assert.equal(src.includes('native bridge'), false);
   });
 });
+
+describe('user-guide-en-sections 侧栏页签名', () => {
+  it('英文使用说明按 Edge compute 页签名指路', () => {
+    const { STEPS_EN } = require('../lib/user-guide-en-sections.js');
+    const blob = STEPS_EN['builtin-edge-sell'].join('\n');
+    assert.match(blob, /Edge compute side-panel tab/);
+    assert.match(blob, /in the Edge compute tab/);
+    assert.doesNotMatch(blob, /On-device model \(edge compute\)/);
+  });
+});

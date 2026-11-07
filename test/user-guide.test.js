@@ -29,7 +29,7 @@ describe('UserGuide sections', () => {
     const suggest = UserGuide.SECTIONS.find((s) => s.id === 'page-optimization-suggest');
     assert.match((suggest.steps || []).join('\n'), /平台后端生成/);
     assert.match((suggest.steps || []).join('\n'), /匿名每日试用/);
-    assert.match((suggest.steps || []).join('\n'), /本机模型（边缘算力）/);
+    assert.match((suggest.steps || []).join('\n'), /「边缘算力」/);
     const sell = UserGuide.SECTIONS.find((s) => s.id === 'builtin-edge-sell');
     const sellBlob = (sell.steps || []).join('\n');
     assert.match(sellBlob, /chrome:\/\/on-device-internals/);
