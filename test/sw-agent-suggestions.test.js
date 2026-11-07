@@ -101,6 +101,8 @@ function loadGenerateStack(extraSandbox = {}) {
     'lib/page-advisor-site-pending.js',
     'lib/agent-suggestions-progress-store.js',
     'background/sw-page-advisor-page-trial.js',
+    'background/sw-agent-suggestions-progress.js',
+    'background/sw-agent-suggestions-diagnostics.js',
     'background/sw-agent-suggestions.js',
   ]) {
     vm.runInContext(
@@ -147,11 +149,16 @@ function loadReloadStack({ tabUrl, onReload } = {}) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   require('./helpers/txRuntime.js').installTxInSandbox(sandbox);
-  vm.runInContext(
-    fs.readFileSync(path.join(ROOT, 'background/sw-agent-suggestions.js'), 'utf8'),
-    sandbox,
-    { filename: 'sw-agent-suggestions.js' },
-  );
+  for (const rel of [
+    'background/sw-agent-suggestions-channel.js',
+    'background/sw-agent-suggestions.js',
+  ]) {
+    vm.runInContext(
+      fs.readFileSync(path.join(ROOT, rel), 'utf8'),
+      sandbox,
+      { filename: path.basename(rel) },
+    );
+  }
   // 等待预算在单测里缩到毫秒级，别真的等 15 秒。
   sandbox.AGENT_SUGGESTIONS_CONTENT_READY_MS = 120;
   sandbox.AGENT_SUGGESTIONS_PROBE_POLL_MS = 5;

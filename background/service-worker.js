@@ -63,6 +63,8 @@ importScripts(
   '../lib/agent-suggestions-progress.js',
   // 侧栏重开后续显进度：按 tab 存会话级快照（终态即清）。
   '../lib/agent-suggestions-progress-store.js',
+  // 生成失败可诊断：每次终态落一条本地环形记录（无页面正文，10 条上限）。
+  '../lib/agent-suggestions-diagnostics.js',
   '../lib/plugin-version.js',
   '../lib/open-chrome-url.js',
   '../lib/plugin-version-download.js',
@@ -94,6 +96,10 @@ importScripts(
   './sw-page-advisor-commands.js',
   './sw-page-advisor-pending.js',
   './sw-page-advisor-prompts.js',
+  // 侧栏生成建议：进度出口、失败诊断出口、采集通道探针各自独立文件，守住单文件行数上限。
+  './sw-agent-suggestions-progress.js',
+  './sw-agent-suggestions-diagnostics.js',
+  './sw-agent-suggestions-channel.js',
   './sw-agent-suggestions.js',
   './sw-builtin-edge-tunnel.js',
   './sw-builtin-enable-watchdog.js',

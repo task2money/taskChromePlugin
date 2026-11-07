@@ -142,6 +142,33 @@ progress.sp-agent-progress-bar {
 .sp-agent-progress-pct {
   font-variant-numeric: tabular-nums;
 }
+.sp-agent-diag {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 8px;
+  margin: 0 0 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: var(--taskplugin-surface-alt, rgba(127, 127, 127, 0.08));
+  font-size: 12px;
+  color: var(--taskplugin-muted-ink, #6b7280);
+}
+.sp-agent-diag[hidden] {
+  display: none;
+}
+.sp-agent-diag-meta {
+  flex: 1 1 220px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+.sp-agent-diag .btn {
+  flex: 0 0 auto;
+  font-size: 12px;
+  padding: 2px 8px;
+}
 #sp-agent-posts {
   display: flex;
   flex-direction: column;

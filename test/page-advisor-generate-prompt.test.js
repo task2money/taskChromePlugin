@@ -182,7 +182,8 @@ describe('generatePageAdvisorSuggestions 生成进度', () => {
       'submit:16',
       'queued:25',
       'queued:25',
-      'generating:63',
+      // 生成预估 60s：已跑 15s → 35 + 55 × 15/60 ≈ 48.75，取整 49。
+      'generating:49',
       'posting:95',
     ]);
   });

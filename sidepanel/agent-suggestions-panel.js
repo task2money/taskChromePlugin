@@ -43,6 +43,8 @@
   var progressTerminalHandled = false;
   var AGENT_SUGGESTIONS_PROGRESS_TICK_MS = 500;
   var AGENT_SUGGESTIONS_PROGRESS_HIDE_MS = 900;
+  // 失败态多停留几秒：用户要看清错误码/诊断入口，也避免「进度条走完就消失」。
+  var AGENT_SUGGESTIONS_PROGRESS_FAILED_HIDE_MS = 6000;
 
   function esc(value) {
     return String(value ?? '')
@@ -98,13 +100,119 @@
     if (btn) btn.hidden = !visible;
   }
 
-  function setStatus(text, traceId) {
+  function setStatus(text, traceId, errorCode) {
     const status = statusEl();
     if (!status) return;
     status.textContent = text || '';
     const tid = String(traceId || '').trim();
     if (tid) status.setAttribute('data-traceId', tid);
     else status.removeAttribute('data-traceId');
+    const code = String(errorCode || '').trim();
+    if (code) status.setAttribute('data-error-code', code);
+    else status.removeAttribute('data-error-code');
+  }
+
+  function diagEls() {
+    return {
+      box: document.getElementById('sp-agent-diag'),
+      meta: document.getElementById('sp-agent-diag-meta'),
+      copy: document.getElementById('sp-agent-copy-diag'),
+    };
+  }
+
+  function formatDiagElapsed(ms) {
+    const n = Number(ms);
+    if (!Number.isFinite(n) || n <= 0) return tx('agentSuggestionsDiagElapsedUnknown');
+    return `${(n / 1000).toFixed(1)}s`;
+  }
+
+  /**
+   * 失败 / 落贴失败时显示可见错误码、耗时与 traceId，并露出「复制诊断信息」。
+   * 成功后由 hideDiagnostics 移出；本地环形记录仍保留供下次复制。
+   */
+  function showDiagnostics(input) {
+    const els = diagEls();
+    if (!els.box || !els.meta) return;
+    const code = String((input && input.errorCode) || '').trim();
+    const traceId = String((input && input.traceId) || '').trim();
+    const elapsed = formatDiagElapsed(input && input.elapsedMs);
+    els.meta.textContent = traceId
+      ? tx('agentSuggestionsDiagMeta', { code: code || '—', elapsed, traceId })
+      : tx('agentSuggestionsDiagMetaNoTrace', { code: code || '—', elapsed });
+    if (traceId) els.meta.setAttribute('data-traceId', traceId);
+    else els.meta.removeAttribute('data-traceId');
+    if (code) els.meta.setAttribute('data-error-code', code);
+    else els.meta.removeAttribute('data-error-code');
+    els.box.hidden = false;
+  }
+
+  function hideDiagnostics() {
+    const els = diagEls();
+    if (!els.box) return;
+    els.box.hidden = true;
+    if (els.meta) {
+      els.meta.textContent = '';
+      els.meta.removeAttribute('data-traceId');
+      els.meta.removeAttribute('data-error-code');
+    }
+  }
+
+  /** clipboard 优先，失败回退 textarea + execCommand（侧栏在部分环境无 clipboard 权限）。 */
+  async function copyDiagText(text) {
+    const value = String(text || '');
+    if (!value) return false;
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (_e) { /* fall through */ }
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-1000px';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = typeof document.execCommand === 'function' && document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  async function copyDiagnostics() {
+    const btn = document.getElementById('sp-agent-copy-diag');
+    if (!btn || btn.dataset.busy === '1') return;
+    btn.dataset.busy = '1';
+    btn.disabled = true;
+    try {
+      let text = '';
+      try {
+        const resp = await chrome.runtime.sendMessage({ action: 'getAgentSuggestionsDiagnostics' });
+        if (resp && resp.success !== false) text = String(resp.text || '');
+      } catch (_e) { text = ''; }
+      // 后台组装失败时至少复制侧栏可见的元信息，别让按钮变成死路。
+      if (!text) {
+        const els = diagEls();
+        text = els.meta ? String(els.meta.textContent || '') : '';
+      }
+      const ok = await copyDiagText(text);
+      setStatus(tx(ok ? 'agentSuggestionsDiagCopied' : 'agentSuggestionsDiagCopyFail'));
+    } finally {
+      btn.dataset.busy = '0';
+      btn.disabled = false;
+    }
+  }
+
+  function bindCopyDiagButton() {
+    const btn = document.getElementById('sp-agent-copy-diag');
+    if (!btn || btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', () => copyDiagnostics());
   }
 
   function progressEls() {
@@ -140,7 +248,7 @@
   }
 
   /**
-   * 已耗时常驻；未终态时补一个按 30s 基准估算的剩余时长，超时改「即将完成」。
+   * 已耗时常驻；未终态时补一个按 60s 基准估算的剩余时长，超时改「即将完成」。
    * 只是体验提示，不参与进度百分比，也不假装服务端给出了真实剩余时间。
    */
   function progressTimingLabel() {
@@ -153,7 +261,7 @@
     if (terminal) return text;
     const remaining = P && typeof P.remainingMs === 'function'
       ? P.remainingMs(elapsed)
-      : Math.max(0, 30000 - elapsed);
+      : Math.max(0, 60000 - elapsed);
     text += ' · ' + (remaining > 0
       ? tx('agentSuggestionsProgressEta', { time: formatProgressDuration(remaining) })
       : tx('agentSuggestionsProgressAlmost'));
@@ -276,15 +384,20 @@
   function onResumedTerminal(stage) {
     if (progressTerminalHandled) return;
     progressTerminalHandled = true;
-    scheduleProgressHide();
     if (stage === 'done') {
+      hideDiagnostics();
+      scheduleProgressHide();
       refresh().then(() => {
         if (activeId) notifyPageSelection(activeId);
         setStatus(tx('agentSuggestionsProgressDone'));
       }).catch(() => {});
       return;
     }
+    // 侧栏关着时失败：仍给出诊断入口，用户可直接复制后台记下的那一条。
+    const elapsedMs = progressStartedAt > 0 ? Date.now() - progressStartedAt : 0;
     setStatus(tx('agentSuggestionsGenerateFail'));
+    showDiagnostics({ errorCode: '', traceId: '', elapsedMs });
+    scheduleProgressHide(AGENT_SUGGESTIONS_PROGRESS_FAILED_HIDE_MS);
   }
 
   /** 只认本次点击的 runId：上一次生成的迟到事件不能画到新进度条上。 */
@@ -346,13 +459,18 @@
     if (hadRunId) clearProgressSnapshot();
   }
 
-  function scheduleProgressHide() {
+  /** @param {number} [delayMs] 不传按成功停留 900ms；失败态传 6000ms。 */
+  function scheduleProgressHide(delayMs) {
     clearProgressHideTimer();
-    const ms = Number(AGENT_SUGGESTIONS_PROGRESS_HIDE_MS);
+    const fallback = Number(AGENT_SUGGESTIONS_PROGRESS_HIDE_MS);
+    const wanted = Number(delayMs);
+    const ms = Number.isFinite(wanted) && wanted >= 0
+      ? wanted
+      : (fallback > 0 ? fallback : 0);
     progressHideTimer = setTimeout(() => {
       progressHideTimer = null;
       hideProgress();
-    }, ms > 0 ? ms : 0);
+    }, ms);
   }
 
   function onAgentSuggestionsProgressMessage(message) {
@@ -868,7 +986,8 @@
     btn.disabled = true;
     btn.setAttribute('aria-busy', 'true');
     setReloadRetryVisible(false);
-    setStatus(tx('agentSuggestionsGenerating'));
+    hideDiagnostics();
+    setStatus(tx('agentSuggestionsGenerating') + ' ' + tx('agentSuggestionsGeneratingHint'));
     startProgress(runId);
     let succeeded = false;
     try {
@@ -880,9 +999,18 @@
         progressRunId: runId,
       });
       if (!resp || resp.success === false) {
-        setStatus((resp && resp.error) || tx('agentSuggestionsGenerateFail'), resp && resp.traceId);
+        const errorCode = String((resp && resp.errorCode) || '').trim();
+        const traceId = String((resp && resp.traceId) || '').trim();
+        const elapsedMs = progressStartedAt > 0 ? Date.now() - progressStartedAt : 0;
+        const message = (resp && resp.error) || tx('agentSuggestionsGenerateFail');
+        // 状态行纯文本也带 traceId（约束 24）；诊断块再完整展示错误码 / 耗时。
+        const withTrace = typeof formatErrorWithTraceId === 'function'
+          ? formatErrorWithTraceId(message, traceId)
+          : message;
+        setStatus(withTrace, traceId, errorCode);
         // 只有「刷新页面能修好」的那类失败才给一键入口。
         setReloadRetryVisible(resp && resp.errorCode === 'PAGE_CONTEXT_UNREACHABLE');
+        showDiagnostics({ errorCode, traceId, elapsedMs });
         return;
       }
       succeeded = true;
@@ -890,17 +1018,32 @@
         // 落成匿名优化贴时与登录用户同形：列表里多一条帖子，选中即在页面显示；
         // 只有落贴失败（无 postId）才退回「只给即时建议」的旧形态。
         const anonymousPostId = String(resp.postId || '').trim();
+        const elapsedMs = progressStartedAt > 0 ? Date.now() - progressStartedAt : 0;
         if (anonymousPostId) {
           trialShown = false;
           await refresh();
           activeId = anonymousPostId;
           render();
           notifyPageSelection(activeId);
-          setStatus(tx('agentSuggestionsAnonymousPosted'));
+          hideDiagnostics();
+          setStatus(tx('agentSuggestionsAnonymousPosted'), resp.traceId);
           return;
         }
         renderTrialSuggestions(resp);
-        setStatus(resp.quota ? trialQuotaStatus(resp.quota) : tx('agentSuggestionsTrialHint'));
+        const postError = String(resp.postError || '').trim();
+        if (postError) {
+          // 建议已经生成，只是落贴失败：显式告诉用户原因，并给出诊断入口。
+          const traceId = String(resp.traceId || '').trim();
+          const reason = postError === 'unavailable'
+            ? tx('agentSuggestionsPostUnavailable')
+            : (postError === 'closed' ? tx('agentSuggestionsPostClosed') : postError);
+          const errorCode = `post_${postError}`;
+          setStatus(tx('agentSuggestionsTrialPostFailed', { reason }), traceId, errorCode);
+          showDiagnostics({ errorCode, traceId, elapsedMs });
+          return;
+        }
+        hideDiagnostics();
+        setStatus(resp.quota ? trialQuotaStatus(resp.quota) : tx('agentSuggestionsTrialHint'), resp.traceId);
         return;
       }
       trialShown = false;
@@ -911,10 +1054,13 @@
         notifyPageSelection(activeId);
       }
       const project = String(resp.projectName || '').trim();
+      hideDiagnostics();
       setStatus(tx(resp.created === false ? 'agentSuggestionsPostedExisting' : 'agentSuggestionsGeneratedInto',
-        project ? { project } : ''));
+        project ? { project } : ''), resp.traceId);
     } catch (e) {
-      setStatus(e?.message || tx('agentSuggestionsGenerateFail'));
+      const elapsedMs = progressStartedAt > 0 ? Date.now() - progressStartedAt : 0;
+      setStatus(e?.message || tx('agentSuggestionsGenerateFail'), '', 'CLIENT_EXCEPTION');
+      showDiagnostics({ errorCode: 'CLIENT_EXCEPTION', traceId: '', elapsedMs });
     } finally {
       btn.dataset.busy = '0';
       btn.disabled = false;
@@ -923,7 +1069,9 @@
         finishProgress('done');
         scheduleProgressHide();
       } else {
-        hideProgress();
+        // 失败态保留约 6 秒：用户能看清错误与诊断入口，不再「进度条走完就消失」。
+        finishProgress('failed');
+        scheduleProgressHide(AGENT_SUGGESTIONS_PROGRESS_FAILED_HIDE_MS);
       }
     }
   }
@@ -947,6 +1095,7 @@
     ensurePromptWorkspaceListener();
     bindGenerateButton();
     bindReloadRetryButton();
+    bindCopyDiagButton();
     // 探测不挡列表：等它回来再决定要不要露出刷新入口。
     probeCaptureChannel();
     // 侧栏可能是关掉后重开的：问一次后台有没有还在跑的生成，有就续显进度。

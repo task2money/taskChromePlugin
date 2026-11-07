@@ -222,6 +222,9 @@ async function handleMessageRest(message, sender) {
     case 'clearAgentSuggestionsProgress':
       return handleClearAgentSuggestionsProgress();
 
+    case 'getAgentSuggestionsDiagnostics':
+      return handleGetAgentSuggestionsDiagnostics(message);
+
     case 'loadPageAdvisorPromptOptions':
       return handleLoadPageAdvisorPromptOptions();
 

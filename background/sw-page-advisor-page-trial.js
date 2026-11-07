@@ -23,7 +23,7 @@ async function loadPageTrialFingerprint() {
   }
 }
 
-/** 试用失败按服务端 error_code 落到本地化文案；额度快照原样带给侧栏。 */
+/** 试用失败按服务端 error_code 落到本地化文案；额度与诊断字段原样带给侧栏。 */
 function pageTrialFailure(e) {
   const code = String(e?.errorCode || '').trim();
   const byCode = {
@@ -34,19 +34,39 @@ function pageTrialFailure(e) {
     page_trial_platform_unconfigured: 'paTrialPlatformUnconfigured',
     page_trial_generate_failed: 'paTrialGenerateFailed',
     page_trial_in_progress: 'paTrialInProgress',
+    // 2026-11-07 细分码：用户能看出「超时 / 上游不可用 / 网络 / 空结果 / 解析失败」。
+    page_trial_timeout: 'paTrialTimeout',
+    page_trial_upstream_error: 'paTrialUpstreamError',
+    page_trial_network_error: 'paTrialNetworkError',
+    page_trial_empty_result: 'paTrialEmptyResult',
+    page_trial_invalid_result: 'paTrialInvalidResult',
     PAGE_TRIAL_FINGERPRINT_MISSING: 'paTrialFingerprintRequired',
   };
   const key = byCode[code];
-  const message = key
-    ? tx(key)
-    : (String(e?.detail || '').trim() || e?.message || tx('paTrialUnavailable'));
+  const elapsedSec = Math.max(0, Math.round((Number(e?.elapsedMs) || 0) / 1000));
+  let message;
+  if (code === 'page_trial_timeout') {
+    message = elapsedSec > 0
+      ? tx('paTrialTimeout', { sec: elapsedSec })
+      : tx('paTrialTimeoutGeneric');
+  } else if (key) {
+    message = tx(key);
+  } else {
+    message = String(e?.detail || '').trim() || e?.message || tx('paTrialUnavailable');
+  }
   const failure = {
     ok: false,
     error: message,
     errorCode: code,
     traceId: String(e?.traceId || '').trim(),
+    route: 'trial',
   };
   if (e?.quota) failure.quota = e.quota;
+  if (e?.retryable !== undefined) failure.retryable = !!e.retryable;
+  if (Number.isFinite(Number(e?.elapsedMs))) failure.elapsedMs = Number(e.elapsedMs);
+  if (Number.isFinite(Number(e?.attempts))) failure.attempts = Number(e.attempts);
+  if (e?.model) failure.model = String(e.model);
+  if (e?.upstreamRequestId) failure.upstreamRequestId = String(e.upstreamRequestId);
   return failure;
 }
 
@@ -107,11 +127,14 @@ async function generateViaPageTrial({ cfg, page, locale, opts, withSpan, onPhase
   }
   suggestions = Array.isArray(suggestions) ? suggestions.filter(Boolean) : [];
   if (!suggestions.length) {
+    // 与服务端细分码对齐：空结果也可重试，诊断中心按同一套码聚合。
     return {
       ok: false,
-      error: tx('paTrialGenerateFailed'),
-      errorCode: 'PAGE_TRIAL_EMPTY',
+      error: tx('paTrialEmptyResult'),
+      errorCode: 'page_trial_empty_result',
+      retryable: true,
       traceId: String(result?.trace_id || result?._resolvedTraceId || '').trim(),
+      route: 'trial',
     };
   }
   if (typeof attachSuggestionAnchors === 'function') {

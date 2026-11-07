@@ -54,12 +54,14 @@ describe('agent-suggestions-progress 阶段模型', () => {
   });
 
   it('poll 百分比按耗时推进：排队 25→35，生成 35→90，终态 95/100', () => {
+    // 默认预估 60s（2026-11-07 从 30s 提到 60s）。
     assert.equal(Progress.percentForPoll({ status: 'queued', elapsedMs: 0 }), 25);
-    assert.equal(Progress.percentForPoll({ status: 'queued', elapsedMs: 15000 }), 30);
-    assert.equal(Progress.percentForPoll({ status: 'queued', elapsedMs: 30000 }), 35);
+    assert.equal(Progress.percentForPoll({ status: 'queued', elapsedMs: 30000 }), 30);
+    assert.equal(Progress.percentForPoll({ status: 'queued', elapsedMs: 60000 }), 35);
     assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 0 }), 35);
-    assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 15000 }), 63);
-    assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 30000 }), 90);
+    assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 15000 }), 49);
+    assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 30000 }), 63);
+    assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 60000 }), 90);
     assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 120000 }), 90, '超时也不虚报完成');
     assert.equal(Progress.percentForPoll({ status: 'succeeded' }), 95);
     assert.equal(Progress.percentForPoll({ status: 'failed' }), 100);
@@ -72,12 +74,12 @@ describe('agent-suggestions-progress 阶段模型', () => {
     assert.equal(Progress.percentForPoll({ status: 'running', elapsedMs: 60000, expectedMs: 0 }), 90);
   });
 
-  it('预计剩余时间：按 30s 基准递减，超时归零（界面显示「即将完成」）', () => {
-    assert.equal(Progress.remainingMs(0), 30000);
-    assert.equal(Progress.remainingMs(12000), 18000);
-    assert.equal(Progress.remainingMs(30000), 0);
-    assert.equal(Progress.remainingMs(45000), 0, '超时不倒计时成负数');
-    assert.equal(Progress.remainingMs(-5), 30000, '异常耗时按 0 处理');
+  it('预计剩余时间：按 60s 基准递减，超时归零（界面显示「即将完成」）', () => {
+    assert.equal(Progress.remainingMs(0), 60000);
+    assert.equal(Progress.remainingMs(12000), 48000);
+    assert.equal(Progress.remainingMs(60000), 0);
+    assert.equal(Progress.remainingMs(90000), 0, '超时不倒计时成负数');
+    assert.equal(Progress.remainingMs(-5), 60000, '异常耗时按 0 处理');
     assert.equal(Progress.remainingMs(10000, 60000), 50000, '可自定义预估');
   });
 });

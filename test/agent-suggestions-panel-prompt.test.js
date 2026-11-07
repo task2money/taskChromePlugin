@@ -51,6 +51,16 @@ const MESSAGES = {
   agentSuggestionsGenerateFail: '生成建议失败',
   agentSuggestionsReloadRetry: '刷新当前网页并重试',
   agentSuggestionsReloading: '正在刷新当前网页…',
+  // 2026-11-07 诊断块与细分失败文案
+  agentSuggestionsGeneratingHint: '通常 20–60 秒，最长约 2 分钟',
+  agentSuggestionsDiagElapsedUnknown: '未知',
+  agentSuggestionsDiagMeta: '错误码 {code} · 耗时 {elapsed} · traceId {traceId}',
+  agentSuggestionsDiagMetaNoTrace: '错误码 {code} · 耗时 {elapsed}',
+  agentSuggestionsDiagCopied: '诊断信息已复制',
+  agentSuggestionsDiagCopyFail: '复制失败，请手动选择诊断信息',
+  agentSuggestionsTrialPostFailed: '建议已生成，但优化贴未能创建（{reason}）。可复制诊断信息反馈。',
+  agentSuggestionsPostUnavailable: '优化贴服务暂时不可用',
+  agentSuggestionsPostClosed: '试用帖子入口已关闭',
   paContextUnreachable: '页面联系不上插件脚本，刷新当前网页即可恢复',
   paTrialRemaining: '未登录试用：今日还可试用 {n} 次（每天 {total} 次，{resetsAt} 重置）',
   paTrialQuotaExhausted: '未登录试用：今日次数已用完，{resetsAt} 重置；登录后可用自己的智能体额度。',
@@ -497,7 +507,7 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.progressBox().hidden, false, '点生成后立即显示进度条');
     assert.equal(h.progressStage(), '正在采集当前网页…');
     assert.equal(h.progressPct(), '8%');
-    assert.equal(h.progressElapsed(), '已用 00:00 · 约剩 00:30', '点击即给出已耗时与预计剩余');
+    assert.equal(h.progressElapsed(), '已用 00:00 · 约剩 01:00', '点击即给出已耗时与预计剩余（按 60s 基准）');
     const gen = h.sent.filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab').pop();
     assert.ok(gen.progressRunId, '生成消息带本次 runId');
 
@@ -536,7 +546,7 @@ describe('侧栏生成按钮与试用回归', () => {
 
     const pending = h.clickGenerate();
     await new Promise((resolve) => setTimeout(resolve, 1150));
-    assert.match(h.progressElapsed(), /^已用 00:01 · 约剩 00:(28|29)$/, '已耗时每秒推进，剩余时间同步递减');
+    assert.match(h.progressElapsed(), /^已用 00:01 · 约剩 00:(58|59)$/, '已耗时每秒推进，剩余时间同步递减');
 
     release({ success: true, created: true, projectName: '默认项目' });
     await pending;
@@ -552,7 +562,7 @@ describe('侧栏生成按钮与试用回归', () => {
           runId: 'run-restored',
           stage: 'generating',
           percent: 62,
-          startedAt: Date.now() - 45000,
+          startedAt: Date.now() - 65000,
         },
       },
     });
@@ -562,7 +572,7 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.progressBox().hidden, false, '重开后继续显示未完成的进度');
     assert.equal(h.progressStage(), '模型正在生成建议…');
     assert.equal(h.progressPct(), '62%');
-    assert.equal(h.progressElapsed(), '已用 00:45 · 即将完成', '沿用后台记下的开始时间，超时不倒计时成负数');
+    assert.equal(h.progressElapsed(), '已用 01:05 · 即将完成', '沿用后台记下的开始时间，超时不倒计时成负数');
     assert.equal(h.generateBtn().disabled, true, '续显期间锁住生成按钮，避免重复发起');
 
     const listCalls = h.actions().filter((a) => a === 'listSitePendingForActiveTab').length;
@@ -584,7 +594,7 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.generateBtn().disabled, false, '收尾后恢复生成按钮');
   });
 
-  it('关闭侧栏再打开：收到失败终态时如实报错并收起', async () => {
+  it('关闭侧栏再打开：收到失败终态时如实报错，失败态停留后收起', async () => {
     const h = buildHarness({
       progressResponse: {
         success: true,
@@ -604,19 +614,37 @@ describe('侧栏生成按钮与试用回归', () => {
       runId: 'run-failed',
       progress: { stage: 'failed', percent: 100 },
     });
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    assert.equal(h.progressBox().hidden, true);
+    assert.equal(h.progressBox().hidden, false, '失败态先停住，不再一失败就消失');
     assert.equal(h.status(), '生成建议失败');
+    assert.equal(h.els['sp-agent-diag'].hidden, false, '重开侧栏也要有诊断入口');
+
+    await new Promise((resolve) => setTimeout(resolve, 6300));
+    assert.equal(h.progressBox().hidden, true);
   });
 
-  it('生成失败收起进度条并保留错误文案', async () => {
-    const h = buildHarness({ generateResponse: { success: false, error: '未登录' } });
+  it('生成失败：失败态停留约 6 秒，错误码/traceId 同时进状态行与诊断块', async () => {
+    const h = buildHarness({
+      generateResponse: {
+        success: false,
+        error: '未登录',
+        errorCode: 'PAGE_CONTEXT_UNREACHABLE',
+        traceId: 't-2',
+      },
+    });
     await h.refresh();
     await h.clickGenerate();
 
-    assert.equal(h.progressBox().hidden, true, '失败后不留着做了一半的进度条');
+    assert.equal(h.progressBox().hidden, false, '失败后进度条以失败态停留');
+    assert.equal(h.progressStage(), '生成失败');
     assert.equal(h.status(), '未登录');
+    assert.equal(h.els['sp-agent-status'].attrs['data-traceId'], 't-2');
+    assert.equal(h.els['sp-agent-status'].attrs['data-error-code'], 'PAGE_CONTEXT_UNREACHABLE');
+    assert.equal(h.els['sp-agent-diag'].hidden, false);
+    assert.match(h.els['sp-agent-diag-meta'].textContent, /PAGE_CONTEXT_UNREACHABLE/);
+    assert.equal(h.els['sp-agent-diag-meta'].attrs['data-traceId'], 't-2');
+
+    await new Promise((resolve) => setTimeout(resolve, 6300));
+    assert.equal(h.progressBox().hidden, true);
     assert.ok(h.actions().includes('clearAgentSuggestionsProgress'), '失败收起时清掉会话快照');
   });
 
@@ -680,6 +708,30 @@ describe('侧栏生成按钮与试用回归', () => {
       '试用结果不替换建议贴列表',
     );
     assert.equal(h.generateBtn().disabled, false);
+  });
+
+  it('试用落贴失败：建议照常渲染，状态行说明原因并露出诊断块', async () => {
+    const h = buildHarness({
+      generateResponse: {
+        success: true,
+        trial: true,
+        trialId: 'pt-2',
+        traceId: 'trace-post',
+        postError: 'unavailable',
+        suggestions: [{ title: '改标题', summary: '首屏标题更具体' }],
+        quota: { enabled: true, remaining: 2, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
+      },
+    });
+    await h.refresh();
+    await h.clickGenerate();
+
+    assert.match(h.els['sp-agent-body'].innerHTML, /改标题/);
+    assert.match(h.status(), /优化贴服务暂时不可用/);
+    assert.equal(h.els['sp-agent-status'].attrs['data-error-code'], 'post_unavailable');
+    assert.equal(h.els['sp-agent-status'].attrs['data-traceId'], 'trace-post');
+    assert.equal(h.els['sp-agent-diag'].hidden, false);
+    assert.match(h.els['sp-agent-diag-meta'].textContent, /post_unavailable/);
+    assert.equal(h.els['sp-agent-diag-meta'].attrs['data-traceId'], 'trace-post');
   });
 
   it('未登录打开面板：提示可试用，并异步补上今日剩余额度', async () => {

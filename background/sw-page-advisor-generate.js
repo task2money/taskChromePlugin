@@ -9,9 +9,11 @@
 
 'use strict';
 
-// 与 conf/ai/task-page-advisor upstreamTimeoutSec(60s) + 排队开销对齐。
-// 现网成功 job 常见 17–27s；15s 客户端上限会在 LLM 仍成功时误报超时。
-const PAGE_ADVISOR_POLL_MAX_MS = 75000;
+// 必须包住服务端 job 预算（worker 120s，模型客户端 105s）+ 落贴与抖动。
+// 2026-11-07 从 75s 提到 150s：模型超时从 60s 提到 90s/105s 后，75s 轮询会
+// 先于服务端失败，用户看到「超时」但 job 可能随后成功、帖子晚到。
+// job 的 stuck TTL 是小时级（SweepRetention），150s 不会触碰过期边界。
+const PAGE_ADVISOR_POLL_MAX_MS = 150000;
 const PAGE_ADVISOR_POLL_MAX_SEC = Math.round(PAGE_ADVISOR_POLL_MAX_MS / 1000);
 
 function agentResourceNotConfiguredMessage(baseUrl, tenantId) {
@@ -182,6 +184,7 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     return generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId, report });
   };
 
+  let usedPromptSkillId = selectedPromptId;
   let result = await runOnce(selectedPromptId);
   // 服务端不认这个提示词（目录被删/跨空间选错）时回退服务端默认提示词，只重试一次。
   // 没有发过 id 时重试也不会改变结果，故不重试。
@@ -191,7 +194,13 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
       tabId,
     });
     result = await runOnce('');
+    usedPromptSkillId = '';
     if (result && typeof result === 'object') result.promptFallback = true;
+  }
+  // 失败出口不带 route/promptSkillId：诊断记录靠这两个字段区分匿名试用与登录态。
+  if (result && typeof result === 'object') {
+    if (!result.route) result.route = trialMode ? 'trial' : 'saas';
+    if (result.promptSkillId === undefined) result.promptSkillId = usedPromptSkillId;
   }
   return result;
 }

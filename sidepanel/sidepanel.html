@@ -126,6 +126,11 @@
         <button type="button" class="btn" id="sp-agent-prompt-retry" data-testid="sp-agent-prompt-retry" data-i18n="paPromptRetry" hidden>重试</button>
         <button type="button" class="btn sp-agent-reload-retry" id="sp-agent-reload-retry" data-testid="sp-agent-reload-retry" data-i18n="agentSuggestionsReloadRetry" hidden>刷新当前网页并重试</button>
         <p id="sp-agent-status" class="hint" aria-live="polite" data-testid="sp-agent-status"></p>
+        <div id="sp-agent-diag" class="sp-agent-diag" data-testid="sp-agent-diag" hidden>
+          <div class="sp-agent-diag-meta" id="sp-agent-diag-meta" data-testid="sp-agent-diag-meta"></div>
+          <button type="button" class="btn btn-ghost" id="sp-agent-copy-diag"
+                  data-testid="sp-agent-copy-diag" data-i18n="agentSuggestionsCopyDiag">复制诊断信息</button>
+        </div>
         <div id="sp-agent-posts" data-testid="sp-agent-posts"></div>
         <div id="sp-agent-body" data-testid="sp-agent-body"></div>
       </section>
@@ -174,6 +179,7 @@
   <script src="../lib/page-advisor-prompt-options.js"></script>
   <script src="../lib/page-advisor-site-pending.js"></script>
   <script src="../lib/agent-suggestions-progress.js"></script>
+  <script src="../lib/dom-trace.js"></script>
   <script src="agent-suggestions-panel.js"></script>
   <script src="sidepanel.js"></script>
 </body>

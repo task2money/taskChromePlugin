@@ -186,7 +186,7 @@ describe('generatePageAdvisorSuggestions 匿名试用路由', () => {
     const result = await sandbox.generatePageAdvisorSuggestions(7, {});
 
     assert.equal(result.ok, false);
-    assert.equal(result.errorCode, 'PAGE_TRIAL_EMPTY');
+    assert.equal(result.errorCode, 'page_trial_empty_result');
     assert.equal(result.traceId, 'trace-empty');
   });
 });
