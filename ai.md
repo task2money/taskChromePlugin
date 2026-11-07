@@ -50,6 +50,7 @@
 ## 相关文档
 
 - 功能总览：[`README.md`](./README.md)
+- 产品介绍：[`docs/INTRO.md`](./docs/INTRO.md)
 - 使用说明：[`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)
 - 元素选择器设计：`docs/2026-07-13-task-chrome-plugin-element-picker-*.md`、`docs/2026-07-18-task-chrome-plugin-sibling-range-pick-design.md`
 - 词法作用域元规则：仓库 `.ai/01_project_constraints/65_chrome_extension_content_script_lexical_scope.md`

@@ -2,7 +2,7 @@
 
 从 Chrome DevTools Network 面板捕获 HTTP 请求并创建任务的浏览器扩展。
 
-**使用说明**：扩展弹窗与 DevTools「使用说明」Tab 可展开查看（页内浮窗不再展示，避免与弹窗重复）；完整文稿见 [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)。**新增用户可见功能须同步更新说明**（目录规则 [`ai.md`](./ai.md)）。
+**产品介绍**：[`docs/INTRO.md`](./docs/INTRO.md)（面向使用者的入门说明）。**使用说明**：扩展弹窗与 DevTools「使用说明」Tab 可展开查看（页内浮窗不再展示，避免与弹窗重复）；完整文稿见 [`docs/USER_GUIDE.md`](./docs/USER_GUIDE.md)。**新增用户可见功能须同步更新说明**（目录规则 [`ai.md`](./ai.md)）。
 
 ## 功能
 
