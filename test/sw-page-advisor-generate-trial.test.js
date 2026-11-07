@@ -196,7 +196,7 @@ describe('generatePageAdvisorSuggestions 试用落贴（v233）', () => {
     post_id: 'post-1',
     view_token: 'tok-view-1',
     page_url: 'https://shop.test/p',
-    expires_at: '2026-11-04T09:00:00Z',
+    expires_at: '2099-11-04T09:00:00Z',
   };
 
   function captureStorage() {
@@ -231,7 +231,7 @@ describe('generatePageAdvisorSuggestions 试用落贴（v233）', () => {
 
     assert.equal(result.ok, true);
     assert.equal(result.anonymousPost.postId, 'post-1');
-    assert.equal(result.anonymousPost.expiresAt, '2026-11-04T09:00:00Z');
+    assert.equal(result.anonymousPost.expiresAt, '2099-11-04T09:00:00Z');
     const saved = storage.store.pa_anon_posts_v1;
     assert.equal(saved.length, 1);
     assert.equal(saved[0].post_id, 'post-1');
