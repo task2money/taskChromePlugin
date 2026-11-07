@@ -238,8 +238,9 @@ body {
 .btn-primary { background: var(--taskplugin-accent); color: var(--taskplugin-foreground); border-color: var(--taskplugin-accent); }
 .btn-primary:hover { background: var(--taskplugin-accent-secondary); }
 .btn-full { display: block; width: 100%; }
-.btn *:not(kbd):not(.tcp-guide-kbd),
-button *:not(kbd):not(.tcp-guide-kbd) { background: transparent !important; }
+/* 页签未读数徽标自带强调色底，不能被文字层透明规则抹掉。 */
+.btn *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count),
+button *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count) { background: transparent !important; }
 
 /* === Status Rows === */
 .status-row {

@@ -215,7 +215,8 @@ test.describe('侧栏智能体建议', () => {
     await generate.click();
     await expect(generate).toBeDisabled();
     await expect(generate).toHaveAttribute('aria-busy', 'true');
-    await expect(page.locator('#sp-agent-status')).toHaveText('正在为当前网页生成建议…');
+    // v1.9.14 起状态行带上耗时预期（「通常 20–60 秒，最长约 2 分钟」），断言跟随现状。
+    await expect(page.locator('#sp-agent-status')).toContainText('正在为当前网页生成建议…');
 
     await page.evaluate(() => { if (window.__releaseGenerate) window.__releaseGenerate(); });
 
@@ -266,5 +267,41 @@ test.describe('侧栏智能体建议', () => {
     expect(dismiss[0].suggestionId).toBe('post-1');
     expect(dismiss[0].tenantId).toBe(TENANT);
     expect(dismiss[0].hasKey).toBe(true);
+  });
+
+  test('页签「网页优化」在未读数徽标显示时仍居中，徽标不压字且有底色', async ({ page }) => {
+    // 最窄侧栏（320px）复现：徽标曾在 flex 行内把标题挤左 13px。
+    await page.setViewportSize({ width: 320, height: 700 });
+    await installStub(page, PENDING_POSTS);
+    await page.goto(SIDEPANEL_URL);
+    await expect(page.locator('#sp-agent-count')).toBeVisible();
+    await expect(page.locator('#sp-agent-count')).toHaveText('2');
+
+    const geometry = await page.evaluate(() => {
+      const tab = document.querySelector('#sp-tab-agent');
+      const label = tab.querySelector('span[data-i18n="agentSuggestionsTab"]');
+      const badge = document.querySelector('#sp-agent-count');
+      const tabRect = tab.getBoundingClientRect();
+      const labelRect = label.getBoundingClientRect();
+      const badgeRect = badge.getBoundingClientRect();
+      const badgeStyle = getComputedStyle(badge);
+      return {
+        centerOffset: Math.abs(
+          (labelRect.x + labelRect.width / 2) - (tabRect.x + tabRect.width / 2),
+        ),
+        labelTop: labelRect.top,
+        badgeBottom: badgeRect.bottom,
+        badgeBackground: badgeStyle.backgroundColor,
+        badgeColor: badgeStyle.color,
+      };
+    });
+
+    // 标题中心与页签中心重合（亚像素容差）。
+    expect(geometry.centerOffset).toBeLessThan(1);
+    // 徽标整体在文字行上方，窄页签也不压住标题。
+    expect(geometry.badgeBottom).toBeLessThanOrEqual(geometry.labelTop + 0.5);
+    // 徽标不能是白底白字：底色必须不透明，且与文字色不同。
+    expect(geometry.badgeBackground).not.toBe('rgba(0, 0, 0, 0)');
+    expect(geometry.badgeBackground).not.toBe(geometry.badgeColor);
   });
 });

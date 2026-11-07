@@ -67,6 +67,7 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   .badge-connected,
   .badge-disconnected,
   .badge-warning,
+  .sp-agent-count,
   .req-method,
   .req-status,
   .result,
@@ -81,12 +82,12 @@ html[data-taskplugin-host="sidepanel"] body *:not(:where(
   background: var(--taskplugin-background) !important;
 }
 /* 通配层会给按钮里的 span 铺上画布色。文字改回透明，透出按钮自己的填充。 */
-html[data-taskplugin-host="sidepanel"] .btn *:not(kbd):not(.tcp-guide-kbd),
-html[data-taskplugin-host="sidepanel"] button *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] .btn *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count),
+html[data-taskplugin-host="sidepanel"] button *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count),
 html[data-taskplugin-host="sidepanel"] .taskplugin-btn *:not(kbd):not(.tcp-guide-kbd),
 html[data-taskplugin-host="sidepanel"] .tcp-guide-root-summary *:not(kbd):not(.tcp-guide-kbd),
 html[data-taskplugin-host="sidepanel"] .tcp-guide-close *:not(kbd):not(.tcp-guide-kbd),
-html[data-taskplugin-host="sidepanel"] .sp-tab *:not(kbd):not(.tcp-guide-kbd),
+html[data-taskplugin-host="sidepanel"] .sp-tab *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count),
 html[data-taskplugin-host="sidepanel"] summary.region-help-mark * {
   background: transparent !important;
 }
@@ -308,7 +309,7 @@ html[data-taskplugin-host="sidepanel"] :is(
   .tcp-guide-root-summary,
   .tcp-guide-close,
   summary.region-help-mark
-) *:not(kbd):not(.tcp-guide-kbd) {
+) *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count) {
   background: transparent !important;
 }
 /* 通配白底会给选项里的文字铺上画布色。选中项是浅金底，白条会盖住选项颜色。 */

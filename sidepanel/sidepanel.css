@@ -24,6 +24,8 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 6px;
+  /* 未读数徽标绝对定位在右上角，不参与 flex 居中：否则「网页优化」会被挤左。 */
+  position: relative;
   min-height: 44px;
   border: 1px solid var(--taskplugin-border);
   background: var(--taskplugin-muted);
@@ -56,15 +58,20 @@ html, body {
   padding: 8px 12px 16px;
   box-sizing: border-box;
 }
+/* 页签未读数：贴右上角绝对定位，落在文字行上方，最窄侧栏也不压字。 */
 .sp-agent-count {
-  min-width: 1.25rem;
-  padding: 0 0.35rem;
+  position: absolute;
+  top: -6px;
+  right: 6px;
+  min-width: 1rem;
+  padding: 0 0.3rem;
   border-radius: 999px;
   background: var(--taskplugin-accent-ink);
   color: var(--taskplugin-background);
-  font-size: 12px;
-  line-height: 1.25rem;
+  font-size: 10px;
+  line-height: 1rem;
   font-weight: 600;
+  pointer-events: none;
 }
 .sp-agent-generate-row {
   display: flex;
@@ -390,6 +397,6 @@ html[data-taskplugin-host="sidepanel"] .taskplugin-captured-url {
   background: var(--taskplugin-muted) !important;
   border-color: var(--taskplugin-border) !important;
 }
-html[data-taskplugin-host="sidepanel"] :is(.taskplugin-btn, .sp-tab, button) *:not(kbd):not(.tcp-guide-kbd) {
+html[data-taskplugin-host="sidepanel"] :is(.taskplugin-btn, .sp-tab, button) *:not(kbd):not(.tcp-guide-kbd):not(.sp-agent-count) {
   background: transparent !important;
 }
