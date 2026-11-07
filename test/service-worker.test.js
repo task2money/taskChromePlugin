@@ -16,6 +16,14 @@ describe('service-worker', () => {
     assert.ok(tunnel > join);
   });
 
+  it('importScripts 含生成耗时自学习模块（侧栏估时与后台记录同源）', () => {
+    const sw = fs.readFileSync(path.join(__dirname, '..', 'background/service-worker.js'), 'utf8');
+    const progress = sw.indexOf('../lib/agent-suggestions-progress.js');
+    const eta = sw.indexOf('../lib/agent-suggestions-eta.js');
+    assert.ok(eta >= 0, 'missing agent-suggestions-eta import');
+    assert.ok(eta > progress, 'ETA 依赖进度模型的默认时长口径，应在其后加载');
+  });
+
   it('importScripts 含 builtin enable 等待与看门狗', () => {
     const sw = fs.readFileSync(path.join(__dirname, '..', 'background/service-worker.js'), 'utf8');
     const enableLib = sw.indexOf('../lib/page-advisor-builtin-enable.js');

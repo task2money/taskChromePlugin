@@ -39,6 +39,9 @@
   var progressPercent = 0;
   // 进度起点与来源：重开侧栏续显时沿用后台记下的开始时间。
   var progressStartedAt = 0;
+  // 本次「总时长」估计：由最近成功生成的实际耗时算出；0 = 回退 60s 基线。
+  var progressExpectedMs = 0;
+  var progressEtaSeq = 0;
   var progressResumed = false;
   var progressTerminalHandled = false;
   var AGENT_SUGGESTIONS_PROGRESS_TICK_MS = 500;
@@ -248,7 +251,34 @@
   }
 
   /**
-   * 已耗时常驻；未终态时补一个按 60s 基准估算的剩余时长，超时改「即将完成」。
+   * 异步取最近成功生成的实际耗时中位数，作为本次「总时长」估计。
+   * ETA 模块在无新样本时会从诊断环形记录里挑历史成功耗时兜底。
+   * 只认本次 run 的结果：上一次生成晚到的 promise 不能覆盖新一次。
+   * 没有样本或存储失败时保持 0，由进度模型回退 60s 基线。
+   */
+  function refreshProgressExpectedMs() {
+    const Eta = global.AgentSuggestionsEta;
+    if (!Eta || typeof Eta.expectedMs !== 'function') return;
+    const seq = ++progressEtaSeq;
+    const runId = progressRunId;
+    let pending;
+    try {
+      pending = Eta.expectedMs();
+    } catch (_e) {
+      return;
+    }
+    Promise.resolve(pending).then((ms) => {
+      const value = Number(ms);
+      if (seq !== progressEtaSeq || !progressRunId || progressRunId !== runId) return;
+      if (!(value > 0)) return;
+      progressExpectedMs = value;
+      renderProgress();
+    }).catch(() => { /* 估时只影响提示文案，失败沿用基线 */ });
+  }
+
+  /**
+   * 已耗时常驻；未终态时补一个剩余时长，超时改「即将完成」。
+   * 剩余 = 历史实际耗时中位数（无样本回退 60s）- 已耗时；
    * 只是体验提示，不参与进度百分比，也不假装服务端给出了真实剩余时间。
    */
   function progressTimingLabel() {
@@ -260,8 +290,8 @@
     const terminal = P ? P.isTerminal(progressStage) : false;
     if (terminal) return text;
     const remaining = P && typeof P.remainingMs === 'function'
-      ? P.remainingMs(elapsed)
-      : Math.max(0, 60000 - elapsed);
+      ? P.remainingMs(elapsed, progressExpectedMs)
+      : Math.max(0, (progressExpectedMs > 0 ? progressExpectedMs : 60000) - elapsed);
     text += ' · ' + (remaining > 0
       ? tx('agentSuggestionsProgressEta', { time: formatProgressDuration(remaining) })
       : tx('agentSuggestionsProgressAlmost'));
@@ -326,9 +356,11 @@
     progressStage = 'capture';
     progressPercent = Progress ? Progress.stagePercent('capture') : 8;
     progressStartedAt = Date.now();
+    progressExpectedMs = 0;
     progressResumed = false;
     progressTerminalHandled = false;
     renderProgress();
+    refreshProgressExpectedMs();
     startProgressTicker();
   }
 
@@ -366,10 +398,12 @@
     progressPercent = P ? P.percentForEvent({ stage: progressStage, percent: snapshot.percent }) : 0;
     const started = Number(snapshot.startedAt);
     progressStartedAt = started > 0 && started <= Date.now() ? started : Date.now();
+    progressExpectedMs = 0;
     progressResumed = true;
     progressTerminalHandled = false;
     holdGenerateButtonForResume();
     renderProgress();
+    refreshProgressExpectedMs();
     if (P && P.isTerminal(progressStage)) {
       onResumedTerminal(progressStage);
       return;
@@ -442,6 +476,7 @@
     progressStage = '';
     progressPercent = 0;
     progressStartedAt = 0;
+    progressExpectedMs = 0;
     progressResumed = false;
     progressTerminalHandled = false;
     if (wasResumed) releaseGenerateButtonAfterResume();

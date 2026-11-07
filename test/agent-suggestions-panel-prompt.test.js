@@ -133,6 +133,8 @@ function buildHarness({
     success: true,
     quota: { enabled: true, remaining: 3, daily_quota: 3, resets_at: '2026-10-27T16:00:00Z' },
   },
+  etaSamples = [],
+  etaDiagnostics = [],
 } = {}) {
   const els = {};
   const document = {
@@ -253,6 +255,17 @@ function buildHarness({
     fs.readFileSync(path.join(ROOT, 'lib', 'agent-suggestions-progress.js'), 'utf8'),
     context,
   );
+  // 估时自学习：样本也走真实实现，存储面用上面的 Storage 替身。
+  vm.runInContext(
+    fs.readFileSync(path.join(ROOT, 'lib', 'agent-suggestions-eta.js'), 'utf8'),
+    context,
+  );
+  if (Array.isArray(etaSamples) && etaSamples.length) {
+    store[context.AgentSuggestionsEta.STORAGE_KEY] = etaSamples.slice(-context.AgentSuggestionsEta.MAX_SAMPLES);
+  }
+  if (Array.isArray(etaDiagnostics) && etaDiagnostics.length) {
+    store[context.AgentSuggestionsEta.DIAGNOSTICS_KEY] = etaDiagnostics.slice();
+  }
   // 列表渲染与选中逻辑走真实实现：恢复进度后要能选中刷新出来的新帖。
   vm.runInContext(
     fs.readFileSync(path.join(ROOT, 'lib', 'page-advisor-site-pending.js'), 'utf8'),
@@ -551,6 +564,84 @@ describe('侧栏生成按钮与试用回归', () => {
     release({ success: true, created: true, projectName: '默认项目' });
     await pending;
     assert.doesNotMatch(h.progressElapsed(), /约剩|即将完成/, '终态不再显示倒计时');
+  });
+
+  it('预计剩余按最近成功生成的实际耗时估算，不再写死 60 秒', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const h = buildHarness({
+      generateResponse: gate,
+      // 近期三次都约 22s：估值应落在 22s，而不是默认 60s。
+      etaSamples: [20000, 22000, 24000],
+    });
+    await h.refresh();
+
+    const pending = h.clickGenerate();
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(
+        h.progressElapsed(),
+        /^已用 00:0[01] · 约剩 00:(21|22)$/,
+        '总时长取历史中位数 22s，剩余 = 22s - 已耗时',
+      );
+    } finally {
+      // 断言失败也要释放生成，避免进度心跳把测试进程挂住。
+      release({ success: true, created: true, projectName: '默认项目' });
+      await pending;
+    }
+    assert.doesNotMatch(h.progressElapsed(), /约剩|即将完成/, '终态不再显示倒计时');
+  });
+
+  it('升级后还没有新样本时，用诊断记录里的成功耗时兜底', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const h = buildHarness({
+      generateResponse: gate,
+      etaDiagnostics: [
+        { result: 'success', elapsedMs: 20000 },
+        { result: 'failed', elapsedMs: 300 },
+        { result: 'no_post', elapsedMs: 24000 },
+      ],
+    });
+    await h.refresh();
+
+    const pending = h.clickGenerate();
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(
+        h.progressElapsed(),
+        /^已用 00:0[01] · 约剩 00:(21|22)$/,
+        '中位数 22s 来自诊断历史，第一次点击就生效',
+      );
+    } finally {
+      release({ success: true, created: true, projectName: '默认项目' });
+      await pending;
+    }
+  });
+
+  it('已耗时超过历史估值时显示「即将完成」，不倒计时成负数', async () => {
+    const h = buildHarness({
+      // 历史都不到 10s，本次已跑 12s：剩余归零。
+      etaSamples: [8000, 9000, 10000],
+      progressResponse: {
+        success: true,
+        progress: {
+          tabId: 7,
+          runId: 'run-slow',
+          stage: 'generating',
+          percent: 62,
+          startedAt: Date.now() - 12000,
+        },
+      },
+    });
+    await h.refresh();
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(h.progressElapsed(), /^已用 00:1[23] · 即将完成$/);
+    } finally {
+      // 续显会起进度心跳；断言失败也要停掉，避免挂住测试进程。
+      h.fireUnload();
+    }
   });
 
   it('关闭侧栏再打开：恢复后台进度，完成广播后刷新列表、选中新帖并收起', async () => {

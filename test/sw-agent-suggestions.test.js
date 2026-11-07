@@ -650,4 +650,57 @@ describe('sw-agent-suggestions 匿名每日试用', () => {
     assert.equal(resp.errorCode, 'PAGE_TRIAL_FINGERPRINT_UNAVAILABLE');
     assert.equal(called, false);
   });
+
+  it('生成成功后记录本次整次耗时，供下次估算总时长', async () => {
+    const recorded = [];
+    const { sandbox } = loadGenerateStack({
+      AgentSuggestionsEta: { record: async (ms) => { recorded.push(ms); return true; } },
+    });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({});
+
+    assert.equal(resp.success, true);
+    assert.equal(recorded.length, 1, '成功收尾记一条样本');
+    assert.ok(Number(recorded[0]) >= 0, '记录整次耗时（毫秒）');
+  });
+
+  it('匿名试用成功也记录耗时', async () => {
+    const recorded = [];
+    const { sandbox } = loadGenerateStack({
+      AgentSuggestionsEta: { record: async (ms) => { recorded.push(ms); return true; } },
+      generatePageAdvisorSuggestions: async () => ({
+        ok: true,
+        trial: true,
+        route: 'trial',
+        trialId: 'pt-1',
+        suggestions: [{ title: '改标题' }],
+        quota: { enabled: true, remaining: 2, daily_quota: 3 },
+      }),
+    });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({});
+
+    assert.equal(resp.success, true);
+    assert.equal(recorded.length, 1, '试用路径出结果也算一次成功耗时');
+  });
+
+  it('生成失败 / 未登录 / 落贴失败都不记样本', async () => {
+    const setups = [
+      { generatePageAdvisorSuggestions: async () => ({ ok: false, error: '配额用尽' }) },
+      {
+        generatePageAdvisorSuggestions: async () => ({
+          ok: true, pageUrl: 'https://shop.test/p', pageTitle: '商品页', suggestions: [],
+        }),
+        resolveTenantIdForSitePending: async () => ({ ok: false, reason: 'not_logged_in' }),
+      },
+      { PageAdvisorAPI: { createPendingSuggestion: async () => { throw new Error('落贴失败'); } } },
+    ];
+    for (const setup of setups) {
+      const recorded = [];
+      const { sandbox } = loadGenerateStack(Object.assign({
+        AgentSuggestionsEta: { record: async (ms) => { recorded.push(ms); return true; } },
+      }, setup));
+      const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({});
+      assert.equal(resp.success, false);
+      assert.equal(recorded.length, 0, '失败路径不污染耗时样本');
+    }
+  });
 });

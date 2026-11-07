@@ -61,6 +61,8 @@ importScripts(
   '../lib/page-advisor-anon-posts.js',
   // 侧栏生成进度：状态 → 百分比的唯一换算处（后台 poll 与侧栏心跳共用）。
   '../lib/agent-suggestions-progress.js',
+  // 生成耗时自学习：记录最近成功生成的实际总耗时，供侧栏估算剩余时间。
+  '../lib/agent-suggestions-eta.js',
   // 侧栏重开后续显进度：按 tab 存会话级快照（终态即清）。
   '../lib/agent-suggestions-progress-store.js',
   // 生成失败可诊断：每次终态落一条本地环形记录（无页面正文，10 条上限）。

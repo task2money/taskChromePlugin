@@ -38,4 +38,8 @@ describe('侧栏生成进度条标记', () => {
   it('侧栏加载共享进度模型（阶段起点/上限与后台同源）', () => {
     assert.match(html, /<script src="\.\.\/lib\/agent-suggestions-progress\.js"><\/script>/);
   });
+
+  it('侧栏加载耗时自学习模块（剩余时间按历史实际耗时估算）', () => {
+    assert.match(html, /<script src="\.\.\/lib\/agent-suggestions-eta\.js"><\/script>/);
+  });
 });

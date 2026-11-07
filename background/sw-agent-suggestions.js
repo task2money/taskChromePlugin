@@ -67,6 +67,22 @@ async function resolveAgentSuggestionPromptSkillId(rawId) {
   }
 }
 
+/**
+ * 记一次成功生成的整次耗时，供下次估算剩余时间（lib/agent-suggestions-eta.js）。
+ * 只记出结果的路径：生成失败、未登录、落贴失败往往 0.x 秒早退，
+ * 进入样本会把预估值拉低到不可用。记录失败不影响生成结果。
+ */
+async function recordAgentSuggestionDuration(elapsedMs) {
+  const Eta = typeof AgentSuggestionsEta !== 'undefined' ? AgentSuggestionsEta : null;
+  if (!Eta || typeof Eta.record !== 'function') return false;
+  try {
+    // await 落盘再返回：SW 在回包后可能被回收，不能把写入留给后台悬空 promise。
+    return await Eta.record(elapsedMs);
+  } catch (_e) {
+    return false; // 体验数据，不影响生成
+  }
+}
+
 /** 落贴租户：页面上下文给了（站点上选过工作空间）就用它，否则按列表同源的口径解析。 */
 async function resolveAgentSuggestionTenant(pageTenantId) {
   const fromPage = String(pageTenantId || '').trim();
@@ -218,6 +234,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     const traceId = String(result.traceId || '').trim();
     reporter.report({ stage: 'done', percent: 100 });
     const elapsedMs = Date.now() - progressStartedAt;
+    await recordAgentSuggestionDuration(elapsedMs);
     const diagResult = anonymousPostId ? 'success' : (postError ? 'post_failed' : 'no_post');
     if (postError) {
       console.warn('[taskChromePlugin] agent_suggestion_post_failed', {
@@ -347,6 +364,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
 
   const postId = String(data?.suggestion_id || data?.suggestionId || '').trim();
   const postedElapsedMs = Date.now() - progressStartedAt;
+  await recordAgentSuggestionDuration(postedElapsedMs);
   console.info('[taskChromePlugin] agent_suggestion_posted', {
     tenantId,
     postId,
