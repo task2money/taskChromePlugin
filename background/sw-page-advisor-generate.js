@@ -233,6 +233,9 @@ async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withS
     locale,
     // 提示词正文由服务端按 id 解析；空串 = 服务端默认提示词。
     prompt_skill_id: String(promptSkillId || '').trim(),
+    // 登录态网页优化按「自动创新优化」功能包计费；服务端见该字段才 plan 包，
+    // 包没余额会回退单项 SKU（ADR-0185）。匿名试用不走本函数。
+    billing_feature_code: 'auto_optimize',
   }));
 
   let created;
@@ -379,6 +382,26 @@ function platformCreateFailure(e, baseUrl, tenantId) {
   }
   if (e?.status === 402 || e?.errorCode === 'AUTO_INNOVATE_QUOTA_EXCEEDED') {
     return { ok: false, ...autoInnovateQuotaExceededMessage(baseUrl, tenantId), traceId: e.traceId || '' };
+  }
+  // 功能包准入（ADR-0185）：所选智能体不在已购包覆盖范围，或计费服务暂不可用。
+  // 两者都不降级为单项计费，插件按错误码给出不同引导（换智能体 / 稍后重试）。
+  if (e?.errorCode === 'PACK_AGENT_NOT_COVERED') {
+    return {
+      ok: false,
+      error: e?.detail || tx('paPackAgentNotCovered'),
+      errorCode: 'PACK_AGENT_NOT_COVERED',
+      traceId: e?.traceId || '',
+    };
+  }
+  if (e?.errorCode === 'billing_unavailable') {
+    // 服务端 detail 是英文占位（billing service unavailable），给用户的文案
+    // 一律走本地化键，不把英文原文暴露到诊断面板。
+    return {
+      ok: false,
+      error: tx('paBillingUnavailable'),
+      errorCode: 'billing_unavailable',
+      traceId: e?.traceId || '',
+    };
   }
   return {
     ok: false,
