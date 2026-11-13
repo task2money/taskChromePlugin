@@ -97,6 +97,23 @@ fi
 MIRROR_HAS_COMMIT="$(node "$ROOT/scripts/gitee-release.js" commit-exists \
   --owner "$OWNER" --repo "$REPO" --sha "$TARGET" 2>/dev/null || true)"
 if [ "$MIRROR_HAS_COMMIT" = "no" ]; then
+  # 镜像落后是可自动恢复的常态摩擦（OPT-20261109-004 / OPT-20261028-019）：
+  # 同步一次并重试发布，仍然落后才退出原状态；同步带超时与明确日志，
+  # 禁止静默无限重试。
+  echo "publish-gitee-release: mirror-sync: gitee mirror lacks ${TARGET}; running ensure-gitee-mirror.sh --sync-https once" >&2
+  SYNC_RC=0
+  if command -v timeout >/dev/null 2>&1; then
+    timeout "${GITEE_MIRROR_SYNC_TIMEOUT_SEC:-300}" \
+      bash "$ROOT/scripts/ensure-gitee-mirror.sh" --sync-https || SYNC_RC=$?
+  else
+    bash "$ROOT/scripts/ensure-gitee-mirror.sh" --sync-https || SYNC_RC=$?
+  fi
+  echo "publish-gitee-release: mirror-sync exit=${SYNC_RC}" >&2
+  MIRROR_HAS_COMMIT="$(node "$ROOT/scripts/gitee-release.js" commit-exists \
+    --owner "$OWNER" --repo "$REPO" --sha "$TARGET" 2>/dev/null || true)"
+fi
+
+if [ "$MIRROR_HAS_COMMIT" = "no" ]; then
   echo "publish-gitee-release: SKIPPED: gitee mirror lacks commit ${TARGET} — the mirror is behind origin." >&2
   echo "publish-gitee-release: fix: bash scripts/ensure-gitee-mirror.sh --sync-https（或 git push gitee main），然后重跑本脚本。" >&2
   status skipped-mirror-behind

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { execFileSync } = require('node:child_process');
+const { execFileSync, spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 // 本测会在 pre-commit 里跑。父进程的 GIT_INDEX_FILE 等指向插件暂存区，
@@ -247,12 +247,19 @@ describe('publish-gitee-release.sh', () => {
     // The publish path is faked: no network, no real tag retarget.
     fs.writeFileSync(path.join(dir, 'scripts/retarget-release-tag.sh'), '#!/usr/bin/env bash\nexit 0\n');
     fs.chmodSync(path.join(dir, 'scripts/retarget-release-tag.sh'), 0o755);
+    // Mirror sync is faked too: by default it marks the commit as present so the
+    // script can retry the publish exactly once (OPT-20261109-004).
+    fs.writeFileSync(path.join(dir, 'scripts/ensure-gitee-mirror.sh'),
+      '#!/usr/bin/env bash\nset -e\necho "fake-mirror-sync $*" >&2\n'
+      + 'if [ "${SHIM_MIRROR_SYNC_NOOP:-}" != "1" ] && [ -n "${SHIM_SYNC_MARKER:-}" ]; then : > "$SHIM_SYNC_MARKER"; fi\n'
+      + 'exit "${SHIM_MIRROR_SYNC_EXIT:-0}"\n');
+    fs.chmodSync(path.join(dir, 'scripts/ensure-gitee-mirror.sh'), 0o755);
     fs.mkdirSync(path.join(dir, 'shim'));
     fs.writeFileSync(path.join(dir, 'shim/node'),
       '#!/bin/sh\ncase "$1" in\n  -e) printf \'ljy-ruandao task-chrome-plugin\' ;;\n'
       + '  -p) printf \'1.8.276\' ;;\n'
       + '  *) case "$2" in\n'
-      + '       commit-exists) printf \'%s\' "${SHIM_COMMIT_EXISTS:-yes}" ;;\n'
+      + '       commit-exists) if [ -n "${SHIM_SYNC_MARKER:-}" ] && [ -f "${SHIM_SYNC_MARKER}" ]; then printf \'yes\'; else printf \'%s\' "${SHIM_COMMIT_EXISTS:-yes}"; fi ;;\n'
       + '     esac ;;\n'
       + 'esac\nexit 0\n');
     fs.chmodSync(path.join(dir, 'shim/node'), 0o755);
@@ -264,18 +271,16 @@ describe('publish-gitee-release.sh', () => {
   }
 
   function runScript(dir, env = {}) {
-    try {
-      const out = execFileSync('bash', [path.join(dir, 'scripts/publish-gitee-release.sh')], {
-        // GIT_ENV：pre-commit 传下来的 GIT_DIR 会让 scratch 仓里的脚本读到
-        // 插件仓的 remote/HEAD，no-remote 用例就永远走不到。
-        env: { ...GIT_ENV, GITEE_ACCESS_TOKEN: '', ...env },
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'pipe'],
-      });
-      return { code: 0, out };
-    } catch (err) {
-      return { code: err.status, out: String(err.stdout || ''), err: String(err.stderr || '') };
-    }
+    // spawnSync（而不是 execFileSync）让成功路径也能拿到 stderr，便于断言
+    // mirror-sync 日志。
+    const res = spawnSync('bash', [path.join(dir, 'scripts/publish-gitee-release.sh')], {
+      // GIT_ENV：pre-commit 传下来的 GIT_DIR 会让 scratch 仓里的脚本读到
+      // 插件仓的 remote/HEAD，no-remote 用例就永远走不到。
+      env: { ...GIT_ENV, GITEE_ACCESS_TOKEN: '', ...env },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    return { code: res.status, out: String(res.stdout || ''), err: String(res.stderr || '') };
   }
 
   it('跳过开关生效，且脚本不回显令牌', () => {
@@ -319,14 +324,32 @@ describe('publish-gitee-release.sh', () => {
     assert.match(out, /GITEE_RELEASE_STATUS=published/);
   });
 
-  it('镜像缺少本次提交时以 3 退出并给出同步提示', () => {
+  it('镜像落后时自动同步一次并重试发布', () => {
+    const dir = scratchRepo({ remote: 'git@gitee.com:ljy-ruandao/task-chrome-plugin' });
+    const marker = path.join(dir, 'mirror-synced.marker');
+    const { code, out, err } = runScript(dir, {
+      GITEE_ACCESS_TOKEN: 'token-for-test',
+      PATH: `${path.join(dir, 'shim')}:${process.env.PATH}`,
+      SHIM_COMMIT_EXISTS: 'no',
+      SHIM_SYNC_MARKER: marker,
+    });
+    assert.equal(code, 0, err);
+    assert.ok(fs.existsSync(marker), 'mirror sync was not invoked');
+    assert.match(err, /mirror-sync: gitee mirror lacks [0-9a-f]+/);
+    assert.match(err, /mirror-sync exit=0/);
+    assert.match(out, /GITEE_RELEASE_STATUS=published/);
+  });
+
+  it('同步后镜像仍落后时保持 skipped-mirror-behind', () => {
     const dir = scratchRepo({ remote: 'git@gitee.com:ljy-ruandao/task-chrome-plugin' });
     const { code, out, err } = runScript(dir, {
       GITEE_ACCESS_TOKEN: 'token-for-test',
       PATH: `${path.join(dir, 'shim')}:${process.env.PATH}`,
       SHIM_COMMIT_EXISTS: 'no',
+      SHIM_MIRROR_SYNC_NOOP: '1',
     });
     assert.equal(code, 3, err);
+    assert.match(err, /mirror-sync exit=0/);
     assert.match(err, /gitee mirror lacks commit/);
     assert.match(err, /--sync-https/);
     assert.match(out, /GITEE_RELEASE_STATUS=skipped-mirror-behind/);
