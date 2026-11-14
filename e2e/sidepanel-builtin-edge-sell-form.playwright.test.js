@@ -203,10 +203,13 @@ test.describe('侧栏本机模型出售表单', () => {
     expect(body.install_fingerprint).toMatch(/^pf_[0-9a-f]+_/);
     expect(Array.isArray(body.supported_models)).toBe(true);
 
-    // SW keepalive 拉起消息带注册坐标
-    const msgs = await page.evaluate(() => window.__edgeMessages || []);
-    expect(msgs.some((m) => m.action === 'startBuiltinEdgeTunnel'
-      && m.projectId === 'offer-aaa'
-      && m.nodeId === 'node-xyz')).toBe(true);
+    // SW keepalive 拉起消息带注册坐标。sendMessage 在注册 POST 完成后的下一个微任务/宏任务才发出，
+    // 与 fetch 记录存在竞态，故轮询等待而不是一次性读取。
+    await expect.poll(async () => {
+      const msgs = await page.evaluate(() => window.__edgeMessages || []);
+      return msgs.some((m) => m.action === 'startBuiltinEdgeTunnel'
+        && m.projectId === 'offer-aaa'
+        && m.nodeId === 'node-xyz');
+    }, { timeout: 10000 }).toBe(true);
   });
 });

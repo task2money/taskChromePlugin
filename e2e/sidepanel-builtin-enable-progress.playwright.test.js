@@ -1,6 +1,7 @@
 /**
  * 侧栏内置模型：点「下载模型」后进度到 100% 未 resolve 期间须显示「正在启用」，
- * 且进度条以 enable 形态可见；create resolve 后回到「就绪」并隐藏进度条。
+ * 且进度条以 enable 形态可见；create resolve 后模型就绪——按 6ffb23f 的产品决策
+ * 「模型就绪时不再写状态行」，状态行应收起（hidden/空），进度条隐藏。
  *
  * 与 popup 用例同源，但宿主是长生命周期侧栏：probeDetails({ forceAvailable })
  * 在 create 完成后的写回路径只有真实 DOM 手势才走得到，Node 单测看不到。
@@ -22,7 +23,6 @@ const { test, expect } = loadPlaywrightTest();
 const SIDEPANEL_URL = pathToFileURL(path.join(__dirname, '..', 'sidepanel', 'sidepanel.html')).href;
 
 const ENABLING = '正在启用';
-const READY = '就绪';
 
 async function installStub(page) {
   await page.addInitScript(() => {
@@ -72,6 +72,11 @@ async function installStub(page) {
               if (type === 'downloadprogress' && handler) handler({ loaded: 1, total: 1 });
             },
           });
+        }
+        // 模型就绪后（downloaded=true）后续 create 立即 resolve：probeDetails 的
+        // 配额探测会再 create 一次，若继续挂起会让面板停在半途。
+        if (pending.downloaded) {
+          return Promise.resolve({ destroy() {}, inputQuota: 4096 });
         }
         return new Promise((resolve) => {
           pending.resolve = () => resolve({ destroy() {}, inputQuota: 4096 });
@@ -125,17 +130,17 @@ test.describe('侧栏内置模型下载→启用进度', () => {
 
     // 进度同步到 100%，create 仍挂起：应为「正在启用」，且进度条以 enable 形态可见。
     await expect(status).toContainText(ENABLING, { timeout: 10000 });
-    await expect(status).not.toContainText(READY);
     const bar = page.locator('#spBuiltinProgress');
     await expect(bar).toBeVisible();
     await expect(bar).toHaveAttribute('data-kind', 'enable');
 
-    // 结束 create → 模型可用 → probeDetails({ forceAvailable }) 写回 → 就绪。
+    // 结束 create → 模型可用 → probeDetails({ forceAvailable }) 写回。
+    // 就绪态不写状态行（6ffb23f「模型就绪时不再写状态行」），故断言状态行收起而非「就绪」文案。
     await page.evaluate(() => {
       window.__builtinDownload.downloaded = true;
       if (window.__builtinDownload.resolve) window.__builtinDownload.resolve();
     });
-    await expect(status).toContainText(READY, { timeout: 10000 });
+    await expect(status).toBeHidden({ timeout: 10000 });
     await expect(status).not.toContainText(ENABLING);
     await expect(bar).toBeHidden();
 
