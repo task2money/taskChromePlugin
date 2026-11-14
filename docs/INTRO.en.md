@@ -181,6 +181,8 @@ In the side panel's Settings, choose the workspace for the Auto-innovate agent. 
 - Send content to Cursor / Claude / Codex unless you click "Send to …".
 
 > Before submitting tasks or screenshots, confirm they contain no passwords, keys, or other sensitive information. Uninstalling the extension or clearing its data deletes what is stored on this device.
+>
+> For the full data scope, retention, and user controls, see the [Privacy Policy](./PRIVACY.en.md) ([中文](./PRIVACY.md)).
 
 ## Install, update, and versions
 

@@ -119,6 +119,13 @@ ${highlights}${compare}
 | 文件 | 说明 |
 |------|------|
 | \`task-chrome-plugin-v${ver}.zip\` | 解压后可直接「加载已解压的扩展程序」 |${crxExtra}
+
+### 文档
+
+| 文档 | 说明 |
+|------|------|
+| [产品介绍](https://github.com/task2money/taskChromePlugin/blob/main/docs/INTRO.md) / [English](https://github.com/task2money/taskChromePlugin/blob/main/docs/INTRO.en.md) | 面向使用者的入门说明 |
+| [隐私政策](https://github.com/task2money/taskChromePlugin/blob/main/docs/PRIVACY.md) / [English](https://github.com/task2money/taskChromePlugin/blob/main/docs/PRIVACY.en.md) | 权限用途、数据分类、保留期与用户控制 |
 `;
 }
 
