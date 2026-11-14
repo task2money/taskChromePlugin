@@ -336,6 +336,10 @@ async function generateViaPlatform({ tabId, cfg, data, page, locale, opts, withS
     jobId,
     promptSkillId: String(promptSkillId || '').trim(),
     featureParamsSource: job?.feature_params_source || '',
+    // OPT-20261109-001：202 的非敏感计费投影（virtual=功能包 / raw=单项），
+    // 只用于诊断信息，不参与任何计费决策。
+    billingMode: String(created?.billing_mode || '').trim(),
+    billingFeatureCode: String(created?.billing_feature_code || '').trim(),
     traceId: createTraceId,
   };
 }

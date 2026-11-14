@@ -210,6 +210,8 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       promptSkillId: result.promptSkillId || promptSkillId,
       trialId: result.trialId,
       quota: result.quota,
+      billingMode: result.billingMode,
+      billingFeatureCode: result.billingFeatureCode,
     }, reporter);
     return {
       success: false,
@@ -352,6 +354,9 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
       model: result.model,
       promptSkillId: result.promptSkillId || promptSkillId,
       jobId: result.jobId,
+      // 202 已受理但落贴失败：计费模式仍可见，解释「包已扣页、帖子没建成」。
+      billingMode: result.billingMode,
+      billingFeatureCode: result.billingFeatureCode,
     }, reporter);
     return {
       success: false,
@@ -386,6 +391,8 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     model: result.model,
     promptSkillId: result.promptSkillId || promptSkillId,
     jobId: result.jobId,
+    billingMode: result.billingMode,
+    billingFeatureCode: result.billingFeatureCode,
     postId,
   }, reporter);
   reporter.report({ stage: 'done', percent: 100 });
