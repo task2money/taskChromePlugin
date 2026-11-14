@@ -99,7 +99,10 @@ async function installChromeStub(page, options = {}) {
             };
           }
           if (msg?.action === 'getElementPickerShortcutStatus') {
-            if (shortcutStatus) return { success: true, data: shortcutStatus };
+            // OPT-20261102-001：运行期可改写的绑定状态，用于模拟 Popup 打开期间
+            // 外部（chrome://extensions/shortcuts 等）改绑。
+            const st = globalThis.__e2eShortcutStatus;
+            if (st) return { success: true, data: st };
             return { success: true };
           }
           if (msg?.action === 'getOwnAgents') {
@@ -118,6 +121,19 @@ async function installChromeStub(page, options = {}) {
       },
       storage: { local: area, session: { async get() { return {}; }, async set() {} } },
       tabs: { async query() { return []; }, sendMessage: async () => {} },
+    };
+    // OPT-20261102-001：Popup 打开期间外部改绑 → chrome.commands.onChanged。
+    // 暴露 __e2eSetShortcutStatus / __e2eFireCommandChange 供用例模拟浏览器事件。
+    globalThis.__e2eShortcutStatus = shortcutStatus;
+    const commandListeners = [];
+    chromeApi.commands = {
+      onChanged: { addListener: (fn) => commandListeners.push(fn) },
+      async getAll() { return []; },
+      async update() {},
+    };
+    globalThis.__e2eSetShortcutStatus = (status) => { globalThis.__e2eShortcutStatus = status; };
+    globalThis.__e2eFireCommandChange = (change) => {
+      for (const fn of commandListeners) fn(change);
     };
     // 只有显式给 installType 时才挂 management：默认用例保持「非 Beta」不变。
     if (installType) chromeApi.management = { getSelf: async () => ({ installType }) };
@@ -164,6 +180,8 @@ test.describe('Popup 面板布局', () => {
     const body = page.locator('#shortcutsBody');
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(toggle).toHaveText('展开');
+    // 无差异时不残留可访问性描述（OPT-20261102-002）
+    await expect(toggle).not.toHaveAttribute('aria-describedby', /.*/);
     // 初始折叠：快捷键内容不可见
     await expect(body).toBeHidden();
     await expect(page.locator('#btnPickShortcutEdit')).toBeHidden();
@@ -198,6 +216,8 @@ test.describe('Popup 面板布局', () => {
     await expect(toggle).toBeVisible({ timeout: 10000 });
     await expect(badge).toBeVisible();
     await expect(badge).toHaveText('⚠️ 绑定有变化');
+    // 读屏用户聚焦展开按钮即可听到差异描述（OPT-20261102-002）
+    await expect(toggle).toHaveAttribute('aria-describedby', 'shortcutDiffBadge');
     // 默认仍收起：按钮保持「展开」，内容与差异详情都不可见
     await expect(toggle).toHaveText('展开');
     await expect(toggle).toHaveAttribute('aria-expanded', 'false');
@@ -211,6 +231,43 @@ test.describe('Popup 面板布局', () => {
     await expect(toggle).toHaveAttribute('aria-expanded', 'true');
     await expect(page.locator('#pickShortcutDiffHint')).toBeVisible();
     await expect(page.locator('#btnPickShortcutRestore')).toBeVisible();
+  });
+
+  // OPT-20261102-001：Popup 保持打开时外部改绑 → commands.onChanged 触发重查，
+  // 徽标与可访问性描述随真实绑定状态刷新，且不展开折叠区。
+  test('Popup 打开期间外部改绑 → 徽标与可访问性描述自动刷新', async ({ page }) => {
+    await installChromeStub(page, {
+      shortcutStatus: {
+        configured: 'Alt+X',
+        configuredBinding: 'Alt+X',
+        actual: 'Alt+Z',
+        differs: true,
+      },
+    });
+    await page.goto(POPUP_URL);
+
+    const toggle = page.locator('#btnToggleShortcuts');
+    const badge = page.locator('#shortcutDiffBadge');
+    const body = page.locator('#shortcutsBody');
+    await expect(badge).toBeVisible({ timeout: 10000 });
+    await expect(toggle).toHaveAttribute('aria-describedby', 'shortcutDiffBadge');
+
+    // 用户在 chrome://extensions/shortcuts 把绑定恢复为配置值 → onChanged 事件
+    await page.evaluate(() => {
+      globalThis.__e2eSetShortcutStatus({
+        configured: 'Alt+X',
+        configuredBinding: 'Alt+X',
+        actual: 'Alt+X',
+        differs: false,
+      });
+      globalThis.__e2eFireCommandChange({ name: 'toggle-element-picker' });
+    });
+
+    await expect(badge).toBeHidden();
+    await expect(toggle).not.toHaveAttribute('aria-describedby', /.*/);
+    await expect(toggle).toHaveText('展开');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await expect(body).toBeHidden();
   });
 
   test('顶栏可见插件版本（来自 getManifest）', async ({ page }) => {

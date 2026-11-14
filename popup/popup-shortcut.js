@@ -133,7 +133,28 @@
     await commitShortcut(Storage.detectDefaultShortcut());
   }
 
+  /**
+   * OPT-20261102-001：Popup 打开期间绑定被外部改绑（chrome://extensions/shortcuts、
+   * 另一窗口 chrome.commands.update 等）时，折叠态差异徽标必须跟着刷新，否则会
+   * 长期显示过期状态。旧浏览器 / 无 commands.onChanged 时静默降级（仅保留加载时检查）；
+   * 重复调用只注册一次，避免监听器堆积。
+   * @returns {boolean} 是否已注册监听
+   */
+  var shortcutDiffListenerBound = false;
+  function subscribeShortcutBindingChanges() {
+    if (shortcutDiffListenerBound) return true;
+    if (typeof chrome === 'undefined' || !chrome || !chrome.commands || !chrome.commands.onChanged) {
+      return false;
+    }
+    // 改绑后重跑「读取配置 + 差异检查」（同一套渲染路径，无需另写刷新逻辑）。
+    // 返回 Promise 仅为可测试性：Chrome 忽略事件处理器的返回值。
+    chrome.commands.onChanged.addListener(() => loadPickShortcutConfig().catch(() => {}));
+    shortcutDiffListenerBound = true;
+    return true;
+  }
+
   async function loadPickShortcutConfig() {
+    subscribeShortcutBindingChanges();
     try {
       const shortcut = await withTimeout(
         Storage.getElementPickerShortcut(),
@@ -147,6 +168,19 @@
     }
   }
 
+  /** 把差异徽标挂到展开按钮的 aria-describedby 上（保留按钮已有的其它描述）。 */
+  function syncToggleDiffDescription(visible) {
+    const btn = $('#btnToggleShortcuts');
+    if (!btn) return;
+    const ids = String(btn.getAttribute('aria-describedby') || '')
+      .split(/\s+/)
+      .filter(Boolean)
+      .filter((id) => id !== 'shortcutDiffBadge');
+    if (visible) ids.push('shortcutDiffBadge');
+    if (ids.length) btn.setAttribute('aria-describedby', ids.join(' '));
+    else btn.removeAttribute('aria-describedby');
+  }
+
   /**
    * 折叠态绑定差异徽标：只在「快捷键」标题旁提示，**不自动展开**折叠区
    * （快捷键区默认处于收起状态）。展开后由 #pickShortcutDiffHint 展示详情。
@@ -154,6 +188,10 @@
   function setShortcutDiffBadge(visible) {
     const badge = $('#shortcutDiffBadge');
     if (!badge) return;
+    // OPT-20261102-002：徽标是标题内的普通 span，不在 Tab 序列中；折叠态下读屏
+    // 用户聚焦「展开」按钮时要有等价提示。徽标可见时用 aria-describedby 关联，
+    // 隐藏时移除——只建立可访问性关联，不改 aria-expanded / 文案 / 折叠区可见性。
+    syncToggleDiffDescription(visible);
     badge.hidden = !visible;
     if (!visible) {
       badge.textContent = '';

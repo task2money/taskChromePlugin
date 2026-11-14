@@ -31,6 +31,17 @@ function createBadge() {
   return badge;
 }
 
+/** 折叠区展开按钮：属性读写 + 与 popup.html 一致的初始状态。 */
+function createToggleButton() {
+  return {
+    textContent: '展开',
+    attrs: { 'aria-expanded': 'false', 'aria-controls': 'shortcutsBody' },
+    getAttribute(name) { return name in this.attrs ? this.attrs[name] : null; },
+    setAttribute(name, value) { this.attrs[name] = String(value); },
+    removeAttribute(name) { delete this.attrs[name]; },
+  };
+}
+
 /**
  * 把 popup-shortcut.js 片段放进函数作用域执行，注入最小环境。
  * 片段顶层只声明函数/变量，不产生副作用，因此可安全加载。
@@ -38,12 +49,14 @@ function createBadge() {
 function loadFragment(options = {}) {
   const src = fs.readFileSync(SOURCE, 'utf8');
   const badge = createBadge();
+  const toggle = createToggleButton();
   const hint = { style: { display: '' }, textContent: '', innerHTML: '' };
   const selectors = [];
   const responses = options.responses || {};
   const $ = (selector) => {
     selectors.push(selector);
     if (selector === '#shortcutDiffBadge') return badge;
+    if (selector === '#btnToggleShortcuts') return toggle;
     if (selector === '#pickShortcutDiffHint') return hint;
     return null;
   };
@@ -70,20 +83,22 @@ function loadFragment(options = {}) {
     'STORAGE_READ_TIMEOUT',
     'escapeHtml',
     'console',
-    `${src}\n;return { setShortcutDiffBadge, checkShortcutBindingDiff, eventKeyToShortcutName };`,
+    'chrome',
+    `${src}\n;return { setShortcutDiffBadge, subscribeShortcutBindingChanges, checkShortcutBindingDiff, eventKeyToShortcutName };`,
   );
   const api = factory(
     $,
     tx,
     { getElementById: () => null },
-    {},
+    options.storage || {},
     sendMessageWithTimeout,
     async (value) => value,
     1,
     undefined,
     console,
+    options.chrome,
   );
-  return { api, badge, hint, selectors };
+  return { api, badge, toggle, hint, selectors, responses };
 }
 
 describe('popup-shortcut 折叠态差异徽标', () => {
@@ -137,6 +152,55 @@ describe('popup-shortcut 折叠态差异徽标', () => {
     });
     await failed.api.checkShortcutBindingDiff('Alt+X');
     assert.equal(failed.badge.hidden, true);
+  });
+
+  it('徽标可见时展开按钮以 aria-describedby 引用徽标，隐藏后移除（OPT-20261102-002）', () => {
+    const { api, toggle } = loadFragment();
+    toggle.setAttribute('aria-describedby', 'otherHelp');
+
+    api.setShortcutDiffBadge(true);
+    assert.equal(toggle.getAttribute('aria-describedby'), 'otherHelp shortcutDiffBadge');
+    // 只建立可访问性关联：折叠状态、按钮文案与折叠区都不受影响
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.equal(toggle.textContent, '展开');
+
+    api.setShortcutDiffBadge(false);
+    assert.equal(toggle.getAttribute('aria-describedby'), 'otherHelp');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+  });
+
+  it('订阅 chrome.commands.onChanged：外部恢复绑定后徽标自动消失（OPT-20261102-001）', async () => {
+    const responses = {
+      status: { success: true, data: { differs: true, configuredBinding: 'Alt+X', actual: 'Alt+Z' } },
+    };
+    const listeners = [];
+    const chromeStub = { commands: { onChanged: { addListener: (fn) => listeners.push(fn) } } };
+    const { api, badge, toggle } = loadFragment({
+      responses,
+      chrome: chromeStub,
+      storage: { getElementPickerShortcut: async () => 'Alt+X' },
+    });
+
+    await api.checkShortcutBindingDiff('Alt+X');
+    assert.equal(badge.hidden, false);
+    assert.equal(toggle.getAttribute('aria-describedby'), 'shortcutDiffBadge');
+
+    assert.equal(api.subscribeShortcutBindingChanges(), true);
+    assert.equal(listeners.length, 1, '应注册 commands.onChanged 监听');
+    assert.equal(api.subscribeShortcutBindingChanges(), true);
+    assert.equal(listeners.length, 1, '重复调用不得堆叠监听器');
+
+    // 用户到 chrome://extensions/shortcuts 把绑定恢复成配置值 → 事件回调重查差异
+    responses.status = { success: true, data: { differs: false } };
+    await listeners[0]({ name: 'toggle-element-picker' });
+    assert.equal(badge.hidden, true, '外部恢复后徽标必须自动隐藏');
+    assert.equal(toggle.getAttribute('aria-describedby'), null);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false', '刷新不得展开折叠区');
+  });
+
+  it('无 chrome.commands.onChanged 时静默降级（OPT-20261102-001）', () => {
+    const { api } = loadFragment();
+    assert.equal(api.subscribeShortcutBindingChanges(), false);
   });
 
   it('源码中差异检查不引用快捷键折叠区控件（默认保持收起）', () => {
