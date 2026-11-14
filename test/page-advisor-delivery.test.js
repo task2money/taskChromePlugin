@@ -12,6 +12,7 @@ describe('page-advisor-delivery', () => {
     assert.equal(Delivery.normalizeTarget('cursor'), 'cursor');
     assert.equal(Delivery.normalizeTarget('claude'), 'claude');
     assert.equal(Delivery.normalizeTarget('codex'), 'codex');
+    assert.equal(Delivery.normalizeTarget('vscode'), 'vscode');
     assert.equal(Delivery.normalizeTarget('trae'), 'task_description');
     assert.equal(Delivery.normalizeTarget('workbuddy'), 'task_description');
     assert.equal(Delivery.normalizeTarget('task_description'), 'task_description');
@@ -51,6 +52,7 @@ describe('page-advisor-delivery', () => {
     assert.equal(Delivery.isIdeDeliveryTarget('cursor'), true);
     assert.equal(Delivery.isIdeDeliveryTarget('claude'), true);
     assert.equal(Delivery.isIdeDeliveryTarget('codex'), true);
+    assert.equal(Delivery.isIdeDeliveryTarget('vscode'), true);
     assert.equal(Delivery.isIdeDeliveryTarget('trae'), false);
     assert.equal(Delivery.isIdeDeliveryTarget('task_description'), false);
     // Alt+Z 生成成功后不得自动深链；仅按钮/Alt+X 确认触发
@@ -81,6 +83,7 @@ describe('page-advisor-delivery', () => {
       paDeliveryCursor: 'Cursor',
       paDeliveryClaude: 'Claude',
       paDeliveryCodex: 'Codex',
+      paDeliveryVscode: 'VS Code',
       paDeliveryTaskDesc: '任务描述',
     };
     const tx = (k, p) => {
@@ -100,12 +103,20 @@ describe('page-advisor-delivery', () => {
       'paDeliverClipboardOnly:Codex',
     );
     assert.equal(
+      Delivery.formatUserStatus(
+        'vscode',
+        { deeplinkOk: true, clipboardOk: true, batchCount: 1 },
+        tx,
+      ).text,
+      'paDeliverDeeplinkOk:VS Code',
+    );
+    assert.equal(
       Delivery.formatUserStatus('cursor', { nativeOk: false, clipboardOk: false }, tx).ok,
       false,
     );
   });
 
-  it('buildIdeDeeplink uses Cursor/Claude/Codex official schemes', () => {
+  it('buildIdeDeeplink uses Cursor/Claude/Codex/VS Code official schemes', () => {
     const cursor = Delivery.buildIdeDeeplink('cursor', 'fix login');
     assert.equal(
       cursor,
@@ -120,6 +131,13 @@ describe('page-advisor-delivery', () => {
 
     const codex = Delivery.buildIdeDeeplink('codex', 'ship it');
     assert.equal(codex, 'codex://new?prompt=' + encodeURIComponent('ship it'));
+
+    // VS Code 的 Claude Code 扩展：prompt 只预填、不自动提交。
+    const vscode = Delivery.buildIdeDeeplink('vscode', 'fix it');
+    assert.equal(
+      vscode,
+      'vscode://anthropic.claude-code/open?prompt=' + encodeURIComponent('fix it'),
+    );
 
     assert.equal(Delivery.buildIdeDeeplink('trae', 'x'), '');
     assert.equal(Delivery.buildIdeDeeplink('workbuddy', 'x'), '');
@@ -169,7 +187,7 @@ describe('page-advisor-delivery', () => {
     );
     assert.equal(Delivery.promptFitsDeeplink('cursor', block), false);
     assert.equal(Delivery.buildIdeDeeplink('cursor', block), '');
-    for (const target of ['cursor', 'claude', 'codex']) {
+    for (const target of ['cursor', 'claude', 'codex', 'vscode']) {
       const batches = Delivery.buildIdeDeeplinkBatches(target, block, '');
       assert.ok(batches.length > 1, `${target} batches=${batches.length}`);
       const decoded = [];

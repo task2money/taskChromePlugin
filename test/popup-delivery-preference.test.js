@@ -20,6 +20,7 @@ function fakeField() {
     { name: 'pageAdvisorDeliveryTarget', value: 'cursor', checked: false },
     { name: 'pageAdvisorDeliveryTarget', value: 'claude', checked: false },
     { name: 'pageAdvisorDeliveryTarget', value: 'codex', checked: false },
+    { name: 'pageAdvisorDeliveryTarget', value: 'vscode', checked: false },
   ];
   const listeners = [];
   return {
