@@ -1,6 +1,7 @@
 # 天天赚钱: 自动创新助手 — 产品介绍
 
 > 面向使用者的入门说明。想看逐步操作细节，请阅读 [使用说明](./USER_GUIDE.md)。
+> English version: [Product Introduction](./INTRO.en.md).
 >
 > 本文以插件 1.9.12 的功能为准；界面与能力以你实际安装的版本为准。
 
