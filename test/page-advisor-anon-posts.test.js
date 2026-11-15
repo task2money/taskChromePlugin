@@ -81,6 +81,16 @@ describe('page-advisor-anon-posts 纯函数', () => {
     assert.equal(Anon.normalizeEntry(entry({ page_url: '' })), null);
   });
 
+  it('报告页标签页 id 只收正整数，服务端读回刷新不丢（OPT-20261107-008）', () => {
+    assert.equal(Anon.normalizeEntry(entry({ report_tab_id: '55' })).report_tab_id, 55);
+    assert.equal(Anon.normalizeEntry(entry({ report_tab_id: 0 })).report_tab_id, 0);
+    assert.equal(Anon.normalizeEntry(entry({ report_tab_id: -3 })).report_tab_id, 0);
+    assert.equal(Anon.normalizeEntry(entry({ report_tab_id: 'x' })).report_tab_id, 0);
+    const base = Anon.normalizeEntry(entry({ report_tab_id: 55 }));
+    const fresh = Anon.entryFromPublicView(base, { title: '服务端标题', claim_status: 'open' });
+    assert.equal(fresh.report_tab_id, 55, '读回真身只覆盖内容字段，标签页 id 保留');
+  });
+
   it('快照只留定位字段，并截断超长文本', () => {
     const row = Anon.normalizeEntry(entry({
       detail: 'x'.repeat(5000),

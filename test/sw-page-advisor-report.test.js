@@ -67,13 +67,14 @@ function loadReportStack({ entries = [anonEntry()], siteBaseUrl = 'https://www.e
 }
 
 describe('sw-page-advisor-page-trial 报告入口', () => {
-  it('按本地入口拼 /try/<id>/?k=<令牌> 并打开新标签页', async () => {
-    const { sandbox, created } = loadReportStack();
+  it('按本地入口拼 /try/<id>/?k=<令牌> 并打开新标签页，记下标签页供领取后收尾', async () => {
+    const { sandbox, created, local } = loadReportStack();
     const resp = await sandbox.handleOpenPageTrialReport({ postId: 'anon-1' });
     assert.equal(resp.success, true);
     assert.equal(created.length, 1);
     assert.equal(created[0].url, 'https://www.example.test/try/anon-1/?k=tok-1');
     assert.equal(created[0].active, true);
+    assert.equal(local.pa_anon_posts_v1[0].report_tab_id, 99, '报告页标签页 id 落本地入口');
     // 令牌只在标签页 URL 里；回包不带地址，避免侧栏再复制一份凭据。
     assert.doesNotMatch(JSON.stringify(resp), /tok-1/);
   });

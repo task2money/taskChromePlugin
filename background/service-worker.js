@@ -59,6 +59,8 @@ importScripts(
   '../lib/page-advisor-site-pending.js',
   // v233：匿名优化贴的本地访问入口（试用落贴后刷新页面仍可看、可领取）。
   '../lib/page-advisor-anon-posts.js',
+  // 领取匿名帖后把报告页导航到新帖任务页（OPT-20261107-008）。
+  '../lib/task-detail-href.js',
   // 侧栏生成进度：状态 → 百分比的唯一换算处（后台 poll 与侧栏心跳共用）。
   '../lib/agent-suggestions-progress.js',
   // 生成耗时自学习：记录最近成功生成的实际总耗时，供侧栏估算剩余时间。

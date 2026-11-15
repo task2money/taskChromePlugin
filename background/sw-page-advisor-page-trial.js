@@ -237,6 +237,23 @@ function pageTrialReportBaseUrl() {
 }
 
 /**
+ * 记住报告页标签页 id（OPT-20261107-008）：领取成功后原报告页会 404，
+ * 后台据此把仍停在那里的标签页导航到新帖。只存数字 id，不复制令牌。
+ */
+async function rememberAnonymousReportTab(entry, tabId) {
+  const Anon = typeof PageAdvisorAnonPosts !== 'undefined' ? PageAdvisorAnonPosts : null;
+  const id = Number(tabId);
+  if (!Anon || !entry || !(id > 0)) return false;
+  try {
+    await Anon.rememberEntry(null, { ...entry, report_tab_id: id });
+    return true;
+  } catch (e) {
+    console.warn('[taskChromePlugin] anon_post_report_tab_save_failed:', e?.message || e);
+    return false;
+  }
+}
+
+/**
  * 打开一条匿名帖的网页报告：<站点>/try/<帖 id>/?k=<只读令牌>，与首页试用详情同形。
  * 令牌只在后台从本地入口取出并交给 chrome.tabs，不进 DOM、不回传给侧栏。
  * @param {{ postId?: string }} message
@@ -257,6 +274,8 @@ async function handleOpenPageTrialReport(message) {
   if (!url) return { success: false, error: tx('paSiteReportFail') };
   try {
     const tab = await chrome.tabs.create({ url, active: true });
+    // 记下标签页：领取成功后把它导航到新帖，而不是停在会 404 的报告页。
+    if (tab?.id) await rememberAnonymousReportTab(entry, tab.id);
     console.info('[taskChromePlugin] anon_post_report_opened', { postId, tabId: tab?.id });
     return { success: true };
   } catch (e) {
@@ -309,7 +328,50 @@ function claimTenantForSite(tenant) {
 }
 
 /**
- * 「领取任务贴」：把匿名帖复制到登录用户的项目，成功后删掉本地入口。
+ * 领取后的落地页（OPT-20261107-008）：新帖任务详情。
+ * 已领取过的旧响应只有帖 id，没有任务/工作空间，返回 ''（不瞎拼地址）。
+ */
+async function claimLandingUrl(data, fallbackTenantId) {
+  const Href = typeof TaskDetailHref !== 'undefined' ? TaskDetailHref : null;
+  if (!Href || typeof Href.buildTaskDetailHref !== 'function') return '';
+  const origin = pageTrialReportBaseUrl()
+    || String((await Storage.getApiConfig().catch(() => null))?.baseUrl || '');
+  return Href.buildTaskDetailHref({
+    baseUrl: origin,
+    companyId: String(data?.tenant_id || fallbackTenantId || ''),
+    workspaceId: String(data?.workspace_id || ''),
+    taskId: String(data?.task_id || ''),
+  });
+}
+
+/**
+ * 领取成功后把仍停在 /try/<帖 id>/ 报告页的标签页导航到新帖。
+ * 用户已把那个标签页切去别处时不动它；任何失败都只记日志，不影响领取结果。
+ */
+async function navigateClaimedReportTab(tabId, postId, href) {
+  const id = Number(tabId);
+  const url = String(href || '');
+  const tabsApi = typeof chrome !== 'undefined' && chrome ? chrome.tabs : null;
+  if (!(id > 0) || !url || !tabsApi || typeof tabsApi.update !== 'function') return false;
+  try {
+    const tab = typeof tabsApi.get === 'function' ? await tabsApi.get(id) : null;
+    const current = String(tab?.url || '');
+    if (!current) return false;
+    let path = '';
+    try { path = new URL(current).pathname; } catch (_e) { return false; }
+    if (!path.replace(/\/+$/, '').endsWith('/try/' + encodeURIComponent(postId))) return false;
+    await tabsApi.update(id, { url, active: true });
+    console.info('[taskChromePlugin] anon_post_report_redirected', { postId, tabId: id });
+    return true;
+  } catch (e) {
+    console.warn('[taskChromePlugin] anon_post_report_redirect_failed:', e?.message || e);
+    return false;
+  }
+}
+
+/**
+ * 「领取任务贴」：把匿名帖复制到登录用户的项目，成功后删掉本地入口；
+ * 若原报告页还开着，就把它导航到新帖任务页（OPT-20261107-008）。
  * 只由侧栏按钮触发；未登录直接拒绝，不发请求。
  * @param {{ postId?: string, viewToken?: string }} message
  */
@@ -319,10 +381,10 @@ async function handleClaimPageTrialPost(message) {
   let viewToken = String(message?.viewToken || '').trim();
   if (!postId) return { success: false, error: tx('swMissingPostOrToken') };
   // 令牌以本地入口为准：侧栏不传时按帖 id 取，避免令牌进 DOM。
-  if (!viewToken && Anon) {
-    const entries = await Anon.loadEntries(null);
-    viewToken = String(entries.find((row) => row.post_id === postId)?.view_token || '');
-  }
+  // 同一入口里还记着报告页标签页 id，领取成功后要用它收尾（OPT-20261107-008）。
+  const entries = Anon ? await Anon.loadEntries(null) : [];
+  const storedEntry = entries.find((row) => row.post_id === postId) || null;
+  if (!viewToken) viewToken = String(storedEntry?.view_token || '');
   if (!viewToken) return { success: false, error: tx('swMissingPostOrToken') };
 
   const tenant = await resolveTenantIdForSitePending();
@@ -335,7 +397,10 @@ async function handleClaimPageTrialPost(message) {
     : `claim-${postId}-${Date.now()}`;
   try {
     const data = await PageAdvisorAPI.claimPageTrialPost(tenantId, postId, viewToken, idempotencyKey);
+    const landingUrl = await claimLandingUrl(data, tenantId);
     if (Anon) await Anon.forgetEntry(null, postId);
+    // 报告页会因 claim_status=claimed 变 404：还开着就跳到新帖任务页。
+    if (landingUrl) await navigateClaimedReportTab(storedEntry?.report_tab_id, postId, landingUrl);
     console.info('[taskChromePlugin] anon_post_claimed', {
       postId,
       projectId: String(data?.project_id || ''),

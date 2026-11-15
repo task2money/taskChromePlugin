@@ -292,7 +292,7 @@ describe('sw-page-advisor-pending 匿名优化贴', () => {
     };
   }
 
-  function loadAnonStack({ entries = [anonEntry()], loggedIn = false, trial = {}, storage } = {}) {
+  function loadAnonStack({ entries = [anonEntry()], loggedIn = false, trial = {}, storage, tabs = {} } = {}) {
     const local = { [ANON_KEY]: entries };
     const localStore = storage || {
       get: async (key) => ({ [key]: local[key] }),
@@ -332,12 +332,17 @@ describe('sw-page-advisor-pending 匿名优化贴', () => {
             sent.push(msg);
             return { success: true };
           },
+          ...tabs,
         },
         webNavigation: { onCompleted: { addListener: () => {} } },
         storage: { local: localStore },
       },
     });
-    for (const rel of ['lib/page-advisor-anon-posts.js', 'background/sw-page-advisor-page-trial.js']) {
+    for (const rel of [
+      'lib/page-advisor-anon-posts.js',
+      'lib/task-detail-href.js',
+      'background/sw-page-advisor-page-trial.js',
+    ]) {
       vm.runInContext(
         fs.readFileSync(path.join(ROOT, rel), 'utf8'),
         sandbox,
@@ -458,6 +463,85 @@ describe('sw-page-advisor-pending 匿名优化贴', () => {
     assert.equal(viewToken, 'tok-1', '令牌由后台按帖 id 从本地入口取');
     assert.ok(idempotencyKey, '领取必须带幂等键');
     assert.deepEqual(local[ANON_KEY], [], '领取成功后本地入口消失');
+  });
+
+  it('领取后把仍停在报告页的标签页导航到新帖任务页（OPT-20261107-008）', async () => {
+    const updates = [];
+    const { sandbox, local } = loadAnonStack({
+      loggedIn: true,
+      entries: [anonEntry({ report_tab_id: 55 })],
+      tabs: {
+        get: async (id) => ({ id, url: 'https://www.example.test/try/anon-1/?k=tok-1' }),
+        update: async (id, patch) => { updates.push([id, patch]); return { id }; },
+      },
+    });
+    sandbox.PageAdvisorAPI.claimPageTrialPost = async () => ({
+      post_id: 'landing-1',
+      task_id: 'task-1',
+      project_id: 'p-1',
+      project_name: '我的项目',
+      workspace_id: 'ws-1',
+      tenant_id: 'ten1',
+      already_claimed: false,
+    });
+    const resp = await sandbox.handleClaimPageTrialPost({ postId: 'anon-1' });
+
+    assert.equal(resp.success, true);
+    assert.equal(updates.length, 1, '领取成功且报告页仍开着：整页导航一次');
+    assert.equal(updates[0][0], 55);
+    assert.equal(
+      updates[0][1].url,
+      'https://example.test/tenant/ten1/workspace/ws-1/task-detail/task-1/',
+      '落到新帖任务详情，而不是停留在会 404 的 /try/ 报告页',
+    );
+    assert.equal(updates[0][1].active, true);
+    assert.deepEqual(local[ANON_KEY], [], '本地入口照常删除');
+  });
+
+  it('报告页已被切走或已关闭：不更新标签页，领取照常成功', async () => {
+    for (const tab of [{ id: 55, url: 'https://www.example.test/pricing/' }, null]) {
+      const updates = [];
+      const { sandbox } = loadAnonStack({
+        loggedIn: true,
+        entries: [anonEntry({ report_tab_id: 55 })],
+        tabs: {
+          get: async () => {
+            if (!tab) throw new Error('no such tab');
+            return tab;
+          },
+          update: async (id, patch) => { updates.push([id, patch]); return { id }; },
+        },
+      });
+      sandbox.PageAdvisorAPI.claimPageTrialPost = async () => ({
+        post_id: 'landing-1',
+        task_id: 'task-1',
+        workspace_id: 'ws-1',
+        tenant_id: 'ten1',
+      });
+      const resp = await sandbox.handleClaimPageTrialPost({ postId: 'anon-1' });
+      assert.equal(resp.success, true);
+      assert.equal(updates.length, 0, '不在报告页的标签页不劫持');
+    }
+  });
+
+  it('已领取的旧响应没有任务/工作空间：不拼落地地址，也不动标签页', async () => {
+    const updates = [];
+    const { sandbox } = loadAnonStack({
+      loggedIn: true,
+      entries: [anonEntry({ report_tab_id: 55 })],
+      tabs: {
+        get: async (id) => ({ id, url: 'https://www.example.test/try/anon-1/?k=tok-1' }),
+        update: async (id, patch) => { updates.push([id, patch]); return { id }; },
+      },
+    });
+    sandbox.PageAdvisorAPI.claimPageTrialPost = async () => ({
+      post_id: 'landing-1',
+      tenant_id: 'ten1',
+      already_claimed: true,
+    });
+    const resp = await sandbox.handleClaimPageTrialPost({ postId: 'anon-1' });
+    assert.equal(resp.success, true);
+    assert.equal(updates.length, 0);
   });
 
   it('领取任务贴：410 已领取/过期，本地入口同样清掉', async () => {
