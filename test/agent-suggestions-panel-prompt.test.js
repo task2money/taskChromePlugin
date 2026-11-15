@@ -641,6 +641,56 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.doesNotMatch(h.progressElapsed(), /约剩|即将完成/, '终态不再显示倒计时');
   });
 
+  it('上一次运行晚到的 ETA 结果不覆盖新一次任务（序列号守卫）', async () => {
+    let releaseGenerateA;
+    let releaseGenerateB;
+    let generateCall = 0;
+    // 每次生成消息各挂一次：第一次完成后还能让第二次继续跑着做断言。
+    const generateResponse = {
+      then(resolve) {
+        generateCall += 1;
+        if (generateCall === 1) releaseGenerateA = resolve;
+        else releaseGenerateB = resolve;
+      },
+    };
+    const h = buildHarness({ generateResponse });
+    await h.refresh();
+
+    const Eta = h.context.AgentSuggestionsEta;
+    const realExpectedMs = Eta.expectedMs;
+    let releaseSlowEta;
+    let etaCalls = 0;
+    Eta.expectedMs = () => {
+      etaCalls += 1;
+      if (etaCalls === 1) return new Promise((resolve) => { releaseSlowEta = resolve; });
+      return Promise.resolve(22000);
+    };
+    try {
+      const first = h.clickGenerate();
+      await h.tick();
+      releaseGenerateA({ success: true, created: true, projectName: '默认项目' });
+      await first;
+
+      const second = h.clickGenerate();
+      await h.tick();
+      await h.tick();
+      assert.match(h.progressElapsed(), /约剩 00:(21|22)/, '新任务用自己的估值');
+
+      releaseSlowEta(5000);
+      await h.tick();
+      assert.match(
+        h.progressElapsed(),
+        /约剩 00:(21|22)/,
+        '旧任务晚到的 5s 估值不能改写新任务的剩余时间',
+      );
+
+      releaseGenerateB({ success: true, created: true, projectName: '默认项目' });
+      await second;
+    } finally {
+      Eta.expectedMs = realExpectedMs;
+    }
+  });
+
   it('升级后还没有新样本时，用诊断记录里的成功耗时兜底', async () => {
     let release;
     const gate = new Promise((resolve) => { release = resolve; });
