@@ -72,15 +72,33 @@ async function resolveAgentSuggestionPromptSkillId(rawId) {
  * 只记出结果的路径：生成失败、未登录、落贴失败往往 0.x 秒早退，
  * 进入样本会把预估值拉低到不可用。记录失败不影响生成结果。
  */
-async function recordAgentSuggestionDuration(elapsedMs) {
+async function recordAgentSuggestionDuration(elapsedMs, context) {
   const Eta = typeof AgentSuggestionsEta !== 'undefined' ? AgentSuggestionsEta : null;
   if (!Eta || typeof Eta.record !== 'function') return false;
   try {
     // await 落盘再返回：SW 在回包后可能被回收，不能把写入留给后台悬空 promise。
-    return await Eta.record(elapsedMs);
+    return await Eta.record(elapsedMs, context);
   } catch (_e) {
     return false; // 体验数据，不影响生成
   }
+}
+
+/**
+ * 本次生成的 ETA 分桶上下文：host + 采集字符数（OPT-20261107-006）。
+ * 两者都取不到时返回 undefined，ETA 模块回退全局样本。
+ */
+function agentSuggestionEtaContext(tab, result) {
+  let host = '';
+  try {
+    host = new URL(String(tab?.url || '')).host;
+  } catch (_e) {
+    host = '';
+  }
+  const chars = Number(result?.pageChars);
+  const ctx = {};
+  if (host) ctx.host = host;
+  if (Number.isFinite(chars) && chars > 0) ctx.chars = chars;
+  return (ctx.host || ctx.chars) ? ctx : undefined;
 }
 
 /** 落贴租户：页面上下文给了（站点上选过工作空间）就用它，否则按列表同源的口径解析。 */
@@ -236,7 +254,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
     const traceId = String(result.traceId || '').trim();
     reporter.report({ stage: 'done', percent: 100 });
     const elapsedMs = Date.now() - progressStartedAt;
-    await recordAgentSuggestionDuration(elapsedMs);
+    await recordAgentSuggestionDuration(elapsedMs, agentSuggestionEtaContext(tab, result));
     const diagResult = anonymousPostId ? 'success' : (postError ? 'post_failed' : 'no_post');
     if (postError) {
       console.warn('[taskChromePlugin] agent_suggestion_post_failed', {
@@ -369,7 +387,7 @@ async function handleGenerateAgentSuggestionsForActiveTab(message) {
 
   const postId = String(data?.suggestion_id || data?.suggestionId || '').trim();
   const postedElapsedMs = Date.now() - progressStartedAt;
-  await recordAgentSuggestionDuration(postedElapsedMs);
+  await recordAgentSuggestionDuration(postedElapsedMs, agentSuggestionEtaContext(tab, result));
   console.info('[taskChromePlugin] agent_suggestion_posted', {
     tenantId,
     postId,

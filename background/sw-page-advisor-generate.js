@@ -201,6 +201,10 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   if (result && typeof result === 'object') {
     if (!result.route) result.route = trialMode ? 'trial' : 'saas';
     if (result.promptSkillId === undefined) result.promptSkillId = usedPromptSkillId;
+    // ETA 分层用的页面规模（OPT-20261107-006）；只回传字符数，不回传正文。
+    if (result.pageChars === undefined) {
+      result.pageChars = String(page.pageText || '').length;
+    }
   }
   return result;
 }

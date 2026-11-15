@@ -251,7 +251,29 @@
   }
 
   /**
+   * 当前标签页的 ETA 分桶上下文：宿主站点。取不到时返回 undefined，
+   * ETA 模块自动回退全局样本（OPT-20261107-006）。
+   */
+  function currentTabEtaContext() {
+    try {
+      const tabsApi = typeof chrome !== 'undefined' && chrome && chrome.tabs;
+      if (!tabsApi || typeof tabsApi.query !== 'function') return Promise.resolve(undefined);
+      return Promise.resolve(tabsApi.query({ active: true, currentWindow: true }))
+        .then((tabs) => {
+          const url = tabs && tabs[0] && tabs[0].url;
+          if (!url) return undefined;
+          const host = new URL(String(url)).host;
+          return host ? { host } : undefined;
+        })
+        .catch(() => undefined);
+    } catch (_e) {
+      return Promise.resolve(undefined);
+    }
+  }
+
+  /**
    * 异步取最近成功生成的实际耗时中位数，作为本次「总时长」估计。
+   * 同一站点有分桶样本时优先用分桶，否则回退全局。
    * ETA 模块在无新样本时会从诊断环形记录里挑历史成功耗时兜底。
    * 只认本次 run 的结果：上一次生成晚到的 promise 不能覆盖新一次。
    * 没有样本或存储失败时保持 0，由进度模型回退 60s 基线。
@@ -263,7 +285,7 @@
     const runId = progressRunId;
     let pending;
     try {
-      pending = Eta.expectedMs();
+      pending = currentTabEtaContext().then((ctx) => Eta.expectedMs(ctx));
     } catch (_e) {
       return;
     }

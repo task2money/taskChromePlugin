@@ -131,4 +131,108 @@ describe('agent-suggestions-eta 估时模型', () => {
     assert.equal(await Eta.expectedMs(), 60000);
     assert.equal(await Eta.record(21000), false);
   });
+
+  it('host 与页面规模分桶规范化', () => {
+    assert.equal(Eta.normalizeHost('https://www.Example.com/a?b=1'), 'example.com');
+    assert.equal(Eta.normalizeHost('EXAMPLE.com:8080'), 'example.com');
+    assert.equal(Eta.normalizeHost(''), '');
+    assert.equal(Eta.normalizeHost('not a host'), '', '非 host 字符不进分桶键');
+    assert.equal(Eta.sizeBucket(1999), 's');
+    assert.equal(Eta.sizeBucket(2000), 'm');
+    assert.equal(Eta.sizeBucket(9999), 'm');
+    assert.equal(Eta.sizeBucket(10000), 'l');
+    assert.equal(Eta.sizeBucket(0), '');
+    assert.equal(Eta.sizeBucket('nope'), '');
+  });
+
+  it('record 带 host/chars 时同时写全局与分桶样本', async () => {
+    const storage = createStorage();
+    globalThis.Storage = storage;
+    assert.equal(await Eta.record(12000, { host: 'https://light.example/x', chars: 1500 }), true);
+    assert.deepEqual(storage.data[Eta.STORAGE_KEY], [12000], '全局样本仍是纯数值数组');
+    const saved = storage.data[Eta.BUCKETS_KEY];
+    assert.deepEqual(saved.buckets['h:light.example'], [12000]);
+    assert.deepEqual(saved.buckets['s:s'], [12000]);
+    assert.deepEqual(saved.buckets['hs:light.example|s'], [12000]);
+  });
+
+  it('同站点分桶优先于全局，不同站点互不影响', async () => {
+    globalThis.Storage = createStorage({
+      [Eta.STORAGE_KEY]: [30000],
+      [Eta.BUCKETS_KEY]: {
+        order: ['h:light.example', 'h:heavy.example'],
+        buckets: {
+          'h:light.example': [12000],
+          'h:heavy.example': [90000],
+        },
+      },
+    });
+    assert.equal(await Eta.expectedMs({ host: 'www.light.example' }), 12000);
+    assert.equal(await Eta.expectedMs({ host: 'https://heavy.example/p' }), 90000);
+    assert.equal(await Eta.expectedMs(), 30000, '无上下文回退全局');
+    assert.equal(await Eta.expectedMs({ host: 'unknown.example' }), 30000);
+  });
+
+  it('无 host 时按字符分桶估算', async () => {
+    globalThis.Storage = createStorage({
+      [Eta.STORAGE_KEY]: [30000],
+      [Eta.BUCKETS_KEY]: {
+        order: ['s:l'],
+        buckets: { 's:l': [100000] },
+      },
+    });
+    assert.equal(await Eta.expectedMs({ chars: 12000 }), 100000);
+    assert.equal(await Eta.expectedMs({ chars: 500 }), 30000, '该规模无样本回退全局');
+  });
+
+  it('host+size 组合桶比单维度更优先', async () => {
+    globalThis.Storage = createStorage({
+      [Eta.STORAGE_KEY]: [30000],
+      [Eta.BUCKETS_KEY]: {
+        order: ['h:site.example', 's:m', 'hs:site.example|m'],
+        buckets: {
+          'h:site.example': [20000],
+          's:m': [40000],
+          'hs:site.example|m': [70000],
+        },
+      },
+    });
+    assert.equal(await Eta.expectedMs({ host: 'site.example', chars: 5000 }), 70000);
+    assert.equal(await Eta.expectedMs({ host: 'site.example' }), 20000);
+    assert.equal(await Eta.expectedMs({ chars: 5000 }), 40000);
+  });
+
+  it('分桶键数有上限，按写入顺序淘汰最旧桶', async () => {
+    const storage = createStorage();
+    globalThis.Storage = storage;
+    for (let i = 0; i < Eta.MAX_BUCKETS + 6; i += 1) {
+      assert.equal(await Eta.record(10000 + i, { host: `s${i}.example` }), true);
+    }
+    const saved = storage.data[Eta.BUCKETS_KEY];
+    assert.equal(saved.order.length, Eta.MAX_BUCKETS);
+    assert.equal(Object.keys(saved.buckets).length, Eta.MAX_BUCKETS);
+    assert.equal(saved.buckets['h:s0.example'], undefined, '最旧 host 桶被淘汰');
+    assert.equal(saved.order[0], 'h:s6.example');
+  });
+
+  it('单桶样本只保留最近 MAX_BUCKET_SAMPLES 条', async () => {
+    const storage = createStorage();
+    globalThis.Storage = storage;
+    for (let i = 0; i < Eta.MAX_BUCKET_SAMPLES + 3; i += 1) {
+      await Eta.record(10000 + i * 1000, { host: 'same.example' });
+    }
+    const saved = storage.data[Eta.BUCKETS_KEY];
+    const samples = saved.buckets['h:same.example'];
+    assert.equal(samples.length, Eta.MAX_BUCKET_SAMPLES);
+    assert.equal(samples[samples.length - 1], 10000 + (Eta.MAX_BUCKET_SAMPLES + 2) * 1000);
+  });
+
+  it('旧版本纯数值数组样本仍可读，不带 context 的 record 不写分桶键', async () => {
+    const storage = createStorage({ [Eta.STORAGE_KEY]: [18000, 20000] });
+    globalThis.Storage = storage;
+    assert.equal(await Eta.expectedMs(), 19000);
+    assert.equal(await Eta.record(22000), true);
+    assert.deepEqual(storage.data[Eta.STORAGE_KEY], [18000, 20000, 22000]);
+    assert.equal(storage.data[Eta.BUCKETS_KEY], undefined);
+  });
 });
