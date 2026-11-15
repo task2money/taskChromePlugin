@@ -84,8 +84,9 @@ async function recordAgentSuggestionDuration(elapsedMs, context) {
 }
 
 /**
- * 本次生成的 ETA 分桶上下文：host + 采集字符数（OPT-20261107-006）。
- * 两者都取不到时返回 undefined，ETA 模块回退全局样本。
+ * 本次生成的 ETA 上下文：host + 采集字符数（OPT-20261107-006）+
+ * 各阶段实际耗时（OPT-20261107-007）。都取不到时返回 undefined，
+ * ETA 模块回退全局样本。
  */
 function agentSuggestionEtaContext(tab, result) {
   let host = '';
@@ -98,7 +99,9 @@ function agentSuggestionEtaContext(tab, result) {
   const ctx = {};
   if (host) ctx.host = host;
   if (Number.isFinite(chars) && chars > 0) ctx.chars = chars;
-  return (ctx.host || ctx.chars) ? ctx : undefined;
+  const stages = result?.stageTimings;
+  if (stages && typeof stages === 'object' && Object.keys(stages).length) ctx.stages = stages;
+  return (ctx.host || ctx.chars || ctx.stages) ? ctx : undefined;
 }
 
 /** 落贴租户：页面上下文给了（站点上选过工作空间）就用它，否则按列表同源的口径解析。 */

@@ -234,5 +234,89 @@ describe('agent-suggestions-eta 估时模型', () => {
     assert.equal(await Eta.record(22000), true);
     assert.deepEqual(storage.data[Eta.STORAGE_KEY], [18000, 20000, 22000]);
     assert.equal(storage.data[Eta.BUCKETS_KEY], undefined);
+    assert.equal(storage.data[Eta.STAGES_KEY], undefined);
+  });
+
+  it('record 带阶段耗时时写阶段样本，不写分桶键', async () => {
+    const storage = createStorage();
+    globalThis.Storage = storage;
+    assert.equal(await Eta.record(21000, { stages: { capture: 1200, generating: 18000 } }), true);
+    assert.deepEqual(storage.data[Eta.STORAGE_KEY], [21000]);
+    assert.deepEqual(storage.data[Eta.STAGES_KEY], { capture: [1200], generating: [18000] });
+    assert.equal(storage.data[Eta.BUCKETS_KEY], undefined);
+  });
+
+  it('阶段样本逐阶段保留最近 MAX_STAGE_SAMPLES 条，非法值不落盘', async () => {
+    const storage = createStorage();
+    globalThis.Storage = storage;
+    for (let i = 0; i < Eta.MAX_STAGE_SAMPLES + 3; i += 1) {
+      await Eta.record(20000, { stages: { generating: 1000 + i * 100 } });
+    }
+    const saved = storage.data[Eta.STAGES_KEY];
+    assert.equal(saved.generating.length, Eta.MAX_STAGE_SAMPLES);
+    assert.equal(saved.generating[saved.generating.length - 1], 1000 + (Eta.MAX_STAGE_SAMPLES + 2) * 100);
+
+    const before = JSON.stringify(storage.data[Eta.STAGES_KEY]);
+    await Eta.record(20000, { stages: { capture: 0, submit: -5, queued: 'x', bogus: 900 } });
+    assert.equal(JSON.stringify(storage.data[Eta.STAGES_KEY]), before, '没有有效阶段时不覆盖旧样本');
+  });
+
+  it('loadStageMedians 只返回有样本阶段的中位数', async () => {
+    globalThis.Storage = createStorage({
+      [Eta.STAGES_KEY]: {
+        capture: [1000, 3000],
+        generating: [40000, 60000, 'x'],
+        posting: [],
+      },
+    });
+    assert.deepEqual(await Eta.loadStageMedians(), { capture: 2000, generating: 50000 });
+    globalThis.Storage = createStorage();
+    assert.deepEqual(await Eta.loadStageMedians(), {});
+  });
+
+  it('stageRemainingMs 随阶段推进单调不增，阶段切换时连续', () => {
+    const medians = {
+      capture: 2000,
+      submit: 3000,
+      queued: 5000,
+      generating: 40000,
+      posting: 4000,
+    };
+    const steps = [
+      ['capture', 0], ['capture', 1000], ['capture', 5000],
+      ['submit', 0], ['submit', 1500], ['submit', 3000],
+      ['queued', 0], ['queued', 5000],
+      ['generating', 0], ['generating', 20000], ['generating', 45000],
+      ['posting', 0], ['posting', 9000],
+    ];
+    const values = steps.map(([stage, stageElapsedMs]) => Eta.stageRemainingMs({
+      stage,
+      stageElapsedMs,
+      medians,
+    }));
+    for (let i = 1; i < values.length; i += 1) {
+      assert.ok(
+        values[i] <= values[i - 1],
+        `${steps[i][0]}+${steps[i][1]}ms 的剩余 ${values[i]} 不应大于上一步 ${values[i - 1]}`,
+      );
+    }
+    assert.equal(values[0], 54000, '采集起点 = 各阶段中位数之和');
+    assert.equal(values[2], 52000, '本阶段超出中位数后只剩后续阶段');
+    assert.equal(values[3], 52000, '切到下一阶段时与上一阶段收尾连续');
+    assert.equal(values[values.length - 1], 0, '落贴超出中位数即归零');
+  });
+
+  it('stageRemainingMs 无当前及后续阶段样本时返回 null，调用方回退总时长', () => {
+    assert.equal(Eta.stageRemainingMs({ stage: 'bogus', medians: { capture: 1000 } }), null);
+    assert.equal(Eta.stageRemainingMs({ stage: 'posting', medians: {} }), null);
+    assert.equal(
+      Eta.stageRemainingMs({ stage: 'generating', stageElapsedMs: 1000, medians: { capture: 5000 } }),
+      null,
+      '后续阶段没有样本时不瞎估',
+    );
+    assert.equal(
+      Eta.stageRemainingMs({ stage: 'generating', stageElapsedMs: 999999, medians: { generating: 1000 } }),
+      0,
+    );
   });
 });

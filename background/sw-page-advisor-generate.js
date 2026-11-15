@@ -133,7 +133,17 @@ async function resolvePageAdvisorPromptSkillId(rawId) {
 async function generatePageAdvisorSuggestions(tabId, opts = {}) {
   const withSpan = typeof opts.withSpan === 'function' ? opts.withSpan : passthroughSpan;
   const onPhase = typeof opts.onPhase === 'function' ? opts.onPhase : () => {};
-  const report = progressReporter(opts);
+  const notifyProgress = progressReporter(opts);
+  // OPT-20261107-007：记录各阶段首次进入时间，成功后折算成阶段耗时样本。
+  const Progress = typeof AgentSuggestionsProgress !== 'undefined' ? AgentSuggestionsProgress : null;
+  const newTimeline = Progress && typeof Progress.createStageTimeline === 'function'
+    ? () => Progress.createStageTimeline()
+    : null;
+  let timeline = newTimeline ? newTimeline() : null;
+  const report = (stage, percent, extra) => {
+    if (timeline) timeline.observe(stage);
+    notifyProgress(stage, percent, extra);
+  };
 
   const cfg = await Storage.getApiConfig();
   const mapping = await Storage.getEndpointMapping();
@@ -184,8 +194,14 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     return generateViaPlatform({ tabId, cfg, data, page, locale, opts, withSpan, onPhase, promptSkillId, report });
   };
 
+  // 回退重试时重置时间线：两次尝试的耗时不能混成一条阶段样本。
+  const runAttempt = async (promptSkillId) => {
+    if (newTimeline) timeline = newTimeline();
+    return runOnce(promptSkillId);
+  };
+
   let usedPromptSkillId = selectedPromptId;
-  let result = await runOnce(selectedPromptId);
+  let result = await runAttempt(selectedPromptId);
   // 服务端不认这个提示词（目录被删/跨空间选错）时回退服务端默认提示词，只重试一次。
   // 没有发过 id 时重试也不会改变结果，故不重试。
   if (!result.ok && result.errorCode === 'invalid_prompt_skill' && selectedPromptId) {
@@ -193,7 +209,7 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
       promptSkillId: selectedPromptId,
       tabId,
     });
-    result = await runOnce('');
+    result = await runAttempt('');
     usedPromptSkillId = '';
     if (result && typeof result === 'object') result.promptFallback = true;
   }
@@ -204,6 +220,11 @@ async function generatePageAdvisorSuggestions(tabId, opts = {}) {
     // ETA 分层用的页面规模（OPT-20261107-006）；只回传字符数，不回传正文。
     if (result.pageChars === undefined) {
       result.pageChars = String(page.pageText || '').length;
+    }
+    // 各阶段实际耗时（OPT-20261107-007）：只回传毫秒数，供 ETA 记录阶段样本。
+    if (result.ok && timeline) {
+      const stageTimings = timeline.durations(Date.now());
+      if (stageTimings && Object.keys(stageTimings).length) result.stageTimings = stageTimings;
     }
   }
   return result;

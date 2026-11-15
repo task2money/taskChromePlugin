@@ -76,6 +76,7 @@ function loadStack(extra = {}) {
     'lib/page-advisor-fail-trace-id.js',
     'lib/page-advisor-anon-posts.js',
     'lib/page-advisor-timing.js',
+    'lib/agent-suggestions-progress.js',
     'background/sw-page-advisor-timing-run.js',
     'background/sw-page-advisor-generate.js',
     'background/sw-page-advisor-page-trial.js',
@@ -115,6 +116,27 @@ describe('generatePageAdvisorSuggestions 匿名试用路由', () => {
     assert.equal(body.page_text, '页面正文');
     assert.equal(body.dom_outline.length, 1);
     assert.equal(body.locale, 'zh-CN');
+  });
+
+  it('成功返回时带各阶段实际耗时，供下次运行校准估时', async () => {
+    const { sandbox } = loadStack({
+      trialAPI: {
+        suggest: async () => {
+          await new Promise((resolve) => setTimeout(resolve, 20));
+          return { trial_id: 'pt-2', suggestions: [{ title: 'a' }], trace_id: 't' };
+        },
+      },
+    });
+
+    const result = await sandbox.generatePageAdvisorSuggestions(7, {});
+
+    assert.equal(result.ok, true);
+    assert.ok(result.stageTimings && result.stageTimings.generating >= 10,
+      '生成阶段耗时来自实际时钟，不是写死的占比');
+    for (const stage of Object.keys(result.stageTimings)) {
+      assert.ok(sandbox.AgentSuggestionsProgress.STAGE_SEQUENCE.includes(stage), `未知阶段 ${stage}`);
+      assert.ok(result.stageTimings[stage] > 0, `${stage} 阶段耗时必须为正`);
+    }
   });
 
   it('额度用尽：按错误码给本地化文案，保留额度快照与 traceId', async () => {

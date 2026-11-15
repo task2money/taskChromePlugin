@@ -136,6 +136,7 @@ function buildHarness({
   },
   etaSamples = [],
   etaDiagnostics = [],
+  etaStageSamples = null,
 } = {}) {
   const els = {};
   const document = {
@@ -269,6 +270,9 @@ function buildHarness({
   }
   if (Array.isArray(etaDiagnostics) && etaDiagnostics.length) {
     store[context.AgentSuggestionsEta.DIAGNOSTICS_KEY] = etaDiagnostics.slice();
+  }
+  if (etaStageSamples && typeof etaStageSamples === 'object') {
+    store[context.AgentSuggestionsEta.STAGES_KEY] = JSON.parse(JSON.stringify(etaStageSamples));
   }
   // 列表渲染与选中逻辑走真实实现：恢复进度后要能选中刷新出来的新帖。
   vm.runInContext(
@@ -590,6 +594,47 @@ describe('侧栏生成按钮与试用回归', () => {
       );
     } finally {
       // 断言失败也要释放生成，避免进度心跳把测试进程挂住。
+      release({ success: true, created: true, projectName: '默认项目' });
+      await pending;
+    }
+    assert.doesNotMatch(h.progressElapsed(), /约剩|即将完成/, '终态不再显示倒计时');
+  });
+
+  it('生成中按阶段实际用时校准剩余；切换到下一阶段时与上一阶段收尾连续', async () => {
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    const h = buildHarness({
+      generateResponse: gate,
+      etaStageSamples: {
+        capture: [1000, 1000],
+        submit: [2000, 2000],
+        queued: [3000, 3000],
+        generating: [40000, 40000],
+        posting: [4000, 4000],
+      },
+    });
+    await h.refresh();
+
+    const pending = h.clickGenerate();
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      assert.match(
+        h.progressElapsed(),
+        /^已用 00:0[01] · 约剩 00:(49|50)$/,
+        '采集起点 = 各阶段中位数之和 50s',
+      );
+      const gen = h.sent.filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab').pop();
+      h.emitRuntimeMessage({
+        action: 'agentSuggestionsProgress',
+        runId: gen.progressRunId,
+        progress: { stage: 'generating', percent: 60 },
+      });
+      assert.match(
+        h.progressElapsed(),
+        /^已用 00:0[01] · 约剩 00:(43|44)$/,
+        '进入生成阶段后只剩「生成 + 落贴」中位数 44s，不再沿用启动时的 50s',
+      );
+    } finally {
       release({ success: true, created: true, projectName: '默认项目' });
       await pending;
     }

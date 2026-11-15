@@ -41,6 +41,10 @@
   var progressStartedAt = 0;
   // 本次「总时长」估计：由最近成功生成的实际耗时算出；0 = 回退 60s 基线。
   var progressExpectedMs = 0;
+  // 阶段校准（OPT-20261107-007）：当前阶段开始时间与历史阶段中位数。
+  // 续显时拿不到阶段开始时间（0），只用总时长估计，不硬编一个阶段耗时。
+  var progressStageStartedAt = 0;
+  var progressStageMedians = null;
   var progressEtaSeq = 0;
   var progressResumed = false;
   var progressTerminalHandled = false;
@@ -272,7 +276,8 @@
   }
 
   /**
-   * 异步取最近成功生成的实际耗时中位数，作为本次「总时长」估计。
+   * 异步取最近成功生成的实际耗时中位数，作为本次「总时长」估计；
+   * 同时取各阶段耗时中位数，运行中按当前阶段实际用时校准剩余（OPT-20261107-007）。
    * 同一站点有分桶样本时优先用分桶，否则回退全局。
    * ETA 模块在无新样本时会从诊断环形记录里挑历史成功耗时兜底。
    * 只认本次 run 的结果：上一次生成晚到的 promise 不能覆盖新一次。
@@ -285,22 +290,28 @@
     const runId = progressRunId;
     let pending;
     try {
-      pending = currentTabEtaContext().then((ctx) => Eta.expectedMs(ctx));
+      pending = Promise.all([
+        currentTabEtaContext().then((ctx) => Eta.expectedMs(ctx)),
+        typeof Eta.loadStageMedians === 'function' ? Eta.loadStageMedians() : Promise.resolve(null),
+      ]);
     } catch (_e) {
       return;
     }
-    Promise.resolve(pending).then((ms) => {
+    Promise.resolve(pending).then(([ms, medians]) => {
       const value = Number(ms);
       if (seq !== progressEtaSeq || !progressRunId || progressRunId !== runId) return;
-      if (!(value > 0)) return;
-      progressExpectedMs = value;
+      if (medians && typeof medians === 'object') {
+        progressStageMedians = Object.keys(medians).length ? medians : null;
+      }
+      if (value > 0) progressExpectedMs = value;
       renderProgress();
     }).catch(() => { /* 估时只影响提示文案，失败沿用基线 */ });
   }
 
   /**
    * 已耗时常驻；未终态时补一个剩余时长，超时改「即将完成」。
-   * 剩余 = 历史实际耗时中位数（无样本回退 60s）- 已耗时；
+   * 优先用阶段校准：当前阶段剩余中位数 + 后续阶段中位数；没有阶段样本时
+   * 回退「历史总耗时中位数（无样本 60s）- 已耗时」。
    * 只是体验提示，不参与进度百分比，也不假装服务端给出了真实剩余时间。
    */
   function progressTimingLabel() {
@@ -311,9 +322,21 @@
     const P = global.AgentSuggestionsProgress;
     const terminal = P ? P.isTerminal(progressStage) : false;
     if (terminal) return text;
-    const remaining = P && typeof P.remainingMs === 'function'
-      ? P.remainingMs(elapsed, progressExpectedMs)
-      : Math.max(0, (progressExpectedMs > 0 ? progressExpectedMs : 60000) - elapsed);
+    const Eta = global.AgentSuggestionsEta;
+    let remaining = null;
+    if (Eta && typeof Eta.stageRemainingMs === 'function'
+      && progressStageMedians && progressStageStartedAt > 0) {
+      remaining = Eta.stageRemainingMs({
+        stage: progressStage,
+        stageElapsedMs: Date.now() - progressStageStartedAt,
+        medians: progressStageMedians,
+      });
+    }
+    if (remaining === null) {
+      remaining = P && typeof P.remainingMs === 'function'
+        ? P.remainingMs(elapsed, progressExpectedMs)
+        : Math.max(0, (progressExpectedMs > 0 ? progressExpectedMs : 60000) - elapsed);
+    }
     text += ' · ' + (remaining > 0
       ? tx('agentSuggestionsProgressEta', { time: formatProgressDuration(remaining) })
       : tx('agentSuggestionsProgressAlmost'));
@@ -378,7 +401,9 @@
     progressStage = 'capture';
     progressPercent = Progress ? Progress.stagePercent('capture') : 8;
     progressStartedAt = Date.now();
+    progressStageStartedAt = progressStartedAt;
     progressExpectedMs = 0;
+    progressStageMedians = null;
     progressResumed = false;
     progressTerminalHandled = false;
     renderProgress();
@@ -420,7 +445,10 @@
     progressPercent = P ? P.percentForEvent({ stage: progressStage, percent: snapshot.percent }) : 0;
     const started = Number(snapshot.startedAt);
     progressStartedAt = started > 0 && started <= Date.now() ? started : Date.now();
+    // 续显不知道当前阶段何时开始，阶段校准不可用，只用总时长估计。
+    progressStageStartedAt = 0;
     progressExpectedMs = 0;
+    progressStageMedians = null;
     progressResumed = true;
     progressTerminalHandled = false;
     holdGenerateButtonForResume();
@@ -462,7 +490,12 @@
     if (!id || id !== progressRunId || !event) return;
     const P = global.AgentSuggestionsProgress;
     const stage = P ? P.normalizeStage(event.stage) : String(event.stage || '');
-    if (stage && stage !== 'idle') progressStage = stage;
+    if (stage && stage !== 'idle') {
+      // 阶段切换时记下起点，剩余时间按「本阶段已用时」校准（OPT-20261107-007）。
+      const changed = stage !== progressStage;
+      if (changed && !(P ? P.isTerminal(stage) : false)) progressStageStartedAt = Date.now();
+      progressStage = stage;
+    }
     const pct = P ? P.percentForEvent(event) : Number(event.percent);
     if (Number.isFinite(pct)) {
       progressPercent = Math.max(progressPercent, Math.min(100, Math.round(pct)));
@@ -498,7 +531,9 @@
     progressStage = '';
     progressPercent = 0;
     progressStartedAt = 0;
+    progressStageStartedAt = 0;
     progressExpectedMs = 0;
+    progressStageMedians = null;
     progressResumed = false;
     progressTerminalHandled = false;
     if (wasResumed) releaseGenerateButtonAfterResume();

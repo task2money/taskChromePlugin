@@ -82,4 +82,33 @@ describe('agent-suggestions-progress 阶段模型', () => {
     assert.equal(Progress.remainingMs(-5), 60000, '异常耗时按 0 处理');
     assert.equal(Progress.remainingMs(10000, 60000), 50000, '可自定义预估');
   });
+
+  it('阶段时间线：按首次进入时间折算各阶段耗时，缺失阶段不补 0', () => {
+    const timeline = Progress.createStageTimeline(() => 999999);
+    timeline.observe('capture', 1000);
+    timeline.observe('capture', 1500, '同一阶段重复上报只认第一次');
+    timeline.observe('submit', 3000);
+    // 平台 job 建好即 running：没有 queued，时间线里也不应出现这个阶段。
+    timeline.observe('generating', 8000);
+    timeline.observe('posting', 60000);
+    timeline.observe('done', 70000);
+    timeline.observe('bogus', 71000);
+    assert.deepEqual(timeline.durations(62000), {
+      capture: 2000,
+      submit: 5000,
+      generating: 52000,
+      posting: 2000,
+    });
+  });
+
+  it('阶段时间线：注入时钟兜底，未观察阶段返回空对象', () => {
+    let now = 5000;
+    const timeline = Progress.createStageTimeline(() => now);
+    assert.deepEqual(timeline.durations(), {});
+    timeline.observe('capture');
+    now = 9000;
+    assert.deepEqual(timeline.durations(), { capture: 4000 }, '没给时间点就用时钟');
+    timeline.observe('submit', -1);
+    assert.deepEqual(timeline.durations(12000), { capture: 4000, submit: 3000 });
+  });
 });

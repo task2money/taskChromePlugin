@@ -663,6 +663,28 @@ describe('sw-agent-suggestions 匿名每日试用', () => {
     assert.ok(Number(recorded[0]) >= 0, '记录整次耗时（毫秒）');
   });
 
+  it('成功收尾把本次阶段耗时带进 ETA 上下文', async () => {
+    const recorded = [];
+    const { sandbox } = loadGenerateStack({
+      AgentSuggestionsEta: {
+        record: async (ms, ctx) => { recorded.push({ ms, ctx }); return true; },
+      },
+      generatePageAdvisorSuggestions: async () => ({
+        ok: true,
+        pageUrl: 'https://shop.test/p',
+        pageTitle: '商品页',
+        suggestions: [{ title: '改标题' }],
+        stageTimings: { capture: 900, generating: 18000 },
+      }),
+    });
+    const resp = await sandbox.handleGenerateAgentSuggestionsForActiveTab({});
+
+    assert.equal(resp.success, true);
+    assert.equal(recorded.length, 1);
+    assert.deepEqual(recorded[0].ctx.stages, { capture: 900, generating: 18000 });
+    assert.equal(recorded[0].ctx.host, 'shop.test', '站点分桶照常带上');
+  });
+
   it('匿名试用成功也记录耗时', async () => {
     const recorded = [];
     const { sandbox } = loadGenerateStack({
