@@ -261,6 +261,9 @@ describe('PageAdvisorSitePending 匿名帖（v233）', () => {
     assert.match(html, /taskplugin-page-advisor-site-report/);
     assert.match(html, /data-post-id="a1"/);
     assert.match(html, /查看报告/);
+    // 报告页只承载标题与结论摘要：按钮 title 先说清范围，避免用户把「缺逐条建议」
+    // 当成故障（OPT-20261107-009）。
+    assert.match(html, /title="打开报告页（仅标题与结论摘要，不含逐条建议）"/);
     // 令牌只在后台存储里：按钮只带帖 id，由后台拼报告地址并开标签页。
     assert.doesNotMatch(html, /tok-secret/);
     assert.doesNotMatch(html, /view_token/);
