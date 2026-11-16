@@ -212,6 +212,30 @@ describe('page-advisor-delivery', () => {
     }
   });
 
+  it('抬头排在批次横幅之前：每一批都从 AI 标识行开始（OPT-20261113-004）', () => {
+    const notice = 'AI 生成 — 以下优化建议由人工智能生成，仅供参考，请核实后再实施。';
+    const pad = '可见文本锚点'.repeat(400);
+    const part = (name) => [
+      `- **元素**: \`${name}\``,
+      `- **选择器**: \`main > ${name}\``,
+      `- **可见文本**: "${pad}"`,
+      `- **调整期望**: ${name}：改一下`,
+    ].join('\n');
+    const block = [
+      notice,
+      '## 页面优化建议（Alt+Z）',
+      '锚点全部相对于生成建议时的页面。',
+      part('对比度'),
+      part('文案'),
+    ].join('\n');
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', block, 'https://example.test/notice');
+    assert.ok(batches.length > 1, `expected split, got ${batches.length}`);
+    for (const body of batches) {
+      assert.ok(body.startsWith(notice + '\n'), body.slice(0, 60));
+      assert.ok(body.indexOf('本批可单独应用') > body.indexOf(notice));
+    }
+  });
+
   it('同目标跨批时，本批不再要求改完只出现在其它批的建议', () => {
     const pad = '可见文本锚点'.repeat(180);
     const contrast = [

@@ -28,10 +28,28 @@ describe('page-advisor-fill', () => {
       orderSelectedSuggestions(SUGGESTIONS, ['s1', 's2']),
       'https://ex.com',
     );
-    assert.match(block, /^## 页面优化建议（Alt\+Z）/);
+    assert.match(block, /^AI 生成 — 以下优化建议由人工智能生成，仅供参考，请核实后再实施。\n## 页面优化建议（Alt\+Z）/);
     assert.match(block, /- \*\*调整期望\*\*: 对比度：提高按钮对比度/);
     assert.match(block, /- \*\*调整期望\*\*: 加载：减少首屏 JS/);
     assert.match(block, /来源页: https:\/\/ex\.com/);
+  });
+
+  it('转发到 IDE 分批时每一批首行都带 AI 显式标识（OPT-20261113-004）', () => {
+    const Delivery = require('../lib/page-advisor-delivery.js');
+    const { PA_FILL_AIGC_NOTICE } = require('../lib/page-advisor-fill.js');
+    const pad = '可见文本锚点'.repeat(400);
+    const block = formatSuggestionsBlock([
+      {
+        id: 'long', title: '对比度', detail: '加深按钮文字与背景的对比', css_path: 'main > button',
+        visible_text: pad, target_nid: 'n1',
+      },
+    ], 'https://ex.com/long');
+    assert.ok(block.startsWith(PA_FILL_AIGC_NOTICE + '\n'), block.slice(0, 60));
+    const batches = Delivery.buildIdeDeeplinkBatches('cursor', block, 'https://ex.com/long');
+    assert.ok(batches.length > 1, `expected split, got ${batches.length}`);
+    for (const body of batches) {
+      assert.ok(body.startsWith(PA_FILL_AIGC_NOTICE + '\n'), body.slice(0, 60));
+    }
   });
 
   it('内容前缀加在追加块最前，不盖住已有描述', () => {
@@ -43,7 +61,7 @@ describe('page-advisor-fill', () => {
       'https://ex.com/p',
       '请用中文',
     );
-    assert.ok(next.startsWith('已有描述\n\n请用中文\n## 页面优化建议（Alt+Z）'));
+    assert.ok(next.startsWith('已有描述\n\n请用中文\nAI 生成 — 以下优化建议由人工智能生成，仅供参考，请核实后再实施。\n## 页面优化建议（Alt+Z）'));
     assert.match(next, /- \*\*调整期望\*\*: 加载：减少首屏 JS/);
   });
 
@@ -54,7 +72,7 @@ describe('page-advisor-fill', () => {
       ['s2'],
       'https://ex.com/p',
     );
-    assert.ok(next.startsWith('已有描述\n\n## 页面优化建议（Alt+Z）'));
+    assert.ok(next.startsWith('已有描述\n\nAI 生成 — 以下优化建议由人工智能生成，仅供参考，请核实后再实施。\n## 页面优化建议（Alt+Z）'));
     assert.match(next, /- \*\*调整期望\*\*: 加载：减少首屏 JS/);
   });
 

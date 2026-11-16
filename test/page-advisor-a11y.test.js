@@ -48,7 +48,7 @@ describe("PageAdvisorA11y.copy", () => {
       ["1"],
       "https://example.com",
     );
-    assert.match(next, /^已有内容\n\n## 页面优化建议/);
+    assert.match(next, /^已有内容\n\nAI 生成 — [^\n]+\n## 页面优化建议/);
     assert.match(PageAdvisorA11y.fillAllTitle, /追加|保留已有/);
   });
 });
