@@ -42,7 +42,11 @@ async function confirmPageAdvisorFill(opts) {
     const prefix = typeof loadPageAdvisorContentPrefix === "function"
       ? await loadPageAdvisorContentPrefix()
       : "";
-    const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
+    let suggestions = pageAdvisorState.suggestions;
+    if (typeof FloatSourceLocate !== "undefined" && typeof FloatSourceLocate.enrichAdvisorSuggestions === "function") {
+      suggestions = await FloatSourceLocate.enrichAdvisorSuggestions(suggestions);
+    }
+    const ordered = Fill.orderSelectedSuggestions(suggestions, selectedIds);
     const rawBlock = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
     const block = typeof PageAdvisorDelivery !== "undefined" && PageAdvisorDelivery.prependContentPrefix
       ? PageAdvisorDelivery.prependContentPrefix(rawBlock, prefix)
@@ -54,7 +58,7 @@ async function confirmPageAdvisorFill(opts) {
       : (descInput ? descInput.value : "");
     const next = Fill.appendSuggestionsToDescription(
       current,
-      pageAdvisorState.suggestions,
+      suggestions,
       selectedIds,
       pageAdvisorState.pageUrl,
       prefix,

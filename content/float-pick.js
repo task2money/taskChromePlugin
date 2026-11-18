@@ -152,6 +152,7 @@ function finishPickWithElements(els, frameElement, closedShadow) {
     ? ElementPicker.snapshotElement(list[0], { frameElement, closedShadow })
     : ElementPicker.snapshotDisjointSelection(list, { frameElement, closedShadow })));
   pendingElementSnapshot._viewportRect = viewportRectForElements(list, frameElement);
+  if (typeof FloatSourceLocate !== 'undefined') pendingElementSnapshot._sourceEvidence = FloatSourceLocate.evidenceFor(list);
   clearPickSelection();
   setPickMode(false);
   openAdjustModal(pendingElementSnapshot);
@@ -270,6 +271,7 @@ function openAdjustModal(snapshot) {
   }
   adjustInput.value = ElementPicker.DEFAULT_ADJUST_PROMPT;
   if (adjustShot) adjustShot.checked = false;
+  if (typeof FloatSourceLocate !== 'undefined') FloatSourceLocate.onModalOpen(snapshot);
   adjustModal.hidden = false;
   if (!isOpen && panel && btn) {
     isOpen = true;
@@ -283,6 +285,7 @@ function openAdjustModal(snapshot) {
 function closeAdjustModal() {
   if (!adjustModal) return;
   adjustModal.hidden = true;
+  if (typeof FloatSourceLocate !== 'undefined') FloatSourceLocate.onModalClose(pendingElementSnapshot);
   pendingElementSnapshot = null;
   pendingFrameElement = null;
   pickSource = 'float';
@@ -362,13 +365,16 @@ async function confirmAdjustModal() {
       console.log('[taskChromePlugin] screenshot uploaded:', screenshotUrl);
     }
 
-    const { _viewportRect, ...element } = pendingElementSnapshot;
+    const { _viewportRect, _sourceEvidence, _sourceLocations, _sourceRunId, ...element } =
+      pendingElementSnapshot;
+    const includeSource = !!(adjustLocateInclude && adjustLocateInclude.checked);
     const payload = {
       pageUrl: window.location.href,
       pageTitle: document.title,
       element,
       adjustment,
       screenshotUrl: screenshotUrl || undefined,
+      sourceLocations: includeSource && Array.isArray(_sourceLocations) ? _sourceLocations : undefined,
     };
     const block = ElementPicker.formatElementAdjustmentBlock(payload);
 

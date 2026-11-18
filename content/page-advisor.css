@@ -240,6 +240,29 @@
   gap: 8px !important;
   justify-content: flex-end !important;
 }
+.taskplugin-page-advisor-source-toggle {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 0 4px !important;
+  font-size: 12px !important;
+  color: var(--taskplugin-muted-foreground) !important;
+  cursor: pointer !important;
+}
+.taskplugin-page-advisor-source-toggle input {
+  width: 14px !important;
+  height: 14px !important;
+  accent-color: var(--taskplugin-accent) !important;
+}
+.taskplugin-page-advisor-source-status {
+  display: none;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--taskplugin-muted-foreground);
+}
+.taskplugin-page-advisor-source-status.taskplugin-show {
+  display: block !important;
+}
 .taskplugin-page-advisor-fill-pair {
   display: inline-flex !important;
   align-items: center !important;

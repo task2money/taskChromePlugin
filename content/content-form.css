@@ -368,6 +368,47 @@ html.taskplugin-picking .taskplugin-el-highlight {
   accent-color: var(--taskplugin-accent) !important;
   cursor: pointer !important;
 }
+.taskplugin-source-locate {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin: 0 0 8px !important;
+  padding: 8px 10px !important;
+  border: 1px dashed var(--taskplugin-border) !important;
+  border-radius: 6px !important;
+  font-size: 11px !important;
+  color: var(--taskplugin-muted-foreground) !important;
+}
+.taskplugin-source-locate .taskplugin-btn {
+  flex: 0 0 auto !important;
+}
+.taskplugin-source-locate-status {
+  display: none;
+  flex: 1 1 100%;
+  min-width: 0;
+  word-break: break-all;
+}
+.taskplugin-source-locate-status.taskplugin-show {
+  display: block;
+}
+.taskplugin-source-locate-status-ok {
+  color: var(--taskplugin-accent) !important;
+}
+.taskplugin-source-locate-status-error {
+  color: var(--taskplugin-danger) !important;
+}
+.taskplugin-source-locate-include {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  cursor: pointer !important;
+}
+.taskplugin-source-locate-include input {
+  width: 14px !important;
+  height: 14px !important;
+  accent-color: var(--taskplugin-accent) !important;
+}
 .taskplugin-modal-actions {
   display: flex !important;
   gap: 8px !important;

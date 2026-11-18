@@ -34,7 +34,8 @@ The extension does **not** request `cookies`, `history`, `bookmarks`, `identity`
 - Workspace / project choices, shortcuts, forward target, content prefix, UI language, and other settings;
 - Suggestion cache (used to show earlier suggestions for the same URL offline);
 - Captured requests (up to 500) and task-creation history;
-- On-device-model registration cache and the extension fingerprint.
+- On-device-model registration cache and the extension fingerprint;
+- The "Locate source (local)" toggle state; locate results are not persisted and expire on reload.
 
 ### 2.2 Sent to the platform server you configure
 
@@ -43,13 +44,21 @@ The extension does **not** request `cookies`, `history`, `bookmarks`, `identity`
 - When using `Alt+Z` / `Alt+Shift+Z`: the current page's title, URL, visible text, DOM outline (truncated when too long), and the selected prompt id;
 - When "attach element screenshot" is checked: the cropped screenshot (uploaded temporarily; a link with an expiry is returned and written into the task description);
 - Anonymous trial when signed out: accounted server-side by install fingerprint, IP, and daily quota;
-- When using "Sell on-device model": device registration information and the outbound keepalive heartbeat.
+- When using "Sell on-device model": device registration information and the outbound keepalive heartbeat;
+- When "Include source location" is checked: only `source file:line` (no source body) is sent with the task description or IDE deeplink.
 
 ### 2.3 What the extension does not collect
 
 - No third-party analytics or ad SDKs are embedded, and no data is sold or shared with third parties;
 - Content is not sent to Cursor / Claude / Codex unless you click "Send to …" (that action opens the editor via the official deeplink with the prompt prefilled and requires your explicit trigger);
 - Page content unrelated to page optimization or task creation is not collected.
+
+### 2.4 Source locating (local)
+
+- Runs only when you click "Locate source" in the `Alt+X` dialog or enable the `Alt+Z` toolbar toggle;
+- Reads only the page's already-loaded public scripts / CSS and the source maps the page itself declares; requests omit cookies (`credentials: omit`) and reject loopback / private / link-local / cloud-metadata addresses;
+- Never reads form `value`s; source bodies are not uploaded, not written to extension storage, and not logged;
+- Only after you check "Include source location" is `source file:line` sent with the task description or IDE deeplink.
 
 ## 3. Retention
 

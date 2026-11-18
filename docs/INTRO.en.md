@@ -4,7 +4,7 @@
 >
 > 中文版：[产品介绍](./INTRO.md)
 >
-> This document describes the features of extension 1.9.12; your installed version's UI and capabilities may differ slightly.
+> This document describes the features of extension 1.11.0; your installed version's UI and capabilities may differ slightly.
 
 ## Understand it in 30 seconds
 
@@ -42,6 +42,7 @@ It does not make decisions for you and never changes live code behind your back 
 - **Multi-select unconnected elements**: hold `⌘/Ctrl` and click to add (click again to remove), press `Enter` to confirm; `Esc` clears the multi-selection first, then exits on the next press.
 - Supports Shadow DOM and same-origin / cross-origin iframes; for native controls (video / audio, etc.) the browser does not allow reaching inside, so the extension selects the host element and notes it in the description.
 - Optional "attach element screenshot": captures the selected region and uploads it temporarily; the description gets an https link with an expiry. With a multi-selection, it captures the union bounding box of all picked elements.
+- **Locate source (local)**: click it in the dialog to read the page's public source maps and derive `file:line` locally; high/medium confidence results can be written into the task description or IDE deeplink. Logged-in resources are not read; source bodies are neither uploaded nor persisted.
 - After confirmation, the element identity, adjustment expectation, and page URL are appended to the task description automatically; you can also send this content to Cursor / Claude / Codex.
 
 ### 2. Page optimization suggestions: `Alt+Z` / `Alt+Shift+Z`

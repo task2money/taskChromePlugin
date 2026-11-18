@@ -182,3 +182,30 @@ describe("project radiogroup a11y", () => {
     assert.match(html, /aria-required="true"/);
   });
 });
+
+describe("source locate toolbar wiring", () => {
+  it("advisor toolbar exposes the local source-locate toggle and status", () => {
+    const a11y = read("lib/page-advisor-a11y.js");
+    assert.match(a11y, /id="taskplugin-page-advisor-source-locate"/);
+    assert.match(a11y, /paSourceLocateToggle/);
+    assert.match(a11y, /paSourceLocateTitle/);
+    assert.match(a11y, /paSourceLocateRunning/);
+    assert.match(a11y, /id="taskplugin-page-advisor-source-status"/);
+  });
+
+  it("adjust modal exposes locate button, status and include checkbox", () => {
+    const markup = read("lib/float-panel-markup.js");
+    assert.match(markup, /id="taskplugin-adjust-locate"/);
+    assert.match(markup, /id="taskplugin-adjust-locate-status"/);
+    assert.match(markup, /id="taskplugin-adjust-locate-include"/);
+    assert.match(markup, /sourceLocateBtn/);
+  });
+
+  it("element picker freezes evidence and passes source locations into the block", () => {
+    const pick = read("content/float-pick.js");
+    assert.match(pick, /FloatSourceLocate\.evidenceFor\(list\)/);
+    assert.match(pick, /_sourceEvidence/);
+    assert.match(pick, /sourceLocations: includeSource/);
+    assert.match(pick, /FloatSourceLocate\.onModalClose/);
+  });
+});

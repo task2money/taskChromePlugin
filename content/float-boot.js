@@ -94,6 +94,9 @@ var adjustCancel = document.getElementById('taskplugin-adjust-cancel');
 var adjustConfirm = document.getElementById('taskplugin-adjust-confirm');
 var adjustError = document.getElementById('taskplugin-adjust-error');
 var adjustShot = document.getElementById('taskplugin-adjust-shot');
+var adjustLocateBtn = document.getElementById('taskplugin-adjust-locate');
+var adjustLocateStatus = document.getElementById('taskplugin-adjust-locate-status');
+var adjustLocateInclude = document.getElementById('taskplugin-adjust-locate-include');
 
 var isOpen = false;
 if (__taskpluginSideHost && panel) {

@@ -162,6 +162,10 @@ describe('source-map-locate confidence', () => {
       sourcePath: 'src/A.ts', sourceVerified: false,
     }).confidence, 'low');
     assert.equal(L.scoreCandidate({
+      evidenceKind: 'text', delta: 0, occurrences: 1,
+      sourcePath: 'src/A.ts', sourceVerified: null,
+    }).confidence, 'low');
+    assert.equal(L.scoreCandidate({
       evidenceKind: 'testid', delta: 1, occurrences: 1,
       sourcePath: 'src/A.vue', sourceVerified: true, genericId: true,
     }).confidence, 'medium');

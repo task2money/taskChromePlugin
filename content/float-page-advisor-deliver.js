@@ -194,7 +194,11 @@ async function deliverPageAdvisorSuggestions(opts) {
   if (!Fill || !selectedIds.length) {
     return { filled: false, createTaskCalled: false };
   }
-  const ordered = Fill.orderSelectedSuggestions(pageAdvisorState.suggestions, selectedIds);
+  let suggestions = pageAdvisorState.suggestions;
+  if (typeof FloatSourceLocate !== "undefined" && typeof FloatSourceLocate.enrichAdvisorSuggestions === "function") {
+    suggestions = await FloatSourceLocate.enrichAdvisorSuggestions(suggestions);
+  }
+  const ordered = Fill.orderSelectedSuggestions(suggestions, selectedIds);
   const block = Fill.formatSuggestionsBlock(ordered, pageAdvisorState.pageUrl);
   const outcome = await deliverPlainTextViaDeliveryTarget(block, pageAdvisorState.pageUrl);
   if (!outcome.delivered) {

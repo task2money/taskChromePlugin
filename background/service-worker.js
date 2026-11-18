@@ -107,6 +107,8 @@ importScripts(
   './sw-agent-suggestions.js',
   './sw-builtin-edge-tunnel.js',
   './sw-builtin-enable-watchdog.js',
+  './sw-source-locate-run.js',
+  './sw-source-locate.js',
 );
 
 

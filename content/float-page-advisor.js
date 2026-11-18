@@ -84,6 +84,9 @@ function ensurePageAdvisorLayer() {
   window.addEventListener("scroll", schedulePageAdvisorLayout, true);
   window.addEventListener("resize", schedulePageAdvisorLayout);
   if (typeof bindPageAdvisorToolbarDrag === "function") bindPageAdvisorToolbarDrag(document.getElementById("taskplugin-page-advisor-toolbar"));
+  if (typeof FloatSourceLocate !== "undefined" && typeof FloatSourceLocate.bindAdvisorToggle === "function") {
+    FloatSourceLocate.bindAdvisorToggle();
+  }
 
   return layer;
 }

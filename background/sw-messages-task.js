@@ -1,6 +1,13 @@
 /** Task / capture / account runtime messages (OPT-20260821-004 split). */
 async function handleMessageRest(message, sender) {
   switch (message.action) {
+    case 'sourceLocate':
+    case 'sourceLocateCancel':
+      if (typeof handleSourceLocateMessage !== 'function') {
+        return { ok: false, error: 'source locate not loaded' };
+      }
+      return handleSourceLocateMessage(message, sender);
+
     case 'persistPageAdvisorDeliveryTarget':
       // 侧栏关掉时页面里的 storage.set 可能被取消；SW 把同一次选择写完。
       return persistPageAdvisorDeliveryTarget(message);

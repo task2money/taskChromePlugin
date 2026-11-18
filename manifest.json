@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "天天赚钱: 自动创新助手",
-  "version": "1.10.0",
+  "version": "1.11.0",
   "description": "在云端自动增加功能，修改bug，指哪改哪",
   "default_locale": "zh_CN",
   "commands": {
@@ -80,6 +80,9 @@
         "lib/branch-datalist.js",
         "lib/create-task-payload.js",
         "lib/create-task-hardware-stock.js",
+        "lib/source-map-locate.js",
+        "lib/source-locate-evidence.js",
+        "lib/source-locate-format.js",
         "lib/element-picker.js",
         "lib/pick-additive-modifier.js",
         "lib/plugin-brand.js",
@@ -118,6 +121,8 @@
         "lib/is-auth-route.js",
         "lib/dialog-focus-trap.js",
         "content/float-boot.js",
+        "lib/source-locate-client.js",
+        "content/float-source-locate.js",
         "content/float-toolbar-pin-hint.js",
         "content/float-pick-highlight.js",
         "content/float-page-advisor-deliver.js",
