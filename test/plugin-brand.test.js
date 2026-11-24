@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * 用户可见插件名 SSOT：天天赚钱: 自动创新助手
+ * 用户可见插件名 SSOT：祝你天天赚钱: 自动创新助手
  * 内部目录/日志前缀仍为 taskChromePlugin。
  */
 
@@ -36,8 +36,8 @@ const USER_FACING = [
 const USER_FACING_SCAN = [...new Set([...USER_FACING, ...popupPageScriptsFromHtml()])];
 
 describe('PLUGIN_DISPLAY_NAME', () => {
-  it('SSOT 为「天天赚钱: 自动创新助手」', () => {
-    assert.equal(PLUGIN_DISPLAY_NAME, '天天赚钱: 自动创新助手');
+  it('SSOT 为「祝你天天赚钱: 自动创新助手」', () => {
+    assert.equal(PLUGIN_DISPLAY_NAME, '祝你天天赚钱: 自动创新助手');
   });
 
   it('manifest name / default_title 使用 SSOT', () => {

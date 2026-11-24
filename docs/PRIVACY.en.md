@@ -2,7 +2,7 @@
 
 > 中文版：[隐私政策](./PRIVACY.md)
 >
-> Applies to the Chrome extension "DayDayMoney: Auto Innovate" (天天赚钱: 自动创新助手).
+> Applies to the Chrome extension "DayDayMoney: Auto Innovate" (祝你天天赚钱: 自动创新助手).
 > Effective date: 2026-11-14. This policy is updated with extension releases; the latest version is this file in the repository.
 
 This policy explains what data the extension reads, where it is used, how long it is kept, and how you can control it.

@@ -1,8 +1,8 @@
-# 隐私政策 — 天天赚钱: 自动创新助手
+# 隐私政策 — 祝你天天赚钱: 自动创新助手
 
 > English version: [Privacy Policy](./PRIVACY.en.md)
 >
-> 适用范围：Chrome 扩展「天天赚钱: 自动创新助手」（DayDayMoney: Auto Innovate）。
+> 适用范围：Chrome 扩展「祝你天天赚钱: 自动创新助手」（DayDayMoney: Auto Innovate）。
 > 生效日期：2026-11-14；本政策随扩展版本更新，最新版本以仓库本文件为准。
 
 本政策说明扩展会读取哪些数据、用在哪里、保存多久，以及你可以如何控制。
