@@ -4,7 +4,7 @@
   "license": "AGPL-3.0-only",
   "description": "祝你天天赚钱: 自动创新助手 — DevTools network capture extension",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "node --test --test-timeout=60000 --test-force-exit test/*.test.js",
     "test:e2e": "bash e2e/real-extension-messaging.playwright.test.js.sh",
     "test:e2e:popup-login": "bash e2e/oauth-pkce-login.playwright.test.js.sh",
     "test:e2e:advisor-region-highlight": "bash e2e/page-advisor-region-highlight.playwright.test.js.sh",

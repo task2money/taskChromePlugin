@@ -15,7 +15,7 @@
  * 另外钉住：加载失败不挡列表、重试重新请求；工作空间变化清缓存并重拉、卸载时移除监听。
  */
 
-const { describe, it } = require('node:test');
+const { describe, it, afterEach } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -122,6 +122,12 @@ function makeEl(id) {
 function optionValues(html) {
   return [...String(html || '').matchAll(/<option value="([^"]*)"/g)].map((m) => m[1]);
 }
+
+// Every harness registers here so the test file can unload the panel after
+// each test. A progress ticker (setInterval 500ms) or a hide timer left behind
+// keeps the node --test child process alive forever; in the full suite that
+// showed up as plugin/plugin-npm-test hanging for ~50 minutes in CI.
+const harnesses = [];
 
 function buildHarness({
   generateResponse,
@@ -290,7 +296,7 @@ function buildHarness({
 
   const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-  return {
+  const h = {
     context,
     els,
     sent,
@@ -342,7 +348,22 @@ function buildHarness({
       await tick();
     },
   };
+  harnesses.push(h);
+  return h;
 }
+
+// Unload every panel built by a test, even when an assertion failed before the
+// test's own cleanup ran. This clears the 500ms progress ticker, the hide timer
+// and the runtime/storage/window listeners; otherwise a leaked interval keeps
+// the node --test child alive and the CI suite hangs.
+afterEach(() => {
+  while (harnesses.length) {
+    const h = harnesses.pop();
+    try {
+      h.fireUnload();
+    } catch (_e) { /* teardown must never mask the test result */ }
+  }
+});
 
 describe('侧栏提示词下拉改为服务端目录', () => {
   it('渲染默认项 + 服务端技能（按顺序、跳过默认 id 重复项、标注审计与工作空间）', async () => {
