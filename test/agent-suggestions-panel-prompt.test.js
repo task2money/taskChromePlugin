@@ -549,7 +549,10 @@ describe('侧栏生成按钮与试用回归', () => {
     assert.equal(h.progressBox().hidden, false, '点生成后立即显示进度条');
     assert.equal(h.progressStage(), '正在采集当前网页…');
     assert.equal(h.progressPct(), '8%');
-    assert.equal(h.progressElapsed(), '已用 00:00 · 约剩 01:00', '点击即给出已耗时与预计剩余（按 60s 基准）');
+    // 点击与断言之间可能跨过 1ms：剩余秒数按 ceil 取整时会在 00:59/01:00
+    // 之间抖动，这里只锁「00:00 已用 + 约剩约 60s」的语义，避免秒边界假红。
+    assert.match(h.progressElapsed(), /^已用 00:00 · 约剩 (00:59|01:00)$/,
+      '点击即给出已耗时与预计剩余（按 60s 基准）');
     const gen = h.sent.filter((m) => m && m.action === 'generateAgentSuggestionsForActiveTab').pop();
     assert.ok(gen.progressRunId, '生成消息带本次 runId');
 
